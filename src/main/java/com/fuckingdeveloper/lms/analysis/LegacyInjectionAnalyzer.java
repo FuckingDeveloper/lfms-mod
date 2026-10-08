@@ -28,8 +28,10 @@ public final class LegacyInjectionAnalyzer {
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodOperation(String kind, String detail) {}
+    public record CoremodAnchor(String owner, String method, String descriptor) {}
     public record CoremodTransform(String name, CoremodMethodTarget target, List<String> mappedMethods,
-                                   List<CoremodHookCall> hookCalls, List<CoremodOperation> operations) {}
+                                   List<CoremodAnchor> anchors, List<CoremodHookCall> hookCalls,
+                                   List<CoremodOperation> operations) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
                           List<String> asmApiCalls, List<String> mappedMethods,
                           List<String> builtMethodCalls, List<String> transformKinds,
@@ -118,11 +120,29 @@ public final class LegacyInjectionAnalyzer {
             int segmentEnd = i + 1 < matches.size() ? matches.get(i + 1).start() : source.length();
             String segment = source.substring(current.start(), segmentEnd);
             List<String> mappedMethods = List.copyOf(matches(MAP_METHOD, segment, 1));
+            List<CoremodAnchor> anchors = extractAnchors(segment, current.target());
             List<CoremodHookCall> hooks = extractHookCalls(extractFunctionCalls(segment, "ASMAPI.buildMethodCall"));
             List<CoremodOperation> operations = extractTransformOperations(segment);
-            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), mappedMethods, hooks, operations));
+            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), mappedMethods, anchors, hooks, operations));
         }
         return List.copyOf(transforms);
+    }
+
+    private static List<CoremodAnchor> extractAnchors(String source, CoremodMethodTarget target) {
+        List<CoremodAnchor> anchors = new ArrayList<>();
+        Pattern anchor = Pattern.compile(
+                "owner\\s*===\\s*['\\\"]([^'\\\"]+)['\\\"]\\s*&&\\s*curr\\.name\\s*===\\s*(?:ASMAPI\\.mapMethod\\s*\\(\\s*)?['\\\"]([^'\\\"]+)['\\\"]\\s*\\)?(?:\\s*/\\*.*?\\*/)?\\s*&&\\s*curr\\.desc\\s*===\\s*['\\\"]([^'\\\"]+)['\\\"]",
+                Pattern.DOTALL);
+        Matcher matcher = anchor.matcher(source);
+        while (matcher.find()) {
+            String owner = matcher.group(1).replace('/', '.');
+            String method = matcher.group(2);
+            String descriptor = matcher.group(3);
+            if (!owner.equals(target.owner()) || !method.equals(target.method()) || !descriptor.equals(target.descriptor())) {
+                anchors.add(new CoremodAnchor(owner, method, descriptor));
+            }
+        }
+        return List.copyOf(anchors);
     }
 
     private static List<CoremodOperation> extractTransformOperations(String source) {
