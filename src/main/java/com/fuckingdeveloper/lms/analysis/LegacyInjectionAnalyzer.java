@@ -42,7 +42,7 @@ public final class LegacyInjectionAnalyzer {
     private static final Pattern MAP_METHOD = Pattern.compile(
             "ASMAPI\\.mapMethod\\s*\\(\\s*['\\\"]([^'\\\"]+)['\\\"]\\s*\\)");
     private static final Pattern BUILD_METHOD_CALL = Pattern.compile(
-            "ASMAPI\\.buildMethodCall\\s*\\(([^;\\n]+)");
+            "ASMAPI\\.buildMethodCall\\s*\\((.*?)\\)\\s*;?", Pattern.DOTALL);
     private static final Pattern TRANSFORMER_TYPE = Pattern.compile(
             "['\\\"]target['\\\"]\\s*:\\s*\\{[^}]*['\\\"]type['\\\"]\\s*:\\s*['\\\"]([^'\\\"]+)['\\\"]",
             Pattern.DOTALL);
@@ -90,7 +90,10 @@ public final class LegacyInjectionAnalyzer {
     private static Set<String> matches(Pattern pattern, String source, int group) {
         Set<String> values = new LinkedHashSet<>();
         Matcher matcher = pattern.matcher(source);
-        while (matcher.find()) values.add(matcher.group(group));
+        while (matcher.find()) {
+            String value = matcher.group(group).replaceAll("\\s+", " ").trim();
+            if (!value.isEmpty()) values.add(value);
+        }
         return values;
     }
 
