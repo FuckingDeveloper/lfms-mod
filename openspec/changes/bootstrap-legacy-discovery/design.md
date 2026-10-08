@@ -2,7 +2,7 @@
 
 ## Components
 
-- `bootstrap`: target-native LFMS initialization.
+- `bootstrap`: target-native LMS initialization.
 - `discovery`: artifact enumeration and metadata inspection.
 - `model`: immutable normalized descriptors/evidence.
 - `profile`: resolver and profile contracts.
