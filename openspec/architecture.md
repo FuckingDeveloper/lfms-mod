@@ -29,7 +29,7 @@ Controlled Legacy Classloading
        +----------------------+
        |                      |
        v                      v
-Compatibility Runtime    Native Forge API
+Compatibility Runtime    Native NeoForge API
        |                      |
        +----------+-----------+
                   |
