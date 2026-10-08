@@ -50,12 +50,14 @@ public final class LmsMod {
                         LOG.info("LMS injections id={} mixins={} coremods={}",
                                 mod.modId(), injectionReport.mixins().size(), injectionReport.coremods().size());
                         for (var mixin : injectionReport.mixins()) {
-                            LOG.info("LMS mixin source={} targets={} injections={} error={}",
-                                    mixin.source(), mixin.targets(), mixin.injections(), mixin.error());
+                            LOG.info("LMS mixin source={} targets={} mechanisms={} injections={} error={}",
+                                    mixin.source(), mixin.targets(), mixin.mechanisms(),
+                                    mixin.injections(), mixin.error());
                         }
                         for (var coremod : injectionReport.coremods()) {
-                            LOG.info("LMS coremod path={} targets={} sourcePreview={}",
-                                    coremod.path(), coremod.declaredTargets(), coremod.sourcePreview());
+                            LOG.info("LMS coremod path={} targets={} referencedClasses={} asmApiCalls={}",
+                                    coremod.path(), coremod.declaredTargets(),
+                                    coremod.referencedClasses(), coremod.asmApiCalls());
                         }
                     } catch (IOException e) {
                         LOG.warn("LMS static analysis failed for {}", mod.file(), e);
