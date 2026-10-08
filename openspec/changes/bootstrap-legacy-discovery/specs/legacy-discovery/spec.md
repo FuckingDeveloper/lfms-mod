@@ -2,11 +2,11 @@
 
 ## Added requirement: Configured discovery location
 
-LFMS MUST define a deterministic location for legacy artifacts on the target installation.
+LMS MUST define a deterministic location for legacy artifacts on the target installation.
 
 #### Scenario: Candidate JAR is present
 - GIVEN a candidate JAR exists in the configured legacy location
-- WHEN LFMS discovery runs
+- WHEN LMS discovery runs
 - THEN the artifact is enumerated
 - AND its original bytes are not modified.
 
