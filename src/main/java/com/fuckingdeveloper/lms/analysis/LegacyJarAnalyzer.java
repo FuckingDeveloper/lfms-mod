@@ -84,8 +84,9 @@ public final class LegacyJarAnalyzer {
     private static boolean isMixinConfig(String lower) {
         if (!lower.endsWith(".json")) return false;
         String fileName = lower.substring(lower.lastIndexOf('/') + 1);
-        return fileName.startsWith("mixins.") || fileName.endsWith(".mixins.json")
-                || (fileName.startsWith("mixin") && fileName.endsWith(".json"));
+        return (fileName.startsWith("mixins.") || fileName.endsWith(".mixins.json")
+                || (fileName.startsWith("mixin") && fileName.endsWith(".json")))
+                && !fileName.contains("refmap");
     }
 
     private static boolean isTransformerHint(String lower) {
