@@ -2,11 +2,11 @@
 
 ## Why
 
-LFMS cannot provide compatibility until it can run natively on the target platform, find legacy artifacts and determine which compatibility profile should handle them.
+LMS cannot provide compatibility until it can run natively on the target platform, find legacy artifacts and determine which compatibility profile should handle them.
 
 ## Change
 
-Introduce the first executable LFMS foundation:
+Introduce the first executable LMS foundation:
 1. native target bootstrap;
 2. non-destructive legacy JAR discovery;
 3. normalized legacy mod descriptors;
@@ -18,4 +18,4 @@ Bytecode compatibility itself is intentionally deferred to a subsequent change a
 
 ## Success
 
-An original Forge 1.19.2 candidate JAR can be placed in the configured legacy location and LFMS reports it, its evidence, and the selected Forge 1.19.2 profile without altering the JAR.
+An original Forge 1.19.2 candidate JAR can be placed in the configured legacy location and LMS reports it, its evidence, and the selected Forge 1.19.2 profile without altering the JAR.
