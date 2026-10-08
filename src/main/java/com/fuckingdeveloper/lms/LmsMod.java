@@ -42,7 +42,7 @@ public final class LmsMod {
                         LOG.info("LMS analysis id={} modAnnotationCandidates={} mixinConfigs={} nestedJars={} transformerHints={}",
                                 mod.modId(), report.modAnnotationCandidates(), report.mixinConfigs(),
                                 report.nestedJars(), report.transformerHints());
-                        var metadata = new LegacyMetadataAnalyzer().analyze(mod.file());
+                        var metadata = new LegacyMetadataAnalyzer().analyze(mod.file(), report.mixinConfigs());
                         LOG.info("LMS metadata id={} dependencies={}", mod.modId(), metadata.dependencies());
                         LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
                                 mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
