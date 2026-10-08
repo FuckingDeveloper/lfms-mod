@@ -23,12 +23,17 @@ public final class LegacyCompatibilityPlanner {
     }
 
     public record Requirement(Kind kind, String source, String target, String detail) {}
-    public record Plan(List<Requirement> requirements, int minecraftTargets, int forgeTargets,
-                       int accessMixins, int overwrites, int injections, int coremodTransforms,
-                       int requiredDependencies) {}
+    public record CoremodTransformationPlan(String source, String target, List<String> anchorMethods,
+                                            List<LegacyInjectionAnalyzer.CoremodHookCall> hooks,
+                                            List<String> mutationKinds, Forge1192MappingLayer.Status mappingStatus,
+                                            String currentTarget) {}
+    public record Plan(List<Requirement> requirements, List<CoremodTransformationPlan> coremodPlans,
+                       int minecraftTargets, int forgeTargets, int accessMixins, int overwrites,
+                       int injections, int coremodTransforms, int requiredDependencies) {}
 
     public Plan plan(LegacyMetadataAnalyzer.Report metadata, LegacyInjectionAnalyzer.Report injections) {
         List<Requirement> requirements = new ArrayList<>();
+        List<CoremodTransformationPlan> coremodPlans = new ArrayList<>();
         Forge1192MappingLayer mappings = new Forge1192MappingLayer();
         int minecraftTargets = 0, forgeTargets = 0, accessMixins = 0;
         int overwrites = 0, injectionCount = 0, coremods = 0, dependencies = 0;
@@ -77,6 +82,16 @@ public final class LegacyCompatibilityPlanner {
                 String qualifiedTarget = target.owner() + "#" + target.method() + target.descriptor();
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
+                List<String> anchorMethods = transform.mappedMethods().stream()
+                        .filter(method -> !method.equals(target.method()))
+                        .toList();
+                List<String> mutationKinds = transform.operations().stream()
+                        .map(LegacyInjectionAnalyzer.CoremodOperation::kind)
+                        .distinct()
+                        .toList();
+                coremodPlans.add(new CoremodTransformationPlan(
+                        coremod.path() + "#" + transform.name(), qualifiedTarget, anchorMethods,
+                        transform.hookCalls(), mutationKinds, mapping.status(), mapping.currentSymbol()));
                 requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM,
                         coremod.path() + "#" + transform.name(), qualifiedTarget,
                         "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()
@@ -95,7 +110,7 @@ public final class LegacyCompatibilityPlanner {
             }
         }
 
-        return new Plan(List.copyOf(requirements), minecraftTargets, forgeTargets, accessMixins,
-                overwrites, injectionCount, coremods, dependencies);
+        return new Plan(List.copyOf(requirements), List.copyOf(coremodPlans), minecraftTargets, forgeTargets,
+                accessMixins, overwrites, injectionCount, coremods, dependencies);
     }
 }
