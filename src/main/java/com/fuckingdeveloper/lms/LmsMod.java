@@ -64,6 +64,11 @@ public final class LmsMod {
                             LOG.info("LMS requirement kind={} source={} target={} detail={}",
                                     requirement.kind(), requirement.source(), requirement.target(), requirement.detail());
                         }
+                        for (var plan : compatibility.coremodPlans()) {
+                            LOG.info("LMS coremod plan source={} target={} anchors={} hooks={} mutations={} mapping={} current={}",
+                                    plan.source(), plan.target(), plan.anchorMethods(), plan.hooks(),
+                                    plan.mutationKinds(), plan.mappingStatus(), plan.currentTarget());
+                        }
                         for (var coremod : injectionReport.coremods()) {
                             LOG.info("LMS coremod path={} targets={} referencedClasses={} asmApiCalls={}",
                                     coremod.path(), coremod.declaredTargets(),
