@@ -9,8 +9,7 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="FuckingDeveloper"
 displayURL="https://www.fuckingdeveloper.com"
-logoFile="lms_logo.png"
-logoBlur=true
+iconFile="lms_logo.png"
 description='''
 Old mods. New Minecraft.
 
