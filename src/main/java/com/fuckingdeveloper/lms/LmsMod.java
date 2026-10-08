@@ -73,6 +73,8 @@ public final class LmsMod {
                                     coremod.mappedMethods(), coremod.builtMethodCalls());
                             LOG.info("LMS coremod methodTargets path={} targets={}",
                                     coremod.path(), coremod.methodTargets());
+                            LOG.info("LMS coremod hookCalls path={} calls={}",
+                                    coremod.path(), coremod.hookCalls());
                         }
                     } catch (IOException e) {
                         LOG.warn("LMS static analysis failed for {}", mod.file(), e);
