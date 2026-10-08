@@ -26,10 +26,11 @@ public final class LegacyInjectionAnalyzer {
     public record Mixin(String source, List<String> targets, List<String> mechanisms,
                         List<Injection> injections, String error) {}
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
+    public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
                           List<String> asmApiCalls, List<String> mappedMethods,
                           List<String> builtMethodCalls, List<String> transformKinds,
-                          List<CoremodMethodTarget> methodTargets) {}
+                          List<CoremodMethodTarget> methodTargets, List<CoremodHookCall> hookCalls) {}
     public record Report(List<Mixin> mixins, List<Coremod> coremods) {}
 
     private static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
@@ -71,7 +72,7 @@ public final class LegacyInjectionAnalyzer {
             for (String path : metadata.coremodScripts()) {
                 ZipEntry entry = jar.getEntry(path);
                 if (entry == null) {
-                    coremods.add(new Coremod(path, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()));
+                    coremods.add(new Coremod(path, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()));
                     continue;
                 }
                 String source;
@@ -85,9 +86,10 @@ public final class LegacyInjectionAnalyzer {
                 List<String> builtCalls = extractFunctionCalls(source, "ASMAPI.buildMethodCall");
                 Set<String> transformKinds = matches(TRANSFORMER_TYPE, source, 1);
                 List<CoremodMethodTarget> methodTargets = extractMethodTargets(source);
+                List<CoremodHookCall> hookCalls = extractHookCalls(builtCalls);
                 coremods.add(new Coremod(path, List.copyOf(targets), List.copyOf(classes),
                         List.copyOf(calls), List.copyOf(mappedMethods), builtCalls,
-                        List.copyOf(transformKinds), methodTargets));
+                        List.copyOf(transformKinds), methodTargets, hookCalls));
             }
         }
         return new Report(List.copyOf(mixins), List.copyOf(coremods));
@@ -98,6 +100,22 @@ public final class LegacyInjectionAnalyzer {
      * Regex cannot safely parse descriptors because buildMethodCall arguments may contain
      * nested parentheses; this scanner tracks strings and balanced delimiters instead.
      */
+    private static List<CoremodHookCall> extractHookCalls(List<String> calls) {
+        List<CoremodHookCall> hooks = new ArrayList<>();
+        Pattern stringLiteral = Pattern.compile("['\\\"]([^'\\\"]*)['\\\"]");
+        Pattern methodType = Pattern.compile("ASMAPI\\.MethodType\\.([A-Za-z0-9_]+)");
+        for (String call : calls) {
+            Matcher strings = stringLiteral.matcher(call);
+            List<String> values = new ArrayList<>(3);
+            while (strings.find() && values.size() < 3) values.add(strings.group(1));
+            if (values.size() < 3) continue;
+            Matcher type = methodType.matcher(call);
+            hooks.add(new CoremodHookCall(values.get(0).replace('/', '.'), values.get(1), values.get(2),
+                    type.find() ? type.group(1) : ""));
+        }
+        return List.copyOf(hooks);
+    }
+
     private static List<String> extractFunctionCalls(String source, String function) {
         List<String> calls = new ArrayList<>();
         int from = 0;
