@@ -3,10 +3,10 @@
 ## Requirements
 
 ### Requirement: Native LMS bootstrap
-LMS MUST load as a native mod on the declared target Minecraft/Forge runtime.
+LMS MUST load as a native mod on the declared target Minecraft/NeoForge runtime.
 
 #### Scenario: Supported target starts
-- GIVEN Minecraft 26.3 with Forge 66
+- GIVEN Minecraft 26.3 with NeoForge 26.3.x
 - WHEN LMS is installed and the game starts
 - THEN LMS initializes its bootstrap services
 - AND diagnostics identify the LMS version and target runtime.
