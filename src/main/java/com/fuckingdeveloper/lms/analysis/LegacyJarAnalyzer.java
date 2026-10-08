@@ -35,9 +35,8 @@ public final class LegacyJarAnalyzer {
                 String name = entry.getName();
                 String lower = name.toLowerCase(Locale.ROOT);
                 if (lower.endsWith(".jar")) nested.add(name);
-                if (lower.endsWith(".json") && (lower.contains("mixin") || lower.contains("mixins"))) mixins.add(name);
-                if (lower.contains("coremod") || lower.contains("transformer")
-                        || lower.startsWith("meta-inf/services/cpw.mods.modlauncher")) transformers.add(name);
+                if (isMixinConfig(lower)) mixins.add(name);
+                if (isTransformerHint(lower)) transformers.add(name);
                 if (!name.endsWith(".class")) continue;
                 classes++;
                 if (name.startsWith("net/minecraftforge/")) forgeClasses++;
@@ -80,5 +79,19 @@ public final class LegacyJarAnalyzer {
         return new Report(classes, forgeClasses, minecraftClasses, forgeRefs, minecraftRefs,
                 List.copyOf(mods), List.copyOf(mixins), List.copyOf(nested),
                 List.copyOf(transformers), unreadable);
+    }
+
+    private static boolean isMixinConfig(String lower) {
+        if (!lower.endsWith(".json")) return false;
+        String fileName = lower.substring(lower.lastIndexOf('/') + 1);
+        return fileName.startsWith("mixins.") || fileName.endsWith(".mixins.json")
+                || (fileName.startsWith("mixin") && fileName.endsWith(".json"));
+    }
+
+    private static boolean isTransformerHint(String lower) {
+        return lower.equals("meta-inf/coremods.json")
+                || lower.startsWith("meta-inf/services/cpw.mods.modlauncher")
+                || lower.startsWith("coremods/")
+                || lower.startsWith("meta-inf/coremods/");
     }
 }
