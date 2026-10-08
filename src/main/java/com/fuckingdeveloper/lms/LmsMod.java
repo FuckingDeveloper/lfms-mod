@@ -3,6 +3,7 @@ package com.fuckingdeveloper.lms;
 import com.fuckingdeveloper.lms.analysis.LegacyJarAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
+import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -53,6 +54,15 @@ public final class LmsMod {
                             LOG.info("LMS mixin source={} targets={} mechanisms={} injections={} error={}",
                                     mixin.source(), mixin.targets(), mixin.mechanisms(),
                                     mixin.injections(), mixin.error());
+                        }
+                        var compatibility = new LegacyCompatibilityPlanner().plan(metadata, injectionReport);
+                        LOG.info("LMS compatibility id={} minecraftTargets={} forgeTargets={} accessMixins={} overwrites={} injections={} coremodTransforms={} requiredDependencies={}",
+                                mod.modId(), compatibility.minecraftTargets(), compatibility.forgeTargets(),
+                                compatibility.accessMixins(), compatibility.overwrites(), compatibility.injections(),
+                                compatibility.coremodTransforms(), compatibility.requiredDependencies());
+                        for (var requirement : compatibility.requirements()) {
+                            LOG.info("LMS requirement kind={} source={} target={} detail={}",
+                                    requirement.kind(), requirement.source(), requirement.target(), requirement.detail());
                         }
                         for (var coremod : injectionReport.coremods()) {
                             LOG.info("LMS coremod path={} targets={} referencedClasses={} asmApiCalls={}",
