@@ -26,7 +26,8 @@ public final class LegacyInjectionAnalyzer {
     public record Mixin(String source, List<String> targets, List<String> mechanisms,
                         List<Injection> injections, String error) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
-                          List<String> asmApiCalls) {}
+                          List<String> asmApiCalls, List<String> mappedMethods,
+                          List<String> builtMethodCalls, List<String> transformKinds) {}
     public record Report(List<Mixin> mixins, List<Coremod> coremods) {}
 
     private static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
@@ -38,6 +39,13 @@ public final class LegacyInjectionAnalyzer {
             "['\\\"](?:class|className)['\\\"]\\s*:\\s*['\\\"]([^'\\\"]+)['\\\"]");
     private static final Pattern ASM_API_CALL = Pattern.compile(
             "ASMAPI\\.([A-Za-z0-9_]+)\\s*\\(");
+    private static final Pattern MAP_METHOD = Pattern.compile(
+            "ASMAPI\\.mapMethod\\s*\\(\\s*['\\\"]([^'\\\"]+)['\\\"]\\s*\\)");
+    private static final Pattern BUILD_METHOD_CALL = Pattern.compile(
+            "ASMAPI\\.buildMethodCall\\s*\\(([^;\\n]+)");
+    private static final Pattern TRANSFORMER_TYPE = Pattern.compile(
+            "['\\\"]target['\\\"]\\s*:\\s*\\{[^}]*['\\\"]type['\\\"]\\s*:\\s*['\\\"]([^'\\\"]+)['\\\"]",
+            Pattern.DOTALL);
 
     public Report analyze(Path file, LegacyMetadataAnalyzer.Report metadata) throws IOException {
         List<Mixin> mixins = new ArrayList<>();
@@ -68,7 +76,12 @@ public final class LegacyInjectionAnalyzer {
                 Set<String> targets = matches(JS_TARGET, source, 1);
                 Set<String> classes = matches(JS_CLASS_LITERAL, source, 1);
                 Set<String> calls = matches(ASM_API_CALL, source, 1);
-                coremods.add(new Coremod(path, List.copyOf(targets), List.copyOf(classes), List.copyOf(calls)));
+                Set<String> mappedMethods = matches(MAP_METHOD, source, 1);
+                Set<String> builtCalls = matches(BUILD_METHOD_CALL, source, 1);
+                Set<String> transformKinds = matches(TRANSFORMER_TYPE, source, 1);
+                coremods.add(new Coremod(path, List.copyOf(targets), List.copyOf(classes),
+                        List.copyOf(calls), List.copyOf(mappedMethods), List.copyOf(builtCalls),
+                        List.copyOf(transformKinds)));
             }
         }
         return new Report(List.copyOf(mixins), List.copyOf(coremods));
