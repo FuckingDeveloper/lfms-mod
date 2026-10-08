@@ -68,10 +68,13 @@ public final class LegacyCompatibilityPlanner {
         }
 
         for (var coremod : injections.coremods()) {
-            for (String method : coremod.mappedMethods()) {
+            // mapMethod calls can occur inside transformer bodies; declared METHOD targets
+            // are the actual transformations we need to plan.
+            for (var target : coremod.methodTargets()) {
                 coremods++;
-                var mapping = mappings.classifyMethod(method);
-                requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM, coremod.path(), method,
+                var mapping = mappings.classifyMethod(target.method());
+                String qualifiedTarget = target.owner() + "#" + target.method() + target.descriptor();
+                requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM, coremod.path(), qualifiedTarget,
                         "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()
                                 + " mapping=" + mapping.status()));
             }
