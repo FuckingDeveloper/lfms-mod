@@ -2,6 +2,7 @@ package com.fuckingdeveloper.lms.compat;
 
 import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
+import com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +29,7 @@ public final class LegacyCompatibilityPlanner {
 
     public Plan plan(LegacyMetadataAnalyzer.Report metadata, LegacyInjectionAnalyzer.Report injections) {
         List<Requirement> requirements = new ArrayList<>();
+        Forge1192MappingLayer mappings = new Forge1192MappingLayer();
         int minecraftTargets = 0, forgeTargets = 0, accessMixins = 0;
         int overwrites = 0, injectionCount = 0, coremods = 0, dependencies = 0;
 
@@ -35,12 +37,14 @@ public final class LegacyCompatibilityPlanner {
             for (String target : mixin.targets()) {
                 if (target.startsWith("net.minecraft.")) {
                     minecraftTargets++;
+                    var mapping = mappings.classifyClass(target);
                     requirements.add(new Requirement(Kind.MINECRAFT_MIXIN_TARGET, mixin.source(), target,
-                            String.join(",", mixin.mechanisms())));
+                            String.join(",", mixin.mechanisms()) + " mapping=" + mapping.status()));
                 } else if (target.startsWith("net.minecraftforge.")) {
                     forgeTargets++;
+                    var mapping = mappings.classifyClass(target);
                     requirements.add(new Requirement(Kind.FORGE_MIXIN_TARGET, mixin.source(), target,
-                            String.join(",", mixin.mechanisms())));
+                            String.join(",", mixin.mechanisms()) + " mapping=" + mapping.status()));
                 }
             }
             if (mixin.mechanisms().stream().anyMatch(m -> m.equals("Accessor") || m.equals("Invoker") || m.equals("Shadow"))) {
@@ -66,8 +70,10 @@ public final class LegacyCompatibilityPlanner {
         for (var coremod : injections.coremods()) {
             for (String method : coremod.mappedMethods()) {
                 coremods++;
+                var mapping = mappings.classifyMethod(method);
                 requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM, coremod.path(), method,
-                        "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()));
+                        "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()
+                                + " mapping=" + mapping.status()));
             }
         }
 
