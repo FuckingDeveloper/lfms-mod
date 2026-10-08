@@ -28,8 +28,8 @@ public final class LegacyInjectionAnalyzer {
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodOperation(String kind, String detail) {}
-    public record CoremodTransform(String name, CoremodMethodTarget target, List<CoremodHookCall> hookCalls,
-                                   List<CoremodOperation> operations) {}
+    public record CoremodTransform(String name, CoremodMethodTarget target, List<String> mappedMethods,
+                                   List<CoremodHookCall> hookCalls, List<CoremodOperation> operations) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
                           List<String> asmApiCalls, List<String> mappedMethods,
                           List<String> builtMethodCalls, List<String> transformKinds,
@@ -117,9 +117,10 @@ public final class LegacyInjectionAnalyzer {
             MatcherSnapshot current = matches.get(i);
             int segmentEnd = i + 1 < matches.size() ? matches.get(i + 1).start() : source.length();
             String segment = source.substring(current.start(), segmentEnd);
+            List<String> mappedMethods = List.copyOf(matches(MAP_METHOD, segment, 1));
             List<CoremodHookCall> hooks = extractHookCalls(extractFunctionCalls(segment, "ASMAPI.buildMethodCall"));
             List<CoremodOperation> operations = extractTransformOperations(segment);
-            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), hooks, operations));
+            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), mappedMethods, hooks, operations));
         }
         return List.copyOf(transforms);
     }
