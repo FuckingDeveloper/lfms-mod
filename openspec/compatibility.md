@@ -33,7 +33,7 @@ Mandatory unsupported capabilities MUST block progression to a compatibility lev
 
 01.000.00 is the first working prototype. Before branching `release/01.000.00`, the following MUST be true:
 
-- LMS starts on Minecraft 26.3 / Forge 66 / Java 25.
+- LMS starts on Minecraft 26.3 / NeoForge 26.3.x / Java 25.
 - An original, un-recompiled Forge 1.19.2 reference JAR is discovered.
 - The Forge 1.19.2 profile is selected from recorded evidence.
 - Original JAR bytes remain unchanged.
