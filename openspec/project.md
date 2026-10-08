@@ -2,9 +2,9 @@
 
 ## Purpose
 
-LMS (Legacy Mod Support) is a compatibility system for running legacy Minecraft Forge/FML mods on newer Minecraft/Forge versions with minimal or no modification of the original mod.
+LMS (Legacy Mod Support) is a compatibility system for running legacy Minecraft Forge/FML mods on newer Minecraft/NeoForge versions with minimal or no modification of the original mod.
 
-The current project scope is Forge/FML compatibility. The generic LMS name MUST NOT be interpreted as a commitment to Fabric, NeoForge, or arbitrary mod loaders in the 01.x architecture generation.
+The initial legacy source scope is Forge/FML mods. The target loader for the 01.x architecture generation is NeoForge. Fabric, additional target loaders and arbitrary mod-loader compatibility are not required.
 
 ## Normative language
 
@@ -22,7 +22,7 @@ The terms MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are normative requirements
 
 ## Initial target
 
-- Target runtime: Minecraft 26.3 / Forge 66.
+- Target runtime: Minecraft 26.3 / NeoForge 26.3.x (exact tested build pinned in the implementation change).
 - Target Java runtime: Java 25.
 - First legacy profile: Minecraft Forge 1.19.2.
 - Initial reference mod: IC2 Classic 1.19.2.
@@ -36,7 +36,7 @@ The architecture is intended to accommodate Forge/FML generations including 1.16
 
 - Universal compatibility with every Forge mod.
 - Support for every historical Minecraft/Forge generation.
-- Fabric/NeoForge compatibility.
+- Fabric and additional target-loader compatibility.
 - Transparent migration of old worlds/saves.
 - Full compatibility with every optional third-party integration such as JEI.
 - Treating transformed legacy code as trusted or sandboxed code.
