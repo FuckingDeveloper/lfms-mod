@@ -23,7 +23,8 @@ public final class LegacyCompatibilityPlanner {
     }
 
     public record Requirement(Kind kind, String source, String target, String detail) {}
-    public record CoremodTransformationPlan(String source, String target, List<String> anchorMethods,
+    public record CoremodTransformationPlan(String source, String target,
+                                            List<LegacyInjectionAnalyzer.CoremodAnchor> anchors,
                                             List<LegacyInjectionAnalyzer.CoremodHookCall> hooks,
                                             List<String> mutationKinds, Forge1192MappingLayer.Status mappingStatus,
                                             String currentTarget) {}
@@ -82,15 +83,13 @@ public final class LegacyCompatibilityPlanner {
                 String qualifiedTarget = target.owner() + "#" + target.method() + target.descriptor();
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
-                List<String> anchorMethods = transform.mappedMethods().stream()
-                        .filter(method -> !method.equals(target.method()))
-                        .toList();
+                List<LegacyInjectionAnalyzer.CoremodAnchor> anchors = transform.anchors();
                 List<String> mutationKinds = transform.operations().stream()
                         .map(LegacyInjectionAnalyzer.CoremodOperation::kind)
                         .distinct()
                         .toList();
                 coremodPlans.add(new CoremodTransformationPlan(
-                        coremod.path() + "#" + transform.name(), qualifiedTarget, anchorMethods,
+                        coremod.path() + "#" + transform.name(), qualifiedTarget, anchors,
                         transform.hookCalls(), mutationKinds, mapping.status(), mapping.currentSymbol()));
                 requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM,
                         coremod.path() + "#" + transform.name(), qualifiedTarget,
