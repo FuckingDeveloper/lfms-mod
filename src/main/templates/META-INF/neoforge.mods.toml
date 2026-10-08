@@ -8,7 +8,7 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 authors="FuckingDeveloper"
-displayURL="https://www.fuckingdevelop.com"
+displayURL="https://www.fuckingdeveloper.com"
 logoFile="lms_logo.png"
 logoBlur=true
 description='''
@@ -21,7 +21,7 @@ modern NeoForge environments.
 Current status: early development. Legacy mod execution is not yet supported.
 
 Created by FuckingDeveloper | 2026
-Website: www.fuckingdevelop.com
+Website: www.fuckingdeveloper.com
 '''
 
 [[dependencies.${mod_id}]]
