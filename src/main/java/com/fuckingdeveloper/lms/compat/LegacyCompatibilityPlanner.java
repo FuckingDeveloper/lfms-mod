@@ -68,16 +68,20 @@ public final class LegacyCompatibilityPlanner {
         }
 
         for (var coremod : injections.coremods()) {
-            // mapMethod calls can occur inside transformer bodies; declared METHOD targets
-            // are the actual transformations we need to plan.
-            for (var target : coremod.methodTargets()) {
+            // Plan the structured transformer, not the global mapMethod/buildMethodCall inventories.
+            // This keeps each target tied to the hook calls that actually occur in its JS body.
+            for (var transform : coremod.transforms()) {
                 coremods++;
+                var target = transform.target();
                 var mapping = mappings.classifyMethod(target.owner(), target.method(), target.descriptor());
                 String qualifiedTarget = target.owner() + "#" + target.method() + target.descriptor();
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
-                requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM, coremod.path(), qualifiedTarget,
+                String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
+                requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM,
+                        coremod.path() + "#" + transform.name(), qualifiedTarget,
                         "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()
-                                + " mapping=" + mapping.status() + mapped + " reason=" + mapping.reason()));
+                                + hooks + " mapping=" + mapping.status() + mapped
+                                + " reason=" + mapping.reason()));
             }
         }
 
