@@ -27,7 +27,9 @@ public final class LegacyInjectionAnalyzer {
                         List<Injection> injections, String error) {}
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
-    public record CoremodOperation(String kind, String detail) {}\n    public record CoremodTransform(String name, CoremodMethodTarget target, List<CoremodHookCall> hookCalls,\n                                   List<CoremodOperation> operations) {}
+    public record CoremodOperation(String kind, String detail) {}
+    public record CoremodTransform(String name, CoremodMethodTarget target, List<CoremodHookCall> hookCalls,
+                                   List<CoremodOperation> operations) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
                           List<String> asmApiCalls, List<String> mappedMethods,
                           List<String> builtMethodCalls, List<String> transformKinds,
