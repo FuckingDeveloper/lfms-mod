@@ -3,7 +3,7 @@
 ## Requirements
 
 LMS diagnostics MUST be able to report:
-- LMS version and target runtime;
+- LMS version and target runtime (including target loader and exact build);
 - discovered legacy artifacts;
 - selected profile or reason no profile was selected;
 - applied transformation rules;
