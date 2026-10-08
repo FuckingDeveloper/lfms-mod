@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -31,6 +33,10 @@ public final class LegacyMetadataAnalyzer {
                          List<String> coremodScripts, List<String> coremodTargetHints) {}
 
     public Report analyze(Path file) throws IOException {
+        return analyze(file, List.of());
+    }
+
+    public Report analyze(Path file, List<String> discoveredMixinConfigs) throws IOException {
         List<Dependency> dependencies = new ArrayList<>();
         List<String> mixinClasses = new ArrayList<>();
         List<String> scripts = new ArrayList<>();
@@ -40,8 +46,17 @@ public final class LegacyMetadataAnalyzer {
             String modsToml = read(jar, "META-INF/mods.toml");
             if (modsToml != null) parseDependencies(modsToml, dependencies);
 
-            String mixin = read(jar, "ic2.mixins.json");
-            if (mixin != null) parseMixins(mixin, mixinClasses);
+            Set<String> mixinConfigs = new LinkedHashSet<>(discoveredMixinConfigs);
+            if (mixinConfigs.isEmpty()) {
+                jar.stream()
+                        .map(ZipEntry::getName)
+                        .filter(name -> name.endsWith(".mixins.json") || name.endsWith(".mixin.json"))
+                        .forEach(mixinConfigs::add);
+            }
+            for (String mixinConfig : mixinConfigs) {
+                String mixin = read(jar, mixinConfig);
+                if (mixin != null) parseMixins(mixin, mixinClasses);
+            }
 
             String coremods = read(jar, "META-INF/coremods.json");
             if (coremods != null) {
