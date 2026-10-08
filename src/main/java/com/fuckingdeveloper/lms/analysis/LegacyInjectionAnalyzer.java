@@ -25,9 +25,11 @@ public final class LegacyInjectionAnalyzer {
     public record Injection(String method, String annotation, List<String> selectors, List<String> at) {}
     public record Mixin(String source, List<String> targets, List<String> mechanisms,
                         List<Injection> injections, String error) {}
+    public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
                           List<String> asmApiCalls, List<String> mappedMethods,
-                          List<String> builtMethodCalls, List<String> transformKinds) {}
+                          List<String> builtMethodCalls, List<String> transformKinds,
+                          List<CoremodMethodTarget> methodTargets) {}
     public record Report(List<Mixin> mixins, List<Coremod> coremods) {}
 
     private static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
@@ -45,6 +47,11 @@ public final class LegacyInjectionAnalyzer {
             "ASMAPI\\.buildMethodCall\\s*\\((.*?)\\)\\s*;?", Pattern.DOTALL);
     private static final Pattern TRANSFORMER_TYPE = Pattern.compile(
             "['\\\"]target['\\\"]\\s*:\\s*\\{[^}]*['\\\"]type['\\\"]\\s*:\\s*['\\\"]([^'\\\"]+)['\\\"]",
+            Pattern.DOTALL);
+    private static final Pattern METHOD_TARGET_BLOCK = Pattern.compile(
+            "['\\\"]target['\\\"]\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL);
+    private static final Pattern JS_PROPERTY = Pattern.compile(
+            "['\\\"]?(class|className|methodName|method|name|methodDesc|descriptor|desc)['\\\"]?\\s*:\\s*(?:ASMAPI\\.mapMethod\\s*\\(\\s*)?['\\\"]([^'\\\"]+)['\\\"]",
             Pattern.DOTALL);
 
     public Report analyze(Path file, LegacyMetadataAnalyzer.Report metadata) throws IOException {
@@ -66,7 +73,7 @@ public final class LegacyInjectionAnalyzer {
             for (String path : metadata.coremodScripts()) {
                 ZipEntry entry = jar.getEntry(path);
                 if (entry == null) {
-                    coremods.add(new Coremod(path, List.of(), List.of(), List.of(), List.of(), List.of(), List.of()));
+                    coremods.add(new Coremod(path, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()));
                     continue;
                 }
                 String source;
@@ -79,12 +86,33 @@ public final class LegacyInjectionAnalyzer {
                 Set<String> mappedMethods = matches(MAP_METHOD, source, 1);
                 Set<String> builtCalls = matches(BUILD_METHOD_CALL, source, 1);
                 Set<String> transformKinds = matches(TRANSFORMER_TYPE, source, 1);
+                List<CoremodMethodTarget> methodTargets = extractMethodTargets(source);
                 coremods.add(new Coremod(path, List.copyOf(targets), List.copyOf(classes),
                         List.copyOf(calls), List.copyOf(mappedMethods), List.copyOf(builtCalls),
-                        List.copyOf(transformKinds)));
+                        List.copyOf(transformKinds), methodTargets));
             }
         }
         return new Report(List.copyOf(mixins), List.copyOf(coremods));
+    }
+
+    private static List<CoremodMethodTarget> extractMethodTargets(String source) {
+        List<CoremodMethodTarget> targets = new ArrayList<>();
+        Matcher blocks = METHOD_TARGET_BLOCK.matcher(source);
+        while (blocks.find()) {
+            String block = blocks.group(1);
+            if (!block.matches("(?s).*['\\\"]?type['\\\"]?\\s*:\\s*['\\\"]METHOD['\\\"].*")) continue;
+            String owner = "", method = "", descriptor = "";
+            Matcher properties = JS_PROPERTY.matcher(block);
+            while (properties.find()) {
+                switch (properties.group(1)) {
+                    case "class", "className" -> owner = properties.group(2);
+                    case "methodName", "method", "name" -> method = properties.group(2);
+                    case "methodDesc", "descriptor", "desc" -> descriptor = properties.group(2);
+                }
+            }
+            targets.add(new CoremodMethodTarget(owner, method, descriptor));
+        }
+        return List.copyOf(targets);
     }
 
     private static Set<String> matches(Pattern pattern, String source, int group) {
