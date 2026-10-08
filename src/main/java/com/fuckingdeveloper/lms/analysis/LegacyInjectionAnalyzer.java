@@ -27,10 +27,12 @@ public final class LegacyInjectionAnalyzer {
                         List<Injection> injections, String error) {}
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
+    public record CoremodTransform(String name, CoremodMethodTarget target, List<CoremodHookCall> hookCalls) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
                           List<String> asmApiCalls, List<String> mappedMethods,
                           List<String> builtMethodCalls, List<String> transformKinds,
-                          List<CoremodMethodTarget> methodTargets, List<CoremodHookCall> hookCalls) {}
+                          List<CoremodMethodTarget> methodTargets, List<CoremodHookCall> hookCalls,
+                          List<CoremodTransform> transforms) {}
     public record Report(List<Mixin> mixins, List<Coremod> coremods) {}
 
     private static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
@@ -72,7 +74,7 @@ public final class LegacyInjectionAnalyzer {
             for (String path : metadata.coremodScripts()) {
                 ZipEntry entry = jar.getEntry(path);
                 if (entry == null) {
-                    coremods.add(new Coremod(path, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()));
+                    coremods.add(new Coremod(path, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of()));
                     continue;
                 }
                 String source;
@@ -87,9 +89,10 @@ public final class LegacyInjectionAnalyzer {
                 Set<String> transformKinds = matches(TRANSFORMER_TYPE, source, 1);
                 List<CoremodMethodTarget> methodTargets = extractMethodTargets(source);
                 List<CoremodHookCall> hookCalls = extractHookCalls(builtCalls);
+                List<CoremodTransform> transforms = associateTransforms(methodTargets, hookCalls);
                 coremods.add(new Coremod(path, List.copyOf(targets), List.copyOf(classes),
                         List.copyOf(calls), List.copyOf(mappedMethods), builtCalls,
-                        List.copyOf(transformKinds), methodTargets, hookCalls));
+                        List.copyOf(transformKinds), methodTargets, hookCalls, transforms));
             }
         }
         return new Report(List.copyOf(mixins), List.copyOf(coremods));
@@ -100,6 +103,23 @@ public final class LegacyInjectionAnalyzer {
      * Regex cannot safely parse descriptors because buildMethodCall arguments may contain
      * nested parentheses; this scanner tracks strings and balanced delimiters instead.
      */
+    private static List<CoremodTransform> associateTransforms(List<CoremodMethodTarget> targets,
+                                                               List<CoremodHookCall> hooks) {
+        List<CoremodTransform> transforms = new ArrayList<>();
+        int hookIndex = 0;
+        for (int i = 0; i < targets.size(); i++) {
+            int remainingTargets = targets.size() - i;
+            int remainingHooks = hooks.size() - hookIndex;
+            int hookCount = remainingTargets == 1 ? remainingHooks : Math.min(1, remainingHooks);
+            List<CoremodHookCall> associated = hookCount == 0
+                    ? List.of()
+                    : List.copyOf(hooks.subList(hookIndex, hookIndex + hookCount));
+            transforms.add(new CoremodTransform("transform-" + (i + 1), targets.get(i), associated));
+            hookIndex += hookCount;
+        }
+        return List.copyOf(transforms);
+    }
+
     private static List<CoremodHookCall> extractHookCalls(List<String> calls) {
         List<CoremodHookCall> hooks = new ArrayList<>();
         Pattern stringLiteral = Pattern.compile("['\\\"]([^'\\\"]*)['\\\"]");
