@@ -43,8 +43,6 @@ public final class LegacyInjectionAnalyzer {
             "ASMAPI\\.([A-Za-z0-9_]+)\\s*\\(");
     private static final Pattern MAP_METHOD = Pattern.compile(
             "ASMAPI\\.mapMethod\\s*\\(\\s*['\\\"]([^'\\\"]+)['\\\"]\\s*\\)");
-    private static final Pattern BUILD_METHOD_CALL = Pattern.compile(
-            "ASMAPI\\.buildMethodCall\\s*\\((.*?)\\)\\s*;?", Pattern.DOTALL);
     private static final Pattern TRANSFORMER_TYPE = Pattern.compile(
             "['\\\"]target['\\\"]\\s*:\\s*\\{[^}]*['\\\"]type['\\\"]\\s*:\\s*['\\\"]([^'\\\"]+)['\\\"]",
             Pattern.DOTALL);
@@ -84,15 +82,70 @@ public final class LegacyInjectionAnalyzer {
                 Set<String> classes = matches(JS_CLASS_LITERAL, source, 1);
                 Set<String> calls = matches(ASM_API_CALL, source, 1);
                 Set<String> mappedMethods = matches(MAP_METHOD, source, 1);
-                Set<String> builtCalls = matches(BUILD_METHOD_CALL, source, 1);
+                List<String> builtCalls = extractFunctionCalls(source, "ASMAPI.buildMethodCall");
                 Set<String> transformKinds = matches(TRANSFORMER_TYPE, source, 1);
                 List<CoremodMethodTarget> methodTargets = extractMethodTargets(source);
                 coremods.add(new Coremod(path, List.copyOf(targets), List.copyOf(classes),
-                        List.copyOf(calls), List.copyOf(mappedMethods), List.copyOf(builtCalls),
+                        List.copyOf(calls), List.copyOf(mappedMethods), builtCalls,
                         List.copyOf(transformKinds), methodTargets));
             }
         }
         return new Report(List.copyOf(mixins), List.copyOf(coremods));
+    }
+
+    /**
+     * Extracts JavaScript call arguments without executing the script.
+     * Regex cannot safely parse descriptors because buildMethodCall arguments may contain
+     * nested parentheses; this scanner tracks strings and balanced delimiters instead.
+     */
+    private static List<String> extractFunctionCalls(String source, String function) {
+        List<String> calls = new ArrayList<>();
+        int from = 0;
+        while (from < source.length()) {
+            int start = source.indexOf(function, from);
+            if (start < 0) break;
+            int open = start + function.length();
+            while (open < source.length() && Character.isWhitespace(source.charAt(open))) open++;
+            if (open >= source.length() || source.charAt(open) != '(') {
+                from = start + function.length();
+                continue;
+            }
+
+            int depth = 1;
+            char quote = 0;
+            boolean escaped = false;
+            int i = open + 1;
+            for (; i < source.length() && depth > 0; i++) {
+                char ch = source.charAt(i);
+                if (quote != 0) {
+                    if (escaped) {
+                        escaped = false;
+                    } else if (ch == '\\') {
+                        escaped = true;
+                    } else if (ch == quote) {
+                        quote = 0;
+                    }
+                    continue;
+                }
+                if (ch == '\'' || ch == '"' || ch == '`') {
+                    quote = ch;
+                } else if (ch == '(') {
+                    depth++;
+                } else if (ch == ')') {
+                    depth--;
+                }
+            }
+
+            if (depth == 0) {
+                String args = source.substring(open + 1, i - 1).replaceAll("\\s+", " ").trim();
+                if (!args.isEmpty()) calls.add(args);
+                from = i;
+            } else {
+                // Malformed/unclosed call: keep analysis non-fatal and stop at EOF.
+                break;
+            }
+        }
+        return List.copyOf(calls);
     }
 
     private static List<CoremodMethodTarget> extractMethodTargets(String source) {
