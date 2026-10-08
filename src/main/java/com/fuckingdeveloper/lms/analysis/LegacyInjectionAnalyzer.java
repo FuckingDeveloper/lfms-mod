@@ -27,7 +27,7 @@ public final class LegacyInjectionAnalyzer {
                         List<Injection> injections, String error) {}
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
-    public record CoremodTransform(String name, CoremodMethodTarget target, List<CoremodHookCall> hookCalls) {}
+    public record CoremodOperation(String kind, String detail) {}\n    public record CoremodTransform(String name, CoremodMethodTarget target, List<CoremodHookCall> hookCalls,\n                                   List<CoremodOperation> operations) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
                           List<String> asmApiCalls, List<String> mappedMethods,
                           List<String> builtMethodCalls, List<String> transformKinds,
@@ -119,6 +119,21 @@ public final class LegacyInjectionAnalyzer {
             transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), hooks));
         }
         return List.copyOf(transforms);
+    }
+
+    private static List<CoremodOperation> extractTransformOperations(String source) {
+        List<CoremodOperation> operations = new ArrayList<>();
+        Pattern operation = Pattern.compile(
+                "\\.(insertBefore|insert|add|remove|setOpcode)\\s*\\(|\\b(opcode|owner|name|desc)\\s*=");
+        Matcher matcher = operation.matcher(source);
+        while (matcher.find()) {
+            String kind = matcher.group(1) != null ? matcher.group(1) : "instruction-" + matcher.group(2);
+            int end = Math.min(source.length(), matcher.start() + 220);
+            String detail = source.substring(matcher.start(), end)
+                    .replaceAll("\\s+", " ").trim();
+            operations.add(new CoremodOperation(kind, detail));
+        }
+        return List.copyOf(operations);
     }
 
     private record MatcherSnapshot(int start, CoremodMethodTarget target) {}
