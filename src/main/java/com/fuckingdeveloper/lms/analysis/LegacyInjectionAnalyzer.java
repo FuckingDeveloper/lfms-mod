@@ -89,7 +89,7 @@ public final class LegacyInjectionAnalyzer {
                 Set<String> transformKinds = matches(TRANSFORMER_TYPE, source, 1);
                 List<CoremodMethodTarget> methodTargets = extractMethodTargets(source);
                 List<CoremodHookCall> hookCalls = extractHookCalls(builtCalls);
-                List<CoremodTransform> transforms = associateTransforms(methodTargets, hookCalls);
+                List<CoremodTransform> transforms = extractTransforms(source);
                 coremods.add(new Coremod(path, List.copyOf(targets), List.copyOf(classes),
                         List.copyOf(calls), List.copyOf(mappedMethods), builtCalls,
                         List.copyOf(transformKinds), methodTargets, hookCalls, transforms));
@@ -103,21 +103,38 @@ public final class LegacyInjectionAnalyzer {
      * Regex cannot safely parse descriptors because buildMethodCall arguments may contain
      * nested parentheses; this scanner tracks strings and balanced delimiters instead.
      */
-    private static List<CoremodTransform> associateTransforms(List<CoremodMethodTarget> targets,
-                                                               List<CoremodHookCall> hooks) {
+    private static List<CoremodTransform> extractTransforms(String source) {
+        List<MatcherSnapshot> matches = new ArrayList<>();
+        Matcher matcher = METHOD_TARGET_BLOCK.matcher(source);
+        while (matcher.find()) {
+            CoremodMethodTarget target = parseMethodTargetBlock(matcher.group(1));
+            if (target != null) matches.add(new MatcherSnapshot(matcher.start(), target));
+        }
         List<CoremodTransform> transforms = new ArrayList<>();
-        int hookIndex = 0;
-        for (int i = 0; i < targets.size(); i++) {
-            int remainingTargets = targets.size() - i;
-            int remainingHooks = hooks.size() - hookIndex;
-            int hookCount = remainingTargets == 1 ? remainingHooks : Math.min(1, remainingHooks);
-            List<CoremodHookCall> associated = hookCount == 0
-                    ? List.of()
-                    : List.copyOf(hooks.subList(hookIndex, hookIndex + hookCount));
-            transforms.add(new CoremodTransform("transform-" + (i + 1), targets.get(i), associated));
-            hookIndex += hookCount;
+        for (int i = 0; i < matches.size(); i++) {
+            MatcherSnapshot current = matches.get(i);
+            int segmentEnd = i + 1 < matches.size() ? matches.get(i + 1).start() : source.length();
+            String segment = source.substring(current.start(), segmentEnd);
+            List<CoremodHookCall> hooks = extractHookCalls(extractFunctionCalls(segment, "ASMAPI.buildMethodCall"));
+            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), hooks));
         }
         return List.copyOf(transforms);
+    }
+
+    private record MatcherSnapshot(int start, CoremodMethodTarget target) {}
+
+    private static CoremodMethodTarget parseMethodTargetBlock(String block) {
+        if (!block.matches("(?s).*['\\\"]?type['\\\"]?\\s*:\\s*['\\\"]METHOD['\\\"].*")) return null;
+        String owner = "", method = "", descriptor = "";
+        Matcher properties = JS_PROPERTY.matcher(block);
+        while (properties.find()) {
+            switch (properties.group(1)) {
+                case "class", "className" -> owner = properties.group(2);
+                case "methodName", "method", "name" -> method = properties.group(2);
+                case "methodDesc", "descriptor", "desc" -> descriptor = properties.group(2);
+            }
+        }
+        return new CoremodMethodTarget(owner, method, descriptor);
     }
 
     private static List<CoremodHookCall> extractHookCalls(List<String> calls) {
@@ -190,18 +207,8 @@ public final class LegacyInjectionAnalyzer {
         List<CoremodMethodTarget> targets = new ArrayList<>();
         Matcher blocks = METHOD_TARGET_BLOCK.matcher(source);
         while (blocks.find()) {
-            String block = blocks.group(1);
-            if (!block.matches("(?s).*['\\\"]?type['\\\"]?\\s*:\\s*['\\\"]METHOD['\\\"].*")) continue;
-            String owner = "", method = "", descriptor = "";
-            Matcher properties = JS_PROPERTY.matcher(block);
-            while (properties.find()) {
-                switch (properties.group(1)) {
-                    case "class", "className" -> owner = properties.group(2);
-                    case "methodName", "method", "name" -> method = properties.group(2);
-                    case "methodDesc", "descriptor", "desc" -> descriptor = properties.group(2);
-                }
-            }
-            targets.add(new CoremodMethodTarget(owner, method, descriptor));
+            CoremodMethodTarget target = parseMethodTargetBlock(blocks.group(1));
+            if (target != null) targets.add(target);
         }
         return List.copyOf(targets);
     }
