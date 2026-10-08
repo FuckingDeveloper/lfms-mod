@@ -1,6 +1,6 @@
 # Tasks: Bootstrap Legacy Discovery
 
-- [ ] Create native Minecraft 26.3 / Forge 66 LMS project skeleton.
+- [ ] Create native Minecraft 26.3 / NeoForge 26.3.x LMS project skeleton.
 - [ ] Implement LMS bootstrap service.
 - [ ] Define legacy artifact descriptor and evidence model.
 - [ ] Define configured legacy-mod location.
