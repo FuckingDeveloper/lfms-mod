@@ -118,7 +118,8 @@ public final class LegacyInjectionAnalyzer {
             int segmentEnd = i + 1 < matches.size() ? matches.get(i + 1).start() : source.length();
             String segment = source.substring(current.start(), segmentEnd);
             List<CoremodHookCall> hooks = extractHookCalls(extractFunctionCalls(segment, "ASMAPI.buildMethodCall"));
-            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), hooks));
+            List<CoremodOperation> operations = extractTransformOperations(segment);
+            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), hooks, operations));
         }
         return List.copyOf(transforms);
     }
