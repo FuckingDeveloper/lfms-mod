@@ -2,8 +2,8 @@
 
 ## Requirements
 
-LFMS diagnostics MUST be able to report:
-- LFMS version and target runtime;
+LMS diagnostics MUST be able to report:
+- LMS version and target runtime;
 - discovered legacy artifacts;
 - selected profile or reason no profile was selected;
 - applied transformation rules;
