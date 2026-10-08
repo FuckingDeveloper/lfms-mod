@@ -15,7 +15,7 @@ import java.util.zip.ZipFile;
 
 public final class LegacyJarScanner {
     private static final Pattern MOD_ID = Pattern.compile("(?m)^\\s*modId\\s*=\\s*[\"']([a-zA-Z0-9_]+)[\"']");
-    private static final Pattern MC_RANGE = Pattern.compile("(?s)\\[\\[dependencies\\.[^]]+]](?:(?!\\[\\[).)*?modId\\s*=\\s*[\"']minecraft[\"'](?:(?!\\[\\[).)*?versionRange\\s*=\\s*[\"']([^\\"']+)[\"']");
+    private static final Pattern MC_RANGE = Pattern.compile("(?s)\\[\\[dependencies\\.[^]]+]](?:(?!\\[\\[).)*?modId\\s*=\\s*[\"']minecraft[\"'](?:(?!\\[\\[).)*?versionRange\\s*=\\s*[\"']([^\"']+)[\"']");
 
     public List<LegacyModDescriptor> scan(Path directory) throws IOException {
         if (!Files.isDirectory(directory)) return List.of();
