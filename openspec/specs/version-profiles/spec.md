@@ -6,7 +6,7 @@
 - The first profile MUST target Forge 1.19.2.
 - Profile selection MUST be based on the normalized legacy descriptor.
 - Version-specific mappings, transformation rules and runtime providers MUST be owned or declared by the profile.
-- Core LFMS SHOULD NOT contain scattered legacy-version conditionals when the behavior belongs to a profile.
+- Core LMS SHOULD NOT contain scattered legacy-version conditionals when the behavior belongs to a profile.
 
 ## Planned profiles
 
