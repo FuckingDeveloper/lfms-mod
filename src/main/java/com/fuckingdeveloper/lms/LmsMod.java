@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms;
 
 import com.fuckingdeveloper.lms.analysis.LegacyJarAnalyzer;
+import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -39,6 +40,11 @@ public final class LmsMod {
                         LOG.info("LMS analysis id={} modAnnotationCandidates={} mixinConfigs={} nestedJars={} transformerHints={}",
                                 mod.modId(), report.modAnnotationCandidates(), report.mixinConfigs(),
                                 report.nestedJars(), report.transformerHints());
+                        var metadata = new LegacyMetadataAnalyzer().analyze(mod.file());
+                        LOG.info("LMS metadata id={} dependencies={}", mod.modId(), metadata.dependencies());
+                        LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
+                                mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
+                                metadata.coremodTargetHints());
                     } catch (IOException e) {
                         LOG.warn("LMS static analysis failed for {}", mod.file(), e);
                     }
