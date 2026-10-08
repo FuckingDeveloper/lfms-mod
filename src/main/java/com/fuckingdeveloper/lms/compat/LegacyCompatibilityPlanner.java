@@ -72,11 +72,12 @@ public final class LegacyCompatibilityPlanner {
             // are the actual transformations we need to plan.
             for (var target : coremod.methodTargets()) {
                 coremods++;
-                var mapping = mappings.classifyMethod(target.method());
+                var mapping = mappings.classifyMethod(target.owner(), target.method(), target.descriptor());
                 String qualifiedTarget = target.owner() + "#" + target.method() + target.descriptor();
+                String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM, coremod.path(), qualifiedTarget,
                         "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()
-                                + " mapping=" + mapping.status()));
+                                + " mapping=" + mapping.status() + mapped + " reason=" + mapping.reason()));
             }
         }
 
