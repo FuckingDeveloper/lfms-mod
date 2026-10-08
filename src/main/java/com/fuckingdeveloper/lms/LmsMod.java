@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms;
 
 import com.fuckingdeveloper.lms.analysis.LegacyJarAnalyzer;
+import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
@@ -45,6 +46,17 @@ public final class LmsMod {
                         LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
                                 mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
                                 metadata.coremodTargetHints());
+                        var injectionReport = new LegacyInjectionAnalyzer().analyze(mod.file(), metadata);
+                        LOG.info("LMS injections id={} mixins={} coremods={}",
+                                mod.modId(), injectionReport.mixins().size(), injectionReport.coremods().size());
+                        for (var mixin : injectionReport.mixins()) {
+                            LOG.info("LMS mixin source={} targets={} injections={} error={}",
+                                    mixin.source(), mixin.targets(), mixin.injections(), mixin.error());
+                        }
+                        for (var coremod : injectionReport.coremods()) {
+                            LOG.info("LMS coremod path={} targets={} sourcePreview={}",
+                                    coremod.path(), coremod.declaredTargets(), coremod.sourcePreview());
+                        }
                     } catch (IOException e) {
                         LOG.warn("LMS static analysis failed for {}", mod.file(), e);
                     }
