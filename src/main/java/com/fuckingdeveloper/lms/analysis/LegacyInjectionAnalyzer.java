@@ -58,7 +58,7 @@ public final class LegacyInjectionAnalyzer {
             for (String path : metadata.coremodScripts()) {
                 ZipEntry entry = jar.getEntry(path);
                 if (entry == null) {
-                    coremods.add(new Coremod(path, List.of(), List.of(), List.of()));
+                    coremods.add(new Coremod(path, List.of(), List.of(), List.of(), List.of(), List.of(), List.of()));
                     continue;
                 }
                 String source;
