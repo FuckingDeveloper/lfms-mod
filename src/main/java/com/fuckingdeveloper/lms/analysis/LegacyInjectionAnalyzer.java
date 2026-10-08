@@ -128,11 +128,11 @@ public final class LegacyInjectionAnalyzer {
     private static List<CoremodOperation> extractTransformOperations(String source) {
         List<CoremodOperation> operations = new ArrayList<>();
         Pattern operation = Pattern.compile(
-                "\\.(insertBefore|insert|add|remove|setOpcode)\\s*\\(|\\b(opcode|owner|name|desc)\\s*=");
+                "methodNode\\.instructions\\.(insertBefore|insert|add|remove|set)\\s*\\(");
         Matcher matcher = operation.matcher(source);
         while (matcher.find()) {
-            String kind = matcher.group(1) != null ? matcher.group(1) : "instruction-" + matcher.group(2);
-            int end = Math.min(source.length(), matcher.start() + 220);
+            String kind = matcher.group(1);
+            int end = Math.min(source.length(), matcher.start() + 260);
             String detail = source.substring(matcher.start(), end)
                     .replaceAll("\\s+", " ").trim();
             operations.add(new CoremodOperation(kind, detail));
