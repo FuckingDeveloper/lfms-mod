@@ -66,7 +66,7 @@ public final class LmsMod {
                         }
                         for (var plan : compatibility.coremodPlans()) {
                             LOG.info("LMS coremod plan source={} target={} anchors={} hooks={} mutations={} mapping={} current={}",
-                                    plan.source(), plan.target(), plan.anchorMethods(), plan.hooks(),
+                                    plan.source(), plan.target(), plan.anchors(), plan.hooks(),
                                     plan.mutationKinds(), plan.mappingStatus(), plan.currentTarget());
                         }
                         for (var coremod : injectionReport.coremods()) {
