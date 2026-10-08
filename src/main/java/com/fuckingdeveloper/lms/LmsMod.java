@@ -1,5 +1,6 @@
 package com.fuckingdeveloper.lms;
 
+import com.fuckingdeveloper.lms.analysis.LegacyJarAnalyzer;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -29,6 +30,19 @@ public final class LmsMod {
                 LOG.info("LMS candidate={} id={} loader={} minecraft={} profile={}",
                         mod.file().getFileName(), mod.modId(), mod.loader(), mod.minecraftVersion(),
                         profile.supports(mod) ? profile.id() : "UNRESOLVED");
+                if (profile.supports(mod)) {
+                    try {
+                        var report = new LegacyJarAnalyzer().analyze(mod.file());
+                        LOG.info("LMS analysis id={} classes={} forgeRefClasses={} minecraftRefClasses={} unreadable={}",
+                                mod.modId(), report.classes(), report.forgeReferenceClasses(),
+                                report.minecraftReferenceClasses(), report.unreadableClasses());
+                        LOG.info("LMS analysis id={} modAnnotationCandidates={} mixinConfigs={} nestedJars={} transformerHints={}",
+                                mod.modId(), report.modAnnotationCandidates(), report.mixinConfigs(),
+                                report.nestedJars(), report.transformerHints());
+                    } catch (IOException e) {
+                        LOG.warn("LMS static analysis failed for {}", mod.file(), e);
+                    }
+                }
             }
         } catch (IOException e) {
             LOG.error("LMS legacy discovery failed for {}", directory, e);
