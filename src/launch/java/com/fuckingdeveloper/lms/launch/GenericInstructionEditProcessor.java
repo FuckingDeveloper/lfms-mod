@@ -207,7 +207,12 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         // proves that the next invocation consumes it as its penultimate stack item.
         boolean swappedCategory1 = false;
         if (n.getOpcode() == Opcodes.SWAP) {
-            if (producedType.getSize() != 1) return null;
+            System.out.println("[LMS/early] semantic-scan saw-swap produced="
+                    + producedType.getDescriptor() + " size=" + producedType.getSize());
+            if (producedType.getSize() != 1) {
+                System.out.println("[LMS/early] semantic-scan reject-swap reason=category2-produced-value");
+                return null;
+            }
             swappedCategory1 = true;
             n = nextExecutable(n);
             System.out.println("[LMS/early] semantic-scan swap-next=" + describeNode(n)
