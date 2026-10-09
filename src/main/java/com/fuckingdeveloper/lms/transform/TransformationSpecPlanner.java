@@ -167,7 +167,7 @@ public final class TransformationSpecPlanner {
                     return new TransformationSpec.InstructionSpec(
                             TransformationSpec.InstructionKind.METHOD_CALL,
                             new TransformationSpec.MethodRef(internal(owner), name, descriptor, invocation),
-                            null, null, resolved);
+                            null, null, resolved, null);
                 }
             }
         }
@@ -178,7 +178,7 @@ public final class TransformationSpecPlanner {
         if (varInsn.matches()) {
             return new TransformationSpec.InstructionSpec(
                     TransformationSpec.InstructionKind.VARIABLE, null,
-                    asmOpcode(varInsn.group(1)), Integer.parseInt(varInsn.group(2)), resolved);
+                    asmOpcode(varInsn.group(1)), Integer.parseInt(varInsn.group(2)), resolved, null);
         }
 
         var insn = Pattern.compile(
@@ -187,7 +187,7 @@ public final class TransformationSpecPlanner {
         if (insn.matches()) {
             return new TransformationSpec.InstructionSpec(
                     TransformationSpec.InstructionKind.SIMPLE_OPCODE, null,
-                    asmOpcode(insn.group(1)), null, resolved);
+                    asmOpcode(insn.group(1)), null, resolved, null);
         }
 
         var jump = Pattern.compile(
@@ -196,11 +196,38 @@ public final class TransformationSpecPlanner {
         if (jump.matches()) {
             return new TransformationSpec.InstructionSpec(
                     TransformationSpec.InstructionKind.JUMP, null,
-                    asmOpcode(jump.group(1)), null, jump.group(2).trim());
+                    asmOpcode(jump.group(1)), null, resolved,
+                    parseInstructionReference(jump.group(2).trim()));
         }
 
         return new TransformationSpec.InstructionSpec(
-                TransformationSpec.InstructionKind.UNRESOLVED, null, null, null, resolved);
+                TransformationSpec.InstructionKind.UNRESOLVED, null, null, null, resolved, null);
+    }
+
+    private static TransformationSpec.InstructionReference parseInstructionReference(String expression) {
+        String text = expression.trim();
+        boolean label = false;
+        if (text.endsWith(".getLabel()")) {
+            label = true;
+            text = text.substring(0, text.length() - ".getLabel()".length());
+        }
+        var root = Pattern.compile("^([A-Za-z_$][A-Za-z0-9_$]*)(.*)$").matcher(text);
+        if (!root.matches()) return null;
+        String variable = root.group(1);
+        String navigation = root.group(2);
+        int offset = 0, position = 0;
+        while (position < navigation.length()) {
+            if (navigation.startsWith(".getNext()", position)) {
+                offset++;
+                position += ".getNext()".length();
+            } else if (navigation.startsWith(".getPrevious()", position)) {
+                offset--;
+                position += ".getPrevious()".length();
+            } else {
+                return null;
+            }
+        }
+        return new TransformationSpec.InstructionReference(variable, offset, label);
     }
 
     private static List<String> callArguments(String expression, String call) {
