@@ -48,9 +48,24 @@ public final class LegacySrgIndex {
         var obfuscatedOwner = mojmap.obfuscatedClass(legacyOwner);
         if (obfuscatedOwner.isEmpty()) {
             List<Match> byName = findBySrgName(legacyName);
+            String obfuscatedDescriptor = mojmap.obfuscateDescriptor(legacyDescriptor);
+            List<Match> descriptorMatches = byName.stream()
+                    .filter(match -> match.sourceDescriptor().equals(obfuscatedDescriptor))
+                    .toList();
+            if (descriptorMatches.size() == 1) {
+                Match match = descriptorMatches.getFirst();
+                String correctedOwner = mojmap.namedClass(match.owners().getFirst()).orElse("<unknown>");
+                return new Resolution(ResolutionStatus.OWNER_MISMATCH, descriptorMatches,
+                        "Legacy owner is absent from Mojang mappings; SRG name + fully remapped descriptor identify owner "
+                                + correctedOwner + " (obf=" + match.owners().getFirst() + ")");
+            }
+            if (!descriptorMatches.isEmpty()) {
+                return new Resolution(ResolutionStatus.AMBIGUOUS, descriptorMatches,
+                        "Legacy owner is absent from Mojang mappings; multiple SRG name + descriptor matches remain");
+            }
             if (!byName.isEmpty()) {
                 return new Resolution(ResolutionStatus.OWNER_MISMATCH, byName,
-                        "Owner is absent from Mojang mappings, but SRG name exists; likely wrong/legacy owner spelling");
+                        "Legacy owner is absent from Mojang mappings; SRG name exists but descriptor does not identify a unique owner");
             }
             return new Resolution(ResolutionStatus.FORGE_SYMBOL, List.of(),
                     "Owner or method is outside Mojang mappings; requires Forge/API compatibility resolution");
