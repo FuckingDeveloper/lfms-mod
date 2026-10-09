@@ -18,7 +18,7 @@ public final class LegacyLifecycleGate {
     public record Capability(String id, State state, boolean mandatory, String reason) {}
     public record Decision(boolean mayInitialize, List<Capability> capabilities) {}
 
-    public Decision evaluate(LegacyJarAnalyzer.Report report) {
+    public Decision evaluate(LegacyJarAnalyzer.Report report, boolean lifecyclePlanReady) {
         List<Capability> capabilities = new ArrayList<>();
 
         capabilities.add(new Capability(
@@ -30,8 +30,12 @@ public final class LegacyLifecycleGate {
                 "Every managed legacy-owned class passes through the selected profile transformer before definition"));
 
         capabilities.add(new Capability(
-                "forge-1.19.2-lifecycle", State.UNKNOWN, true,
-                "Forge 1.19.2 @Mod construction/event lifecycle adapter is not installed yet"));
+                "forge-1.19.2-lifecycle",
+                lifecyclePlanReady ? State.PARTIAL : State.BLOCKED,
+                true,
+                lifecyclePlanReady
+                        ? "Entrypoint construction shape is verified; execution remains gated until legacy registration is adapted"
+                        : "Entrypoint construction shape cannot be adapted safely"));
 
         capabilities.add(new Capability(
                 "legacy-registration", State.UNKNOWN, true,
