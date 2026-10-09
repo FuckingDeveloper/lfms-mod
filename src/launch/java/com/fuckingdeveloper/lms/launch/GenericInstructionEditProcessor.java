@@ -144,7 +144,8 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 || !Type.getReturnType(replacement.descriptor()).equals(Type.getReturnType(original.descriptor()))
                 || argumentStackSlots(replacement) != argumentStackSlots(original)) return spec.edits();
 
-        Value store = values.get(1), load = values.get(2), jump = values.get(4), ret = values.get(5);
+        Value store = values.get(1), load = values.get(2);
+        Value jump = values.get(values.size() - 2), ret = values.getLast();
         if (store.kind() != ValueKind.VARIABLE || load.kind() != ValueKind.VARIABLE
                 || !Objects.equals(store.variable(), load.variable())
                 || jump.kind() != ValueKind.JUMP || ret.kind() != ValueKind.SIMPLE_OPCODE
@@ -170,8 +171,12 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         beforeConsumer.add(new VarInsnNode(store.opcode(), store.variable()));
         method.instructions.insertBefore(successor, beforeConsumer);
 
-        List<Value> suffix = values.subList(2, values.size());
-        method.instructions.insert(successor, build(suffix, bindings));
+        InsnList suffix = build(values.subList(2, values.size() - 2), bindings);
+        LabelNode continueLabel = new LabelNode();
+        suffix.add(new JumpInsnNode(jump.opcode(), continueLabel));
+        suffix.add(new InsnNode(Opcodes.RETURN));
+        suffix.add(continueLabel);
+        method.instructions.insert(successor, suffix);
         System.out.println("[LMS/early] semantic-adapt id=" + spec.id()
                 + " pattern=RESULT_REWRITE_PRESERVE_CONSUMER consumer="
                 + consumer.owner + "#" + consumer.name + consumer.desc);
