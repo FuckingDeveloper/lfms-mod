@@ -43,7 +43,7 @@ public final class ProguardMappingReader {
         while ((line = reader.readLine()) != null) {
             String trimmed = line.trim();
             if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
-            if (!Character.isWhitespace(line.charAt(0)) && trimmed.endsWith(":")) {
+            if (trimmed.endsWith(":")) {
                 int arrow = trimmed.indexOf(" -> ");
                 if (arrow < 0) {
                     owner = null;
