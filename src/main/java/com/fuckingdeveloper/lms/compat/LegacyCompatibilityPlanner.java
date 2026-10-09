@@ -23,8 +23,12 @@ public final class LegacyCompatibilityPlanner {
     }
 
     public record Requirement(Kind kind, String source, String target, String detail) {}
+    public record AnchorResolution(LegacyInjectionAnalyzer.CoremodAnchor anchor,
+                                   Forge1192MappingLayer.Status mappingStatus,
+                                   String currentSymbol, String reason) {}
     public record CoremodTransformationPlan(String source, String target,
                                             List<LegacyInjectionAnalyzer.CoremodAnchor> anchors,
+                                            List<AnchorResolution> anchorResolutions,
                                             List<LegacyInjectionAnalyzer.CoremodHookCall> hooks,
                                             List<String> mutationKinds, Forge1192MappingLayer.Status mappingStatus,
                                             String currentTarget) {}
@@ -84,12 +88,20 @@ public final class LegacyCompatibilityPlanner {
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
                 List<LegacyInjectionAnalyzer.CoremodAnchor> anchors = transform.anchors();
+                List<AnchorResolution> anchorResolutions = anchors.stream()
+                        .map(anchor -> {
+                            var anchorMapping = mappings.classifyMethod(
+                                    anchor.owner(), anchor.method(), anchor.descriptor());
+                            return new AnchorResolution(anchor, anchorMapping.status(),
+                                    anchorMapping.currentSymbol(), anchorMapping.reason());
+                        })
+                        .toList();
                 List<String> mutationKinds = transform.operations().stream()
                         .map(LegacyInjectionAnalyzer.CoremodOperation::kind)
                         .distinct()
                         .toList();
                 coremodPlans.add(new CoremodTransformationPlan(
-                        coremod.path() + "#" + transform.name(), qualifiedTarget, anchors,
+                        coremod.path() + "#" + transform.name(), qualifiedTarget, anchors, anchorResolutions,
                         transform.hookCalls(), mutationKinds, mapping.status(), mapping.currentSymbol()));
                 requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM,
                         coremod.path() + "#" + transform.name(), qualifiedTarget,
