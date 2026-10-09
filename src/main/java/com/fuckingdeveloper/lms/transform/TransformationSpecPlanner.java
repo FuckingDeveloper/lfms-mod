@@ -42,8 +42,10 @@ public final class TransformationSpecPlanner {
                     TransformationSpec.Kind.INSTRUCTION_EDIT,
                     parseRef(plan.currentTarget(), TransformationSpec.Invocation.UNKNOWN),
                     null, null,
+                    parseInstructionEdits(plan.operations()),
                     TransformationSpec.Readiness.UNRESOLVED,
-                    "Instruction edit shape requires structured operation parsing: " + plan.mutationKinds());
+                    "Instruction edit structure captured; inserted instruction expressions still require parsing: "
+                            + plan.mutationKinds());
         }
 
         var anchorResolution = plan.anchorResolutions().getFirst();
@@ -72,6 +74,7 @@ public final class TransformationSpecPlanner {
                     ref(anchor, TransformationSpec.Invocation.UNKNOWN),
                     new TransformationSpec.MethodRef(
                             internal(hook.owner()), hook.method(), hook.descriptor(), hookInvocation),
+                    List.of(),
                     TransformationSpec.Readiness.UNRESOLVED,
                     "Target/anchor/hook resolved; legacy anchor invocation opcode is not captured");
         }
@@ -83,15 +86,74 @@ public final class TransformationSpecPlanner {
                 ref(anchor, anchorInvocation),
                 new TransformationSpec.MethodRef(
                         internal(hook.owner()), hook.method(), hook.descriptor(), hookInvocation),
+                List.of(),
                 TransformationSpec.Readiness.READY,
                 "Target, anchor, invocation opcode and replacement hook are resolved");
+    }
+
+    private static List<TransformationSpec.InstructionEdit> parseInstructionEdits(
+            List<LegacyInjectionAnalyzer.CoremodOperation> operations) {
+        List<TransformationSpec.InstructionEdit> edits = new ArrayList<>();
+        for (var operation : operations) {
+            List<String> args = splitTopLevelArguments(operation.arguments());
+            if (args.isEmpty()) continue;
+            String first = args.getFirst();
+            var location = first.endsWith(".getPrevious()")
+                    ? TransformationSpec.InstructionLocation.PREVIOUS
+                    : first.endsWith(".getNext()")
+                    ? TransformationSpec.InstructionLocation.NEXT
+                    : first.matches("[A-Za-z_$][A-Za-z0-9_$]*")
+                    ? TransformationSpec.InstructionLocation.EXACT
+                    : TransformationSpec.InstructionLocation.EXPRESSION;
+            var kind = switch (operation.kind()) {
+                case "remove" -> TransformationSpec.EditKind.REMOVE;
+                case "insertBefore" -> TransformationSpec.EditKind.INSERT_BEFORE;
+                case "insert" -> TransformationSpec.EditKind.INSERT_AFTER;
+                case "set" -> TransformationSpec.EditKind.REPLACE;
+                default -> null;
+            };
+            if (kind == null) continue;
+            edits.add(new TransformationSpec.InstructionEdit(
+                    kind, location, first, args.size() > 1 ? args.get(1) : ""));
+        }
+        return List.copyOf(edits);
+    }
+
+    private static List<String> splitTopLevelArguments(String source) {
+        List<String> result = new ArrayList<>();
+        int start = 0, parens = 0, brackets = 0, braces = 0;
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = 0; i < source.length(); i++) {
+            char ch = source.charAt(i);
+            if (quote != 0) {
+                if (escaped) escaped = false;
+                else if (ch == '\\\\') escaped = true;
+                else if (ch == quote) quote = 0;
+                continue;
+            }
+            if (ch == '\'' || ch == '"' || ch == '`') quote = ch;
+            else if (ch == '(') parens++;
+            else if (ch == ')') parens--;
+            else if (ch == '[') brackets++;
+            else if (ch == ']') brackets--;
+            else if (ch == '{') braces++;
+            else if (ch == '}') braces--;
+            else if (ch == ',' && parens == 0 && brackets == 0 && braces == 0) {
+                result.add(source.substring(start, i).trim());
+                start = i + 1;
+            }
+        }
+        String tail = source.substring(start).trim();
+        if (!tail.isEmpty()) result.add(tail);
+        return result;
     }
 
     private static TransformationSpec unresolved(String id, String reason) {
         return new TransformationSpec(
                 id,
                 TransformationSpec.Kind.METHOD_CALL_REDIRECT,
-                null, null, null,
+                null, null, null, List.of(),
                 TransformationSpec.Readiness.UNRESOLVED,
                 reason);
     }
