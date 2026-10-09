@@ -128,28 +128,37 @@ public final class LegacyCompatibilityPlanner {
                             boolean legacyPatchMember = anchor.owner().startsWith("net.minecraft.")
                                     && !anchor.method().matches("m_\\d+_")
                                     && legacyResolution.status() == LegacySrgIndex.ResolutionStatus.NOT_FOUND;
+                            // Prefer the recovered official legacy name when that exact
+                            // member still exists in the current hierarchy. Descriptor-only
+                            // matching is ambiguous for methods such as armor/magic absorption.
+                            var currentIdentity = runtimeVerified
+                                    ? mappings.classifyMethod(anchor.owner(), runtimeFinding.method(), anchor.descriptor())
+                                    : anchorMapping;
+                            boolean currentIdentityVerified =
+                                    currentIdentity.status() == Forge1192MappingLayer.Status.VERIFIED_IDENTITY;
+                            var effectiveMapping = currentIdentityVerified ? currentIdentity : anchorMapping;
                             var status = legacyPatchMember
                                     ? Forge1192MappingLayer.Status.FORGE_BRIDGE_REQUIRED
-                                    : anchorMapping.status();
+                                    : effectiveMapping.status();
                             String reason;
                             if (runtimeVerified) {
                                 reason = "Legacy Forge 1.19.2 runtime verifies exact method"
                                         + (runtimeFinding.status().equals("INHERITED")
                                         ? " inherited from " + runtimeFinding.declaringOwner()
                                         : " declared by " + runtimeFinding.declaringOwner())
-                                        + "; current-runtime mapping=" + anchorMapping.status()
-                                        + (anchorMapping.currentSymbol().isEmpty()
+                                        + "; current-runtime mapping=" + effectiveMapping.status()
+                                        + (effectiveMapping.currentSymbol().isEmpty()
                                         ? ""
-                                        : " candidate=" + anchorMapping.currentSymbol())
-                                        + "; current-runtime evidence: " + anchorMapping.reason();
+                                        : " candidate=" + effectiveMapping.currentSymbol())
+                                        + "; current-runtime evidence: " + effectiveMapping.reason();
                             } else if (legacyPatchMember) {
                                 reason = "Non-SRG coremod anchor is absent from vanilla 1.19.2 mappings; "
                                       + "treat as a Forge-patched member requiring a compatibility bridge";
                             } else {
-                                reason = anchorMapping.reason();
+                                reason = effectiveMapping.reason();
                             }
                             return new AnchorResolution(anchor, status,
-                                    legacyPatchMember ? "" : anchorMapping.currentSymbol(),
+                                    legacyPatchMember ? "" : effectiveMapping.currentSymbol(),
                                     legacyPatchMember ? List.of() : search.candidates(), reason,
                                     legacyResolution, runtimeFinding);
                         })
