@@ -12,7 +12,7 @@ import java.util.Optional;
  * compared directly with named Minecraft descriptors.
  */
 public final class LegacySrgIndex {
-    public enum ResolutionStatus { RESOLVED, INHERITED_CANDIDATE, OWNER_MISMATCH, DESCRIPTOR_MISMATCH, AMBIGUOUS, NOT_FOUND }
+    public enum ResolutionStatus { RESOLVED, INHERITED_CANDIDATE, OWNER_MISMATCH, DESCRIPTOR_MISMATCH, FORGE_SYMBOL, AMBIGUOUS, NOT_FOUND }
     public record Match(List<String> owners, String sourceName, String sourceDescriptor,
                         List<String> names, List<String> namespaces) {}
     public record Resolution(ResolutionStatus status, List<Match> matches, String reason) {}
@@ -47,8 +47,13 @@ public final class LegacySrgIndex {
                                             ProguardMappingReader.Index mojmap) {
         var obfuscatedOwner = mojmap.obfuscatedClass(legacyOwner);
         if (obfuscatedOwner.isEmpty()) {
-            return new Resolution(ResolutionStatus.NOT_FOUND, List.of(),
-                    "Named owner is absent from Mojang mappings");
+            List<Match> byName = findBySrgName(legacyName);
+            if (!byName.isEmpty()) {
+                return new Resolution(ResolutionStatus.OWNER_MISMATCH, byName,
+                        "Owner is absent from Mojang mappings, but SRG name exists; likely wrong/legacy owner spelling");
+            }
+            return new Resolution(ResolutionStatus.FORGE_SYMBOL, List.of(),
+                    "Owner or method is outside Mojang mappings; requires Forge/API compatibility resolution");
         }
         List<Match> byName = findBySrgName(legacyName);
         List<Match> ownerMatches = byName.stream()
