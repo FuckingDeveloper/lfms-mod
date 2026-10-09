@@ -43,6 +43,30 @@ public final class LegacySrgIndex {
     }
 
 
+    public Resolution resolveWithNamedOwner(String legacyOwner, String legacyName, String legacyDescriptor,
+                                            ProguardMappingReader.Index mojmap) {
+        var obfuscatedOwner = mojmap.obfuscatedClass(legacyOwner);
+        if (obfuscatedOwner.isEmpty()) {
+            return new Resolution(ResolutionStatus.NOT_FOUND, List.of(),
+                    "Named owner is absent from Mojang mappings");
+        }
+        List<Match> matches = findBySrgName(legacyName).stream()
+                .filter(match -> !match.owners().isEmpty()
+                        && match.owners().getFirst().equals(obfuscatedOwner.get()))
+                .filter(match -> descriptorShape(match.sourceDescriptor()).equals(descriptorShape(legacyDescriptor)))
+                .toList();
+        if (matches.size() == 1) {
+            return new Resolution(ResolutionStatus.RESOLVED, matches,
+                    "Named owner -> obfuscated owner + SRG name + descriptor shape matched");
+        }
+        if (matches.isEmpty()) {
+            return new Resolution(ResolutionStatus.NOT_FOUND, List.of(),
+                    "No TSRG method matches Mojang owner, SRG name and descriptor shape");
+        }
+        return new Resolution(ResolutionStatus.AMBIGUOUS, matches,
+                "Multiple methods remain after Mojang owner filtering");
+    }
+
     public Resolution resolve(String legacyOwner, String legacyName, String legacyDescriptor) {
         List<Match> byName = findBySrgName(legacyName);
         if (byName.isEmpty()) {
