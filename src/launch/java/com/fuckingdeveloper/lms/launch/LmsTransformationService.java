@@ -53,10 +53,9 @@ public final class LmsTransformationService implements ITransformationService {
         @Override public TransformerVoteResult castVote(ITransformerVotingContext context) {
             return TransformerVoteResult.YES;
         }
-        @Override public Set<Target> targets() {
+        @Override public Set<Target<ClassNode>> targets() {
             return Set.of(Target.targetClass("net.minecraft.world.entity.player.Player"));
         }
         @Override public String[] labels() { return new String[] {"lms-player-probe"}; }
-        @Override public TargetType getTargetType() { return TargetType.CLASS; }
     }
 }
