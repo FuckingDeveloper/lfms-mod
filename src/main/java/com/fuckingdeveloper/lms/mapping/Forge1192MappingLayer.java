@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Handle;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +39,7 @@ public final class Forge1192MappingLayer {
     public record MethodCandidate(String symbol, String descriptor) {}
     public record Mapping(String legacySymbol, String currentSymbol, Status status, String reason) {}
     public record MethodSearch(String legacySymbol, List<MethodCandidate> candidates, String reason) {}
+    public record MethodSemantics(String owner, String method, String descriptor, List<String> operations) {}
 
     private final Map<String, Mapping> mappings = new LinkedHashMap<>();
     private final ClassLoader runtimeLoader;
@@ -115,6 +117,46 @@ public final class Forge1192MappingLayer {
         // Callers should use candidate owners discovered from bytecode/mappings instead.
         return new MethodSearch(method + descriptor, List.copyOf(candidates),
                 "Global runtime class enumeration is unavailable; candidate-owner discovery required");
+    }
+
+    public MethodSemantics semantics(String symbol) {
+        int hash = symbol.indexOf('#');
+        int paren = symbol.indexOf('(', hash + 1);
+        if (hash < 0 || paren < 0) return new MethodSemantics("", "", "", List.of());
+        String owner = symbol.substring(0, hash);
+        String method = symbol.substring(hash + 1, paren);
+        String descriptor = symbol.substring(paren);
+        InputStream stream = openClass(owner);
+        if (stream == null) return new MethodSemantics(owner, method, descriptor, List.of());
+        List<String> operations = new ArrayList<>();
+        try (stream) {
+            new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override public MethodVisitor visitMethod(int access, String name, String desc,
+                                                           String signature, String[] exceptions) {
+                    if (!name.equals(method) || !desc.equals(descriptor)) return null;
+                    return new MethodVisitor(Opcodes.ASM9) {
+                        @Override public void visitMethodInsn(int opcode, String calledOwner, String calledName,
+                                                              String calledDescriptor, boolean itf) {
+                            operations.add("CALL " + calledOwner + "#" + calledName + calledDescriptor);
+                        }
+                        @Override public void visitFieldInsn(int opcode, String fieldOwner, String fieldName,
+                                                             String fieldDescriptor) {
+                            operations.add("FIELD " + fieldOwner + "#" + fieldName + ":" + fieldDescriptor);
+                        }
+                        @Override public void visitTypeInsn(int opcode, String type) {
+                            operations.add("TYPE " + opcode + " " + type);
+                        }
+                        @Override public void visitInvokeDynamicInsn(String name, String desc, Handle bootstrap,
+                                                                     Object... args) {
+                            operations.add("INDY " + name + desc);
+                        }
+                    };
+                }
+            }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } catch (IOException | RuntimeException ignored) {
+            return new MethodSemantics(owner, method, descriptor, List.of());
+        }
+        return new MethodSemantics(owner, method, descriptor, List.copyOf(operations));
     }
 
     /** Retained for callers that do not yet have owner/descriptor evidence. */
