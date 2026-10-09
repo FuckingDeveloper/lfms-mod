@@ -137,7 +137,11 @@ public final class LegacyCompatibilityPlanner {
                                         + (runtimeFinding.status().equals("INHERITED")
                                         ? " inherited from " + runtimeFinding.declaringOwner()
                                         : " declared by " + runtimeFinding.declaringOwner())
-                                        + "; current-runtime mapping still requires independent resolution";
+                                        + "; current-runtime mapping=" + anchorMapping.status()
+                                        + (anchorMapping.currentSymbol().isEmpty()
+                                        ? ""
+                                        : " candidate=" + anchorMapping.currentSymbol())
+                                        + "; current-runtime evidence: " + anchorMapping.reason();
                             } else if (legacyPatchMember) {
                                 reason = "Non-SRG coremod anchor is absent from vanilla 1.19.2 mappings; "
                                       + "treat as a Forge-patched member requiring a compatibility bridge";
