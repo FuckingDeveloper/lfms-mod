@@ -49,14 +49,15 @@ sourceSets {
 }
 configurations.launchCompileOnly.extendsFrom(configurations.compileOnly)
 dependencies {
-    launchCompileOnly 'cpw.mods:modlauncher:11.0.5'
-    launchCompileOnly 'org.ow2.asm:asm-tree:9.7.1'
+    launchCompileOnly 'net.neoforged.fancymodloader:loader:12.0.9'
+    launchCompileOnly 'org.ow2.asm:asm-tree:9.10.1'
 }
 tasks.register('launchJar', Jar) {
     group = 'lms'
     description = 'Build the separate early ModLauncher transformation service'
     archiveClassifier = 'launch'
     from sourceSets.launch.output
+    manifest { attributes('FMLModType': 'LIBRARY') }
     dependsOn tasks.named('launchClasses')
 }
 
