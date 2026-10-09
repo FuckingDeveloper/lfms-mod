@@ -155,10 +155,20 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 || ret.opcode() != Opcodes.RETURN) return spec.edits();
 
         AbstractInsnNode successor = nextExecutable(anchorNode);
-        if (!(successor instanceof MethodInsnNode consumer)) return spec.edits();
+        if (!(successor instanceof MethodInsnNode consumer)) {
+            System.out.println("[LMS/early] semantic-adapt skipped id=" + spec.id()
+                    + " reason=anchor-successor-not-call successor=" + describeNode(successor));
+            return spec.edits();
+        }
         Type result = Type.getReturnType(original.descriptor());
         Type[] consumerArgs = Type.getArgumentTypes(consumer.desc);
-        if (consumerArgs.length == 0 || !consumerArgs[consumerArgs.length - 1].equals(result)) return spec.edits();
+        if (consumerArgs.length == 0 || !consumerArgs[consumerArgs.length - 1].equals(result)) {
+            System.out.println("[LMS/early] semantic-adapt skipped id=" + spec.id()
+                    + " reason=consumer-does-not-consume-result consumer="
+                    + consumer.owner + "#" + consumer.name + consumer.desc
+                    + " result=" + result.getDescriptor());
+            return spec.edits();
+        }
 
         // Replace the migrated producer in-place. Its current consumer remains intact.
         anchorNode = bindings.get(anchor.variable());
@@ -184,6 +194,12 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 + " pattern=RESULT_REWRITE_PRESERVE_CONSUMER consumer="
                 + consumer.owner + "#" + consumer.name + consumer.desc);
         return List.of();
+    }
+
+    private static String describeNode(AbstractInsnNode node) {
+        if (node == null) return "<null>";
+        if (node instanceof MethodInsnNode m) return "CALL " + m.owner + "#" + m.name + m.desc;
+        return node.getClass().getSimpleName() + " opcode=" + node.getOpcode();
     }
 
     private static AbstractInsnNode nextExecutable(AbstractInsnNode node) {
