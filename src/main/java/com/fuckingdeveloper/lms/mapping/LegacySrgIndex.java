@@ -55,12 +55,13 @@ public final class LegacySrgIndex {
                 .filter(match -> !match.owners().isEmpty()
                         && match.owners().getFirst().equals(obfuscatedOwner.get()))
                 .toList();
+        String obfuscatedDescriptor = mojmap.obfuscateDescriptor(legacyDescriptor);
         List<Match> exact = ownerMatches.stream()
-                .filter(match -> descriptorShape(match.sourceDescriptor()).equals(descriptorShape(legacyDescriptor)))
+                .filter(match -> match.sourceDescriptor().equals(obfuscatedDescriptor))
                 .toList();
         if (exact.size() == 1) {
             return new Resolution(ResolutionStatus.RESOLVED, exact,
-                    "Named owner, SRG name and descriptor shape match; object types still need exact remapping");
+                    "Named owner, SRG name and fully remapped descriptor match");
         }
         if (exact.size() > 1) {
             return new Resolution(ResolutionStatus.AMBIGUOUS, exact,
@@ -68,11 +69,11 @@ public final class LegacySrgIndex {
         }
         if (!ownerMatches.isEmpty()) {
             return new Resolution(ResolutionStatus.DESCRIPTOR_MISMATCH, ownerMatches,
-                    "SRG method exists on named owner but descriptor shape differs: legacy="
-                            + descriptorShape(legacyDescriptor));
+                    "SRG method exists on named owner but descriptor differs: mappedLegacy="
+                            + obfuscatedDescriptor);
         }
         List<Match> compatible = byName.stream()
-                .filter(match -> descriptorShape(match.sourceDescriptor()).equals(descriptorShape(legacyDescriptor)))
+                .filter(match -> match.sourceDescriptor().equals(obfuscatedDescriptor))
                 .toList();
         if (compatible.size() == 1) {
             Match match = compatible.getFirst();
@@ -87,9 +88,9 @@ public final class LegacySrgIndex {
         }
         return new Resolution(ResolutionStatus.NOT_FOUND, byName,
                 "No SRG method matches named owner or descriptor shape; Mojang owner="
-                        + obfuscatedOwner.get() + ", legacy shape=" + descriptorShape(legacyDescriptor)
-                        + ", TSRG candidate shapes=" + byName.stream()
-                                .map(match -> descriptorShape(match.sourceDescriptor()))
+                        + obfuscatedOwner.get() + ", mappedLegacyDescriptor=" + obfuscatedDescriptor
+                        + ", TSRG candidateDescriptors=" + byName.stream()
+                                .map(Match::sourceDescriptor)
                                 .distinct().toList());
     }
 
