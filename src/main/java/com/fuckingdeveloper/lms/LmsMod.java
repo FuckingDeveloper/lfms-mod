@@ -82,19 +82,10 @@ public final class LmsMod {
                                 mojmap.map(result -> result.index().namedMethods().size()).orElse(0),
                                 mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::preview).orElse(List.of()));
                         for (var plan : compatibility.coremodPlans()) {
-                            if (srgIndex.isPresent()) {
-                                for (var anchor : plan.anchors()) {
-                                    var resolution = mojmap.isPresent()
-                                            ? srgIndex.get().resolveWithNamedOwner(anchor.owner(), anchor.method(),
-                                                    anchor.descriptor(), mojmap.get().index())
-                                            : srgIndex.get().resolve(anchor.owner(), anchor.method(), anchor.descriptor());
-                                    LOG.info("LMS SRG anchor source={} legacy={} resolution={}",
-                                            plan.source(), anchor, resolution);
-                                }
-                            }
-                            LOG.info("LMS coremod plan source={} target={} anchors={} anchorResolutions={} hooks={} mutations={} mapping={} current={}",
-                                    plan.source(), plan.target(), plan.anchors(), plan.anchorResolutions(), plan.hooks(),
-                                    plan.mutationKinds(), plan.mappingStatus(), plan.currentTarget());
+                            LOG.info("LMS coremod plan source={} target={} legacyTargetResolution={} anchors={} anchorResolutions={} hooks={} mutations={} mapping={} current={}",
+                                    plan.source(), plan.target(), plan.legacyTargetResolution(), plan.anchors(),
+                                    plan.anchorResolutions(), plan.hooks(), plan.mutationKinds(),
+                                    plan.mappingStatus(), plan.currentTarget());
                         }
                         for (var coremod : injectionReport.coremods()) {
                             LOG.info("LMS coremod path={} targets={} referencedClasses={} asmApiCalls={}",
