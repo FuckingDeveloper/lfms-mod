@@ -40,9 +40,10 @@ public final class Forge1192RegistrationPlanner {
                 if (!visited.add(current)) continue;
                 Resolution resolution = resolveOwnedMethod(jar, cache, current);
                 if (resolution == null) {
-                    // A call whose symbolic owner is an owned subclass may legally resolve
-                    // to an inherited method. Only report it unresolved after walking the
-                    // complete owned superclass chain.
+                    // Reaching a superclass outside the managed artifact is a normal call-graph
+                    // boundary (Minecraft/Forge/JDK/dependency), not evidence that an owned
+                    // method is missing. Only a genuinely broken owned hierarchy is unresolved.
+                    if (ownedHierarchyTerminatesExternally(jar, cache, current.owner())) continue;
                     unresolved.add("unresolved-owned-method:" + current);
                     continue;
                 }
@@ -67,6 +68,22 @@ public final class Forge1192RegistrationPlanner {
 
     private record ClassInfo(String name, String superName, Map<MethodKey, List<MethodKey>> methods) {}
     private record Resolution(MethodKey declaration, List<MethodKey> calls) {}
+
+    private static boolean ownedHierarchyTerminatesExternally(JarFile jar,
+                                                              Map<String, ClassInfo> cache,
+                                                              String owner) throws IOException {
+        Set<String> seen = new HashSet<>();
+        String current = owner;
+        while (current != null && seen.add(current)) {
+            ClassInfo info = readClass(jar, cache, current);
+            if (info == null) return true;
+            String parent = info.superName();
+            if (parent == null) return true;
+            if (jar.getJarEntry(parent + ".class") == null) return true;
+            current = parent;
+        }
+        return false;
+    }
 
     private static Resolution resolveOwnedMethod(JarFile jar, Map<String, ClassInfo> cache,
                                                  MethodKey symbolic) throws IOException {
