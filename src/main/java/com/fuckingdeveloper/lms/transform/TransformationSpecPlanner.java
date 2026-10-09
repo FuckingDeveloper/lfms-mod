@@ -5,6 +5,7 @@ import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Converts descriptive compatibility plans into loader-neutral executable specs.
@@ -42,7 +43,7 @@ public final class TransformationSpecPlanner {
                     TransformationSpec.Kind.INSTRUCTION_EDIT,
                     parseRef(plan.currentTarget(), TransformationSpec.Invocation.UNKNOWN),
                     null, null,
-                    parseInstructionEdits(plan.operations()),
+                    parseInstructionEdits(plan.operations(), plan.values()),
                     TransformationSpec.Readiness.UNRESOLVED,
                     "Instruction edit structure captured; inserted instruction expressions still require parsing: "
                             + plan.mutationKinds());
@@ -92,7 +93,8 @@ public final class TransformationSpecPlanner {
     }
 
     private static List<TransformationSpec.InstructionEdit> parseInstructionEdits(
-            List<LegacyInjectionAnalyzer.CoremodOperation> operations) {
+            List<LegacyInjectionAnalyzer.CoremodOperation> operations,
+            List<LegacyInjectionAnalyzer.CoremodValue> values) {
         List<TransformationSpec.InstructionEdit> edits = new ArrayList<>();
         for (var operation : operations) {
             List<String> args = splitTopLevelArguments(operation.arguments());
@@ -113,10 +115,91 @@ public final class TransformationSpecPlanner {
                 default -> null;
             };
             if (kind == null) continue;
+            String valueExpression = args.size() > 1 ? args.get(1) : "";
             edits.add(new TransformationSpec.InstructionEdit(
-                    kind, location, first, args.size() > 1 ? args.get(1) : ""));
+                    kind, location, first, valueExpression,
+                    resolveInstructionValue(valueExpression, values)));
         }
         return List.copyOf(edits);
+    }
+
+    private static TransformationSpec.InstructionSpec resolveInstructionValue(
+            String expression, List<LegacyInjectionAnalyzer.CoremodValue> values) {
+        if (expression == null || expression.isEmpty()) return null;
+        String resolved = expression.trim();
+        for (int depth = 0; depth < 8; depth++) {
+            String current = resolved;
+            var definition = values.stream()
+                    .filter(value -> value.name().equals(current))
+                    .findFirst();
+            if (definition.isEmpty()) break;
+            resolved = definition.get().expression().trim();
+        }
+
+        if (resolved.startsWith("ASMAPI.buildMethodCall")) {
+            List<String> args = callArguments(resolved, "ASMAPI.buildMethodCall");
+            if (args.size() >= 4) {
+                String owner = stringLiteral(args.get(0));
+                String name = stringLiteral(args.get(1));
+                String descriptor = stringLiteral(args.get(2));
+                var invocation = invocation(args.get(3).replace("ASMAPI.MethodType.", "").trim());
+                if (owner != null && name != null && descriptor != null
+                        && invocation != TransformationSpec.Invocation.UNKNOWN) {
+                    return new TransformationSpec.InstructionSpec(
+                            TransformationSpec.InstructionKind.METHOD_CALL,
+                            new TransformationSpec.MethodRef(internal(owner), name, descriptor, invocation),
+                            null, null, resolved);
+                }
+            }
+        }
+
+        var varInsn = Pattern.compile(
+                "new\\s+VarInsnNode\\s*\\(\\s*(?:Opcodes\\.)?([A-Z_]+)\\s*,\\s*(\\d+)\\s*\\)")
+                .matcher(resolved);
+        if (varInsn.matches()) {
+            return new TransformationSpec.InstructionSpec(
+                    TransformationSpec.InstructionKind.VARIABLE, null,
+                    asmOpcode(varInsn.group(1)), Integer.parseInt(varInsn.group(2)), resolved);
+        }
+
+        var insn = Pattern.compile(
+                "new\\s+InsnNode\\s*\\(\\s*(?:Opcodes\\.)?([A-Z_]+)\\s*\\)")
+                .matcher(resolved);
+        if (insn.matches()) {
+            return new TransformationSpec.InstructionSpec(
+                    TransformationSpec.InstructionKind.SIMPLE_OPCODE, null,
+                    asmOpcode(insn.group(1)), null, resolved);
+        }
+
+        return new TransformationSpec.InstructionSpec(
+                TransformationSpec.InstructionKind.UNRESOLVED, null, null, null, resolved);
+    }
+
+    private static List<String> callArguments(String expression, String call) {
+        int start = expression.indexOf(call);
+        if (start < 0) return List.of();
+        int open = expression.indexOf('(', start + call.length());
+        int close = expression.lastIndexOf(')');
+        if (open < 0 || close <= open) return List.of();
+        return splitTopLevelArguments(expression.substring(open + 1, close));
+    }
+
+    private static String stringLiteral(String value) {
+        String text = value.trim();
+        if (text.length() < 2) return null;
+        char first = text.charAt(0), last = text.charAt(text.length() - 1);
+        if ((first == '\'' || first == '"') && last == first) {
+            return text.substring(1, text.length() - 1);
+        }
+        return null;
+    }
+
+    private static Integer asmOpcode(String name) {
+        try {
+            return org.objectweb.asm.Opcodes.class.getField(name).getInt(null);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
     }
 
     private static List<String> splitTopLevelArguments(String source) {
