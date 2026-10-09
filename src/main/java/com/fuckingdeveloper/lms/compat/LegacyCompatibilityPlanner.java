@@ -38,6 +38,7 @@ public final class LegacyCompatibilityPlanner {
                                             List<AnchorResolution> anchorResolutions,
                                             List<LegacyInjectionAnalyzer.CoremodHookCall> hooks,
                                             List<LegacyInjectionAnalyzer.CoremodOperation> operations,
+                                            List<LegacyInjectionAnalyzer.CoremodValue> values,
                                             List<String> mutationKinds, Forge1192MappingLayer.Status mappingStatus,
                                             String currentTarget, LegacySrgIndex.Resolution legacyTargetResolution) {}
     public record Plan(List<Requirement> requirements, List<CoremodTransformationPlan> coremodPlans,
@@ -275,7 +276,7 @@ public final class LegacyCompatibilityPlanner {
                         .toList();
                 coremodPlans.add(new CoremodTransformationPlan(
                         coremod.path() + "#" + transform.name(), qualifiedTarget, canonicalLegacyTarget, anchors, anchorResolutions,
-                        transform.hookCalls(), transform.operations(), mutationKinds, mapping.status(), mapping.currentSymbol(),
+                        transform.hookCalls(), transform.operations(), transform.values(), mutationKinds, mapping.status(), mapping.currentSymbol(),
                         legacyTargetResolution));
                 requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM,
                         coremod.path() + "#" + transform.name(), qualifiedTarget,
