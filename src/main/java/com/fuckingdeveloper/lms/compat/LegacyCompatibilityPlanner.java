@@ -274,6 +274,31 @@ public final class LegacyCompatibilityPlanner {
                         .map(LegacyInjectionAnalyzer.CoremodOperation::kind)
                         .distinct()
                         .toList();
+                // The source owner can be an obsolete MCP/package alias while the
+                // 1.19.2 mappings recover the canonical Mojang owner. Target lookup
+                // above starts with canonicalOwner, but OWNER_MISMATCH previously left
+                // mapping/currentSymbol unresolved even when the canonical target is
+                // uniquely identifiable. Re-run the recovered official name against
+                // that canonical owner before emitting the plan.
+                if ((mapping.currentSymbol() == null || mapping.currentSymbol().isEmpty())
+                        && targetOfficialName != null && !canonicalOwner.equals(target.owner())) {
+                    var canonicalIdentity = mappings.classifyMethod(
+                            canonicalOwner, targetOfficialName, target.descriptor());
+                    if (!canonicalIdentity.currentSymbol().isEmpty()) {
+                        mapping = canonicalIdentity;
+                    } else {
+                        var canonicalMigration = mappings.searchNamedMethods(canonicalOwner, targetOfficialName);
+                        if (canonicalMigration.candidates().size() == 1) {
+                            var candidate = canonicalMigration.candidates().getFirst();
+                            mapping = new Forge1192MappingLayer.Mapping(
+                                    canonicalOwner + "#" + target.method() + target.descriptor(),
+                                    candidate.symbol(),
+                                    Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
+                                    "Canonical legacy owner and recovered method name uniquely identify current target");
+                        }
+                    }
+                }
+
                 coremodPlans.add(new CoremodTransformationPlan(
                         coremod.path() + "#" + transform.name(), qualifiedTarget, canonicalLegacyTarget, anchors, anchorResolutions,
                         transform.hookCalls(), transform.operations(), transform.values(), mutationKinds, mapping.status(), mapping.currentSymbol(),
