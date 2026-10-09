@@ -153,8 +153,21 @@ public final class Forge1192MappingLayer {
         }
 
         // The legacy invocation owner can be a subclass while the actual member is
-        // declared by a superclass/interface. Inspect the current hierarchy before
-        // declaring the anchor unresolved. This is still structural evidence only.
+        // declared by a superclass/interface. First preserve exact recovered method
+        // identity across that hierarchy; only then fall back to descriptor shape.
+        List<String> inheritedExactMatches = new ArrayList<>();
+        collectHierarchyExactMatches(owner, legacyMethod, descriptor, new HashSet<>(), true, inheritedExactMatches);
+        List<String> uniqueInheritedExactMatches = new ArrayList<>(new LinkedHashSet<>(inheritedExactMatches));
+        if (uniqueInheritedExactMatches.size() == 1) {
+            return new Mapping(legacySymbol, uniqueInheritedExactMatches.getFirst(), Status.VERIFIED_IDENTITY,
+                    "Exact method name and descriptor exist in current runtime ancestor");
+        }
+        if (uniqueInheritedExactMatches.size() > 1) {
+            return new Mapping(legacySymbol, "", Status.AMBIGUOUS,
+                    "Exact method identity appears in multiple current ancestors: " + uniqueInheritedExactMatches);
+        }
+
+        // No exact identity survived; descriptor matching is structural evidence only.
         List<String> inheritedMatches = new ArrayList<>();
         collectHierarchyDescriptorMatches(owner, descriptor, new HashSet<>(), true, inheritedMatches);
         List<String> uniqueInheritedMatches = new ArrayList<>(new LinkedHashSet<>(inheritedMatches));
@@ -168,6 +181,44 @@ public final class Forge1192MappingLayer {
         }
         return new Mapping(legacySymbol, "", Status.UNRESOLVED,
                 "Owner exists, but no current method in its hierarchy has the legacy descriptor");
+    }
+
+    private void collectHierarchyExactMatches(String owner, String method, String descriptor,
+                                              Set<String> visited, boolean skipOwnerMethods,
+                                              List<String> matches) {
+        String internalOwner = owner.replace('.', '/');
+        if (!visited.add(internalOwner)) return;
+        InputStream stream = openClass(owner);
+        if (stream == null) return;
+        try (stream) {
+            new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override
+                public void visit(int version, int access, String name, String signature,
+                                  String superName, String[] interfaces) {
+                    if (superName != null) {
+                        collectHierarchyExactMatches(superName.replace('/', '.'), method, descriptor,
+                                visited, false, matches);
+                    }
+                    if (interfaces != null) {
+                        for (String implemented : interfaces) {
+                            collectHierarchyExactMatches(implemented.replace('/', '.'), method, descriptor,
+                                    visited, false, matches);
+                        }
+                    }
+                }
+
+                @Override
+                public MethodVisitor visitMethod(int access, String name, String desc,
+                                                 String signature, String[] exceptions) {
+                    if (!skipOwnerMethods && name.equals(method) && desc.equals(descriptor)) {
+                        matches.add(owner + "#" + name + desc);
+                    }
+                    return null;
+                }
+            }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } catch (IOException | RuntimeException ignored) {
+            // Missing/unreadable ancestors cannot prove an exact identity.
+        }
     }
 
     private void collectHierarchyDescriptorMatches(String owner, String descriptor, Set<String> visited,
