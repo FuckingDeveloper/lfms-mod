@@ -137,7 +137,11 @@ public final class LegacyCompatibilityPlanner {
                             boolean currentIdentityVerified =
                                     currentIdentity.status() == Forge1192MappingLayer.Status.VERIFIED_IDENTITY;
                             var effectiveMapping = currentIdentityVerified ? currentIdentity : anchorMapping;
-                            var status = legacyPatchMember
+                            // A member absent from vanilla 1.19.2 mappings is a Forge patch.
+                            // Keep bridge classification only when the recovered Forge member
+                            // does not survive as the same exact identity in the current runtime.
+                            boolean bridgeRequired = legacyPatchMember && !currentIdentityVerified;
+                            var status = bridgeRequired
                                     ? Forge1192MappingLayer.Status.FORGE_BRIDGE_REQUIRED
                                     : effectiveMapping.status();
                             String reason;
@@ -158,8 +162,8 @@ public final class LegacyCompatibilityPlanner {
                                 reason = effectiveMapping.reason();
                             }
                             return new AnchorResolution(anchor, status,
-                                    legacyPatchMember ? "" : effectiveMapping.currentSymbol(),
-                                    legacyPatchMember ? List.of() : search.candidates(), reason,
+                                    bridgeRequired ? "" : effectiveMapping.currentSymbol(),
+                                    bridgeRequired ? List.of() : search.candidates(), reason,
                                     legacyResolution, runtimeFinding);
                         })
                         .toList();
