@@ -174,17 +174,21 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 replacement.descriptor(), replacement.isInterface());
         method.instructions.set(anchorNode, replacementNode);
 
-        // Keep the current consumer, then perform the legacy result check from the
-        // local written by the hook. Store a duplicate before the consumer so the
-        // consumer still receives the hook result.
-        // Save the hook result immediately after its producer, before any current
-        // stack shuffle (notably SWAP) changes which value is on top.
+        // The legacy slot belongs to the patch payload, not necessarily to the
+        // migrated target method. Allocate a fresh local so a legacy temporary can
+        // never overwrite a current argument/local that happens to use the same slot.
+        int tempSlot = method.maxLocals;
+        method.maxLocals += result.getSize();
+
+        // Save the hook result immediately after its producer, before the preserved
+        // current expression consumes or rearranges it.
         InsnList saveResult = new InsnList();
         saveResult.add(new InsnNode(result.getSize() == 2 ? Opcodes.DUP2 : Opcodes.DUP));
-        saveResult.add(new VarInsnNode(store.opcode(), store.variable()));
+        saveResult.add(new VarInsnNode(store.opcode(), tempSlot));
         method.instructions.insert(replacementNode, saveResult);
 
         InsnList suffix = build(values.subList(2, values.size() - 2), bindings);
+        remapPayloadTemporary(suffix, load.variable(), tempSlot);
         LabelNode continueLabel = new LabelNode();
         suffix.add(new JumpInsnNode(jump.opcode(), continueLabel));
         suffix.add(new InsnNode(Opcodes.RETURN));
@@ -202,36 +206,44 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         AbstractInsnNode n = nextExecutable(producer);
         if (n == null) return null;
 
-        // NeoForge-style expression lowering may rotate the freshly produced value
-        // below an already prepared argument with SWAP. For a category-1 value this
-        // proves that the next invocation consumes it as its penultimate stack item.
-        boolean swappedCategory1 = false;
-        if (n.getOpcode() == Opcodes.SWAP) {
-            System.out.println("[LMS/early] semantic-scan saw-swap produced="
-                    + producedType.getDescriptor() + " size=" + producedType.getSize());
-            if (producedType.getSize() != 1) {
-                System.out.println("[LMS/early] semantic-scan reject-swap reason=category2-produced-value");
-                return null;
-            }
-            swappedCategory1 = true;
+        // Follow a conservative same-type numeric expression. The freshly produced
+        // value may be combined with one already-stacked operand (e.g. FADD); the
+        // derived value remains the top category-compatible value we are tracing.
+        if (isSameTypeBinaryNumeric(n.getOpcode(), producedType)) {
             n = nextExecutable(n);
-            System.out.println("[LMS/early] semantic-scan swap-next=" + describeNode(n)
-                    + " produced=" + producedType.getDescriptor());
         }
 
-        // Do not guess through arbitrary stack programs. A straight consumer or the
-        // single proven SWAP form are the only shapes accepted here.
+        // A category-1 SWAP can then move that derived value into the final argument
+        // position of a following invocation.
+        if (n != null && n.getOpcode() == Opcodes.SWAP) {
+            if (producedType.getSize() != 1) return null;
+            n = nextExecutable(n);
+        }
+
         if (!(n instanceof MethodInsnNode call)) return null;
         Type[] args = Type.getArgumentTypes(call.desc);
-        if (!swappedCategory1) {
-            if (args.length == 0 || !args[args.length - 1].equals(producedType)) return null;
-        } else {
-            // Before SWAP the produced value is directly below the current top
-            // operand. After SWAP it becomes the top operand and is therefore
-            // consumed as the last explicit argument of the invocation.
-            if (args.length == 0 || !args[args.length - 1].equals(producedType)) return null;
-        }
+        if (args.length == 0 || !args[args.length - 1].equals(producedType)) return null;
         return new ConsumerSite(call, call);
+    }
+
+    private static boolean isSameTypeBinaryNumeric(int opcode, Type type) {
+        return switch (type.getSort()) {
+            case Type.INT -> opcode == Opcodes.IADD || opcode == Opcodes.ISUB
+                    || opcode == Opcodes.IMUL || opcode == Opcodes.IDIV || opcode == Opcodes.IREM;
+            case Type.FLOAT -> opcode == Opcodes.FADD || opcode == Opcodes.FSUB
+                    || opcode == Opcodes.FMUL || opcode == Opcodes.FDIV || opcode == Opcodes.FREM;
+            case Type.LONG -> opcode == Opcodes.LADD || opcode == Opcodes.LSUB
+                    || opcode == Opcodes.LMUL || opcode == Opcodes.LDIV || opcode == Opcodes.LREM;
+            case Type.DOUBLE -> opcode == Opcodes.DADD || opcode == Opcodes.DSUB
+                    || opcode == Opcodes.DMUL || opcode == Opcodes.DDIV || opcode == Opcodes.DREM;
+            default -> false;
+        };
+    }
+
+    private static void remapPayloadTemporary(InsnList instructions, int legacySlot, int currentSlot) {
+        for (AbstractInsnNode n = instructions.getFirst(); n != null; n = n.getNext()) {
+            if (n instanceof VarInsnNode var && var.var == legacySlot) var.var = currentSlot;
+        }
     }
 
     private static String describeNode(AbstractInsnNode node) {
