@@ -155,6 +155,13 @@ public final class LegacyCompatibilityPlanner {
                                         ? ""
                                         : " candidate=" + effectiveMapping.currentSymbol())
                                         + "; current-runtime evidence: " + effectiveMapping.reason();
+                                if (!effectiveMapping.currentSymbol().isEmpty()) {
+                                    var legacySemantics = legacyRuntime.semantics(
+                                            anchor.owner(), runtimeFinding.method(), anchor.descriptor());
+                                    var currentSemantics = mappings.semantics(effectiveMapping.currentSymbol());
+                                    reason += "; semantic-fingerprint legacyOps=" + legacySemantics.operations()
+                                            + " currentOps=" + currentSemantics.operations();
+                                }
                             } else if (legacyPatchMember) {
                                 reason = "Non-SRG coremod anchor is absent from vanilla 1.19.2 mappings; "
                                       + "treat as a Forge-patched member requiring a compatibility bridge";
