@@ -182,6 +182,21 @@ public final class LegacyCompatibilityPlanner {
                                     ? mappings.searchNamedMethods(anchor.owner(), runtimeFinding.method())
                                     : new Forge1192MappingLayer.MethodSearch("", List.of(), "");
                             boolean uniqueNamedMigration = migratedByName.candidates().size() == 1;
+
+                            // A Forge-patched legacy member can disappear while its semantic
+                            // successor survives under a different current name. When the
+                            // recovered legacy method name itself is gone, compare the legacy
+                            // method body against current same-descriptor candidates. Accept
+                            // only one exact semantic fingerprint; never choose by descriptor alone.
+                            var semanticMigration = runtimeVerified && !currentIdentityVerified
+                                    && !uniqueNamedMigration && legacyRuntime != null
+                                    ? mappings.findUniqueSemanticMatch(
+                                            anchor.owner(), anchor.descriptor(),
+                                            legacyRuntime.semantics(
+                                                    anchor.owner(), runtimeFinding.method(), anchor.descriptor()).operations())
+                                    : new Forge1192MappingLayer.MethodSearch("", List.of(), "");
+                            boolean uniqueSemanticMigration = semanticMigration.candidates().size() == 1;
+
                             var effectiveMapping = currentIdentityVerified ? currentIdentity
                                     : uniqueNamedMigration
                                     ? new Forge1192MappingLayer.Mapping(
@@ -190,6 +205,12 @@ public final class LegacyCompatibilityPlanner {
                                             Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
                                             "Recovered legacy method name survives with a changed descriptor: "
                                                     + migratedByName.candidates().getFirst().descriptor())
+                                    : uniqueSemanticMigration
+                                    ? new Forge1192MappingLayer.Mapping(
+                                            anchor.owner() + "#" + runtimeFinding.method() + anchor.descriptor(),
+                                            semanticMigration.candidates().getFirst().symbol(),
+                                            Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
+                                            "Unique current method matches the legacy semantic fingerprint")
                                     : anchorMapping;
                             // A member absent from vanilla 1.19.2 mappings is a Forge patch.
                             // Keep bridge classification only when the recovered Forge member
