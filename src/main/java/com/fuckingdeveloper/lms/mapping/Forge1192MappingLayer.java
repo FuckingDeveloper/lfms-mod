@@ -160,6 +160,48 @@ public final class Forge1192MappingLayer {
     }
 
     /**
+     * Find a unique current method whose descriptor and normalized bytecode-operation
+     * fingerprint match a legacy runtime method. This is semantic evidence, not a
+     * descriptor fallback: ambiguous or empty fingerprints never resolve.
+     */
+    public MethodSearch findUniqueSemanticMatch(String owner, String descriptor, List<String> legacyOperations) {
+        String legacySymbol = owner + "#" + descriptor;
+        if (legacyOperations == null || legacyOperations.isEmpty()) {
+            return new MethodSearch(legacySymbol, List.of(), "Legacy semantic fingerprint is empty");
+        }
+        InputStream stream = openClass(owner);
+        if (stream == null) {
+            return new MethodSearch(legacySymbol, List.of(), "Owner class is absent from the current runtime");
+        }
+
+        List<MethodCandidate> descriptorCandidates = new ArrayList<>();
+        try (stream) {
+            new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override public MethodVisitor visitMethod(int access, String name, String desc,
+                                                           String signature, String[] exceptions) {
+                    if (!name.equals("<init>") && !name.equals("<clinit>") && desc.equals(descriptor)) {
+                        descriptorCandidates.add(new MethodCandidate(owner + "#" + name + desc, desc));
+                    }
+                    return null;
+                }
+            }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } catch (IOException | RuntimeException ex) {
+            return new MethodSearch(legacySymbol, List.of(),
+                    "Could not inspect current owner bytecode: " + ex.getClass().getSimpleName());
+        }
+
+        List<MethodCandidate> semanticMatches = descriptorCandidates.stream()
+                .filter(candidate -> semantics(candidate.symbol()).operations().equals(legacyOperations))
+                .toList();
+        return new MethodSearch(legacySymbol, List.copyOf(semanticMatches),
+                semanticMatches.size() == 1
+                        ? "Unique current method matches exact legacy operation fingerprint"
+                        : semanticMatches.isEmpty()
+                        ? "No current same-descriptor method matches exact legacy operation fingerprint"
+                        : "Multiple current methods match exact legacy operation fingerprint");
+    }
+
+    /**
      * Inspect a named current-runtime method even when its descriptor changed.
      * Exact name is strong migration evidence; overloaded names remain ambiguous.
      */
