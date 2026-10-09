@@ -29,6 +29,7 @@ public final class TransformationSpecPlanner {
         boolean instructionEdit = plan.mutationKinds().stream().anyMatch(kind -> !"set".equals(kind));
         if (instructionEdit) {
             var edits = parseInstructionEdits(plan.operations(), plan.values());
+            edits = remapArgumentSlots(edits, plan.canonicalLegacyTarget(), plan.currentTarget());
             boolean locationsResolved = edits.stream().allMatch(edit -> edit.locationReference() != null);
             return new TransformationSpec(
                     id,
@@ -115,6 +116,47 @@ public final class TransformationSpecPlanner {
                     variable, ref(current, invocation)));
         }
         return List.copyOf(result);
+    }
+
+    private static List<TransformationSpec.InstructionEdit> remapArgumentSlots(
+            List<TransformationSpec.InstructionEdit> edits,
+            String legacyTarget, String currentTarget) {
+        MethodParts legacy = parseSymbol(legacyTarget);
+        MethodParts current = parseSymbol(currentTarget);
+        if (legacy == null || current == null) return edits;
+
+        List<TransformationSpec.InstructionEdit> result = new ArrayList<>();
+        for (var edit : edits) {
+            var value = remapInstructionSlot(edit.value(), legacy.descriptor(), current.descriptor());
+            List<TransformationSpec.InstructionSpec> values = edit.values().stream()
+                    .map(spec -> remapInstructionSlot(spec, legacy.descriptor(), current.descriptor()))
+                    .toList();
+            result.add(new TransformationSpec.InstructionEdit(
+                    edit.kind(), edit.location(), edit.locationReference(),
+                    edit.firstArgument(), edit.valueExpression(), value, values));
+        }
+        return List.copyOf(result);
+    }
+
+    private static TransformationSpec.InstructionSpec remapInstructionSlot(
+            TransformationSpec.InstructionSpec spec,
+            String legacyDescriptor, String currentDescriptor) {
+        if (spec == null || spec.kind() != TransformationSpec.InstructionKind.VARIABLE
+                || spec.variable() == null) return spec;
+        var remapped = LocalSlotRemapper.remapArgumentSlot(
+                legacyDescriptor, currentDescriptor, false, spec.variable());
+        if (!remapped.resolved()) {
+            return new TransformationSpec.InstructionSpec(
+                    TransformationSpec.InstructionKind.UNRESOLVED, spec.method(),
+                    spec.opcode(), spec.variable(),
+                    spec.expression() + " [slot migration unresolved: " + remapped.reason() + "]",
+                    spec.target());
+        }
+        return new TransformationSpec.InstructionSpec(
+                spec.kind(), spec.method(), spec.opcode(), remapped.currentSlot(),
+                spec.expression() + " [legacy slot " + spec.variable()
+                        + " -> current slot " + remapped.currentSlot() + "]",
+                spec.target());
     }
 
     private static List<TransformationSpec.InstructionEdit> parseInstructionEdits(
