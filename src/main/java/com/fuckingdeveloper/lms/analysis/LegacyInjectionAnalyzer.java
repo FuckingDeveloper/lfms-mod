@@ -29,7 +29,7 @@ public final class LegacyInjectionAnalyzer {
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodOperation(String kind, String detail, String arguments) {}
     public record CoremodValue(String name, String expression, List<String> mutations) {}
-    public record CoremodAnchor(String owner, String method, String descriptor, String invocationType) {}
+    public record CoremodAnchor(String variable, String owner, String method, String descriptor, String invocationType) {}
     public record CoremodTransform(String name, CoremodMethodTarget target, List<String> mappedMethods,
                                    List<CoremodAnchor> anchors, List<CoremodHookCall> hookCalls,
                                    List<CoremodOperation> operations, List<CoremodValue> values) {}
@@ -147,10 +147,20 @@ public final class LegacyInjectionAnalyzer {
             // Keep the source descriptor verbatim here; mapping validation decides whether
             // it is a real legacy method identity instead of silently "fixing" it.
             if (!owner.equals(target.owner()) || !method.equals(target.method()) || !descriptor.equals(target.descriptor())) {
-                anchors.add(new CoremodAnchor(owner, method, descriptor, invocationType));
+                String variable = findAnchorVariable(source, matcher.end());
+                anchors.add(new CoremodAnchor(variable, owner, method, descriptor, invocationType));
             }
         }
         return List.copyOf(anchors);
+    }
+
+    private static String findAnchorVariable(String source, int conditionEnd) {
+        int searchEnd = Math.min(source.length(), conditionEnd + 400);
+        String tail = source.substring(conditionEnd, searchEnd);
+        Matcher assignment = Pattern.compile(
+                "([A-Za-z_$][A-Za-z0-9_$]*)\\s*=\\s*curr\\s*;").matcher(tail);
+        if (assignment.find()) return assignment.group(1);
+        return "";
     }
 
     private static List<CoremodValue> extractCoremodValues(String source) {
