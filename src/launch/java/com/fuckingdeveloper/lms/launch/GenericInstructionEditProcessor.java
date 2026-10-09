@@ -162,6 +162,10 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             return spec.edits();
         }
         MethodInsnNode consumer = consumerSite.consumer();
+        System.out.println("[LMS/early] semantic-consumer id=" + spec.id()
+                + " anchor=" + describeNode(anchorNode)
+                + " successor=" + describeNode(nextExecutable(anchorNode))
+                + " consumer=" + consumer.owner + "#" + consumer.name + consumer.desc);
 
         // Replace the migrated producer in-place. Its current consumer remains intact.
         anchorNode = bindings.get(anchor.variable());
@@ -206,6 +210,8 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             if (producedType.getSize() != 1) return null;
             swappedCategory1 = true;
             n = nextExecutable(n);
+            System.out.println("[LMS/early] semantic-scan swap-next=" + describeNode(n)
+                    + " produced=" + producedType.getDescriptor());
         }
 
         // Do not guess through arbitrary stack programs. A straight consumer or the
