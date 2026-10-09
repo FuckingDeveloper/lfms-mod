@@ -115,9 +115,9 @@ public final class LmsMod {
                         }
                         var transformationSpecs = new TransformationSpecPlanner().plan(compatibility);
                         for (var spec : transformationSpecs) {
-                            LOG.info("LMS transformation spec id={} kind={} readiness={} target={} anchor={} replacement={} reason={}",
+                            LOG.info("LMS transformation spec id={} kind={} readiness={} target={} anchor={} replacement={} edits={} reason={}",
                                     spec.id(), spec.kind(), spec.readiness(), spec.target(),
-                                    spec.anchor(), spec.replacement(), spec.reason());
+                                    spec.anchor(), spec.replacement(), spec.edits(), spec.reason());
                         }
                         for (var coremod : injectionReport.coremods()) {
                             LOG.info("LMS coremod path={} targets={} referencedClasses={} asmApiCalls={}",
