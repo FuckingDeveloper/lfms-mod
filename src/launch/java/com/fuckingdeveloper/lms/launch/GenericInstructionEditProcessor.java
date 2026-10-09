@@ -192,11 +192,8 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
     private record ConsumerSite(MethodInsnNode consumer, AbstractInsnNode insertionPoint) {}
 
     private static ConsumerSite findConsumerOfTopValue(AbstractInsnNode producer, Type producedType) {
-        int carriedSlots = producedType.getSize();
         for (AbstractInsnNode n = nextExecutable(producer); n != null; n = nextExecutable(n)) {
             int op = n.getOpcode();
-            // Stack-only shuffles that preserve the produced value while arranging
-            // other operands for the eventual consumer.
             if (op == Opcodes.SWAP || op == Opcodes.DUP || op == Opcodes.DUP_X1
                     || op == Opcodes.DUP_X2 || op == Opcodes.DUP2 || op == Opcodes.DUP2_X1
                     || op == Opcodes.DUP2_X2) {
@@ -209,8 +206,6 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 }
                 return null;
             }
-            // Any load/store/arithmetic/field/control-flow operation means we can no
-            // longer prove that the original producer value reaches a unique consumer.
             return null;
         }
         return null;
@@ -223,6 +218,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
     }
 
     private static AbstractInsnNode nextExecutable(AbstractInsnNode node) {
+        if (node == null) return null;
         for (AbstractInsnNode n = node.getNext(); n != null; n = n.getNext()) {
             if (n.getOpcode() >= 0) return n;
         }
