@@ -7,12 +7,10 @@ import org.objectweb.asm.Opcodes;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Verifies the mechanically plausible Forge -> NeoForge namespace migration
@@ -123,7 +121,17 @@ public final class Forge1192NeoForgeApiVerifier {
     }
 
     private static String migrate(String value) {
-        return value.replace("net.minecraftforge.", "net.neoforged.")
-                .replace("net/minecraftforge/", "net/neoforged/");
+        // NeoForge split the old Forge namespace across the API implementation,
+        // event bus and FML modules. A blanket net.minecraftforge -> net.neoforged
+        // substitution produces non-existent classes.
+        return value
+                .replace("net.minecraftforge.eventbus.", "net.neoforged.bus.")
+                .replace("net/minecraftforge/eventbus/", "net/neoforged/bus/")
+                .replace("net.minecraftforge.fml.", "net.neoforged.fml.")
+                .replace("net/minecraftforge/fml/", "net/neoforged/fml/")
+                .replace("net.minecraftforge.forgespi.", "net.neoforged.neoforgespi.")
+                .replace("net/minecraftforge/forgespi/", "net/neoforged/neoforgespi/")
+                .replace("net.minecraftforge.", "net.neoforged.neoforge.")
+                .replace("net/minecraftforge/", "net/neoforged/neoforge/");
     }
 }
