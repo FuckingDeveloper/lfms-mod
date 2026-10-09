@@ -7,6 +7,7 @@ import com.fuckingdeveloper.lms.analysis.LegacyRuntimeBytecodeInspector;
 import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
 import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
+import com.fuckingdeveloper.lms.runtime.Forge1192LifecyclePlanner;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -67,6 +68,17 @@ public final class LmsMod {
                                             mod.modId(), candidate, e.getClass().getName(), e.getMessage());
                                 }
                             }
+                        }
+                        var lifecyclePlanner = new Forge1192LifecyclePlanner();
+                        boolean lifecyclePlanReady = !report.modAnnotationCandidates().isEmpty();
+                        for (String candidate : report.modAnnotationCandidates()) {
+                            var lifecyclePlan = lifecyclePlanner.plan(mod.file(), candidate);
+                            lifecyclePlanReady &= lifecyclePlan.status()
+                                    == Forge1192LifecyclePlanner.Status.READY;
+                            LOG.info("LMS lifecycle-plan id={} entrypoint={} status={} constructors={} interfaces={} forgeRefs={} reason={}",
+                                    mod.modId(), candidate, lifecyclePlan.status(),
+                                    lifecyclePlan.constructors(), lifecyclePlan.interfaces(),
+                                    lifecyclePlan.forgeReferences(), lifecyclePlan.reason());
                         }
                         var lifecycleDecision = new LegacyLifecycleGate().evaluate(report);
                         for (var capability : lifecycleDecision.capabilities()) {
