@@ -34,7 +34,10 @@ public record TransformationSpec(
                                   InstructionSpec value, java.util.List<InstructionSpec> values) {}
 
     public record InstructionSpec(InstructionKind kind, MethodRef method,
-                                  Integer opcode, Integer variable, String expression) {}
+                                  Integer opcode, Integer variable, String expression,
+                                  InstructionReference target) {}
+
+    public record InstructionReference(String variable, int relativeOffset, boolean label) {}
 
     public enum InstructionKind {
         METHOD_CALL,
