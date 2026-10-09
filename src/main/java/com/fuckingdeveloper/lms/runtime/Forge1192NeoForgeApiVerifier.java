@@ -20,7 +20,7 @@ public final class Forge1192NeoForgeApiVerifier {
     public enum State { EXACT_TARGET, TARGET_CLASS_MISSING, TARGET_METHOD_MISSING }
 
     public record Verification(String legacyTarget, String targetOwner, String targetDescriptor,
-                               State state) {}
+                               State state, List<String> sameNameCandidates) {}
 
     public List<Verification> verify(List<Forge1192RegistrationPlanner.Boundary> boundaries,
                                      ClassLoader targetLoader) {
@@ -42,24 +42,27 @@ public final class Forge1192NeoForgeApiVerifier {
         try (InputStream in = openTargetClass(targetLoader, resource)) {
             if (in == null) {
                 return new Verification(legacyTarget, targetOwner, targetDescriptor,
-                        State.TARGET_CLASS_MISSING);
+                        State.TARGET_CLASS_MISSING, List.of());
             }
             boolean[] found = {false};
+            List<String> sameName = new java.util.ArrayList<>();
             new ClassReader(in).accept(new ClassVisitor(Opcodes.ASM9) {
                 @Override
                 public MethodVisitor visitMethod(int access, String name, String descriptor,
                                                  String signature, String[] exceptions) {
-                    if (boundary.name().equals(name) && targetDescriptor.equals(descriptor)) {
-                        found[0] = true;
+                    if (boundary.name().equals(name)) {
+                        sameName.add(descriptor);
+                        if (targetDescriptor.equals(descriptor)) found[0] = true;
                     }
                     return null;
                 }
             }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
             return new Verification(legacyTarget, targetOwner, targetDescriptor,
-                    found[0] ? State.EXACT_TARGET : State.TARGET_METHOD_MISSING);
+                    found[0] ? State.EXACT_TARGET : State.TARGET_METHOD_MISSING,
+                    List.copyOf(sameName));
         } catch (IOException e) {
             return new Verification(legacyTarget, targetOwner, targetDescriptor,
-                    State.TARGET_CLASS_MISSING);
+                    State.TARGET_CLASS_MISSING, List.of());
         }
     }
 
