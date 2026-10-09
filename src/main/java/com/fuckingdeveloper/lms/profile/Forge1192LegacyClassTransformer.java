@@ -106,6 +106,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Forge 1.19.2 FluidStack#isFluidEqual compares fluid identity,
+                // not amount or data components. Keep the old contract explicit.
+                if (call.owner.equals("net/neoforged/neoforge/fluids/FluidStack")
+                        && call.name.equals("isFluidEqual")
+                        && call.desc.equals("(Lnet/neoforged/neoforge/fluids/FluidStack;)Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192FluidBridge";
+                    call.name = "isFluidEqual";
+                    call.desc = "(Lnet/neoforged/neoforge/fluids/FluidStack;Lnet/neoforged/neoforge/fluids/FluidStack;)Z";
+                    call.itf = false;
+                    rewrites++;
+                }
                 // Forge 1.19.2 IEventBus#post returned cancellation state.
                 // NeoForge's EventBus returns the posted Event. Preserve the
                 // legacy boolean contract through an LMS runtime adapter.
