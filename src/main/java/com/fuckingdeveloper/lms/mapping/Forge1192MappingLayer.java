@@ -32,7 +32,9 @@ public final class Forge1192MappingLayer {
         FORGE_BRIDGE_REQUIRED
     }
 
+    public record MethodCandidate(String symbol, String descriptor) {}
     public record Mapping(String legacySymbol, String currentSymbol, Status status, String reason) {}
+    public record MethodSearch(String legacySymbol, List<MethodCandidate> candidates, String reason) {}
 
     private final Map<String, Mapping> mappings = new LinkedHashMap<>();
     private final ClassLoader runtimeLoader;
@@ -66,6 +68,35 @@ public final class Forge1192MappingLayer {
         String legacySymbol = owner + "#" + legacyMethod + descriptor;
         return mappings.computeIfAbsent("method:" + legacySymbol,
                 key -> inspectMethod(owner, legacyMethod, descriptor, legacySymbol));
+    }
+
+    public MethodSearch searchMethods(String owner, String legacyMethod, String descriptor) {
+        String legacySymbol = owner + "#" + legacyMethod + descriptor;
+        InputStream stream = openClass(owner);
+        if (stream == null) {
+            return new MethodSearch(legacySymbol, List.of(), "Owner class is absent from the current runtime");
+        }
+
+        List<MethodCandidate> candidates = new ArrayList<>();
+        try (stream) {
+            new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override
+                public MethodVisitor visitMethod(int access, String name, String desc,
+                                                 String signature, String[] exceptions) {
+                    if (name.equals("<init>") || name.equals("<clinit>")) return null;
+                    if (desc.equals(descriptor) || name.equals(legacyMethod)) {
+                        candidates.add(new MethodCandidate(owner + "#" + name + desc, desc));
+                    }
+                    return null;
+                }
+            }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } catch (IOException | RuntimeException ex) {
+            return new MethodSearch(legacySymbol, List.of(),
+                    "Could not inspect current owner bytecode: " + ex.getClass().getSimpleName());
+        }
+        return new MethodSearch(legacySymbol, List.copyOf(candidates),
+                candidates.isEmpty() ? "No same-name or same-descriptor current methods"
+                        : "Candidates share the legacy method name or descriptor; semantic verification required");
     }
 
     /** Retained for callers that do not yet have owner/descriptor evidence. */
