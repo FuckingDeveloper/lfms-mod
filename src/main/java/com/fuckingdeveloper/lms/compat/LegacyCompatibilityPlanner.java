@@ -225,11 +225,22 @@ public final class LegacyCompatibilityPlanner {
                 .collect(java.util.stream.Collectors.toSet());
         var names = mojmap.namedMethods().values().stream()
                 .filter(method -> candidateOwners.contains(method.obfuscatedOwner()))
-                .filter(method -> method.namedDescriptor().equals(anchor.descriptor()))
+                .filter(method -> parametersMatchDescriptor(method.parameters(), anchor.descriptor()))
                 .map(ProguardMappingReader.MethodMapping::namedName)
                 .distinct()
                 .toList();
         return names.size() == 1 ? names.getFirst() : null;
+    }
+
+    private static boolean parametersMatchDescriptor(String parameters, String descriptor) {
+        org.objectweb.asm.Type[] argumentTypes = org.objectweb.asm.Type.getArgumentTypes(descriptor);
+        if (parameters.isBlank()) return argumentTypes.length == 0;
+        String[] namedParameters = parameters.split("\\s*,\\s*");
+        if (namedParameters.length != argumentTypes.length) return false;
+        for (int i = 0; i < namedParameters.length; i++) {
+            if (!namedParameters[i].equals(argumentTypes[i].getClassName())) return false;
+        }
+        return true;
     }
 
     private static boolean isRuntimeVerified(LegacyRuntimeBytecodeInspector.Finding finding) {
