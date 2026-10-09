@@ -138,6 +138,10 @@ public final class LegacyInjectionAnalyzer {
             String owner = matcher.group(1).replace('/', '.');
             String method = matcher.group(2);
             String descriptor = matcher.group(3);
+            // In Forge coremods, instruction owners are commonly internal JVM names while
+            // descriptors may include the receiver as the first argument for an invocation.
+            // Keep the source descriptor verbatim here; mapping validation decides whether
+            // it is a real legacy method identity instead of silently "fixing" it.
             if (!owner.equals(target.owner()) || !method.equals(target.method()) || !descriptor.equals(target.descriptor())) {
                 anchors.add(new CoremodAnchor(owner, method, descriptor));
             }
