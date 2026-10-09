@@ -191,6 +191,10 @@ public final class LegacyCompatibilityPlanner {
         // legacy descriptor first; obfuscated method letters are not globally unique.
         String officialName = officialMethodName(anchor, legacyResolution, mojmap);
         if (officialName == null) {
+            if (legacyResolution.status() == LegacySrgIndex.ResolutionStatus.SOURCE_DESCRIPTOR_MISMATCH) {
+                var descriptorFinding = runtime.findUniqueByDescriptor(anchor.owner(), anchor.descriptor());
+                if (isRuntimeVerified(descriptorFinding)) return descriptorFinding;
+            }
             return runtime.find(anchor.owner(), anchor.method(), anchor.descriptor());
         }
 
