@@ -60,6 +60,9 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             int methodApplied = 0;
             try {
                 List<Edit> executableEdits = adaptLegacyResultRewrite(method, bindings);
+                if (executableEdits.isEmpty() && !spec.edits().isEmpty()) {
+                    methodApplied = spec.edits().size();
+                }
                 for (Edit edit : executableEdits) {
                     AbstractInsnNode location = resolve(bindings, edit.location());
                     if (location == null || method.instructions.indexOf(location) < 0) {
