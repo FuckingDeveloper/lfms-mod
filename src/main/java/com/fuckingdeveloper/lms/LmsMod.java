@@ -11,6 +11,7 @@ import com.fuckingdeveloper.lms.runtime.Forge1192LifecyclePlanner;
 import com.fuckingdeveloper.lms.runtime.Forge1192EntrypointInspector;
 import com.fuckingdeveloper.lms.runtime.Forge1192RegistrationPlanner;
 import com.fuckingdeveloper.lms.runtime.Forge1192CompatibilitySurface;
+import com.fuckingdeveloper.lms.runtime.Forge1192NeoForgeApiVerifier;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -102,6 +103,22 @@ public final class LmsMod {
                                 LOG.info("LMS compatibility-surface id={} requirements={} executable={} families={}",
                                         mod.modId(), compatibilitySurface.requirements().size(),
                                         compatibilitySurface.executable(), compatibilityFamilies);
+                                var apiVerification = new Forge1192NeoForgeApiVerifier()
+                                        .verify(registrationPlan.boundaries(), targetLoader);
+                                var apiVerificationStates = apiVerification.stream()
+                                        .collect(java.util.stream.Collectors.groupingBy(
+                                                Forge1192NeoForgeApiVerifier.Verification::state,
+                                                () -> new java.util.EnumMap<>(Forge1192NeoForgeApiVerifier.State.class),
+                                                java.util.stream.Collectors.counting()));
+                                LOG.info("LMS neoforge-api-verification id={} total={} states={}",
+                                        mod.modId(), apiVerification.size(), apiVerificationStates);
+                                for (var verification : apiVerification) {
+                                    if (verification.state() != Forge1192NeoForgeApiVerifier.State.EXACT_TARGET) {
+                                        LOG.info("LMS neoforge-api-gap id={} legacy={} targetOwner={} targetDescriptor={} state={}",
+                                                mod.modId(), verification.legacyTarget(), verification.targetOwner(),
+                                                verification.targetDescriptor(), verification.state());
+                                    }
+                                }
                                 var boundaryGroups = registrationPlan.boundaries().stream()
                                         .collect(java.util.stream.Collectors.groupingBy(
                                                 boundary -> boundary.owner() + "#" + boundary.name() + boundary.descriptor(),
