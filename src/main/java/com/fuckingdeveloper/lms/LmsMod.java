@@ -7,6 +7,7 @@ import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
+import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +65,19 @@ public final class LmsMod {
                             LOG.info("LMS requirement kind={} source={} target={} detail={}",
                                     requirement.kind(), requirement.source(), requirement.target(), requirement.detail());
                         }
+                        Path srgFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "joined.tsrg");
+                        var srgIndex = LegacySrgIndex.load(srgFile);
+                        LOG.info("LMS SRG mappings file={} loaded={} methods={} namespaces={}",
+                                srgFile.toAbsolutePath(), srgIndex.isPresent(),
+                                srgIndex.map(LegacySrgIndex::methodCount).orElse(0),
+                                srgIndex.map(LegacySrgIndex::namespaces).orElse(List.of()));
                         for (var plan : compatibility.coremodPlans()) {
+                            if (srgIndex.isPresent()) {
+                                for (var anchor : plan.anchors()) {
+                                    LOG.info("LMS SRG anchor source={} legacy={} matches={}",
+                                            plan.source(), anchor, srgIndex.get().findBySrgName(anchor.method()));
+                                }
+                            }
                             LOG.info("LMS coremod plan source={} target={} anchors={} anchorResolutions={} hooks={} mutations={} mapping={} current={}",
                                     plan.source(), plan.target(), plan.anchors(), plan.anchorResolutions(), plan.hooks(),
                                     plan.mutationKinds(), plan.mappingStatus(), plan.currentTarget());
