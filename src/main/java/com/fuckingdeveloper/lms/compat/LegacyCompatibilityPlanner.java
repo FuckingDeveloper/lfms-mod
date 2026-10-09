@@ -93,12 +93,16 @@ public final class LegacyCompatibilityPlanner {
             for (var transform : coremod.transforms()) {
                 coremods++;
                 var target = transform.target();
-                var mapping = mappings.classifyMethod(target.owner(), target.method(), target.descriptor());
+                var sourceMapping = mappings.classifyMethod(target.owner(), target.method(), target.descriptor());
                 var legacyTargetResolution = resolveLegacy(srgIndex, mojmap,
                         target.owner(), target.method(), target.descriptor());
                 String qualifiedTarget = target.owner() + "#" + target.method() + target.descriptor();
                 String canonicalLegacyTarget = canonicalLegacyTarget(
                         target.owner(), target.method(), target.descriptor(), legacyTargetResolution, mojmap);
+                String canonicalOwner = ownerOf(canonicalLegacyTarget);
+                var mapping = canonicalOwner.equals(target.owner())
+                        ? sourceMapping
+                        : mappings.classifyMethod(canonicalOwner, target.method(), target.descriptor());
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
                 List<LegacyInjectionAnalyzer.CoremodAnchor> anchors = transform.anchors();
@@ -145,6 +149,11 @@ public final class LegacyCompatibilityPlanner {
         return new Plan(List.copyOf(requirements), List.copyOf(coremodPlans), minecraftTargets, forgeTargets,
                 accessMixins, overwrites, injectionCount, coremods, dependencies);
     }
+    private static String ownerOf(String qualifiedMethod) {
+        int hash = qualifiedMethod.indexOf('#');
+        return hash < 0 ? qualifiedMethod : qualifiedMethod.substring(0, hash);
+    }
+
     private static String canonicalLegacyTarget(String sourceOwner, String name, String descriptor,
                                                 LegacySrgIndex.Resolution resolution,
                                                 ProguardMappingReader.Index mojmap) {
