@@ -20,6 +20,12 @@ import org.objectweb.asm.Type;
  * claiming that removed Forge APIs have already been adapted.</p>
  */
 public final class Forge1192LegacyClassTransformer implements LegacyClassTransformer {
+    private int transformedClasses;
+    private int totalRewrites;
+
+    public int transformedClasses() { return transformedClasses; }
+    public int totalRewrites() { return totalRewrites; }
+
     @Override
     public Result transform(String binaryName, byte[] original) {
         ClassReader reader = new ClassReader(original);
@@ -33,6 +39,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
 
         int rewrites = rewriteExactNamespaceMigrations(node);
+        if (rewrites > 0) {
+            transformedClasses++;
+            totalRewrites += rewrites;
+        }
 
         ClassWriter writer = new ClassWriter(0);
         node.accept(writer);
