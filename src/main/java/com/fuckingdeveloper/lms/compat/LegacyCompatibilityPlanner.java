@@ -188,12 +188,22 @@ public final class LegacyCompatibilityPlanner {
                             // recovered legacy method name itself is gone, compare the legacy
                             // method body against current same-descriptor candidates. Accept
                             // only one exact semantic fingerprint; never choose by descriptor alone.
+                            // Compare the semantic body of the *declaring* legacy method.
+                            // Forge extension methods are inherited by the Minecraft invocation
+                            // owner, and the legacy runtime inspector intentionally only indexes
+                            // classes physically present in the supplied runtime JAR. Querying
+                            // Player#getStepHeight therefore cannot recover the interface body.
+                            String semanticOwner = runtimeFinding != null
+                                    && runtimeFinding.declaringOwner() != null
+                                    && !runtimeFinding.declaringOwner().isEmpty()
+                                    ? runtimeFinding.declaringOwner()
+                                    : anchor.owner();
                             var semanticMigration = runtimeVerified && !currentIdentityVerified
                                     && !uniqueNamedMigration && legacyRuntime != null
                                     ? mappings.findUniqueSemanticMatch(
                                             anchor.owner(), anchor.descriptor(),
                                             legacyRuntime.semantics(
-                                                    anchor.owner(), runtimeFinding.method(), anchor.descriptor()).operations())
+                                                    semanticOwner, runtimeFinding.method(), anchor.descriptor()).operations())
                                     : new Forge1192MappingLayer.MethodSearch("", List.of(), "");
                             boolean uniqueSemanticMigration = semanticMigration.candidates().size() == 1;
 
