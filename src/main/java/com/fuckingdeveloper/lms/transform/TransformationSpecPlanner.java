@@ -230,8 +230,8 @@ public final class TransformationSpecPlanner {
             String legacyDescriptor, String currentDescriptor) {
         if (spec == null || spec.kind() != TransformationSpec.InstructionKind.VARIABLE
                 || spec.variable() == null) return spec;
-        var remapped = LocalSlotRemapper.remapArgumentSlot(
-                legacyDescriptor, currentDescriptor, false, spec.variable());
+        var remapped = LocalSlotRemapper.remapArgumentSlotUnknownAccess(
+                legacyDescriptor, currentDescriptor, spec.variable());
         if (!remapped.resolved()) {
             return new TransformationSpec.InstructionSpec(
                     TransformationSpec.InstructionKind.UNRESOLVED, spec.method(),
