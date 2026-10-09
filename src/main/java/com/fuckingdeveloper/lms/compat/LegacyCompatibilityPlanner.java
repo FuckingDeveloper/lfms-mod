@@ -3,6 +3,8 @@ package com.fuckingdeveloper.lms.compat;
 import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
 import com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer;
+import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
+import com.fuckingdeveloper.lms.mapping.ProguardMappingReader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,18 +29,24 @@ public final class LegacyCompatibilityPlanner {
                                    Forge1192MappingLayer.Status mappingStatus,
                                    String currentSymbol,
                                    List<Forge1192MappingLayer.MethodCandidate> candidates,
-                                   String reason) {}
+                                   String reason,
+                                   LegacySrgIndex.Resolution legacyResolution) {}
     public record CoremodTransformationPlan(String source, String target,
                                             List<LegacyInjectionAnalyzer.CoremodAnchor> anchors,
                                             List<AnchorResolution> anchorResolutions,
                                             List<LegacyInjectionAnalyzer.CoremodHookCall> hooks,
                                             List<String> mutationKinds, Forge1192MappingLayer.Status mappingStatus,
-                                            String currentTarget) {}
+                                            String currentTarget, LegacySrgIndex.Resolution legacyTargetResolution) {}
     public record Plan(List<Requirement> requirements, List<CoremodTransformationPlan> coremodPlans,
                        int minecraftTargets, int forgeTargets, int accessMixins, int overwrites,
                        int injections, int coremodTransforms, int requiredDependencies) {}
 
     public Plan plan(LegacyMetadataAnalyzer.Report metadata, LegacyInjectionAnalyzer.Report injections) {
+        return plan(metadata, injections, null, null);
+    }
+
+    public Plan plan(LegacyMetadataAnalyzer.Report metadata, LegacyInjectionAnalyzer.Report injections,
+                     LegacySrgIndex srgIndex, ProguardMappingReader.Index mojmap) {
         List<Requirement> requirements = new ArrayList<>();
         List<CoremodTransformationPlan> coremodPlans = new ArrayList<>();
         Forge1192MappingLayer mappings = new Forge1192MappingLayer();
@@ -86,6 +94,8 @@ public final class LegacyCompatibilityPlanner {
                 coremods++;
                 var target = transform.target();
                 var mapping = mappings.classifyMethod(target.owner(), target.method(), target.descriptor());
+                var legacyTargetResolution = resolveLegacy(srgIndex, mojmap,
+                        target.owner(), target.method(), target.descriptor());
                 String qualifiedTarget = target.owner() + "#" + target.method() + target.descriptor();
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
@@ -96,8 +106,11 @@ public final class LegacyCompatibilityPlanner {
                                     anchor.owner(), anchor.method(), anchor.descriptor());
                             var search = mappings.searchMethods(
                                     anchor.owner(), anchor.method(), anchor.descriptor());
+                            var legacyResolution = resolveLegacy(srgIndex, mojmap,
+                                    anchor.owner(), anchor.method(), anchor.descriptor());
                             return new AnchorResolution(anchor, anchorMapping.status(),
-                                    anchorMapping.currentSymbol(), search.candidates(), anchorMapping.reason());
+                                    anchorMapping.currentSymbol(), search.candidates(), anchorMapping.reason(),
+                                    legacyResolution);
                         })
                         .toList();
                 List<String> mutationKinds = transform.operations().stream()
@@ -106,12 +119,14 @@ public final class LegacyCompatibilityPlanner {
                         .toList();
                 coremodPlans.add(new CoremodTransformationPlan(
                         coremod.path() + "#" + transform.name(), qualifiedTarget, anchors, anchorResolutions,
-                        transform.hookCalls(), mutationKinds, mapping.status(), mapping.currentSymbol()));
+                        transform.hookCalls(), mutationKinds, mapping.status(), mapping.currentSymbol(),
+                        legacyTargetResolution));
                 requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM,
                         coremod.path() + "#" + transform.name(), qualifiedTarget,
                         "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()
                                 + hooks + " mapping=" + mapping.status() + mapped
-                                + " reason=" + mapping.reason()));
+                                + " reason=" + mapping.reason()
+                                + " legacy=" + legacyTargetResolution.status()));
             }
         }
 
@@ -128,4 +143,16 @@ public final class LegacyCompatibilityPlanner {
         return new Plan(List.copyOf(requirements), List.copyOf(coremodPlans), minecraftTargets, forgeTargets,
                 accessMixins, overwrites, injectionCount, coremods, dependencies);
     }
+    private static LegacySrgIndex.Resolution resolveLegacy(LegacySrgIndex srgIndex,
+                                                            ProguardMappingReader.Index mojmap,
+                                                            String owner, String name, String descriptor) {
+        if (srgIndex == null) {
+            return new LegacySrgIndex.Resolution(LegacySrgIndex.ResolutionStatus.NOT_FOUND,
+                    List.of(), "Legacy mapping index unavailable");
+        }
+        return mojmap != null
+                ? srgIndex.resolveWithNamedOwner(owner, name, descriptor, mojmap)
+                : srgIndex.resolve(owner, name, descriptor);
+    }
+
 }
