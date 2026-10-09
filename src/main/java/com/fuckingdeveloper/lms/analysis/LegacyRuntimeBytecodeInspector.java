@@ -76,6 +76,50 @@ public final class LegacyRuntimeBytecodeInspector {
         return findRecursive(internalOwner, owner, method, descriptor, new HashSet<>());
     }
 
+    public Finding findUniqueByDescriptor(String owner, String descriptor) {
+        String internalOwner = owner.replace('.', '/');
+        if (!classes.containsKey(internalOwner)) {
+            return new Finding(owner, "", descriptor, "OWNER_NOT_IN_JAR", "",
+                    "No class at this exact namespace/path; verify that the JAR is deobfuscated and includes this class");
+        }
+        List<DescriptorMatch> matches = new ArrayList<>();
+        collectByDescriptor(internalOwner, descriptor, new HashSet<>(), matches);
+        var unique = matches.stream()
+                .distinct()
+                .toList();
+        if (unique.size() == 1) {
+            var match = unique.getFirst();
+            String declaringOwner = match.owner().replace('/', '.');
+            String status = match.owner().equals(internalOwner) ? "DECLARED" : "INHERITED";
+            return new Finding(owner, match.method().name(), descriptor, status, declaringOwner,
+                    "Unique exact descriptor in runtime hierarchy; method name recovered from Forge bytecode");
+        }
+        return new Finding(owner, "", descriptor,
+                unique.isEmpty() ? "DESCRIPTOR_NOT_FOUND" : "DESCRIPTOR_AMBIGUOUS", "",
+                unique.isEmpty() ? "No method with exact descriptor in runtime hierarchy"
+                        : "Multiple methods with exact descriptor in runtime hierarchy: "
+                        + unique.stream().map(match -> match.owner().replace('/', '.') + "#"
+                        + match.method().name()).toList());
+    }
+
+    private record DescriptorMatch(String owner, MethodInfo method) {}
+
+    private void collectByDescriptor(String current, String descriptor, Set<String> visited,
+                                     List<DescriptorMatch> matches) {
+        if (!visited.add(current)) return;
+        ClassInfo info = classes.get(current);
+        if (info == null) return;
+        for (MethodInfo candidate : info.methods()) {
+            if (candidate.descriptor().equals(descriptor)) {
+                matches.add(new DescriptorMatch(current, candidate));
+            }
+        }
+        if (info.parent() != null) collectByDescriptor(info.parent(), descriptor, visited, matches);
+        for (String implemented : info.interfaces()) {
+            collectByDescriptor(implemented, descriptor, visited, matches);
+        }
+    }
+
     private Finding findRecursive(String current, String requestedOwner, String method,
                                   String descriptor, Set<String> visited) {
         if (!visited.add(current)) return new Finding(requestedOwner, method, descriptor,
