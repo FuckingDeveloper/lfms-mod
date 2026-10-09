@@ -106,6 +106,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // RegisterEvent no longer exposes Forge 1.19.2's
+                // IForgeRegistry facade. Preserve the registry key directly;
+                // mutable registry operations are handled by scoped adapters.
+                if (call.owner.equals("net/neoforged/neoforge/registries/RegisterEvent")
+                        && call.name.equals("getRegistryKey")
+                        && call.desc.equals("()Lnet/minecraft/resources/ResourceKey;")) {
+                    // Exact modern API after ResourceLocation -> Identifier migration.
+                }
                 // Legacy IForgeRegistry#register is no longer a mutable
                 // registry call. Route it through the active RegisterEvent scope.
                 if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
