@@ -8,6 +8,12 @@ import org.objectweb.asm.Handle;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,6 +49,10 @@ public final class Forge1192MappingLayer {
 
     private final Map<String, Mapping> mappings = new LinkedHashMap<>();
     private final ClassLoader runtimeLoader;
+    private volatile RuntimeIndex runtimeIndex;
+
+    public record IndexedMethod(String owner, String name, String descriptor, int access) {}
+    public record RuntimeIndex(List<IndexedMethod> methods, String provenance) {}
 
     public Forge1192MappingLayer() {
         ClassLoader context = Thread.currentThread().getContextClassLoader();
@@ -110,13 +120,122 @@ public final class Forge1192MappingLayer {
      * It is useful when the declaring class moved or a former utility class disappeared.
      */
     public MethodSearch searchExactIdentity(String method, String descriptor) {
-        List<MethodCandidate> candidates = new ArrayList<>();
-        var roots = runtimeLoader.getDefinedPackages();
-        // ClassLoader does not expose an enumerable class path, so use the already-known
-        // Minecraft package roots only as metadata; global class enumeration is unavailable.
-        // Callers should use candidate owners discovered from bytecode/mappings instead.
+        RuntimeIndex index = runtimeIndex();
+        List<MethodCandidate> candidates = index.methods().stream()
+                .filter(candidate -> candidate.name().equals(method))
+                .filter(candidate -> candidate.descriptor().equals(descriptor))
+                .map(candidate -> new MethodCandidate(
+                        candidate.owner() + "#" + candidate.name() + candidate.descriptor(),
+                        candidate.descriptor()))
+                .toList();
         return new MethodSearch(method + descriptor, List.copyOf(candidates),
-                "Global runtime class enumeration is unavailable; candidate-owner discovery required");
+                candidates.size() == 1
+                        ? "Unique exact identity in target runtime index (" + index.provenance() + ")"
+                        : candidates.isEmpty()
+                        ? "No exact identity in target runtime index (" + index.provenance() + ")"
+                        : "Multiple exact identities in target runtime index; owner evidence required");
+    }
+
+    public MethodSearch searchRuntimeByName(String method) {
+        RuntimeIndex index = runtimeIndex();
+        List<MethodCandidate> candidates = index.methods().stream()
+                .filter(candidate -> candidate.name().equals(method))
+                .map(candidate -> new MethodCandidate(
+                        candidate.owner() + "#" + candidate.name() + candidate.descriptor(),
+                        candidate.descriptor()))
+                .toList();
+        return new MethodSearch(method, List.copyOf(candidates),
+                candidates.size() == 1
+                        ? "Unique recovered name in target runtime index (" + index.provenance() + ")"
+                        : candidates.isEmpty()
+                        ? "Recovered name absent from target runtime index (" + index.provenance() + ")"
+                        : "Recovered name has multiple target-runtime candidates; semantic verification required");
+    }
+
+    /**
+     * Enumerates the actual target runtime without loading or initializing classes.
+     * Java 9+ exposes module contents through the jrt filesystem even when the game
+     * classes are supplied by a custom loader; Minecraft itself is additionally
+     * discoverable from the loader's package resources when available. The index is
+     * deliberately evidence-only: it never turns a candidate into a verified mapping.
+     */
+    public RuntimeIndex runtimeIndex() {
+        RuntimeIndex cached = runtimeIndex;
+        if (cached != null) return cached;
+        synchronized (this) {
+            if (runtimeIndex != null) return runtimeIndex;
+            List<IndexedMethod> methods = new ArrayList<>();
+            Set<String> visited = new HashSet<>();
+            // ModDev/FML exposes already-defined Minecraft packages. Enumerate package
+            // resources where the backing URL is a directory or jar filesystem.
+            for (Package pkg : runtimeLoader.getDefinedPackages()) {
+                String name = pkg.getName();
+                if (!name.startsWith("net.minecraft.")) continue;
+                String resource = name.replace('.', '/');
+                try {
+                    var urls = runtimeLoader.getResources(resource);
+                    while (urls.hasMoreElements()) {
+                        var url = urls.nextElement();
+                        if ("file".equals(url.getProtocol())) {
+                            Path dir = Path.of(url.toURI());
+                            indexDirectory(dir, resource, methods, visited);
+                        } else if ("jar".equals(url.getProtocol())) {
+                            var connection = (java.net.JarURLConnection) url.openConnection();
+                            try (var jar = connection.getJarFile()) {
+                                var entries = jar.entries();
+                                while (entries.hasMoreElements()) {
+                                    var entry = entries.nextElement();
+                                    String entryName = entry.getName();
+                                    if (entryName.startsWith("net/minecraft/") && entryName.endsWith(".class")
+                                            && visited.add(entryName)) {
+                                        try (InputStream in = jar.getInputStream(entry)) {
+                                            indexClass(in, methods);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                    // Partial coverage is represented in provenance and must not prove absence.
+                }
+            }
+            runtimeIndex = new RuntimeIndex(List.copyOf(methods),
+                    "defined-package resources, classes=" + visited.size() + ", methods=" + methods.size());
+            return runtimeIndex;
+        }
+    }
+
+    private void indexDirectory(Path packageDir, String resourcePrefix,
+                                List<IndexedMethod> methods, Set<String> visited) {
+        if (!Files.isDirectory(packageDir)) return;
+        try (var walk = Files.walk(packageDir)) {
+            walk.filter(path -> path.toString().endsWith(".class")).forEach(path -> {
+                Path relative = packageDir.relativize(path);
+                String entry = resourcePrefix + "/" + relative.toString().replace('\\', '/');
+                if (!visited.add(entry)) return;
+                try (InputStream in = Files.newInputStream(path)) {
+                    indexClass(in, methods);
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception ignored) {}
+    }
+
+    private void indexClass(InputStream in, List<IndexedMethod> methods) throws IOException {
+        new ClassReader(in).accept(new ClassVisitor(Opcodes.ASM9) {
+            private String owner;
+            @Override public void visit(int version, int access, String name, String signature,
+                                        String superName, String[] interfaces) {
+                owner = name.replace('/', '.');
+            }
+            @Override public MethodVisitor visitMethod(int access, String name, String desc,
+                                                       String signature, String[] exceptions) {
+                if (!name.equals("<init>") && !name.equals("<clinit>")) {
+                    methods.add(new IndexedMethod(owner, name, desc, access));
+                }
+                return null;
+            }
+        }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
     }
 
     public MethodSemantics semantics(String symbol) {
