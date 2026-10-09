@@ -106,6 +106,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // The old GameData helper relied on implicit active mod
+                // registration context. Redirect to an explicit scoped bridge.
+                if (call.owner.equals("net/neoforged/neoforge/registries/GameData")
+                        && call.name.equals("checkPrefix")
+                        && call.desc.equals("(Ljava/lang/String;Z)Lnet/minecraft/resources/ResourceLocation;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                    call.itf = false;
+                    rewrites++;
+                }
                 // Forge 1.19.2 FluidStack#isFluidEqual compares fluid identity,
                 // not amount or data components. Keep the old contract explicit.
                 if (call.owner.equals("net/neoforged/neoforge/fluids/FluidStack")
