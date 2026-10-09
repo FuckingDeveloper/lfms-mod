@@ -28,7 +28,7 @@ public final class LegacyInjectionAnalyzer {
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodOperation(String kind, String detail, String arguments) {}
-    public record CoremodValue(String name, String expression) {}
+    public record CoremodValue(String name, String expression, List<String> mutations) {}
     public record CoremodAnchor(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodTransform(String name, CoremodMethodTarget target, List<String> mappedMethods,
                                    List<CoremodAnchor> anchors, List<CoremodHookCall> hookCalls,
@@ -162,10 +162,27 @@ public final class LegacyInjectionAnalyzer {
             int expressionStart = matcher.end();
             int expressionEnd = findStatementEnd(source, expressionStart);
             if (expressionEnd <= expressionStart) continue;
+            String name = matcher.group(1);
             String expression = source.substring(expressionStart, expressionEnd).trim();
-            if (!expression.isEmpty()) values.add(new CoremodValue(matcher.group(1), expression));
+            if (expression.isEmpty()) continue;
+            values.add(new CoremodValue(name, expression, extractValueMutations(source, name)));
         }
         return List.copyOf(values);
+    }
+
+    private static List<String> extractValueMutations(String source, String name) {
+        List<String> mutations = new ArrayList<>();
+        Pattern mutation = Pattern.compile(
+                "(?<![A-Za-z0-9_$])" + Pattern.quote(name)
+                        + "\\.(add|insert|insertBefore)\\s*\\(");
+        Matcher matcher = mutation.matcher(source);
+        while (matcher.find()) {
+            int open = source.indexOf('(', matcher.start());
+            if (open < 0) continue;
+            String arguments = extractBalancedArguments(source, open);
+            mutations.add(matcher.group(1) + "(" + arguments + ")");
+        }
+        return List.copyOf(mutations);
     }
 
     private static int findStatementEnd(String source, int start) {
