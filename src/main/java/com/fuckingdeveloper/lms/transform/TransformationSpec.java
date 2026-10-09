@@ -31,7 +31,7 @@ public record TransformationSpec(
     /** Loader-neutral edit recovered from legacy instruction-list JavaScript. */
     public record InstructionEdit(EditKind kind, InstructionLocation location,
                                   String firstArgument, String valueExpression,
-                                  InstructionSpec value) {}
+                                  InstructionSpec value, java.util.List<InstructionSpec> values) {}
 
     public record InstructionSpec(InstructionKind kind, MethodRef method,
                                   Integer opcode, Integer variable, String expression) {}
@@ -40,6 +40,7 @@ public record TransformationSpec(
         METHOD_CALL,
         SIMPLE_OPCODE,
         VARIABLE,
+        JUMP,
         UNRESOLVED
     }
 
