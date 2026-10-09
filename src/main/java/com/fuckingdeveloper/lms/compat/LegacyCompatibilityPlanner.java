@@ -111,6 +111,32 @@ public final class LegacyCompatibilityPlanner {
                 var mapping = canonicalOwner.equals(target.owner())
                         ? sourceMapping
                         : mappings.classifyMethod(canonicalOwner, target.method(), target.descriptor());
+
+                // Coremod targets use SRG names too. Recover the 1.19.2 Mojang name
+                // and retry current-runtime identity before accepting descriptor-only
+                // evidence. This mirrors anchor resolution and prevents e.g. two
+                // same-descriptor methods from making an otherwise stable target ambiguous.
+                String targetOfficialName = officialTargetMethodName(
+                        target.owner(), target.method(), target.descriptor(),
+                        legacyTargetResolution, mojmap);
+                if (targetOfficialName != null) {
+                    var namedTarget = mappings.classifyMethod(
+                            canonicalOwner, targetOfficialName, target.descriptor());
+                    if (namedTarget.status() == Forge1192MappingLayer.Status.VERIFIED_IDENTITY) {
+                        mapping = namedTarget;
+                    } else {
+                        var migratedTarget = mappings.searchNamedMethods(canonicalOwner, targetOfficialName);
+                        if (migratedTarget.candidates().size() == 1) {
+                            var candidate = migratedTarget.candidates().getFirst();
+                            mapping = new Forge1192MappingLayer.Mapping(
+                                    canonicalOwner + "#" + target.method() + target.descriptor(),
+                                    candidate.symbol(),
+                                    Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
+                                    "Recovered legacy target name survives with a changed descriptor: "
+                                            + candidate.descriptor());
+                        }
+                    }
+                }
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
                 List<LegacyInjectionAnalyzer.CoremodAnchor> anchors = transform.anchors();
@@ -249,6 +275,27 @@ public final class LegacyCompatibilityPlanner {
             }
         }
         return sourceFinding;
+    }
+
+    private static String officialTargetMethodName(
+            String owner, String method, String descriptor,
+            LegacySrgIndex.Resolution legacyResolution,
+            ProguardMappingReader.Index mojmap) {
+        if (mojmap == null || legacyResolution.matches().isEmpty()) return null;
+        var names = legacyResolution.matches().stream()
+                .flatMap(match -> {
+                    if (match.owners().isEmpty()) return java.util.stream.Stream.empty();
+                    String obfuscatedOwner = match.owners().getFirst();
+                    String obfuscatedName = match.sourceName();
+                    return mojmap.namedMethods().values().stream()
+                            .filter(mapped -> mapped.obfuscatedOwner().equals(obfuscatedOwner))
+                            .filter(mapped -> mapped.obfuscatedName().equals(obfuscatedName))
+                            .filter(mapped -> parametersMatchDescriptor(mapped.parameters(), descriptor))
+                            .map(ProguardMappingReader.MethodMapping::namedName);
+                })
+                .distinct()
+                .toList();
+        return names.size() == 1 ? names.getFirst() : null;
     }
 
     private static String officialMethodName(
