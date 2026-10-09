@@ -8,6 +8,7 @@ import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
+import com.fuckingdeveloper.lms.transform.CoremodTransform6Rewriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ public final class LmsMod {
     private static final Logger LOG = LoggerFactory.getLogger(LmsMod.class);
 
     public LmsMod() {
+        probeCurrentTransform6();
         // Discovery-only milestone: never load or transform arbitrary legacy classes.
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {
@@ -133,6 +135,32 @@ public final class LmsMod {
             }
         } catch (IOException e) {
             LOG.error("LMS legacy discovery failed for {}", directory, e);
+        }
+    }
+
+    /**
+     * Prove that the native transform-6 rewrite matches the actual NeoForge 26.3
+     * Player bytecode before wiring it into an early class transformation stage.
+     * This is inspection-only: the rewritten bytes are deliberately not defined.
+     */
+    private static void probeCurrentTransform6() {
+        String resource = "/" + CoremodTransform6Rewriter.TARGET_OWNER + ".class";
+        try (var input = LmsMod.class.getResourceAsStream(resource)) {
+            if (input == null) {
+                LOG.warn("LMS transform-6 probe: current Player bytecode resource is unavailable: {}", resource);
+                return;
+            }
+            byte[] original = input.readAllBytes();
+            var result = new CoremodTransform6Rewriter().rewrite(original);
+            LOG.info("LMS transform-6 probe targetFound={} replacements={} originalBytes={} rewrittenBytes={} changed={}",
+                    result.targetMethodFound(), result.replacements(), original.length,
+                    result.bytecode().length, result.changed());
+            if (!result.targetMethodFound() || result.replacements() != 1) {
+                LOG.warn("LMS transform-6 probe did not find the expected unique Player#maxUpStep() call; "
+                        + "do not enable the runtime transformer for this Minecraft build");
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("LMS transform-6 probe failed", e);
         }
     }
 }
