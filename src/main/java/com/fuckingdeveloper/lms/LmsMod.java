@@ -3,6 +3,7 @@ package com.fuckingdeveloper.lms;
 import com.fuckingdeveloper.lms.analysis.LegacyJarAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
+import com.fuckingdeveloper.lms.analysis.LegacyRuntimeBytecodeInspector;
 import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
@@ -60,6 +61,27 @@ public final class LmsMod {
                         var srgIndex = LegacySrgIndex.load(srgFile);
                         Path mojmapFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "client.txt");
                         var mojmap = new com.fuckingdeveloper.lms.mapping.MappingFileLoader().load(mojmapFile);
+                        // Optional evidence from a user-provided, named 1.19.2 runtime JAR.
+                        // This does not load classes or execute legacy coremods.
+                        Path runtimeJar = Path.of(System.getProperty("user.dir"), "legacy-runtime", "1.19.2", "client.jar");
+                        if (Files.isRegularFile(runtimeJar)) {
+                            try {
+                                var runtime = LegacyRuntimeBytecodeInspector.read(runtimeJar);
+                                LOG.info("LMS legacy runtime bytecode file={} classes={}",
+                                        runtimeJar.toAbsolutePath(), runtime.classCount());
+                                LOG.info("LMS legacy runtime probe={}", runtime.find(
+                                        "net.minecraft.world.entity.player.Player", "getDamageAfterArmorAbsorb",
+                                        "(Lnet/minecraft/world/damagesource/DamageSource;F)F"));
+                                LOG.info("LMS legacy runtime probe={}", runtime.find(
+                                        "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+                                        "skipRendering",
+                                        "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z"));
+                                LOG.info("LMS legacy runtime probe={}", runtime.find(
+                                        "net.minecraft.world.entity.player.Player", "getStepHeight", "()F"));
+                            } catch (IOException | RuntimeException e) {
+                                LOG.warn("LMS optional legacy runtime inspection failed for {}", runtimeJar, e);
+                            }
+                        }
                         var compatibility = new LegacyCompatibilityPlanner().plan(
                                 metadata, injectionReport, srgIndex.orElse(null),
                                 mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::index).orElse(null));
