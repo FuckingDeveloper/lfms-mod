@@ -106,6 +106,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Legacy IForgeRegistry#register is no longer a mutable
+                // registry call. Route it through the active RegisterEvent scope.
+                if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
+                        && call.name.equals("register")
+                        && call.desc.equals("(Ljava/lang/String;Ljava/lang/Object;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                    call.desc = "(Ljava/lang/String;Ljava/lang/Object;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
+                        && call.name.equals("register")
+                        && call.desc.equals("(Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                    call.desc = "(Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
                 // The old GameData helper relied on implicit active mod
                 // registration context. Redirect to an explicit scoped bridge.
                 if (call.owner.equals("net/neoforged/neoforge/registries/GameData")
