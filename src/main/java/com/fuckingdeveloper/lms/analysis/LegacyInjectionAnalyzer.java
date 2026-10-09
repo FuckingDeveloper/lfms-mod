@@ -27,7 +27,7 @@ public final class LegacyInjectionAnalyzer {
                         List<Injection> injections, String error) {}
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
-    public record CoremodOperation(String kind, String detail) {}
+    public record CoremodOperation(String kind, String detail, String arguments) {}
     public record CoremodAnchor(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodTransform(String name, CoremodMethodTarget target, List<String> mappedMethods,
                                    List<CoremodAnchor> anchors, List<CoremodHookCall> hookCalls,
@@ -158,12 +158,33 @@ public final class LegacyInjectionAnalyzer {
         Matcher matcher = operation.matcher(source);
         while (matcher.find()) {
             String kind = matcher.group(1);
+            int open = source.indexOf('(', matcher.start());
+            String arguments = open >= 0 ? extractBalancedArguments(source, open) : "";
             int end = Math.min(source.length(), matcher.start() + 260);
             String detail = source.substring(matcher.start(), end)
                     .replaceAll("\\s+", " ").trim();
-            operations.add(new CoremodOperation(kind, detail));
+            operations.add(new CoremodOperation(kind, detail, arguments));
         }
         return List.copyOf(operations);
+    }
+
+    private static String extractBalancedArguments(String source, int open) {
+        int depth = 1;
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = open + 1; i < source.length(); i++) {
+            char ch = source.charAt(i);
+            if (quote != 0) {
+                if (escaped) escaped = false;
+                else if (ch == '\\\\') escaped = true;
+                else if (ch == quote) quote = 0;
+                continue;
+            }
+            if (ch == '\'' || ch == '"' || ch == '`') quote = ch;
+            else if (ch == '(') depth++;
+            else if (ch == ')' && --depth == 0) return source.substring(open + 1, i).trim();
+        }
+        return "";
     }
 
     private record MatcherSnapshot(int start, CoremodMethodTarget target) {}
