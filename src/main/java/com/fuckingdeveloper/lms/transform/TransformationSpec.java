@@ -33,6 +33,7 @@ public record TransformationSpec(
 
     /** Loader-neutral edit recovered from legacy instruction-list JavaScript. */
     public record InstructionEdit(EditKind kind, InstructionLocation location,
+                                  InstructionReference locationReference,
                                   String firstArgument, String valueExpression,
                                   InstructionSpec value, java.util.List<InstructionSpec> values) {}
 
