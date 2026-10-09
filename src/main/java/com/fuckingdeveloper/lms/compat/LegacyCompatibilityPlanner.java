@@ -217,16 +217,22 @@ public final class LegacyCompatibilityPlanner {
             ProguardMappingReader.Index mojmap) {
         if (mojmap == null || legacyResolution.matches().isEmpty()) return null;
 
-        // The source descriptor is in named classes. Mojmap's MethodMapping carries
-        // the named descriptor, so owner + descriptor is stronger evidence than the
-        // one-letter obfuscated method name.
-        var candidateOwners = legacyResolution.matches().stream()
-                .flatMap(match -> match.owners().stream().limit(1))
-                .collect(java.util.stream.Collectors.toSet());
-        var names = mojmap.namedMethods().values().stream()
-                .filter(method -> candidateOwners.contains(method.obfuscatedOwner()))
-                .filter(method -> parametersMatchDescriptor(method.parameters(), anchor.descriptor()))
-                .map(ProguardMappingReader.MethodMapping::namedName)
+        // A coremod SRG invocation may name an inherited member. Therefore the
+        // invocation owner is not necessarily one of the TSRG declaring owners.
+        // Translate each legacy match by its exact obfuscated owner+name identity.
+        // Restrict with the named parameter list when possible, then accept only
+        // one unanimous official name.
+        var names = legacyResolution.matches().stream()
+                .flatMap(match -> {
+                    if (match.owners().isEmpty()) return java.util.stream.Stream.empty();
+                    String obfuscatedOwner = match.owners().getFirst();
+                    String obfuscatedName = match.sourceName();
+                    return mojmap.namedMethods().values().stream()
+                            .filter(method -> method.obfuscatedOwner().equals(obfuscatedOwner))
+                            .filter(method -> method.obfuscatedName().equals(obfuscatedName))
+                            .filter(method -> parametersMatchDescriptor(method.parameters(), anchor.descriptor()))
+                            .map(ProguardMappingReader.MethodMapping::namedName);
+                })
                 .distinct()
                 .toList();
         return names.size() == 1 ? names.getFirst() : null;
