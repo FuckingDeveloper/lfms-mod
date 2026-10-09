@@ -114,9 +114,10 @@ public final class LmsMod {
                                         mod.modId(), apiVerification.size(), apiVerificationStates);
                                 for (var verification : apiVerification) {
                                     if (verification.state() != Forge1192NeoForgeApiVerifier.State.EXACT_TARGET) {
-                                        LOG.info("LMS neoforge-api-gap id={} legacy={} targetOwner={} targetDescriptor={} state={}",
+                                        LOG.info("LMS neoforge-api-gap id={} legacy={} targetOwner={} targetDescriptor={} state={} sameNameCandidates={}",
                                                 mod.modId(), verification.legacyTarget(), verification.targetOwner(),
-                                                verification.targetDescriptor(), verification.state());
+                                                verification.targetDescriptor(), verification.state(),
+                                                verification.sameNameCandidates());
                                     }
                                 }
                                 var boundaryGroups = registrationPlan.boundaries().stream()
