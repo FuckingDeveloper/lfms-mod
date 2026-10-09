@@ -39,7 +39,7 @@ public final class LegacyLifecycleGate {
                 "legacy-registration", State.UNKNOWN, true,
                 "Legacy deferred/registry lifecycle has not been mapped to NeoForge registration boundaries"));
 
-        if (report.transformerHints() > 0) {
+        if (!report.transformerHints().isEmpty()) {
             capabilities.add(new Capability(
                     "legacy-transformers", State.PARTIAL, false,
                     "Static transformer requirements are diagnosed; only verified launch transformations execute"));
