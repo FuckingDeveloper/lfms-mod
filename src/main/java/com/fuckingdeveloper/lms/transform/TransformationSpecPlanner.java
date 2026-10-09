@@ -128,7 +128,7 @@ public final class TransformationSpecPlanner {
             char ch = source.charAt(i);
             if (quote != 0) {
                 if (escaped) escaped = false;
-                else if (ch == '\\\\') escaped = true;
+                else if (ch == '\\') escaped = true;
                 else if (ch == quote) quote = 0;
                 continue;
             }
