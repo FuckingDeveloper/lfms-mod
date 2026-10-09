@@ -56,4 +56,20 @@ public final class Forge1192RegistrationContext {
         }
         return Identifier.fromNamespaceAndPath(scope.modId(), name);
     }
+
+    /**
+     * Preserve Forge 1.19.2's direct registry registration contract while
+     * executing strictly inside NeoForge's matching RegisterEvent phase.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static void register(Identifier name, Object value) {
+        Scope scope = requireActive();
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(value, "value");
+        scope.event().register(scope.event().getRegistryKey(), helper -> helper.register(name, value));
+    }
+
+    public static void register(String name, Object value) {
+        register(checkPrefix(name, false), value);
+    }
 }
