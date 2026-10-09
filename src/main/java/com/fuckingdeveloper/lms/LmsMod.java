@@ -132,6 +132,10 @@ public final class LmsMod {
                                     coremod.path(), coremod.hookCalls());
                             LOG.info("LMS coremod transforms path={} transforms={}",
                                     coremod.path(), coremod.transforms());
+                            for (var transform : coremod.transforms()) {
+                                LOG.info("LMS coremod values path={} transform={} values={}",
+                                        coremod.path(), transform.name(), transform.values());
+                            }
                         }
                     } catch (IOException e) {
                         LOG.warn("LMS static analysis failed for {}", mod.file(), e);
