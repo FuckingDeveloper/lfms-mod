@@ -62,8 +62,12 @@ public final class ProguardMappingReader {
             int close = trimmed.indexOf(')', open + 1);
             if (arrow < 0 || open < 0 || close < 0 || close > arrow) continue;
             String left = trimmed.substring(0, arrow).trim();
-            // ProGuard may prefix methods with source line ranges.
+            // ProGuard may prefix methods with source line ranges. Recompute positions
+            // after stripping them: the old indexes belonged to the original string.
             left = left.replaceFirst("^(?:[0-9]+:[0-9]+:)+", "");
+            open = left.indexOf('(');
+            close = left.indexOf(')', open + 1);
+            if (open < 0 || close < 0) continue;
             int space = left.lastIndexOf(' ', open);
             if (space < 0) continue;
             String name = left.substring(space + 1, open);
