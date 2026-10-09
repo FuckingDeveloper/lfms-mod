@@ -337,7 +337,7 @@ public final class TransformationSpecPlanner {
         return new TransformationSpec(
                 id,
                 TransformationSpec.Kind.METHOD_CALL_REDIRECT,
-                null, null, null, List.of(),
+                null, null, null, List.of(), List.of(),
                 TransformationSpec.Readiness.UNRESOLVED,
                 reason);
     }
