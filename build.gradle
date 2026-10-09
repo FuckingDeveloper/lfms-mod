@@ -45,7 +45,6 @@ repositories { mavenCentral() }
 sourceSets {
     launch {
         java.srcDir 'src/launch/java'
-        resources.srcDir 'src/launch/resources'
     }
 }
 configurations.launchCompileOnly.extendsFrom(configurations.compileOnly, configurations.compileClasspath)
