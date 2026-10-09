@@ -198,12 +198,14 @@ public final class LegacyCompatibilityPlanner {
                                     && !runtimeFinding.declaringOwner().isEmpty()
                                     ? runtimeFinding.declaringOwner()
                                     : anchor.owner();
+                            var legacySemanticOperations = runtimeVerified && legacyRuntime != null
+                                    ? legacyRuntime.semantics(
+                                            semanticOwner, runtimeFinding.method(), anchor.descriptor()).operations()
+                                    : List.<String>of();
                             var semanticMigration = runtimeVerified && !currentIdentityVerified
                                     && !uniqueNamedMigration && legacyRuntime != null
                                     ? mappings.findUniqueSemanticMatch(
-                                            anchor.owner(), anchor.descriptor(),
-                                            legacyRuntime.semantics(
-                                                    semanticOwner, runtimeFinding.method(), anchor.descriptor()).operations())
+                                            anchor.owner(), anchor.descriptor(), legacySemanticOperations)
                                     : new Forge1192MappingLayer.MethodSearch("", List.of(), "");
                             boolean uniqueSemanticMigration = semanticMigration.candidates().size() == 1;
 
@@ -242,7 +244,11 @@ public final class LegacyCompatibilityPlanner {
                                         + (effectiveMapping.currentSymbol().isEmpty()
                                         ? ""
                                         : " candidate=" + effectiveMapping.currentSymbol())
-                                        + "; current-runtime evidence: " + effectiveMapping.reason();
+                                        + "; current-runtime evidence: " + effectiveMapping.reason()
+                                        + "; semantic-owner=" + semanticOwner
+                                        + "; legacy-semantic-ops=" + legacySemanticOperations
+                                        + "; semantic-search=" + semanticMigration.reason()
+                                        + "; semantic-candidates=" + semanticMigration.candidates();
                                 if (!effectiveMapping.currentSymbol().isEmpty()) {
                                     var legacySemantics = legacyRuntime.semantics(
                                             anchor.owner(), runtimeFinding.method(), anchor.descriptor());
