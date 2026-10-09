@@ -113,6 +113,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         && call.desc.equals("(Ljava/lang/String;Z)Lnet/minecraft/resources/ResourceLocation;")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                    call.desc = "(Ljava/lang/String;Z)Lnet/minecraft/resources/Identifier;";
                     call.itf = false;
                     rewrites++;
                 }
