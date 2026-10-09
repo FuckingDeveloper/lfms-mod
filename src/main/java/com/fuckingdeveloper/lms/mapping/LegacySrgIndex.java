@@ -50,9 +50,12 @@ public final class LegacySrgIndex {
             return new Resolution(ResolutionStatus.NOT_FOUND, List.of(),
                     "Named owner is absent from Mojang mappings");
         }
-        List<Match> matches = findBySrgName(legacyName).stream()
+        List<Match> byName = findBySrgName(legacyName);
+        List<Match> ownerMatches = byName.stream()
                 .filter(match -> !match.owners().isEmpty()
                         && match.owners().getFirst().equals(obfuscatedOwner.get()))
+                .toList();
+        List<Match> matches = ownerMatches.stream()
                 .filter(match -> descriptorShape(match.sourceDescriptor()).equals(descriptorShape(legacyDescriptor)))
                 .toList();
         if (matches.size() == 1) {
@@ -60,8 +63,17 @@ public final class LegacySrgIndex {
                     "Named owner -> obfuscated owner + SRG name + descriptor shape matched");
         }
         if (matches.isEmpty()) {
-            return new Resolution(ResolutionStatus.NOT_FOUND, List.of(),
-                    "No TSRG method matches Mojang owner, SRG name and descriptor shape");
+            String tsrgOwners = byName.stream()
+                    .filter(match -> !match.owners().isEmpty())
+                    .map(match -> match.owners().getFirst())
+                    .distinct()
+                    .toList()
+                    .toString();
+            return new Resolution(ResolutionStatus.NOT_FOUND, ownerMatches,
+                    "No exact TSRG match: Mojang owner=" + obfuscatedOwner.get()
+                            + ", TSRG owners for name=" + tsrgOwners
+                            + ", ownerMatches=" + ownerMatches.size()
+                            + ", descriptorShape=" + descriptorShape(legacyDescriptor));
         }
         return new Resolution(ResolutionStatus.AMBIGUOUS, matches,
                 "Multiple methods remain after Mojang owner filtering");
