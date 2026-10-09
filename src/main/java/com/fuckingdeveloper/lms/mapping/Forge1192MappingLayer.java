@@ -102,6 +102,21 @@ public final class Forge1192MappingLayer {
                         : "Candidates share the legacy method name or descriptor; semantic verification required");
     }
 
+    /**
+     * Search the current runtime for the recovered named identity, ignoring the legacy
+     * invocation owner. This is intentionally narrow: exact method name + descriptor only.
+     * It is useful when the declaring class moved or a former utility class disappeared.
+     */
+    public MethodSearch searchExactIdentity(String method, String descriptor) {
+        List<MethodCandidate> candidates = new ArrayList<>();
+        var roots = runtimeLoader.getDefinedPackages();
+        // ClassLoader does not expose an enumerable class path, so use the already-known
+        // Minecraft package roots only as metadata; global class enumeration is unavailable.
+        // Callers should use candidate owners discovered from bytecode/mappings instead.
+        return new MethodSearch(method + descriptor, List.copyOf(candidates),
+                "Global runtime class enumeration is unavailable; candidate-owner discovery required");
+    }
+
     /** Retained for callers that do not yet have owner/descriptor evidence. */
     public Mapping classifyMethod(String legacyMethod) {
         return mappings.computeIfAbsent("method:" + legacyMethod, key ->
