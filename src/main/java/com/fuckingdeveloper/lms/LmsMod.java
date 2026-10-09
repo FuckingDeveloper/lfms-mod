@@ -9,6 +9,7 @@ import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
 import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
 import com.fuckingdeveloper.lms.runtime.Forge1192LifecyclePlanner;
 import com.fuckingdeveloper.lms.runtime.Forge1192EntrypointInspector;
+import com.fuckingdeveloper.lms.runtime.Forge1192RegistrationPlanner;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -85,6 +86,19 @@ public final class LmsMod {
                                 LOG.info("LMS entrypoint-calls id={} entrypoint={} total={} boundaryCalls={}",
                                         mod.modId(), candidate, entrypointReport.calls().size(),
                                         entrypointReport.boundaryCalls());
+                                var registrationPlan = new Forge1192RegistrationPlanner().plan(mod.file(), candidate);
+                                LOG.info("LMS registration-plan id={} entrypoint={} inspectedMethods={} complete={} boundaryCount={} unresolvedCount={} reason={}",
+                                        mod.modId(), candidate, registrationPlan.inspectedMethods(),
+                                        registrationPlan.complete(), registrationPlan.boundaries().size(),
+                                        registrationPlan.unresolved().size(), registrationPlan.reason());
+                                for (var boundary : registrationPlan.boundaries()) {
+                                    LOG.info("LMS registration-boundary id={} source={} owner={} method={} descriptor={}",
+                                            mod.modId(), boundary.source(), boundary.owner(),
+                                            boundary.name(), boundary.descriptor());
+                                }
+                                for (var unresolved : registrationPlan.unresolved()) {
+                                    LOG.info("LMS registration-unresolved id={} detail={}", mod.modId(), unresolved);
+                                }
                             }
                         }
                         var lifecycleDecision = new LegacyLifecycleGate().evaluate(report, lifecyclePlanReady);
