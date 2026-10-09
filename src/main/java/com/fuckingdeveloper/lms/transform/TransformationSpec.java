@@ -12,6 +12,7 @@ public record TransformationSpec(
         MethodRef target,
         MethodRef anchor,
         MethodRef replacement,
+        java.util.List<InstructionEdit> edits,
         Readiness readiness,
         String reason
 ) {
@@ -26,6 +27,24 @@ public record TransformationSpec(
     }
 
     public record MethodRef(String owner, String name, String descriptor, Invocation invocation) {}
+
+    /** Loader-neutral edit recovered from legacy instruction-list JavaScript. */
+    public record InstructionEdit(EditKind kind, InstructionLocation location,
+                                  String firstArgument, String valueExpression) {}
+
+    public enum EditKind {
+        REMOVE,
+        INSERT_BEFORE,
+        INSERT_AFTER,
+        REPLACE
+    }
+
+    public enum InstructionLocation {
+        EXACT,
+        PREVIOUS,
+        NEXT,
+        EXPRESSION
+    }
 
     public enum Invocation {
         VIRTUAL,
