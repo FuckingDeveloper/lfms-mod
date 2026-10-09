@@ -6,6 +6,7 @@ import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyRuntimeBytecodeInspector;
 import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
+import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -65,6 +66,18 @@ public final class LmsMod {
                                 }
                             }
                         }
+                        var lifecycleDecision = new LegacyLifecycleGate().evaluate(report);
+                        for (var capability : lifecycleDecision.capabilities()) {
+                            LOG.info("LMS capability id={} artifact={} capability={} state={} mandatory={} reason={}",
+                                    mod.modId(), mod.file().getFileName(), capability.id(),
+                                    capability.state(), capability.mandatory(), capability.reason());
+                        }
+                        LOG.info("LMS lifecycle id={} state={} entrypointInitialization=false reason={}",
+                                mod.modId(),
+                                lifecycleDecision.mayInitialize() ? "READY" : "BLOCKED",
+                                lifecycleDecision.mayInitialize()
+                                        ? "all mandatory profile capabilities are supported"
+                                        : "one or more mandatory profile capabilities are not supported");
                         var metadata = new LegacyMetadataAnalyzer().analyze(mod.file(), report.mixinConfigs());
                         LOG.info("LMS metadata id={} dependencies={}", mod.modId(), metadata.dependencies());
                         LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
