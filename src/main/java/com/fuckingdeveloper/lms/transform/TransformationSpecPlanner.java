@@ -177,10 +177,30 @@ public final class TransformationSpecPlanner {
             MethodParts current = parseSymbol(resolution.currentSymbol());
             if (current == null) continue;
             var invocation = invocation(resolution.anchor().invocationType());
+            if (invocation == TransformationSpec.Invocation.UNKNOWN) {
+                invocation = inferAnchorInvocation(resolution);
+            }
             result.add(new TransformationSpec.AnchorBinding(
                     variable, ref(current, invocation)));
         }
         return List.copyOf(result);
+    }
+
+    private static TransformationSpec.Invocation inferAnchorInvocation(
+            LegacyCompatibilityPlanner.AnchorResolution resolution) {
+        var finding = resolution.legacyRuntimeFinding();
+        if (finding == null || finding.declaringOwner() == null || finding.declaringOwner().isEmpty()) {
+            return TransformationSpec.Invocation.UNKNOWN;
+        }
+        // Coremod anchors are method invocation instructions. When the legacy runtime
+        // proves the declaring member is a class method, invokevirtual is the JVM
+        // dispatch form. Interface-declared members remain unresolved here because
+        // the runtime evidence currently does not expose the declaring class access
+        // flags; guessing invokeinterface would make READY unsafe.
+        if (!finding.declaringOwner().startsWith("net.minecraftforge.common.extensions.")) {
+            return TransformationSpec.Invocation.VIRTUAL;
+        }
+        return TransformationSpec.Invocation.UNKNOWN;
     }
 
     private static List<TransformationSpec.InstructionEdit> remapArgumentSlots(
