@@ -12,7 +12,7 @@ import java.util.Optional;
  * compared directly with named Minecraft descriptors.
  */
 public final class LegacySrgIndex {
-    public enum ResolutionStatus { RESOLVED, AMBIGUOUS, NOT_FOUND }
+    public enum ResolutionStatus { RESOLVED, INHERITED_CANDIDATE, OWNER_MISMATCH, DESCRIPTOR_MISMATCH, AMBIGUOUS, NOT_FOUND }
     public record Match(List<String> owners, String sourceName, String sourceDescriptor,
                         List<String> names, List<String> namespaces) {}
     public record Resolution(ResolutionStatus status, List<Match> matches, String reason) {}
@@ -55,28 +55,42 @@ public final class LegacySrgIndex {
                 .filter(match -> !match.owners().isEmpty()
                         && match.owners().getFirst().equals(obfuscatedOwner.get()))
                 .toList();
-        List<Match> matches = ownerMatches.stream()
+        List<Match> exact = ownerMatches.stream()
                 .filter(match -> descriptorShape(match.sourceDescriptor()).equals(descriptorShape(legacyDescriptor)))
                 .toList();
-        if (matches.size() == 1) {
-            return new Resolution(ResolutionStatus.RESOLVED, matches,
-                    "Named owner -> obfuscated owner + SRG name + descriptor shape matched");
+        if (exact.size() == 1) {
+            return new Resolution(ResolutionStatus.RESOLVED, exact,
+                    "Named owner, SRG name and descriptor shape match; object types still need exact remapping");
         }
-        if (matches.isEmpty()) {
-            String tsrgOwners = byName.stream()
-                    .filter(match -> !match.owners().isEmpty())
-                    .map(match -> match.owners().getFirst())
-                    .distinct()
-                    .toList()
-                    .toString();
-            return new Resolution(ResolutionStatus.NOT_FOUND, ownerMatches,
-                    "No exact TSRG match: Mojang owner=" + obfuscatedOwner.get()
-                            + ", TSRG owners for name=" + tsrgOwners
-                            + ", ownerMatches=" + ownerMatches.size()
-                            + ", descriptorShape=" + descriptorShape(legacyDescriptor));
+        if (exact.size() > 1) {
+            return new Resolution(ResolutionStatus.AMBIGUOUS, exact,
+                    "Multiple methods remain after named owner and descriptor-shape filtering");
         }
-        return new Resolution(ResolutionStatus.AMBIGUOUS, matches,
-                "Multiple methods remain after Mojang owner filtering");
+        if (!ownerMatches.isEmpty()) {
+            return new Resolution(ResolutionStatus.DESCRIPTOR_MISMATCH, ownerMatches,
+                    "SRG method exists on named owner but descriptor shape differs: legacy="
+                            + descriptorShape(legacyDescriptor));
+        }
+        List<Match> compatible = byName.stream()
+                .filter(match -> descriptorShape(match.sourceDescriptor()).equals(descriptorShape(legacyDescriptor)))
+                .toList();
+        if (compatible.size() == 1) {
+            Match match = compatible.getFirst();
+            String declaringOwner = mojmap.namedClass(match.owners().getFirst()).orElse("<unknown>");
+            return new Resolution(ResolutionStatus.INHERITED_CANDIDATE, compatible,
+                    "Method found on different declaring owner " + declaringOwner
+                            + " (obf=" + match.owners().getFirst() + "); inheritance not yet verified");
+        }
+        if (!compatible.isEmpty()) {
+            return new Resolution(ResolutionStatus.OWNER_MISMATCH, compatible,
+                    "Descriptor-shape candidates exist on other owners; inheritance not verified");
+        }
+        return new Resolution(ResolutionStatus.NOT_FOUND, byName,
+                "No SRG method matches named owner or descriptor shape; Mojang owner="
+                        + obfuscatedOwner.get() + ", legacy shape=" + descriptorShape(legacyDescriptor)
+                        + ", TSRG candidate shapes=" + byName.stream()
+                                .map(match -> descriptorShape(match.sourceDescriptor()))
+                                .distinct().toList());
     }
 
     public Resolution resolve(String legacyOwner, String legacyName, String legacyDescriptor) {
