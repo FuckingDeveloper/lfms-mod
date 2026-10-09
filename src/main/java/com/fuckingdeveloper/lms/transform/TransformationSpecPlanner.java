@@ -182,7 +182,7 @@ public final class TransformationSpecPlanner {
         }
 
         var insn = Pattern.compile(
-                "new\\s+InsnNode\\s*\\(\\s*(?:Opcodes\\.)?([A-Z_]+)\\s*\\)")
+                "new\\s+InsnNode\\s*\\(\\s*(?:Opcodes\\.)?([A-Z][A-Z0-9_]*)\\s*\\)")
                 .matcher(resolved);
         if (insn.matches()) {
             Integer opcode = asmOpcode(insn.group(1));
