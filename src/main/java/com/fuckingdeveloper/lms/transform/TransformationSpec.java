@@ -16,7 +16,8 @@ public record TransformationSpec(
         String reason
 ) {
     public enum Kind {
-        METHOD_CALL_REDIRECT
+        METHOD_CALL_REDIRECT,
+        INSTRUCTION_EDIT
     }
 
     public enum Readiness {
