@@ -28,7 +28,7 @@ public final class LegacyInjectionAnalyzer {
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodOperation(String kind, String detail) {}
-    public record CoremodAnchor(String owner, String method, String descriptor) {}
+    public record CoremodAnchor(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodTransform(String name, CoremodMethodTarget target, List<String> mappedMethods,
                                    List<CoremodAnchor> anchors, List<CoremodHookCall> hookCalls,
                                    List<CoremodOperation> operations) {}
@@ -131,19 +131,21 @@ public final class LegacyInjectionAnalyzer {
     private static List<CoremodAnchor> extractAnchors(String source, CoremodMethodTarget target) {
         List<CoremodAnchor> anchors = new ArrayList<>();
         Pattern anchor = Pattern.compile(
-                "owner\\s*===\\s*['\\\"]([^'\\\"]+)['\\\"]\\s*&&\\s*curr\\.name\\s*===\\s*(?:ASMAPI\\.mapMethod\\s*\\(\\s*)?['\\\"]([^'\\\"]+)['\\\"]\\s*\\)?(?:\\s*/\\*.*?\\*/)?\\s*&&\\s*curr\\.desc\\s*===\\s*['\\\"]([^'\\\"]+)['\\\"]",
+                "(?:curr\\.getOpcode\\(\\)\\s*===\\s*(?:Opcodes\\.)?([A-Z_]+)\\s*&&\\s*)?"
+                        + "owner\\s*===\\s*['\\\"]([^'\\\"]+)['\\\"]\\s*&&\\s*curr\\.name\\s*===\\s*(?:ASMAPI\\.mapMethod\\s*\\(\\s*)?['\\\"]([^'\\\"]+)['\\\"]\\s*\\)?(?:\\s*/\\*.*?\\*/)?\\s*&&\\s*curr\\.desc\\s*===\\s*['\\\"]([^'\\\"]+)['\\\"]",
                 Pattern.DOTALL);
         Matcher matcher = anchor.matcher(source);
         while (matcher.find()) {
-            String owner = matcher.group(1).replace('/', '.');
-            String method = matcher.group(2);
-            String descriptor = matcher.group(3);
+            String invocationType = matcher.group(1) == null ? "" : matcher.group(1);
+            String owner = matcher.group(2).replace('/', '.');
+            String method = matcher.group(3);
+            String descriptor = matcher.group(4);
             // In Forge coremods, instruction owners are commonly internal JVM names while
             // descriptors may include the receiver as the first argument for an invocation.
             // Keep the source descriptor verbatim here; mapping validation decides whether
             // it is a real legacy method identity instead of silently "fixing" it.
             if (!owner.equals(target.owner()) || !method.equals(target.method()) || !descriptor.equals(target.descriptor())) {
-                anchors.add(new CoremodAnchor(owner, method, descriptor));
+                anchors.add(new CoremodAnchor(owner, method, descriptor, invocationType));
             }
         }
         return List.copyOf(anchors);
