@@ -91,10 +91,14 @@ public final class LmsMod {
                                         mod.modId(), candidate, registrationPlan.inspectedMethods(),
                                         registrationPlan.complete(), registrationPlan.boundaries().size(),
                                         registrationPlan.unresolved().size(), registrationPlan.reason());
-                                for (var boundary : registrationPlan.boundaries()) {
-                                    LOG.info("LMS registration-boundary id={} source={} owner={} method={} descriptor={}",
-                                            mod.modId(), boundary.source(), boundary.owner(),
-                                            boundary.name(), boundary.descriptor());
+                                var boundaryGroups = registrationPlan.boundaries().stream()
+                                        .collect(java.util.stream.Collectors.groupingBy(
+                                                boundary -> boundary.owner() + "#" + boundary.name() + boundary.descriptor(),
+                                                java.util.TreeMap::new,
+                                                java.util.stream.Collectors.counting()));
+                                for (var boundary : boundaryGroups.entrySet()) {
+                                    LOG.info("LMS registration-api id={} target={} callSites={}",
+                                            mod.modId(), boundary.getKey(), boundary.getValue());
                                 }
                                 for (var unresolved : registrationPlan.unresolved()) {
                                     LOG.info("LMS registration-unresolved id={} detail={}", mod.modId(), unresolved);
