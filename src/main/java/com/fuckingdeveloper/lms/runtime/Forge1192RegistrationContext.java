@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.runtime;
 
 import java.util.Objects;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /**
@@ -46,14 +46,14 @@ public final class Forge1192RegistrationContext {
      * Resolve an unqualified legacy registry name within the active mod's
      * namespace. Qualified names are kept qualified.
      */
-    public static ResourceLocation checkPrefix(String name, boolean warn) {
+    public static Identifier checkPrefix(String name, boolean warn) {
         Scope scope = requireActive();
         Objects.requireNonNull(name, "name");
         if (name.isBlank()) throw new IllegalArgumentException("Empty legacy registry name");
         int colon = name.indexOf(':');
         if (colon >= 0) {
-            return ResourceLocation.parse(name);
+            return Identifier.parse(name);
         }
-        return ResourceLocation.fromNamespaceAndPath(scope.modId(), name);
+        return Identifier.fromNamespaceAndPath(scope.modId(), name);
     }
 }
