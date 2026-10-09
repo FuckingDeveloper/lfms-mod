@@ -14,6 +14,15 @@ import java.util.Optional;
 public final class MappingFileLoader {
     public record LoadResult(Path file, ProguardMappingReader.Index index) {}
 
+    public record TsrgLoadResult(Path file, TsrgMappingReader.Index index) {}
+
+    public Optional<TsrgLoadResult> loadTsrg(Path file) throws IOException {
+        if (!Files.isRegularFile(file)) return Optional.empty();
+        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            return Optional.of(new TsrgLoadResult(file, new TsrgMappingReader().read(reader)));
+        }
+    }
+
     public Optional<LoadResult> load(Path file) throws IOException {
         if (!Files.isRegularFile(file)) return Optional.empty();
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
