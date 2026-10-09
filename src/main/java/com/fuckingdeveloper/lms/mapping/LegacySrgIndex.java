@@ -12,8 +12,10 @@ import java.util.Optional;
  * compared directly with named Minecraft descriptors.
  */
 public final class LegacySrgIndex {
+    public enum ResolutionStatus { RESOLVED, AMBIGUOUS, NOT_FOUND }
     public record Match(List<String> owners, String sourceName, String sourceDescriptor,
                         List<String> names, List<String> namespaces) {}
+    public record Resolution(ResolutionStatus status, List<Match> matches, String reason) {}
     private final TsrgMappingReader.Index index;
 
     private LegacySrgIndex(TsrgMappingReader.Index index) {
@@ -38,6 +40,47 @@ public final class LegacySrgIndex {
             }
         }
         return List.copyOf(matches);
+    }
+
+
+    public Resolution resolve(String legacyOwner, String legacyName, String legacyDescriptor) {
+        List<Match> byName = findBySrgName(legacyName);
+        if (byName.isEmpty()) {
+            return new Resolution(ResolutionStatus.NOT_FOUND, List.of(), "No TSRG method with legacy name");
+        }
+
+        List<Match> descriptorCompatible = byName.stream()
+                .filter(match -> descriptorShape(match.sourceDescriptor()).equals(descriptorShape(legacyDescriptor)))
+                .toList();
+        List<Match> candidates = descriptorCompatible.isEmpty() ? byName : descriptorCompatible;
+        if (candidates.size() == 1) {
+            return new Resolution(ResolutionStatus.RESOLVED, candidates,
+                    descriptorCompatible.isEmpty()
+                            ? "Unique SRG name match; owner mapping still requires named class evidence"
+                            : "Unique SRG name and descriptor-shape match; owner mapping still requires named class evidence");
+        }
+        return new Resolution(ResolutionStatus.AMBIGUOUS, candidates,
+                "Multiple TSRG candidates remain; named owner mapping is required");
+    }
+
+    private static String descriptorShape(String descriptor) {
+        StringBuilder shape = new StringBuilder();
+        for (int i = 0; i < descriptor.length();) {
+            char ch = descriptor.charAt(i);
+            if (ch == 'L') {
+                int end = descriptor.indexOf(';', i);
+                if (end < 0) return descriptor;
+                shape.append('L');
+                i = end + 1;
+            } else if (ch == '[') {
+                shape.append('[');
+                i++;
+            } else {
+                shape.append(ch);
+                i++;
+            }
+        }
+        return shape.toString();
     }
 
     private static String normalizeSrgName(String name) {
