@@ -118,8 +118,7 @@ public final class TransformationSpecPlanner {
                     + plan.mappingStatus();
         }
         for (var anchor : plan.anchorResolutions()) {
-            if (anchor.mappingStatus() != com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer.Status.VERIFIED_IDENTITY
-                    && anchor.mappingStatus() != com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer.Status.IDENTITY_CANDIDATE) {
+            if (anchor.mappingStatus() != com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer.Status.VERIFIED_IDENTITY) {
                 return "Current anchor is not verified for execution: "
                         + anchor.anchor().variable() + " status=" + anchor.mappingStatus();
             }
