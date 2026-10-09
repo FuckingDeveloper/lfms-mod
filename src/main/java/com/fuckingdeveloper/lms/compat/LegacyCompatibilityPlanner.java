@@ -136,7 +136,19 @@ public final class LegacyCompatibilityPlanner {
                                     : anchorMapping;
                             boolean currentIdentityVerified =
                                     currentIdentity.status() == Forge1192MappingLayer.Status.VERIFIED_IDENTITY;
-                            var effectiveMapping = currentIdentityVerified ? currentIdentity : anchorMapping;
+                            var migratedByName = runtimeVerified && !currentIdentityVerified
+                                    ? mappings.searchNamedMethods(anchor.owner(), runtimeFinding.method())
+                                    : new Forge1192MappingLayer.MethodSearch("", List.of(), "");
+                            boolean uniqueNamedMigration = migratedByName.candidates().size() == 1;
+                            var effectiveMapping = currentIdentityVerified ? currentIdentity
+                                    : uniqueNamedMigration
+                                    ? new Forge1192MappingLayer.Mapping(
+                                            anchor.owner() + "#" + runtimeFinding.method() + anchor.descriptor(),
+                                            migratedByName.candidates().getFirst().symbol(),
+                                            Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
+                                            "Recovered legacy method name survives with a changed descriptor: "
+                                                    + migratedByName.candidates().getFirst().descriptor())
+                                    : anchorMapping;
                             // A member absent from vanilla 1.19.2 mappings is a Forge patch.
                             // Keep bridge classification only when the recovered Forge member
                             // does not survive as the same exact identity in the current runtime.
