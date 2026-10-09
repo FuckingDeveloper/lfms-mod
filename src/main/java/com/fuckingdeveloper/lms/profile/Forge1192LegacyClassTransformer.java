@@ -114,6 +114,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         && call.desc.equals("()Lnet/minecraft/resources/ResourceKey;")) {
                     // Exact modern API after ResourceLocation -> Identifier migration.
                 }
+                if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")) {
+                    String bridgeDesc = switch (call.name) {
+                        case "containsKey" -> call.desc.equals("(Lnet/minecraft/resources/Identifier;)Z")
+                                ? "(Lnet/minecraft/resources/Identifier;)Z" : null;
+                        case "getValue" -> call.desc.equals("(Lnet/minecraft/resources/Identifier;)Ljava/lang/Object;")
+                                ? "(Lnet/minecraft/resources/Identifier;)Ljava/lang/Object;" : null;
+                        case "getKey" -> call.desc.equals("(Ljava/lang/Object;)Lnet/minecraft/resources/Identifier;")
+                                ? "(Ljava/lang/Object;)Lnet/minecraft/resources/Identifier;" : null;
+                        case "iterator" -> call.desc.equals("()Ljava/util/Iterator;")
+                                ? "()Ljava/util/Iterator;" : null;
+                        default -> null;
+                    };
+                    if (bridgeDesc != null) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                        call.desc = bridgeDesc;
+                        call.itf = false;
+                        rewrites++;
+                    }
+                }
                 // Legacy IForgeRegistry#register is no longer a mutable
                 // registry call. Route it through the active RegisterEvent scope.
                 if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
