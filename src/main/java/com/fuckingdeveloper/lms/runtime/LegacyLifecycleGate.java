@@ -25,11 +25,9 @@ public final class LegacyLifecycleGate {
                 "legacy-classloading", State.SUPPORTED, true,
                 "Managed artifact class linkage is available"));
 
-        // The loader boundary exists, but profile transformations are not yet
-        // applied to every legacy-owned class before definition.
         capabilities.add(new Capability(
-                "profile-bytecode-transform", State.PARTIAL, true,
-                "Legacy-owned class definition is controlled, but per-class profile transformation is not yet complete"));
+                "profile-bytecode-transform", State.SUPPORTED, true,
+                "Every managed legacy-owned class passes through the selected profile transformer before definition"));
 
         capabilities.add(new Capability(
                 "forge-1.19.2-lifecycle", State.UNKNOWN, true,
