@@ -12,7 +12,9 @@ import java.util.Optional;
 /** Non-executing parser for TSRG v1 and TSRG2 method mappings. */
 public final class TsrgMappingReader {
     public record MethodKey(String owner, String name, String descriptor) {}
-    public record MethodEntry(String owner, String descriptor, List<String> names) {}
+    public record MethodEntry(List<String> owners, String descriptor, List<String> names) {
+        public String owner() { return owners.getFirst(); }
+    }
     public record Index(List<String> namespaces, Map<MethodKey, MethodEntry> methods) {
         public Optional<MethodEntry> find(String owner, String name, String descriptor) {
             return Optional.ofNullable(methods.get(new MethodKey(owner, name, descriptor)));
@@ -23,7 +25,7 @@ public final class TsrgMappingReader {
         BufferedReader reader = new BufferedReader(input);
         List<String> namespaces = List.of("source", "target");
         Map<MethodKey, MethodEntry> methods = new LinkedHashMap<>();
-        String owner = null;
+        List<String> owners = null;
         String line;
         boolean headerSeen = false;
         while ((line = reader.readLine()) != null) {
@@ -39,10 +41,10 @@ public final class TsrgMappingReader {
             headerSeen = true;
             if (!Character.isWhitespace(line.charAt(0))) {
                 String[] tokens = trimmed.split("\\s+");
-                owner = tokens.length >= 2 ? tokens[0] : null;
+                owners = tokens.length >= 2 ? List.of(tokens) : null;
                 continue;
             }
-            if (owner == null || Character.isWhitespace(line.charAt(0))
+            if (owners == null || Character.isWhitespace(line.charAt(0))
                     && line.length() > 1 && Character.isWhitespace(line.charAt(1))) continue;
             String[] tokens = trimmed.split("\\s+");
             if (tokens.length < 3 || !tokens[1].startsWith("(")) continue;
@@ -51,8 +53,9 @@ public final class TsrgMappingReader {
             List<String> names = new ArrayList<>();
             names.add(tokens[0]);
             for (int i = 2; i < tokens.length; i++) names.add(tokens[i]);
-            methods.putIfAbsent(new MethodKey(owner, tokens[0], tokens[1]),
-                    new MethodEntry(owner, tokens[1], List.copyOf(names)));
+            String sourceOwner = owners.getFirst();
+            methods.putIfAbsent(new MethodKey(sourceOwner, tokens[0], tokens[1]),
+                    new MethodEntry(owners, tokens[1], List.copyOf(names)));
         }
         return new Index(List.copyOf(namespaces), Map.copyOf(methods));
     }
