@@ -165,9 +165,10 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
 
         // Replace the migrated producer in-place. Its current consumer remains intact.
         anchorNode = bindings.get(anchor.variable());
-        method.instructions.set(anchorNode, new MethodInsnNode(
+        MethodInsnNode replacementNode = new MethodInsnNode(
                 replacement.opcode(), replacement.owner(), replacement.name(),
-                replacement.descriptor(), replacement.isInterface()));
+                replacement.descriptor(), replacement.isInterface());
+        method.instructions.set(anchorNode, replacementNode);
 
         // Keep the current consumer, then perform the legacy result check from the
         // local written by the hook. Store a duplicate before the consumer so the
@@ -177,15 +178,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         InsnList saveResult = new InsnList();
         saveResult.add(new InsnNode(result.getSize() == 2 ? Opcodes.DUP2 : Opcodes.DUP));
         saveResult.add(new VarInsnNode(store.opcode(), store.variable()));
-        AbstractInsnNode replacementNode = bindings.get(anchor.variable());
-        // bindings still points to the detached legacy node after set(); locate the
-        // actual replacement at the same list position through the previous node.
-        AbstractInsnNode previous = replacementNode.getPrevious();
-        AbstractInsnNode liveReplacement = previous == null ? method.instructions.getFirst() : previous.getNext();
-        if (!(liveReplacement instanceof MethodInsnNode)) {
-            throw new IllegalStateException("semantic replacement call is not attached");
-        }
-        method.instructions.insert(liveReplacement, saveResult);
+        method.instructions.insert(replacementNode, saveResult);
 
         InsnList suffix = build(values.subList(2, values.size() - 2), bindings);
         LabelNode continueLabel = new LabelNode();
