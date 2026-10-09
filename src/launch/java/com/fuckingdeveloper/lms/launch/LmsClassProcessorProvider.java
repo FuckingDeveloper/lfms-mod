@@ -15,9 +15,11 @@ public final class LmsClassProcessorProvider implements ClassProcessorProvider {
         LOG.info("[LMS/early] FML class processor provider loaded");
         Path plan = Path.of(System.getProperty("user.dir"), "lms", "launch-plan.tsv");
         try {
-            var redirects = LaunchPlanReader.readRedirects(plan);
-            for (var spec : redirects) collector.add(new GenericMethodCallRedirectProcessor(spec));
-            LOG.info("[LMS/early] launch plan={} redirects={}", plan.toAbsolutePath(), redirects.size());
+            var launchPlan = LaunchPlanReader.read(plan);
+            for (var spec : launchPlan.redirects()) collector.add(new GenericMethodCallRedirectProcessor(spec));
+            for (var spec : launchPlan.edits()) collector.add(new GenericInstructionEditProcessor(spec));
+            LOG.info("[LMS/early] launch plan={} redirects={} instructionEdits={}",
+                    plan.toAbsolutePath(), launchPlan.redirects().size(), launchPlan.edits().size());
         } catch (Exception e) {
             LOG.error("[LMS/early] failed to read launch plan {}", plan.toAbsolutePath(), e);
         }
