@@ -37,62 +37,89 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
     public void transform(ClassNode input, SimpleTransformationContext context) {
         int applied = 0;
         boolean targetFound = false;
-        for (MethodNode method : input.methods) {
+        for (int methodIndex = 0; methodIndex < input.methods.size(); methodIndex++) {
+            MethodNode method = input.methods.get(methodIndex);
             if (!spec.targetMethod().equals(method.name) || !spec.targetDescriptor().equals(method.desc)) continue;
             targetFound = true;
-            Map<String, AbstractInsnNode> bindings = bindAnchors(method);
-            if (bindings.size() != spec.anchors().size()) {
-                System.out.println("[LMS/early] unresolved anchors id=" + spec.id()
-                        + " expected=" + spec.anchors() + " bound=" + bindings.keySet()
+
+            BindingResult bindingResult = bindAnchors(method);
+            if (!bindingResult.ambiguous().isEmpty() || bindingResult.bindings().size() != spec.anchors().size()) {
+                System.out.println("[LMS/early] skipped unsafe transform id=" + spec.id()
+                        + " reason=anchor-binding expected=" + spec.anchors()
+                        + " bound=" + bindingResult.bindings().keySet()
+                        + " ambiguous=" + bindingResult.ambiguous()
                         + " calls=" + methodCalls(method));
+                continue;
             }
+
+            MethodNode original = cloneMethod(method);
+            Map<String, AbstractInsnNode> bindings = bindingResult.bindings();
             int hooksBefore = countInsertedHookCalls(method);
-            for (Edit edit : spec.edits()) {
-                AbstractInsnNode location = resolve(bindings, edit.location());
-                if (location == null) continue;
-                switch (edit.kind()) {
-                    case REMOVE -> method.instructions.remove(location);
-                    case INSERT_BEFORE -> method.instructions.insertBefore(location, build(edit.values(), bindings));
-                    case INSERT_AFTER -> method.instructions.insert(location, build(edit.values(), bindings));
-                    case REPLACE -> {
-                        InsnList replacement = build(edit.values(), bindings);
-                        method.instructions.insertBefore(location, replacement);
-                        method.instructions.remove(location);
+            int methodApplied = 0;
+            try {
+                for (Edit edit : spec.edits()) {
+                    AbstractInsnNode location = resolve(bindings, edit.location());
+                    if (location == null || method.instructions.indexOf(location) < 0) {
+                        throw new IllegalStateException("edit location is no longer in method: " + edit.location());
                     }
+                    switch (edit.kind()) {
+                        case REMOVE -> method.instructions.remove(location);
+                        case INSERT_BEFORE -> method.instructions.insertBefore(location, build(edit.values(), bindings));
+                        case INSERT_AFTER -> method.instructions.insert(location, build(edit.values(), bindings));
+                        case REPLACE -> {
+                            InsnList replacement = build(edit.values(), bindings);
+                            method.instructions.insertBefore(location, replacement);
+                            method.instructions.remove(location);
+                        }
+                    }
+                    methodApplied++;
                 }
-                applied++;
+
+                int maxStackBefore = method.maxStack;
+                Verification verification = analyzeAndComputeMaxStack(input.name, method);
+                if (!verification.valid()) {
+                    dumpInsertedRegions(method);
+                    throw new IllegalStateException("post-transform bytecode invalid: " + verification.error());
+                }
+                method.maxStack = verification.maxStack();
+
+                int hooksAfter = countInsertedHookCalls(method);
+                boolean anchorsStillMatch = spec.anchors().stream().anyMatch(anchor ->
+                        containsMatchingCall(method, anchor.method()));
+                System.out.println("[LMS/early] verify id=" + spec.id()
+                        + " methodIdentity=" + Integer.toHexString(System.identityHashCode(method))
+                        + " hooksBefore=" + hooksBefore + " hooksAfter=" + hooksAfter
+                        + " anchorsStillMatch=" + anchorsStillMatch
+                        + " instructionCount=" + method.instructions.size()
+                        + " maxStack=" + maxStackBefore + "->" + method.maxStack
+                        + " bytecode=OK");
+                applied += methodApplied;
+            } catch (RuntimeException failure) {
+                input.methods.set(methodIndex, original);
+                System.out.println("[LMS/early] rolled back transform id=" + spec.id()
+                        + " target=" + spec.targetClass() + "#" + spec.targetMethod() + spec.targetDescriptor()
+                        + " reason=" + failure.getMessage());
             }
-            int hooksAfter = countInsertedHookCalls(method);
-            boolean anchorsStillMatch = spec.anchors().stream().anyMatch(anchor ->
-                    containsMatchingCall(method, anchor.method()));
-            int maxStackBefore = method.maxStack;
-            dumpInsertedRegions(method);
-            int computedMaxStack = recomputeMaxStack(input.name, method);
-            String bytecodeVerification = verifyBytecode(input.name, method);
-            System.out.println("[LMS/early] verify id=" + spec.id()
-                    + " methodIdentity=" + Integer.toHexString(System.identityHashCode(method))
-                    + " hooksBefore=" + hooksBefore + " hooksAfter=" + hooksAfter
-                    + " anchorsStillMatch=" + anchorsStillMatch
-                    + " instructionCount=" + method.instructions.size()
-                    + " maxStack=" + maxStackBefore + "->" + computedMaxStack
-                    + " bytecode=" + bytecodeVerification);
         }
         System.out.println("[LMS/early] transform id=" + spec.id() + " target=" + spec.targetClass()
                 + "#" + spec.targetMethod() + spec.targetDescriptor() + " targetFound=" + targetFound
                 + " editsApplied=" + applied + " engine=GENERIC_INSTRUCTION_EDIT");
     }
 
-    private Map<String, AbstractInsnNode> bindAnchors(MethodNode method) {
+    private record BindingResult(Map<String, AbstractInsnNode> bindings, Set<String> ambiguous) {}
+
+    private BindingResult bindAnchors(MethodNode method) {
         Map<String, AbstractInsnNode> result = new HashMap<>();
+        Set<String> ambiguous = new LinkedHashSet<>();
         for (AbstractInsnNode insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
             if (!(insn instanceof MethodInsnNode call)) continue;
             for (Anchor anchor : spec.anchors()) {
-                if (!result.containsKey(anchor.variable()) && matches(call, anchor.method())) {
-                    result.put(anchor.variable(), call);
-                }
+                if (!matches(call, anchor.method())) continue;
+                if (result.containsKey(anchor.variable())) ambiguous.add(anchor.variable());
+                else result.put(anchor.variable(), call);
             }
         }
-        return result;
+        return new BindingResult(result, ambiguous);
     }
 
     private static List<String> methodCalls(MethodNode method) {
@@ -111,7 +138,10 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         int offset = reference.relativeOffset();
         while (offset > 0 && node != null) { node = node.getNext(); offset--; }
         while (offset < 0 && node != null) { node = node.getPrevious(); offset++; }
-        return node;
+        if (node == null || !reference.label()) return node;
+        if (node instanceof LabelNode label) return label;
+        if (node instanceof JumpInsnNode jump) return jump.label;
+        return null;
     }
 
     private static InsnList build(List<Value> values, Map<String, AbstractInsnNode> bindings) {
@@ -179,10 +209,17 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         return node == null ? -1 : method.instructions.indexOf(node);
     }
 
-    private static int recomputeMaxStack(String owner, MethodNode method) {
+    private static MethodNode cloneMethod(MethodNode source) {
+        MethodNode copy = new MethodNode(source.access, source.name, source.desc, source.signature,
+                source.exceptions == null ? null : source.exceptions.toArray(String[]::new));
+        source.accept(copy);
+        return copy;
+    }
+
+    private record Verification(boolean valid, int maxStack, String error) {}
+
+    private static Verification analyzeAndComputeMaxStack(String owner, MethodNode method) {
         int original = method.maxStack;
-        // Analyzer allocates frames from MethodNode.maxStack, so first give it a
-        // conservative ceiling. The exact peak is then derived from analyzed frames.
         method.maxStack = Math.max(original, method.instructions.size() + method.maxLocals + 8);
         try {
             Frame<BasicValue>[] frames = new Analyzer<>(new BasicVerifier()).analyze(owner, method);
@@ -190,31 +227,15 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             for (Frame<BasicValue> frame : frames) {
                 if (frame != null) peak = Math.max(peak, frame.getStackSize());
             }
-            method.maxStack = peak;
-            return peak;
+            return new Verification(true, peak, "");
         } catch (AnalyzerException | RuntimeException e) {
-            method.maxStack = original;
-            System.out.println("[LMS/early] maxStack recompute failure owner=" + owner
-                    + " method=" + method.name + method.desc + " error=" + e);
-            e.printStackTrace(System.out);
-            return original;
-        }
-    }
-
-    private static String verifyBytecode(String owner, MethodNode method) {
-        try {
-            new Analyzer<>(new BasicVerifier()).analyze(owner, method);
-            return "OK";
-        } catch (AnalyzerException | RuntimeException e) {
-            StringBuilder out = new StringBuilder("INVALID:")
-                    .append(e.getClass().getSimpleName()).append(':').append(e.getMessage());
+            String error = e.getClass().getSimpleName() + ":" + e.getMessage();
             if (e instanceof AnalyzerException analyzer && analyzer.node != null) {
-                out.append("@insn=").append(method.instructions.indexOf(analyzer.node));
+                error += "@insn=" + method.instructions.indexOf(analyzer.node);
             }
-            System.out.println("[LMS/early] bytecode verification failure owner=" + owner
-                    + " method=" + method.name + method.desc + " error=" + out);
-            e.printStackTrace(System.out);
-            return out.toString();
+            return new Verification(false, original, error);
+        } finally {
+            method.maxStack = original;
         }
     }
 
