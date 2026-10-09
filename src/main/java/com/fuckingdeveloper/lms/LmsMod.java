@@ -74,9 +74,11 @@ public final class LmsMod {
                                 srgIndex.map(LegacySrgIndex::methodCount).orElse(0),
                                 srgIndex.map(LegacySrgIndex::namespaces).orElse(List.of()),
                                 mojmapFile.toAbsolutePath(), mojmap.isPresent());
-                        LOG.info("LMS Mojang mappings classes={} methods={}",
+                        LOG.info("LMS Mojang mappings recognized={} classes={} methods={} preview={}",
+                                mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::recognized).orElse(false),
                                 mojmap.map(result -> result.index().namedToObfuscatedClasses().size()).orElse(0),
-                                mojmap.map(result -> result.index().namedMethods().size()).orElse(0));
+                                mojmap.map(result -> result.index().namedMethods().size()).orElse(0),
+                                mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::preview).orElse(List.of()));
                         for (var plan : compatibility.coremodPlans()) {
                             if (srgIndex.isPresent()) {
                                 for (var anchor : plan.anchors()) {
