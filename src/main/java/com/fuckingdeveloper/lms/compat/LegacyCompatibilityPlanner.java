@@ -2,6 +2,7 @@ package com.fuckingdeveloper.lms.compat;
 
 import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
+import com.fuckingdeveloper.lms.analysis.LegacyRuntimeBytecodeInspector;
 import com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import com.fuckingdeveloper.lms.mapping.ProguardMappingReader;
@@ -42,11 +43,17 @@ public final class LegacyCompatibilityPlanner {
                        int injections, int coremodTransforms, int requiredDependencies) {}
 
     public Plan plan(LegacyMetadataAnalyzer.Report metadata, LegacyInjectionAnalyzer.Report injections) {
-        return plan(metadata, injections, null, null);
+        return plan(metadata, injections, null, null, null);
     }
 
     public Plan plan(LegacyMetadataAnalyzer.Report metadata, LegacyInjectionAnalyzer.Report injections,
                      LegacySrgIndex srgIndex, ProguardMappingReader.Index mojmap) {
+        return plan(metadata, injections, srgIndex, mojmap, null);
+    }
+
+    public Plan plan(LegacyMetadataAnalyzer.Report metadata, LegacyInjectionAnalyzer.Report injections,
+                     LegacySrgIndex srgIndex, ProguardMappingReader.Index mojmap,
+                     LegacyRuntimeBytecodeInspector legacyRuntime) {
         List<Requirement> requirements = new ArrayList<>();
         List<CoremodTransformationPlan> coremodPlans = new ArrayList<>();
         Forge1192MappingLayer mappings = new Forge1192MappingLayer();
@@ -114,16 +121,30 @@ public final class LegacyCompatibilityPlanner {
                                     anchor.owner(), anchor.method(), anchor.descriptor());
                             var legacyResolution = resolveLegacy(srgIndex, mojmap,
                                     anchor.owner(), anchor.method(), anchor.descriptor());
+                            var runtimeFinding = legacyRuntime == null ? null
+                                    : findRuntimeAnchor(legacyRuntime, anchor, legacyResolution, mojmap);
+                            boolean runtimeVerified = runtimeFinding != null
+                                    && (runtimeFinding.status().equals("DECLARED")
+                                    || runtimeFinding.status().equals("INHERITED"));
                             boolean legacyPatchMember = anchor.owner().startsWith("net.minecraft.")
                                     && !anchor.method().matches("m_\\d+_")
                                     && legacyResolution.status() == LegacySrgIndex.ResolutionStatus.NOT_FOUND;
                             var status = legacyPatchMember
                                     ? Forge1192MappingLayer.Status.FORGE_BRIDGE_REQUIRED
                                     : anchorMapping.status();
-                            String reason = legacyPatchMember
-                                    ? "Non-SRG coremod anchor is absent from vanilla 1.19.2 mappings; "
-                                      + "treat as a Forge-patched member requiring a compatibility bridge"
-                                    : anchorMapping.reason();
+                            String reason;
+                            if (runtimeVerified) {
+                                reason = "Legacy Forge 1.19.2 runtime verifies exact method"
+                                        + (runtimeFinding.status().equals("INHERITED")
+                                        ? " inherited from " + runtimeFinding.declaringOwner()
+                                        : " declared by " + runtimeFinding.declaringOwner())
+                                        + "; current-runtime mapping still requires independent resolution";
+                            } else if (legacyPatchMember) {
+                                reason = "Non-SRG coremod anchor is absent from vanilla 1.19.2 mappings; "
+                                      + "treat as a Forge-patched member requiring a compatibility bridge";
+                            } else {
+                                reason = anchorMapping.reason();
+                            }
                             return new AnchorResolution(anchor, status,
                                     legacyPatchMember ? "" : anchorMapping.currentSymbol(),
                                     legacyPatchMember ? List.of() : search.candidates(), reason,
@@ -160,6 +181,35 @@ public final class LegacyCompatibilityPlanner {
         return new Plan(List.copyOf(requirements), List.copyOf(coremodPlans), minecraftTargets, forgeTargets,
                 accessMixins, overwrites, injectionCount, coremods, dependencies);
     }
+
+    private static LegacyRuntimeBytecodeInspector.Finding findRuntimeAnchor(
+            LegacyRuntimeBytecodeInspector runtime,
+            LegacyInjectionAnalyzer.CoremodAnchor anchor,
+            LegacySrgIndex.Resolution legacyResolution,
+            ProguardMappingReader.Index mojmap) {
+        String owner = anchor.owner();
+        String name = anchor.method();
+        if (mojmap != null && legacyResolution.matches().size() == 1) {
+            var match = legacyResolution.matches().getFirst();
+            if (!match.owners().isEmpty()) {
+                owner = mojmap.namedClass(match.owners().getFirst()).orElse(owner);
+            }
+            if (!match.names().isEmpty()) {
+                // The ForgeGradle runtime uses official names. Resolve the obfuscated
+                // method identity from Mojmap rather than assuming the SRG name exists there.
+                String obfuscatedOwner = match.owners().isEmpty() ? "" : match.owners().getFirst();
+                String obfuscatedName = match.sourceName();
+                var official = mojmap.namedMethods().values().stream()
+                        .filter(method -> method.obfuscatedOwner().equals(obfuscatedOwner)
+                                && method.obfuscatedName().equals(obfuscatedName))
+                        .findFirst();
+                if (official.isPresent()) name = official.get().namedName();
+            }
+        }
+        // Known Forge-patched source names are already official-readable names.
+        return runtime.find(owner, name, anchor.descriptor());
+    }
+
     private static String ownerOf(String qualifiedMethod) {
         int hash = qualifiedMethod.indexOf('#');
         return hash < 0 ? qualifiedMethod : qualifiedMethod.substring(0, hash);
