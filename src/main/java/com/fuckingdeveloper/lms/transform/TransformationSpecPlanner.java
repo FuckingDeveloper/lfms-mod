@@ -30,20 +30,22 @@ public final class TransformationSpecPlanner {
         if (instructionEdit) {
             var edits = parseInstructionEdits(plan.operations(), plan.values());
             edits = remapArgumentSlots(edits, plan.canonicalLegacyTarget(), plan.currentTarget());
-            boolean locationsResolved = edits.stream().allMatch(edit -> edit.locationReference() != null);
+            var anchors = parseAnchorBindings(plan);
+            String readinessProblem = instructionEditReadinessProblem(
+                    plan.currentTarget(), edits, anchors);
             return new TransformationSpec(
                     id,
                     TransformationSpec.Kind.INSTRUCTION_EDIT,
                     parseRef(plan.currentTarget(), TransformationSpec.Invocation.UNKNOWN),
                     null, null,
-                    parseAnchorBindings(plan),
+                    anchors,
                     edits,
-                    TransformationSpec.Readiness.UNRESOLVED,
-                    plan.currentTarget().isEmpty()
-                            ? "Instruction edit captured; current target method is unresolved"
-                            : locationsResolved
-                            ? "Instruction edit structure and locations captured; execution readiness still requires operand/local migration"
-                            : "Instruction edit captured; one or more edit locations are unresolved");
+                    readinessProblem == null
+                            ? TransformationSpec.Readiness.READY
+                            : TransformationSpec.Readiness.UNRESOLVED,
+                    readinessProblem == null
+                            ? "Target, anchors, edit locations, operands and local argument slots are resolved"
+                            : readinessProblem);
         }
         if (plan.currentTarget().isEmpty()) {
             return unresolved(id, "Current target method is unresolved");
@@ -100,6 +102,64 @@ public final class TransformationSpecPlanner {
                 List.of(),
                 TransformationSpec.Readiness.READY,
                 "Target, anchor, invocation opcode and replacement hook are resolved");
+    }
+
+    private static String instructionEditReadinessProblem(
+            String currentTarget,
+            List<TransformationSpec.InstructionEdit> edits,
+            List<TransformationSpec.AnchorBinding> anchors) {
+        if (currentTarget == null || currentTarget.isEmpty()) {
+            return "Instruction edit captured; current target method is unresolved";
+        }
+        if (edits.isEmpty()) return "Instruction edit contains no supported operations";
+
+        var anchorNames = anchors.stream().map(TransformationSpec.AnchorBinding::variable).collect(java.util.stream.Collectors.toSet());
+        for (var edit : edits) {
+            if (!referenceResolved(edit.locationReference(), anchorNames)) {
+                return "Instruction edit location is unresolved: " + edit.firstArgument();
+            }
+            if (!edit.values().isEmpty()) {
+                for (var value : edit.values()) {
+                    String problem = instructionProblem(value, anchorNames);
+                    if (problem != null) return problem;
+                }
+            } else if (edit.kind() != TransformationSpec.EditKind.REMOVE) {
+                String problem = instructionProblem(edit.value(), anchorNames);
+                if (problem != null) return problem;
+            }
+        }
+        return null;
+    }
+
+    private static String instructionProblem(
+            TransformationSpec.InstructionSpec spec, java.util.Set<String> anchorNames) {
+        if (spec == null) return "Instruction edit operand is missing";
+        if (spec.kind() == TransformationSpec.InstructionKind.UNRESOLVED) {
+            return "Instruction edit operand is unresolved: " + spec.expression();
+        }
+        if (spec.kind() == TransformationSpec.InstructionKind.METHOD_CALL
+                && (spec.method() == null || spec.method().invocation() == TransformationSpec.Invocation.UNKNOWN)) {
+            return "Instruction edit method call is unresolved: " + spec.expression();
+        }
+        if ((spec.kind() == TransformationSpec.InstructionKind.SIMPLE_OPCODE
+                || spec.kind() == TransformationSpec.InstructionKind.VARIABLE
+                || spec.kind() == TransformationSpec.InstructionKind.JUMP)
+                && spec.opcode() == null) {
+            return "Instruction edit opcode is unresolved: " + spec.expression();
+        }
+        if (spec.kind() == TransformationSpec.InstructionKind.VARIABLE && spec.variable() == null) {
+            return "Instruction edit local variable is unresolved: " + spec.expression();
+        }
+        if (spec.kind() == TransformationSpec.InstructionKind.JUMP
+                && !referenceResolved(spec.target(), anchorNames)) {
+            return "Instruction edit jump target is unresolved: " + spec.expression();
+        }
+        return null;
+    }
+
+    private static boolean referenceResolved(
+            TransformationSpec.InstructionReference reference, java.util.Set<String> anchorNames) {
+        return reference != null && anchorNames.contains(reference.variable());
     }
 
     private static List<TransformationSpec.AnchorBinding> parseAnchorBindings(
