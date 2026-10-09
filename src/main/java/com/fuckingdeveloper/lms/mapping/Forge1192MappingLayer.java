@@ -162,8 +162,20 @@ public final class Forge1192MappingLayer {
             if (runtimeIndex != null) return runtimeIndex;
             List<IndexedMethod> methods = new ArrayList<>();
             Set<String> visited = new HashSet<>();
-            // ModDev/FML exposes already-defined Minecraft packages. Enumerate package
-            // resources where the backing URL is a directory or jar filesystem.
+            List<String> sources = new ArrayList<>();
+
+            // A pre-launch compiler runs before Minecraft packages have necessarily
+            // been defined by the application loader, so getDefinedPackages() can be
+            // empty even though openClass() works. Anchor enumeration at a stable
+            // Minecraft class resource and enumerate its backing artifact instead.
+            indexMinecraftArtifact("net/minecraft/SharedConstants.class", methods, visited, sources);
+            if (visited.isEmpty()) {
+                indexMinecraftArtifact("net/minecraft/world/entity/player/Player.class",
+                        methods, visited, sources);
+            }
+
+            // Retain package-resource enumeration as a secondary source for exploded
+            // development runtimes and custom loaders.
             for (Package pkg : runtimeLoader.getDefinedPackages()) {
                 String name = pkg.getName();
                 if (!name.startsWith("net.minecraft.")) continue;
@@ -176,29 +188,60 @@ public final class Forge1192MappingLayer {
                             Path dir = Path.of(url.toURI());
                             indexDirectory(dir, resource, methods, visited);
                         } else if ("jar".equals(url.getProtocol())) {
-                            var connection = (java.net.JarURLConnection) url.openConnection();
-                            try (var jar = connection.getJarFile()) {
-                                var entries = jar.entries();
-                                while (entries.hasMoreElements()) {
-                                    var entry = entries.nextElement();
-                                    String entryName = entry.getName();
-                                    if (entryName.startsWith("net/minecraft/") && entryName.endsWith(".class")
-                                            && visited.add(entryName)) {
-                                        try (InputStream in = jar.getInputStream(entry)) {
-                                            indexClass(in, methods);
-                                        }
-                                    }
-                                }
-                            }
+                            indexJarUrl(url, methods, visited);
                         }
                     }
                 } catch (Exception ignored) {
-                    // Partial coverage is represented in provenance and must not prove absence.
+                    // Partial coverage is evidence, never proof of absence.
                 }
             }
             runtimeIndex = new RuntimeIndex(List.copyOf(methods),
-                    "defined-package resources, classes=" + visited.size() + ", methods=" + methods.size());
+                    "sources=" + sources + ", classes=" + visited.size()
+                            + ", methods=" + methods.size());
             return runtimeIndex;
+        }
+    }
+
+    private void indexMinecraftArtifact(String classResource, List<IndexedMethod> methods,
+                                        Set<String> visited, List<String> sources) {
+        try {
+            var url = runtimeLoader.getResource(classResource);
+            if (url == null) return;
+            if ("jar".equals(url.getProtocol())) {
+                indexJarUrl(url, methods, visited);
+                sources.add(url.toString().split("!/", 2)[0]);
+                return;
+            }
+            if ("file".equals(url.getProtocol())) {
+                Path classFile = Path.of(url.toURI());
+                Path root = classFile;
+                for (String ignored : classResource.split("/")) root = root.getParent();
+                if (root != null && Files.isDirectory(root)) {
+                    Path minecraft = root.resolve("net/minecraft");
+                    indexDirectory(minecraft, "net/minecraft", methods, visited);
+                    sources.add(root.toString());
+                }
+            }
+        } catch (Exception ignored) {
+            // Failure leaves the index partial and is reflected by its counts.
+        }
+    }
+
+    private void indexJarUrl(java.net.URL url, List<IndexedMethod> methods,
+                             Set<String> visited) throws IOException {
+        var connection = (java.net.JarURLConnection) url.openConnection();
+        connection.setUseCaches(false);
+        try (var jar = connection.getJarFile()) {
+            var entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                var entry = entries.nextElement();
+                String entryName = entry.getName();
+                if (!entryName.startsWith("net/minecraft/") || !entryName.endsWith(".class")
+                        || !visited.add(entryName)) continue;
+                try (InputStream in = jar.getInputStream(entry)) {
+                    indexClass(in, methods);
+                }
+            }
         }
     }
 
