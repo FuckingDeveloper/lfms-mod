@@ -150,11 +150,26 @@ public final class LegacyCompatibilityPlanner {
                             targetOfficialName, target.descriptor());
                     if (exactRuntimeIdentity.candidates().size() == 1) {
                         var candidate = exactRuntimeIdentity.candidates().getFirst();
-                        mapping = new Forge1192MappingLayer.Mapping(
-                                canonicalOwner + "#" + target.method() + target.descriptor(),
-                                candidate.symbol(),
-                                Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
-                                "Target owner moved; unique exact recovered method identity found in runtime index");
+                        var legacyTargetSemantics = legacyRuntime == null
+                                ? new LegacyRuntimeBytecodeInspector.MethodSemantics(
+                                        canonicalOwner, targetOfficialName, target.descriptor(), List.of())
+                                : legacyRuntime.semantics(
+                                        canonicalOwner, targetOfficialName, target.descriptor());
+                        var currentCandidateSemantics = mappings.semantics(candidate.symbol());
+                        boolean semanticVerified = !legacyTargetSemantics.operations().isEmpty()
+                                && legacyTargetSemantics.operations().equals(currentCandidateSemantics.operations());
+                        if (semanticVerified) {
+                            mapping = new Forge1192MappingLayer.Mapping(
+                                    canonicalOwner + "#" + target.method() + target.descriptor(),
+                                    candidate.symbol(),
+                                    Forge1192MappingLayer.Status.VERIFIED_IDENTITY,
+                                    "Target owner moved; unique exact recovered identity and exact semantic fingerprint match");
+                        }
+                        targetIndexEvidence = " targetRuntimeIndex exact=" + exactRuntimeIdentity.reason()
+                                + " candidate=" + candidate.symbol()
+                                + " semanticVerified=" + semanticVerified
+                                + " legacyOps=" + legacyTargetSemantics.operations()
+                                + " currentOps=" + currentCandidateSemantics.operations();
                     } else {
                         var runtimeByName = mappings.searchRuntimeByName(targetOfficialName);
                         targetIndexEvidence = " targetRuntimeIndex exact=" + exactRuntimeIdentity.reason()
