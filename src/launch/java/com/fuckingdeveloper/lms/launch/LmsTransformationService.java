@@ -5,6 +5,7 @@ import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.ITransformerVotingContext;
 import cpw.mods.modlauncher.api.TransformerVoteResult;
+import cpw.mods.modlauncher.api.TargetType;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -56,6 +57,7 @@ public final class LmsTransformationService implements ITransformationService {
         @Override public Set<Target<ClassNode>> targets() {
             return Set.of(Target.targetClass("net.minecraft.world.entity.player.Player"));
         }
+        @Override public TargetType<ClassNode> getTargetType() { return TargetType.CLASS; }
         @Override public String[] labels() { return new String[] {"lms-player-probe"}; }
     }
 }
