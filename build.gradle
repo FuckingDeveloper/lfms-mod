@@ -45,6 +45,7 @@ repositories { mavenCentral() }
 sourceSets {
     launch {
         java.srcDir 'src/launch/java'
+        resources.srcDir 'src/launch/resources'
     }
 }
 configurations.launchCompileOnly.extendsFrom(configurations.compileOnly, configurations.compileClasspath)
@@ -61,10 +62,15 @@ tasks.register('launchJar', Jar) {
     dependsOn tasks.named('launchClasses')
 }
 
-def installLaunchJar = tasks.register('installLaunchJar', Sync) {
+def installLaunchJar = tasks.register('installLaunchJar', Copy) {
     group = 'lms'
     description = 'Install the current early FML transformation library into the development mods directory'
     dependsOn tasks.named('launchJar')
+    doFirst {
+        fileTree(layout.projectDirectory.dir('run/mods')) {
+            include 'lms-*-launch.jar'
+        }.files.each { delete it }
+    }
     from(tasks.named('launchJar').flatMap { it.archiveFile })
     into layout.projectDirectory.dir('run/mods')
     includeEmptyDirs = false
