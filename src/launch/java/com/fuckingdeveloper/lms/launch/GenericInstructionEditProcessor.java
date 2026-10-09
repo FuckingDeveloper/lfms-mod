@@ -215,8 +215,10 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         if (!swappedCategory1) {
             if (args.length == 0 || !args[args.length - 1].equals(producedType)) return null;
         } else {
-            int consumedPosition = args.length - 2;
-            if (consumedPosition < 0 || !args[consumedPosition].equals(producedType)) return null;
+            // Before SWAP the produced value is directly below the current top
+            // operand. After SWAP it becomes the top operand and is therefore
+            // consumed as the last explicit argument of the invocation.
+            if (args.length == 0 || !args[args.length - 1].equals(producedType)) return null;
         }
         return new ConsumerSite(call, call);
     }
