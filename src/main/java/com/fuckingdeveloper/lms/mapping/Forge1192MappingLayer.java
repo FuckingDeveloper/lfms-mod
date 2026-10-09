@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Optional;
 
 /**
@@ -148,8 +150,60 @@ public final class Forge1192MappingLayer {
             return new Mapping(legacySymbol, "", Status.AMBIGUOUS,
                     "Multiple current methods share legacy descriptor: " + descriptorMatches);
         }
+
+        // The legacy invocation owner can be a subclass while the actual member is
+        // declared by a superclass/interface. Inspect the current hierarchy before
+        // declaring the anchor unresolved. This is still structural evidence only.
+        List<String> inheritedMatches = new ArrayList<>();
+        collectHierarchyDescriptorMatches(owner, descriptor, new HashSet<>(), true, inheritedMatches);
+        if (inheritedMatches.size() == 1) {
+            return new Mapping(legacySymbol, inheritedMatches.getFirst(), Status.DESCRIPTOR_MATCH,
+                    "Unique current inherited method with the legacy descriptor; candidate requires semantic verification");
+        }
+        if (inheritedMatches.size() > 1) {
+            return new Mapping(legacySymbol, "", Status.AMBIGUOUS,
+                    "Multiple inherited current methods share legacy descriptor: " + inheritedMatches);
+        }
         return new Mapping(legacySymbol, "", Status.UNRESOLVED,
-                "Owner exists, but no current method has the legacy descriptor");
+                "Owner exists, but no current method in its hierarchy has the legacy descriptor");
+    }
+
+    private void collectHierarchyDescriptorMatches(String owner, String descriptor, Set<String> visited,
+                                                   boolean skipOwnerMethods, List<String> matches) {
+        String internalOwner = owner.replace('.', '/');
+        if (!visited.add(internalOwner)) return;
+        InputStream stream = openClass(owner);
+        if (stream == null) return;
+        try (stream) {
+            new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override
+                public void visit(int version, int access, String name, String signature,
+                                  String superName, String[] interfaces) {
+                    if (superName != null) {
+                        collectHierarchyDescriptorMatches(superName.replace('/', '.'), descriptor,
+                                visited, false, matches);
+                    }
+                    if (interfaces != null) {
+                        for (String implemented : interfaces) {
+                            collectHierarchyDescriptorMatches(implemented.replace('/', '.'), descriptor,
+                                    visited, false, matches);
+                        }
+                    }
+                }
+
+                @Override
+                public MethodVisitor visitMethod(int access, String name, String desc,
+                                                 String signature, String[] exceptions) {
+                    if (!skipOwnerMethods && !name.equals("<init>") && !name.equals("<clinit>")
+                            && desc.equals(descriptor)) {
+                        matches.add(owner + "#" + name + desc);
+                    }
+                    return null;
+                }
+            }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } catch (IOException | RuntimeException ignored) {
+            // A missing/unreadable ancestor is insufficient evidence for a match.
+        }
     }
 
     private InputStream openClass(String className) {
