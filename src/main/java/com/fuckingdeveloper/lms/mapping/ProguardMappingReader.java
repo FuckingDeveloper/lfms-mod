@@ -19,13 +19,16 @@ public final class ProguardMappingReader {
                         Map<String, String> obfuscatedToNamedClasses,
                         Map<MethodKey, MethodMapping> namedMethods) {
         public Optional<MethodMapping> find(String owner, String name, String parameters) {
-            return Optional.ofNullable(namedMethods.get(new MethodKey(owner, name, parameters)));
+            return Optional.ofNullable(namedMethods.get(new MethodKey(toBinaryName(owner), name, parameters)));
         }
         public Optional<String> obfuscatedClass(String namedClass) {
-            return Optional.ofNullable(namedToObfuscatedClasses.get(namedClass));
+            return Optional.ofNullable(namedToObfuscatedClasses.get(toBinaryName(namedClass)));
         }
         public Optional<String> namedClass(String obfuscatedClass) {
-            return Optional.ofNullable(obfuscatedToNamedClasses.get(obfuscatedClass));
+            return Optional.ofNullable(obfuscatedToNamedClasses.get(toBinaryName(obfuscatedClass)));
+        }
+        private static String toBinaryName(String name) {
+            return name.replace('/', '.');
         }
     }
 
