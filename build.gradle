@@ -38,3 +38,74 @@ sourceSets.main.resources.srcDir(generateModMetadata)
 neoForge.ideSyncTask generateModMetadata
 
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+
+/**
+ * Isolated ForgeGradle 5 workspace. Forge 1.19.2 requires Java 17 and an
+ * older Gradle wrapper; never apply ForgeGradle to this NeoForge project.
+ * Run with -PlegacyJava17Home=/path/to/jdk17 if JAVA_HOME is not Java 17.
+ */
+tasks.register('prepareLegacyRuntime') {
+    group = 'lms'
+    description = 'Prepare a Forge 1.19.2 patched development runtime for bytecode inspection'
+    doLast {
+        def version = '1.19.2-43.4.0'
+        def workspace = layout.buildDirectory.dir('legacy-forge1192').get().asFile
+        def mdkZip = new File(workspace, 'forge-mdk.zip')
+        def mdkDir = new File(workspace, 'mdk')
+        def target = file('run/legacy-runtime/1.19.2/client.jar')
+        workspace.mkdirs()
+        if (!mdkZip.isFile()) {
+            def url = new URL("https://maven.minecraftforge.net/net/minecraftforge/forge/${version}/forge-${version}-mdk.zip")
+            logger.lifecycle("LMS: downloading Forge MDK ${version}")
+            url.openConnection().with { connection ->
+                connection.connectTimeout = 30000
+                connection.readTimeout = 120000
+                connection.inputStream.withCloseable { input ->
+                    mdkZip.withOutputStream { output -> output << input }
+                }
+            }
+        }
+        if (!new File(mdkDir, 'gradlew').isFile()) {
+            copy {
+                from zipTree(mdkZip)
+                into mdkDir
+            }
+        }
+        def javaHome = providers.gradleProperty('legacyJava17Home').orNull
+        if (javaHome == null) {
+            throw new GradleException('Forge 1.19.2 needs JDK 17. Run with -PlegacyJava17Home=/absolute/path/to/jdk17')
+        }
+        def javaExe = new File(javaHome, 'bin/java')
+        if (!javaExe.isFile()) throw new GradleException("JDK 17 not found: ${javaExe}")
+        def wrapperJar = new File(mdkDir, 'gradle/wrapper/gradle-wrapper.jar')
+        if (!wrapperJar.isFile()) throw new GradleException('Forge MDK Gradle wrapper missing')
+        def command = [javaExe.absolutePath, '-cp', wrapperJar.absolutePath,
+                       'org.gradle.wrapper.GradleWrapperMain', 'compileJava', '--no-daemon']
+        logger.lifecycle('LMS: building isolated Forge 1.19.2 workspace (first run may take a while)')
+        def process = new ProcessBuilder(command).directory(mdkDir)
+                .inheritIO().start()
+        if (process.waitFor() != 0) throw new GradleException('Forge 1.19.2 development workspace failed')
+        def candidates = fileTree(new File(mdkDir, '.gradle')) {
+            include '**/*mapped_official_1.19.2*.jar'
+            exclude '**/*-sources.jar'
+        }.files.findAll { it.isFile() && it.length() > 10_000_000L }
+        candidates += fileTree(new File(System.getProperty('user.home'), '.gradle/caches/forge_gradle')) {
+            include '**/*mapped_official_1.19.2*.jar'
+            exclude '**/*-sources.jar'
+        }.files.findAll { it.isFile() && it.length() > 10_000_000L }
+        def preferred = candidates.findAll { it.name.contains('recomp') }
+        def selected = (preferred ?: candidates).sort { -it.lastModified() }.find { jar ->
+            new java.util.zip.ZipFile(jar).withCloseable { zip ->
+                zip.getEntry('net/minecraft/world/entity/player/Player.class') != null
+            }
+        }
+        if (selected == null) throw new GradleException(
+            'ForgeGradle finished but no named patched Minecraft JAR was found. ' +
+            'Inspect the isolated workspace build logs; do not substitute the vanilla client JAR.')
+        target.parentFile.mkdirs()
+        java.nio.file.Files.copy(selected.toPath(), target.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        logger.lifecycle("LMS: prepared ${target} from ${selected}")
+    }
+}
