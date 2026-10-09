@@ -172,10 +172,20 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         // Keep the current consumer, then perform the legacy result check from the
         // local written by the hook. Store a duplicate before the consumer so the
         // consumer still receives the hook result.
-        InsnList beforeConsumer = new InsnList();
-        beforeConsumer.add(new InsnNode(result.getSize() == 2 ? Opcodes.DUP2 : Opcodes.DUP));
-        beforeConsumer.add(new VarInsnNode(store.opcode(), store.variable()));
-        method.instructions.insertBefore(consumerSite.insertionPoint(), beforeConsumer);
+        // Save the hook result immediately after its producer, before any current
+        // stack shuffle (notably SWAP) changes which value is on top.
+        InsnList saveResult = new InsnList();
+        saveResult.add(new InsnNode(result.getSize() == 2 ? Opcodes.DUP2 : Opcodes.DUP));
+        saveResult.add(new VarInsnNode(store.opcode(), store.variable()));
+        AbstractInsnNode replacementNode = bindings.get(anchor.variable());
+        // bindings still points to the detached legacy node after set(); locate the
+        // actual replacement at the same list position through the previous node.
+        AbstractInsnNode previous = replacementNode.getPrevious();
+        AbstractInsnNode liveReplacement = previous == null ? method.instructions.getFirst() : previous.getNext();
+        if (!(liveReplacement instanceof MethodInsnNode)) {
+            throw new IllegalStateException("semantic replacement call is not attached");
+        }
+        method.instructions.insert(liveReplacement, saveResult);
 
         InsnList suffix = build(values.subList(2, values.size() - 2), bindings);
         LabelNode continueLabel = new LabelNode();
@@ -192,23 +202,30 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
     private record ConsumerSite(MethodInsnNode consumer, AbstractInsnNode insertionPoint) {}
 
     private static ConsumerSite findConsumerOfTopValue(AbstractInsnNode producer, Type producedType) {
-        for (AbstractInsnNode n = nextExecutable(producer); n != null; n = nextExecutable(n)) {
-            int op = n.getOpcode();
-            if (op == Opcodes.SWAP || op == Opcodes.DUP || op == Opcodes.DUP_X1
-                    || op == Opcodes.DUP_X2 || op == Opcodes.DUP2 || op == Opcodes.DUP2_X1
-                    || op == Opcodes.DUP2_X2) {
-                continue;
-            }
-            if (n instanceof MethodInsnNode call) {
-                Type[] args = Type.getArgumentTypes(call.desc);
-                if (args.length > 0 && args[args.length - 1].equals(producedType)) {
-                    return new ConsumerSite(call, call);
-                }
-                return null;
-            }
-            return null;
+        AbstractInsnNode n = nextExecutable(producer);
+        if (n == null) return null;
+
+        // NeoForge-style expression lowering may rotate the freshly produced value
+        // below an already prepared argument with SWAP. For a category-1 value this
+        // proves that the next invocation consumes it as its penultimate stack item.
+        boolean swappedCategory1 = false;
+        if (n.getOpcode() == Opcodes.SWAP) {
+            if (producedType.getSize() != 1) return null;
+            swappedCategory1 = true;
+            n = nextExecutable(n);
         }
-        return null;
+
+        // Do not guess through arbitrary stack programs. A straight consumer or the
+        // single proven SWAP form are the only shapes accepted here.
+        if (!(n instanceof MethodInsnNode call)) return null;
+        Type[] args = Type.getArgumentTypes(call.desc);
+        if (!swappedCategory1) {
+            if (args.length == 0 || !args[args.length - 1].equals(producedType)) return null;
+        } else {
+            int consumedPosition = args.length - 2;
+            if (consumedPosition < 0 || !args[consumedPosition].equals(producedType)) return null;
+        }
+        return new ConsumerSite(call, call);
     }
 
     private static String describeNode(AbstractInsnNode node) {
