@@ -27,6 +27,25 @@ public final class ProguardMappingReader {
         public Optional<String> namedClass(String obfuscatedClass) {
             return Optional.ofNullable(obfuscatedToNamedClasses.get(toBinaryName(obfuscatedClass)));
         }
+        public String obfuscateDescriptor(String descriptor) {
+            StringBuilder out = new StringBuilder();
+            for (int i = 0; i < descriptor.length();) {
+                char ch = descriptor.charAt(i);
+                if (ch != 'L') {
+                    out.append(ch);
+                    i++;
+                    continue;
+                }
+                int end = descriptor.indexOf(';', i);
+                if (end < 0) return descriptor;
+                String internalName = descriptor.substring(i + 1, end);
+                String binaryName = internalName.replace('/', '.');
+                String mapped = namedToObfuscatedClasses.get(binaryName);
+                out.append('L').append(mapped != null ? mapped.replace('.', '/') : internalName).append(';');
+                i = end + 1;
+            }
+            return out.toString();
+        }
         private static String toBinaryName(String name) {
             return name.replace('/', '.');
         }
