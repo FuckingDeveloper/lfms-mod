@@ -57,17 +57,28 @@ public final class TransformationSpecPlanner {
             return unresolved(id, "Unsupported hook invocation type: " + hook.invocationType());
         }
 
-        // The legacy anchor invocation opcode is not currently retained by the JS
-        // analyzer. Keep the spec unresolved rather than assuming INVOKEVIRTUAL.
+        var anchorInvocation = invocation(anchorResolution.anchor().invocationType());
+        if (anchorInvocation == TransformationSpec.Invocation.UNKNOWN) {
+            return new TransformationSpec(
+                    id,
+                    TransformationSpec.Kind.METHOD_CALL_REDIRECT,
+                    ref(target, TransformationSpec.Invocation.UNKNOWN),
+                    ref(anchor, TransformationSpec.Invocation.UNKNOWN),
+                    new TransformationSpec.MethodRef(
+                            internal(hook.owner()), hook.method(), hook.descriptor(), hookInvocation),
+                    TransformationSpec.Readiness.UNRESOLVED,
+                    "Target/anchor/hook resolved; legacy anchor invocation opcode is not captured");
+        }
+
         return new TransformationSpec(
                 id,
                 TransformationSpec.Kind.METHOD_CALL_REDIRECT,
                 ref(target, TransformationSpec.Invocation.UNKNOWN),
-                ref(anchor, TransformationSpec.Invocation.UNKNOWN),
+                ref(anchor, anchorInvocation),
                 new TransformationSpec.MethodRef(
                         internal(hook.owner()), hook.method(), hook.descriptor(), hookInvocation),
-                TransformationSpec.Readiness.UNRESOLVED,
-                "Target/anchor/hook resolved; legacy anchor invocation opcode is not captured yet");
+                TransformationSpec.Readiness.READY,
+                "Target, anchor, invocation opcode and replacement hook are resolved");
     }
 
     private static TransformationSpec unresolved(String id, String reason) {
