@@ -4,6 +4,9 @@ import net.neoforged.neoforgespi.transformation.ProcessorName;
 import net.neoforged.neoforgespi.transformation.SimpleClassProcessor;
 import net.neoforged.neoforgespi.transformation.SimpleTransformationContext;
 import org.objectweb.asm.tree.*;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.tree.analysis.BasicVerifier;
 
 import java.util.*;
 
@@ -60,11 +63,13 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             int hooksAfter = countInsertedHookCalls(method);
             boolean anchorsStillMatch = spec.anchors().stream().anyMatch(anchor ->
                     containsMatchingCall(method, anchor.method()));
+            String bytecodeVerification = verifyBytecode(input.name, method);
             System.out.println("[LMS/early] verify id=" + spec.id()
                     + " methodIdentity=" + Integer.toHexString(System.identityHashCode(method))
                     + " hooksBefore=" + hooksBefore + " hooksAfter=" + hooksAfter
                     + " anchorsStillMatch=" + anchorsStillMatch
-                    + " instructionCount=" + method.instructions.size());
+                    + " instructionCount=" + method.instructions.size()
+                    + " bytecode=" + bytecodeVerification);
         }
         System.out.println("[LMS/early] transform id=" + spec.id() + " target=" + spec.targetClass()
                 + "#" + spec.targetMethod() + spec.targetDescriptor() + " targetFound=" + targetFound
@@ -122,6 +127,23 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             }
         }
         return result;
+    }
+
+    private static String verifyBytecode(String owner, MethodNode method) {
+        try {
+            new Analyzer<>(new BasicVerifier()).analyze(owner, method);
+            return "OK";
+        } catch (AnalyzerException | RuntimeException e) {
+            StringBuilder out = new StringBuilder("INVALID:")
+                    .append(e.getClass().getSimpleName()).append(':').append(e.getMessage());
+            if (e instanceof AnalyzerException analyzer && analyzer.node != null) {
+                out.append("@insn=").append(method.instructions.indexOf(analyzer.node));
+            }
+            System.out.println("[LMS/early] bytecode verification failure owner=" + owner
+                    + " method=" + method.name + method.desc + " error=" + out);
+            e.printStackTrace(System.out);
+            return out.toString();
+        }
     }
 
     private int countInsertedHookCalls(MethodNode method) {
