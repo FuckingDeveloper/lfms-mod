@@ -31,8 +31,11 @@ public final class TransformationSpecPlanner {
             var edits = parseInstructionEdits(plan.operations(), plan.values());
             edits = remapArgumentSlots(edits, plan.canonicalLegacyTarget(), plan.currentTarget());
             var anchors = parseAnchorBindings(plan);
-            String readinessProblem = instructionEditReadinessProblem(
-                    plan.currentTarget(), edits, anchors);
+            String readinessProblem = executableMappingProblem(plan);
+            if (readinessProblem == null) {
+                readinessProblem = instructionEditReadinessProblem(
+                        plan.currentTarget(), edits, anchors);
+            }
             return new TransformationSpec(
                     id,
                     TransformationSpec.Kind.INSTRUCTION_EDIT,
@@ -49,6 +52,10 @@ public final class TransformationSpecPlanner {
         }
         if (plan.currentTarget().isEmpty()) {
             return unresolved(id, "Current target method is unresolved");
+        }
+        String mappingProblem = executableMappingProblem(plan);
+        if (mappingProblem != null) {
+            return unresolved(id, mappingProblem);
         }
         if (plan.anchorResolutions().size() != 1) {
             return unresolved(id, "METHOD_CALL_REDIRECT requires exactly one anchor; found "
@@ -102,6 +109,22 @@ public final class TransformationSpecPlanner {
                 List.of(),
                 TransformationSpec.Readiness.READY,
                 "Target, anchor, invocation opcode and replacement hook are resolved");
+    }
+
+    private static String executableMappingProblem(
+            LegacyCompatibilityPlanner.CoremodTransformationPlan plan) {
+        if (plan.mappingStatus() != com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer.Status.VERIFIED_IDENTITY) {
+            return "Current target has candidate evidence but is not verified for execution: "
+                    + plan.mappingStatus();
+        }
+        for (var anchor : plan.anchorResolutions()) {
+            if (anchor.mappingStatus() != com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer.Status.VERIFIED_IDENTITY
+                    && anchor.mappingStatus() != com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer.Status.IDENTITY_CANDIDATE) {
+                return "Current anchor is not verified for execution: "
+                        + anchor.anchor().variable() + " status=" + anchor.mappingStatus();
+            }
+        }
+        return null;
     }
 
     private static String instructionEditReadinessProblem(
