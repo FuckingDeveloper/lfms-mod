@@ -12,7 +12,7 @@ import java.util.Optional;
  * compared directly with named Minecraft descriptors.
  */
 public final class LegacySrgIndex {
-    public enum ResolutionStatus { RESOLVED, INHERITED_CANDIDATE, OWNER_MISMATCH, DESCRIPTOR_MISMATCH, FORGE_SYMBOL, AMBIGUOUS, NOT_FOUND }
+    public enum ResolutionStatus { RESOLVED, INHERITED_CANDIDATE, OWNER_MISMATCH, DESCRIPTOR_MISMATCH, SOURCE_DESCRIPTOR_MISMATCH, FORGE_SYMBOL, AMBIGUOUS, NOT_FOUND }
     public record Match(List<String> owners, String sourceName, String sourceDescriptor,
                         List<String> names, List<String> namespaces) {}
     public record Resolution(ResolutionStatus status, List<Match> matches, String reason) {}
@@ -105,6 +105,15 @@ public final class LegacySrgIndex {
         if (!compatible.isEmpty()) {
             return new Resolution(ResolutionStatus.OWNER_MISMATCH, compatible,
                     "Descriptor-shape candidates exist on other owners; inheritance not verified");
+        }
+        if (!byName.isEmpty()) {
+            return new Resolution(ResolutionStatus.SOURCE_DESCRIPTOR_MISMATCH, byName,
+                    "Coremod method name exists in 1.19.2 TSRG, but its source invocation descriptor "
+                            + "does not match any mapped declaration; do not rewrite the descriptor "
+                            + "without inspecting the original coremod instruction. Mojang owner="
+                            + obfuscatedOwner.get() + ", mappedLegacyDescriptor=" + obfuscatedDescriptor
+                            + ", TSRG candidateDescriptors=" + byName.stream()
+                                    .map(Match::sourceDescriptor).distinct().toList());
         }
         return new Resolution(ResolutionStatus.NOT_FOUND, byName,
                 "No SRG method matches named owner or descriptor shape; Mojang owner="
