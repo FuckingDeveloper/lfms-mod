@@ -61,6 +61,22 @@ tasks.register('launchJar', Jar) {
     dependsOn tasks.named('launchClasses')
 }
 
+def installLaunchJar = tasks.register('installLaunchJar', Sync) {
+    group = 'lms'
+    description = 'Install the current early FML transformation library into the development mods directory'
+    dependsOn tasks.named('launchJar')
+    from(tasks.named('launchJar').flatMap { it.archiveFile })
+    into layout.projectDirectory.dir('run/mods')
+    includeEmptyDirs = false
+}
+
+tasks.named('runClient') {
+    dependsOn installLaunchJar
+}
+tasks.named('runServer') {
+    dependsOn installLaunchJar
+}
+
 // Generate inspectable launch scripts for the actual ModDevGradle client/server pipeline.
 tasks.named('createClientLaunchScript') {
     dependsOn tasks.named('launchJar')
