@@ -31,7 +31,7 @@ public final class LegacyCompatibilityPlanner {
                                    List<Forge1192MappingLayer.MethodCandidate> candidates,
                                    String reason,
                                    LegacySrgIndex.Resolution legacyResolution) {}
-    public record CoremodTransformationPlan(String source, String target,
+    public record CoremodTransformationPlan(String source, String target, String canonicalLegacyTarget,
                                             List<LegacyInjectionAnalyzer.CoremodAnchor> anchors,
                                             List<AnchorResolution> anchorResolutions,
                                             List<LegacyInjectionAnalyzer.CoremodHookCall> hooks,
@@ -97,6 +97,8 @@ public final class LegacyCompatibilityPlanner {
                 var legacyTargetResolution = resolveLegacy(srgIndex, mojmap,
                         target.owner(), target.method(), target.descriptor());
                 String qualifiedTarget = target.owner() + "#" + target.method() + target.descriptor();
+                String canonicalLegacyTarget = canonicalLegacyTarget(
+                        target.owner(), target.method(), target.descriptor(), legacyTargetResolution, mojmap);
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
                 List<LegacyInjectionAnalyzer.CoremodAnchor> anchors = transform.anchors();
@@ -118,7 +120,7 @@ public final class LegacyCompatibilityPlanner {
                         .distinct()
                         .toList();
                 coremodPlans.add(new CoremodTransformationPlan(
-                        coremod.path() + "#" + transform.name(), qualifiedTarget, anchors, anchorResolutions,
+                        coremod.path() + "#" + transform.name(), qualifiedTarget, canonicalLegacyTarget, anchors, anchorResolutions,
                         transform.hookCalls(), mutationKinds, mapping.status(), mapping.currentSymbol(),
                         legacyTargetResolution));
                 requirements.add(new Requirement(Kind.COREMOD_METHOD_TRANSFORM,
@@ -143,6 +145,18 @@ public final class LegacyCompatibilityPlanner {
         return new Plan(List.copyOf(requirements), List.copyOf(coremodPlans), minecraftTargets, forgeTargets,
                 accessMixins, overwrites, injectionCount, coremods, dependencies);
     }
+    private static String canonicalLegacyTarget(String sourceOwner, String name, String descriptor,
+                                                LegacySrgIndex.Resolution resolution,
+                                                ProguardMappingReader.Index mojmap) {
+        if (mojmap == null || resolution.matches().size() != 1) {
+            return sourceOwner + "#" + name + descriptor;
+        }
+        var match = resolution.matches().getFirst();
+        if (match.owners().isEmpty()) return sourceOwner + "#" + name + descriptor;
+        String owner = mojmap.namedClass(match.owners().getFirst()).orElse(sourceOwner);
+        return owner + "#" + name + descriptor;
+    }
+
     private static LegacySrgIndex.Resolution resolveLegacy(LegacySrgIndex srgIndex,
                                                             ProguardMappingReader.Index mojmap,
                                                             String owner, String name, String descriptor) {
