@@ -118,9 +118,28 @@ public final class TransformationSpecPlanner {
             String valueExpression = args.size() > 1 ? args.get(1) : "";
             edits.add(new TransformationSpec.InstructionEdit(
                     kind, location, first, valueExpression,
-                    resolveInstructionValue(valueExpression, values)));
+                    resolveInstructionValue(valueExpression, values),
+                    resolveInstructionValues(valueExpression, values)));
         }
         return List.copyOf(edits);
+    }
+
+    private static List<TransformationSpec.InstructionSpec> resolveInstructionValues(
+            String expression, List<LegacyInjectionAnalyzer.CoremodValue> values) {
+        if (expression == null || expression.isEmpty()) return List.of();
+        var definition = values.stream()
+                .filter(value -> value.name().equals(expression.trim()))
+                .findFirst();
+        if (definition.isEmpty() || !"new InsnList()".equals(definition.get().expression().trim())) {
+            return List.of();
+        }
+        List<TransformationSpec.InstructionSpec> result = new ArrayList<>();
+        for (String mutation : definition.get().mutations()) {
+            if (!mutation.startsWith("add(") || !mutation.endsWith(")")) continue;
+            String item = mutation.substring(4, mutation.length() - 1).trim();
+            result.add(resolveInstructionValue(item, values));
+        }
+        return List.copyOf(result);
     }
 
     private static TransformationSpec.InstructionSpec resolveInstructionValue(
@@ -169,6 +188,15 @@ public final class TransformationSpecPlanner {
             return new TransformationSpec.InstructionSpec(
                     TransformationSpec.InstructionKind.SIMPLE_OPCODE, null,
                     asmOpcode(insn.group(1)), null, resolved);
+        }
+
+        var jump = Pattern.compile(
+                "new\\s+JumpInsnNode\\s*\\(\\s*(?:Opcodes\\.)?([A-Z_]+)\\s*,\\s*(.+)\\)")
+                .matcher(resolved);
+        if (jump.matches()) {
+            return new TransformationSpec.InstructionSpec(
+                    TransformationSpec.InstructionKind.JUMP, null,
+                    asmOpcode(jump.group(1)), null, jump.group(2).trim());
         }
 
         return new TransformationSpec.InstructionSpec(
