@@ -111,10 +111,10 @@ public final class TransformationSpecPlanner {
 
     private static TransformationSpec.Invocation invocation(String type) {
         return switch (type) {
-            case "STATIC" -> TransformationSpec.Invocation.STATIC;
-            case "VIRTUAL" -> TransformationSpec.Invocation.VIRTUAL;
-            case "INTERFACE" -> TransformationSpec.Invocation.INTERFACE;
-            case "SPECIAL" -> TransformationSpec.Invocation.SPECIAL;
+            case "STATIC", "INVOKESTATIC" -> TransformationSpec.Invocation.STATIC;
+            case "VIRTUAL", "INVOKEVIRTUAL" -> TransformationSpec.Invocation.VIRTUAL;
+            case "INTERFACE", "INVOKEINTERFACE" -> TransformationSpec.Invocation.INTERFACE;
+            case "SPECIAL", "INVOKESPECIAL" -> TransformationSpec.Invocation.SPECIAL;
             default -> TransformationSpec.Invocation.UNKNOWN;
         };
     }
