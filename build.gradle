@@ -39,6 +39,11 @@ neoForge.ideSyncTask generateModMetadata
 
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 
+// ModLauncher is a launcher implementation detail and is not exposed on the
+// NeoForge mod compile classpath. LMS' early transformer therefore lives in a
+// separate launch-time component; keep the regular mod build independent of it.
+sourceSets.main.java.exclude 'com/fuckingdeveloper/lms/launch/**'
+
 
 /**
  * Isolated ForgeGradle 5 workspace. Forge 1.19.2 requires Java 17 and an
