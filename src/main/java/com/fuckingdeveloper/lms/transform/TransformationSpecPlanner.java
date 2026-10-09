@@ -37,7 +37,13 @@ public final class TransformationSpecPlanner {
                     + plan.hooks().size());
         }
         if (!plan.mutationKinds().contains("set")) {
-            return unresolved(id, "No instruction-set mutation was detected: " + plan.mutationKinds());
+            return new TransformationSpec(
+                    id,
+                    TransformationSpec.Kind.INSTRUCTION_EDIT,
+                    parseRef(plan.currentTarget(), TransformationSpec.Invocation.UNKNOWN),
+                    null, null,
+                    TransformationSpec.Readiness.UNRESOLVED,
+                    "Instruction edit shape requires structured operation parsing: " + plan.mutationKinds());
         }
 
         var anchorResolution = plan.anchorResolutions().getFirst();
@@ -88,6 +94,13 @@ public final class TransformationSpecPlanner {
                 null, null, null,
                 TransformationSpec.Readiness.UNRESOLVED,
                 reason);
+    }
+
+    private static TransformationSpec.MethodRef parseRef(
+            String symbol, TransformationSpec.Invocation invocation) {
+        if (symbol == null || symbol.isEmpty()) return null;
+        MethodParts method = parseSymbol(symbol);
+        return method == null ? null : ref(method, invocation);
     }
 
     private static TransformationSpec.MethodRef ref(
