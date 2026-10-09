@@ -56,7 +56,13 @@ public final class LmsMod {
                                     mixin.source(), mixin.targets(), mixin.mechanisms(),
                                     mixin.injections(), mixin.error());
                         }
-                        var compatibility = new LegacyCompatibilityPlanner().plan(metadata, injectionReport);
+                        Path srgFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "joined.tsrg");
+                        var srgIndex = LegacySrgIndex.load(srgFile);
+                        Path mojmapFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "client.txt");
+                        var mojmap = new com.fuckingdeveloper.lms.mapping.MappingFileLoader().load(mojmapFile);
+                        var compatibility = new LegacyCompatibilityPlanner().plan(
+                                metadata, injectionReport, srgIndex.orElse(null),
+                                mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::index).orElse(null));
                         LOG.info("LMS compatibility id={} minecraftTargets={} forgeTargets={} accessMixins={} overwrites={} injections={} coremodTransforms={} requiredDependencies={}",
                                 mod.modId(), compatibility.minecraftTargets(), compatibility.forgeTargets(),
                                 compatibility.accessMixins(), compatibility.overwrites(), compatibility.injections(),
@@ -65,11 +71,7 @@ public final class LmsMod {
                             LOG.info("LMS requirement kind={} source={} target={} detail={}",
                                     requirement.kind(), requirement.source(), requirement.target(), requirement.detail());
                         }
-                        Path srgFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "joined.tsrg");
-                        var srgIndex = LegacySrgIndex.load(srgFile);
-                        Path mojmapFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "client.txt");
-                        var mojmap = new com.fuckingdeveloper.lms.mapping.MappingFileLoader().load(mojmapFile);
-                        LOG.info("LMS SRG mappings file={} loaded={} methods={} namespaces={} mojmapFile={} mojmapLoaded={}",
+                        LOG.info("LMS SRG mappings file={} loaded={} methods={} namespaces={} mojmapFile={} mojmapLoaded={},
                                 srgFile.toAbsolutePath(), srgIndex.isPresent(),
                                 srgIndex.map(LegacySrgIndex::methodCount).orElse(0),
                                 srgIndex.map(LegacySrgIndex::namespaces).orElse(List.of()),
