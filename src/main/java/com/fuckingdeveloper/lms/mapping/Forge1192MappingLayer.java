@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.Optional;
 
@@ -156,13 +157,14 @@ public final class Forge1192MappingLayer {
         // declaring the anchor unresolved. This is still structural evidence only.
         List<String> inheritedMatches = new ArrayList<>();
         collectHierarchyDescriptorMatches(owner, descriptor, new HashSet<>(), true, inheritedMatches);
-        if (inheritedMatches.size() == 1) {
-            return new Mapping(legacySymbol, inheritedMatches.getFirst(), Status.DESCRIPTOR_MATCH,
+        List<String> uniqueInheritedMatches = new ArrayList<>(new LinkedHashSet<>(inheritedMatches));
+        if (uniqueInheritedMatches.size() == 1) {
+            return new Mapping(legacySymbol, uniqueInheritedMatches.getFirst(), Status.DESCRIPTOR_MATCH,
                     "Unique current inherited method with the legacy descriptor; candidate requires semantic verification");
         }
-        if (inheritedMatches.size() > 1) {
+        if (uniqueInheritedMatches.size() > 1) {
             return new Mapping(legacySymbol, "", Status.AMBIGUOUS,
-                    "Multiple inherited current methods share legacy descriptor: " + inheritedMatches);
+                    "Multiple distinct inherited current methods share legacy descriptor: " + uniqueInheritedMatches);
         }
         return new Mapping(legacySymbol, "", Status.UNRESOLVED,
                 "Owner exists, but no current method in its hierarchy has the legacy descriptor");
