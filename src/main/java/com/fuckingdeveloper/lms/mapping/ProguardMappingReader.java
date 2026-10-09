@@ -16,14 +16,22 @@ public final class ProguardMappingReader {
     public record MethodMapping(String namedOwner, String namedName, String parameters,
                                 String obfuscatedOwner, String obfuscatedName) {}
     public record Index(Map<String, String> namedToObfuscatedClasses,
+                        Map<String, String> obfuscatedToNamedClasses,
                         Map<MethodKey, MethodMapping> namedMethods) {
         public Optional<MethodMapping> find(String owner, String name, String parameters) {
             return Optional.ofNullable(namedMethods.get(new MethodKey(owner, name, parameters)));
+        }
+        public Optional<String> obfuscatedClass(String namedClass) {
+            return Optional.ofNullable(namedToObfuscatedClasses.get(namedClass));
+        }
+        public Optional<String> namedClass(String obfuscatedClass) {
+            return Optional.ofNullable(obfuscatedToNamedClasses.get(obfuscatedClass));
         }
     }
 
     public Index read(Reader input) throws IOException {
         Map<String, String> classes = new LinkedHashMap<>();
+        Map<String, String> reverseClasses = new LinkedHashMap<>();
         Map<MethodKey, MethodMapping> methods = new LinkedHashMap<>();
         String owner = null;
         String obfuscatedOwner = null;
@@ -42,6 +50,7 @@ public final class ProguardMappingReader {
                 owner = trimmed.substring(0, arrow).trim();
                 obfuscatedOwner = trimmed.substring(arrow + 4, trimmed.length() - 1).trim();
                 classes.put(owner, obfuscatedOwner);
+                reverseClasses.put(obfuscatedOwner, owner);
                 continue;
             }
             if (owner == null) continue;
@@ -60,6 +69,6 @@ public final class ProguardMappingReader {
             MethodKey key = new MethodKey(owner, name, params);
             methods.putIfAbsent(key, new MethodMapping(owner, name, params, obfuscatedOwner, obfuscatedName));
         }
-        return new Index(Map.copyOf(classes), Map.copyOf(methods));
+        return new Index(Map.copyOf(classes), Map.copyOf(reverseClasses), Map.copyOf(methods));
     }
 }
