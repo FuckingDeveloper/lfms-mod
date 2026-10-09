@@ -222,7 +222,28 @@ public final class LegacyCompatibilityPlanner {
         // Translate each legacy match by its exact obfuscated owner+name identity.
         // Restrict with the named parameter list when possible, then accept only
         // one unanimous official name.
-        var names = legacyResolution.matches().stream()
+        var exactNames = mappedOfficialNames(anchor, legacyResolution, mojmap, true);
+        if (exactNames.size() == 1) return exactNames.getFirst();
+
+        // Forge can patch an overload whose invocation descriptor is intentionally
+        // absent from vanilla mappings. SOURCE_DESCRIPTOR_MISMATCH is exactly that
+        // evidence shape for e.g. BlockState#skipRendering(BlockState, Direction).
+        // In that case use the vanilla SRG identity only to recover the unanimous
+        // official method name, then require the *source descriptor* to exist in
+        // the Forge runtime bytecode before considering the anchor verified.
+        if (legacyResolution.status() == LegacySrgIndex.ResolutionStatus.SOURCE_DESCRIPTOR_MISMATCH) {
+            var identityNames = mappedOfficialNames(anchor, legacyResolution, mojmap, false);
+            if (identityNames.size() == 1) return identityNames.getFirst();
+        }
+        return null;
+    }
+
+    private static List<String> mappedOfficialNames(
+            LegacyInjectionAnalyzer.CoremodAnchor anchor,
+            LegacySrgIndex.Resolution legacyResolution,
+            ProguardMappingReader.Index mojmap,
+            boolean requireSourceParameters) {
+        return legacyResolution.matches().stream()
                 .flatMap(match -> {
                     if (match.owners().isEmpty()) return java.util.stream.Stream.empty();
                     String obfuscatedOwner = match.owners().getFirst();
@@ -230,12 +251,12 @@ public final class LegacyCompatibilityPlanner {
                     return mojmap.namedMethods().values().stream()
                             .filter(method -> method.obfuscatedOwner().equals(obfuscatedOwner))
                             .filter(method -> method.obfuscatedName().equals(obfuscatedName))
-                            .filter(method -> parametersMatchDescriptor(method.parameters(), anchor.descriptor()))
+                            .filter(method -> !requireSourceParameters
+                                    || parametersMatchDescriptor(method.parameters(), anchor.descriptor()))
                             .map(ProguardMappingReader.MethodMapping::namedName);
                 })
                 .distinct()
                 .toList();
-        return names.size() == 1 ? names.getFirst() : null;
     }
 
     private static boolean parametersMatchDescriptor(String parameters, String descriptor) {
