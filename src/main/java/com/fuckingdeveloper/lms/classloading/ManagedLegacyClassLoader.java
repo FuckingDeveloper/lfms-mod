@@ -22,11 +22,19 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     private final Path artifact;
     private final JarFile jar;
+    private final LegacyClassTransformer transformer;
 
     public ManagedLegacyClassLoader(Path artifact, ClassLoader targetLoader) throws IOException {
+        this(artifact, targetLoader, (name, bytes) ->
+                LegacyClassTransformer.Result.unchanged(bytes, "identity profile transformer"));
+    }
+
+    public ManagedLegacyClassLoader(Path artifact, ClassLoader targetLoader,
+                                    LegacyClassTransformer transformer) throws IOException {
         super(Objects.requireNonNull(targetLoader, "targetLoader"));
         this.artifact = artifact.toAbsolutePath().normalize();
         this.jar = new JarFile(this.artifact.toFile(), false);
+        this.transformer = Objects.requireNonNull(transformer, "transformer");
     }
 
     public Path artifact() {
@@ -73,12 +81,14 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
         var entry = jar.getJarEntry(name.replace('.', '/') + ".class");
         if (entry == null) throw new ClassNotFoundException(name);
         try (InputStream in = jar.getInputStream(entry)) {
-            byte[] bytes = in.readAllBytes();
-            // Profile transformation is deliberately a separate mandatory boundary;
-            // raw definition is used only by the initial linkage probe.
+            byte[] original = in.readAllBytes();
+            LegacyClassTransformer.Result result = transformer.transform(name, original);
+            byte[] bytes = result.bytes();
             return defineClass(name, bytes, 0, bytes.length);
         } catch (IOException e) {
             throw new ClassNotFoundException(name, e);
+        } catch (Exception e) {
+            throw new ClassNotFoundException("Profile transformation failed for " + name, e);
         }
     }
 
