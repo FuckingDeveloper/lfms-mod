@@ -39,8 +39,8 @@ neoForge.ideSyncTask generateModMetadata
 
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 
-// Early ModLauncher component: compiled independently from the NeoForge mod.
-// It must be installed in the ModLauncher SERVICE layer, not as an ordinary mod.
+// Early FML transformation library: compiled independently from the ordinary NeoForge mod.
+// FML discovers it as an FMLModType=LIBRARY service provider.
 repositories { mavenCentral() }
 sourceSets {
     launch {
@@ -54,15 +54,14 @@ dependencies {
 }
 tasks.register('launchJar', Jar) {
     group = 'lms'
-    description = 'Build the separate early ModLauncher transformation service'
+    description = 'Build the separate early FML transformation library'
     archiveClassifier = 'launch'
     from sourceSets.launch.output
     manifest { attributes('FMLModType': 'LIBRARY') }
     dependsOn tasks.named('launchClasses')
 }
 
-// Generate inspectable launch scripts for the actual ModDevGradle client/server
-// pipeline. This is diagnostic only; it does not inject the LMS launch JAR yet.
+// Generate inspectable launch scripts for the actual ModDevGradle client/server pipeline.
 tasks.named('createClientLaunchScript') {
     dependsOn tasks.named('launchJar')
 }
