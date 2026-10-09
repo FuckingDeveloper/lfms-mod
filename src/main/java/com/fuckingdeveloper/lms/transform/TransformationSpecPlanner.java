@@ -199,15 +199,10 @@ public final class TransformationSpecPlanner {
         if (finding == null || finding.declaringOwner() == null || finding.declaringOwner().isEmpty()) {
             return TransformationSpec.Invocation.UNKNOWN;
         }
-        // Coremod anchors are method invocation instructions. When the legacy runtime
-        // proves the declaring member is a class method, invokevirtual is the JVM
-        // dispatch form. Interface-declared members remain unresolved here because
-        // the runtime evidence currently does not expose the declaring class access
-        // flags; guessing invokeinterface would make READY unsafe.
-        if (!finding.declaringOwner().startsWith("net.minecraftforge.common.extensions.")) {
-            return TransformationSpec.Invocation.VIRTUAL;
-        }
-        return TransformationSpec.Invocation.UNKNOWN;
+        if (finding.methodStatic()) return TransformationSpec.Invocation.STATIC;
+        if (finding.declaringInterface()) return TransformationSpec.Invocation.INTERFACE;
+        if (finding.methodPrivate()) return TransformationSpec.Invocation.SPECIAL;
+        return TransformationSpec.Invocation.VIRTUAL;
     }
 
     private static List<TransformationSpec.InstructionEdit> remapArgumentSlots(
