@@ -194,10 +194,15 @@ public final class TransformationSpecPlanner {
                 "new\\s+JumpInsnNode\\s*\\(\\s*(?:Opcodes\\.)?([A-Z_]+)\\s*,\\s*(.+)\\)")
                 .matcher(resolved);
         if (jump.matches()) {
+            String targetExpression = jump.group(2).trim();
+            if (targetExpression.startsWith("new LabelNode(") && targetExpression.endsWith(")")) {
+                targetExpression = targetExpression.substring("new LabelNode(".length(),
+                        targetExpression.length() - 1).trim();
+            }
             return new TransformationSpec.InstructionSpec(
                     TransformationSpec.InstructionKind.JUMP, null,
                     asmOpcode(jump.group(1)), null, resolved,
-                    parseInstructionReference(jump.group(2).trim()));
+                    parseInstructionReference(targetExpression));
         }
 
         return new TransformationSpec.InstructionSpec(
@@ -250,11 +255,29 @@ public final class TransformationSpecPlanner {
     }
 
     private static Integer asmOpcode(String name) {
-        try {
-            return org.objectweb.asm.Opcodes.class.getField(name).getInt(null);
-        } catch (ReflectiveOperationException ignored) {
-            return null;
-        }
+        return switch (name) {
+            case "FCONST_0" -> 11;
+            case "FCONST_1" -> 12;
+            case "FCONST_2" -> 13;
+            case "DCONST_0" -> 14;
+            case "DCONST_1" -> 15;
+            case "ICONST_M1" -> 2;
+            case "ICONST_0" -> 3;
+            case "ICONST_1" -> 4;
+            case "ICONST_2" -> 5;
+            case "ICONST_3" -> 6;
+            case "ICONST_4" -> 7;
+            case "ICONST_5" -> 8;
+            case "LCONST_0" -> 9;
+            case "LCONST_1" -> 10;
+            default -> {
+                try {
+                    yield org.objectweb.asm.Opcodes.class.getField(name).getInt(null);
+                } catch (ReflectiveOperationException ignored) {
+                    yield null;
+                }
+            }
+        };
     }
 
     private static List<String> splitTopLevelArguments(String source) {
