@@ -148,6 +148,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        if (value.equals("net/minecraft/resources/ResourceLocation"))
+            return "net/minecraft/resources/Identifier";
         if (value.startsWith("net/minecraftforge/eventbus/"))
             return value.replace("net/minecraftforge/eventbus/", "net/neoforged/bus/");
         if (value.startsWith("net/minecraftforge/fml/"))
@@ -162,6 +164,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private static String migrateDescriptor(String descriptor) {
         return descriptor
+                .replace("net/minecraft/resources/ResourceLocation", "net/minecraft/resources/Identifier")
                 .replace("net/minecraftforge/eventbus/", "net/neoforged/bus/")
                 .replace("net/minecraftforge/fml/", "net/neoforged/fml/")
                 .replace("net/minecraftforge/forgespi/", "net/neoforged/neoforgespi/")
