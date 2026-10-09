@@ -24,9 +24,9 @@ public final class CoremodTransform6Rewriter {
                     + "Lnet/minecraft/world/phys/Vec3;";
 
     private static final String CURRENT_STEP_METHOD = "maxUpStep";
-    private static final String IC2_HOOK_OWNER = "ic2/core/platform/corehacks/ASMHacks";
-    private static final String IC2_HOOK_METHOD = "getStepHeight";
-    private static final String IC2_HOOK_DESCRIPTOR =
+    private static final String BRIDGE_OWNER = "com/fuckingdeveloper/lms/compat/StepHeightBridge";
+    private static final String BRIDGE_METHOD = "getStepHeight";
+    private static final String BRIDGE_DESCRIPTOR =
             "(Lnet/minecraft/world/entity/player/Player;)F";
 
     public record Result(byte[] bytecode, int replacements, boolean targetMethodFound) {
@@ -60,12 +60,12 @@ public final class CoremodTransform6Rewriter {
                 }
 
                 // The receiver Player already sits on the operand stack. The static
-                // IC2 hook consumes that same Player and returns the replacement float.
+                // LMS bridge consumes that same Player and returns the replacement float.
                 MethodInsnNode replacement = new MethodInsnNode(
                         Opcodes.INVOKESTATIC,
-                        IC2_HOOK_OWNER,
-                        IC2_HOOK_METHOD,
-                        IC2_HOOK_DESCRIPTOR,
+                        BRIDGE_OWNER,
+                        BRIDGE_METHOD,
+                        BRIDGE_DESCRIPTOR,
                         false);
                 method.instructions.set(call, replacement);
                 replacements++;
