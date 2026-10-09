@@ -66,6 +66,8 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             boolean anchorsStillMatch = spec.anchors().stream().anyMatch(anchor ->
                     containsMatchingCall(method, anchor.method()));
             int maxStackBefore = method.maxStack;
+            dumpWindow(method, 76, 92, "edited-region");
+            dumpWindow(method, 138, 151, "merge-failure-region");
             int computedMaxStack = recomputeMaxStack(input.name, method);
             String bytecodeVerification = verifyBytecode(input.name, method);
             System.out.println("[LMS/early] verify id=" + spec.id()
@@ -132,6 +134,32 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             }
         }
         return result;
+    }
+
+    private static void dumpWindow(MethodNode method, int from, int to, String reason) {
+        System.out.println("[LMS/early] bytecode-window reason=" + reason + " method=" + method.name + method.desc);
+        for (int i = Math.max(0, from); i <= Math.min(to, method.instructions.size() - 1); i++) {
+            AbstractInsnNode n = method.instructions.get(i);
+            System.out.println("[LMS/early]   insn=" + i + " " + describeInsn(method, n));
+        }
+    }
+
+    private static String describeInsn(MethodNode method, AbstractInsnNode n) {
+        if (n instanceof LabelNode) return "LABEL@" + Integer.toHexString(System.identityHashCode(n));
+        if (n instanceof LineNumberNode line) return "LINE " + line.line + " -> " + indexOf(method, line.start);
+        if (n instanceof FrameNode frame) return "FRAME type=" + frame.type + " locals=" + frame.local + " stack=" + frame.stack;
+        if (n instanceof MethodInsnNode call) return "CALL op=" + call.getOpcode() + " " + call.owner + "#" + call.name + call.desc;
+        if (n instanceof VarInsnNode var) return "VAR op=" + var.getOpcode() + " slot=" + var.var;
+        if (n instanceof JumpInsnNode jump) return "JUMP op=" + jump.getOpcode() + " -> " + indexOf(method, jump.label);
+        if (n instanceof InsnNode) return "INSN op=" + n.getOpcode();
+        if (n instanceof FieldInsnNode field) return "FIELD op=" + field.getOpcode() + " " + field.owner + "#" + field.name + ":" + field.desc;
+        if (n instanceof TypeInsnNode type) return "TYPE op=" + type.getOpcode() + " " + type.desc;
+        if (n instanceof LdcInsnNode ldc) return "LDC " + ldc.cst;
+        return n.getClass().getSimpleName() + " op=" + n.getOpcode();
+    }
+
+    private static int indexOf(MethodNode method, AbstractInsnNode node) {
+        return node == null ? -1 : method.instructions.indexOf(node);
     }
 
     private static int recomputeMaxStack(String owner, MethodNode method) {
