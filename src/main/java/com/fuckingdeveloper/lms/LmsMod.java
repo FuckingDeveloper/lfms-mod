@@ -64,9 +64,11 @@ public final class LmsMod {
                         // Optional evidence from a user-provided, named 1.19.2 runtime JAR.
                         // This does not load classes or execute legacy coremods.
                         Path runtimeJar = Path.of(System.getProperty("user.dir"), "legacy-runtime", "1.19.2", "client.jar");
+                        LegacyRuntimeBytecodeInspector legacyRuntime = null;
                         if (Files.isRegularFile(runtimeJar)) {
                             try {
-                                var runtime = LegacyRuntimeBytecodeInspector.read(runtimeJar);
+                                legacyRuntime = LegacyRuntimeBytecodeInspector.read(runtimeJar);
+                                var runtime = legacyRuntime;
                                 LOG.info("LMS legacy runtime bytecode file={} classes={}",
                                         runtimeJar.toAbsolutePath(), runtime.classCount());
                                 LOG.info("LMS legacy runtime probe={}", runtime.find(
@@ -84,7 +86,8 @@ public final class LmsMod {
                         }
                         var compatibility = new LegacyCompatibilityPlanner().plan(
                                 metadata, injectionReport, srgIndex.orElse(null),
-                                mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::index).orElse(null));
+                                mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::index).orElse(null),
+                                legacyRuntime);
                         LOG.info("LMS compatibility id={} minecraftTargets={} forgeTargets={} accessMixins={} overwrites={} injections={} coremodTransforms={} requiredDependencies={}",
                                 mod.modId(), compatibility.minecraftTargets(), compatibility.forgeTargets(),
                                 compatibility.accessMixins(), compatibility.overwrites(), compatibility.injections(),
