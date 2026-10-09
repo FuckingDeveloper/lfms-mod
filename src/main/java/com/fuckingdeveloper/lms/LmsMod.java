@@ -10,6 +10,7 @@ import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
+import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
 import com.fuckingdeveloper.lms.transform.TransformationSpecPlanner;
 import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
@@ -54,7 +55,8 @@ public final class LmsMod {
                         // become attributable compatibility evidence rather than accidental execution.
                         ClassLoader targetLoader = Thread.currentThread().getContextClassLoader();
                         if (targetLoader == null) targetLoader = LmsMod.class.getClassLoader();
-                        try (var legacyLoader = new ManagedLegacyClassLoader(mod.file(), targetLoader)) {
+                        try (var legacyLoader = new ManagedLegacyClassLoader(
+                                mod.file(), targetLoader, new Forge1192LegacyClassTransformer())) {
                             for (String candidate : report.modAnnotationCandidates()) {
                                 try {
                                     Class<?> linked = legacyLoader.linkOwnedClass(candidate);
