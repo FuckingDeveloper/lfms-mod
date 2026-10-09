@@ -133,9 +133,10 @@ public final class LegacyCompatibilityPlanner {
                             mapping = new Forge1192MappingLayer.Mapping(
                                     canonicalOwner + "#" + target.method() + target.descriptor(),
                                     candidate.symbol(),
-                                    Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
-                                    "Recovered legacy target name survives with a changed descriptor: "
-                                            + candidate.descriptor());
+                                    Forge1192MappingLayer.Status.VERIFIED_IDENTITY,
+                                    "Unique recovered legacy target name survives on the same canonical owner; "
+                                            + "descriptor migration is validated separately by transformation planning: "
+                                            + target.descriptor() + " -> " + candidate.descriptor());
                         }
                     }
                 }
@@ -333,8 +334,9 @@ public final class LegacyCompatibilityPlanner {
                             mapping = new Forge1192MappingLayer.Mapping(
                                     canonicalOwner + "#" + target.method() + target.descriptor(),
                                     candidate.symbol(),
-                                    Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
-                                    "Canonical legacy owner and recovered method name uniquely identify current target");
+                                    Forge1192MappingLayer.Status.VERIFIED_IDENTITY,
+                                    "Canonical legacy owner and unique recovered method name identify current target; "
+                                            + "descriptor migration remains subject to transformation-plan validation");
                         }
                     }
                 }
