@@ -30,7 +30,18 @@ public record TransformationSpec(
 
     /** Loader-neutral edit recovered from legacy instruction-list JavaScript. */
     public record InstructionEdit(EditKind kind, InstructionLocation location,
-                                  String firstArgument, String valueExpression) {}
+                                  String firstArgument, String valueExpression,
+                                  InstructionSpec value) {}
+
+    public record InstructionSpec(InstructionKind kind, MethodRef method,
+                                  Integer opcode, Integer variable, String expression) {}
+
+    public enum InstructionKind {
+        METHOD_CALL,
+        SIMPLE_OPCODE,
+        VARIABLE,
+        UNRESOLVED
+    }
 
     public enum EditKind {
         REMOVE,
