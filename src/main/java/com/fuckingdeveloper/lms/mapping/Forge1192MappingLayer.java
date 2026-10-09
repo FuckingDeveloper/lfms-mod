@@ -229,20 +229,10 @@ public final class Forge1192MappingLayer {
             return new Mapping(legacySymbol, owner + "#" + legacyMethod + descriptor,
                     Status.VERIFIED_IDENTITY, "Exact method name and descriptor exist in current runtime");
         }
-        if (descriptorMatches.size() == 1) {
-            String current = descriptorMatches.getFirst();
-            return new Mapping(legacySymbol, owner + "#" + current + descriptor,
-                    Status.DESCRIPTOR_MATCH,
-                    "Unique current method with the legacy descriptor; candidate requires semantic verification");
-        }
-        if (descriptorMatches.size() > 1) {
-            return new Mapping(legacySymbol, "", Status.AMBIGUOUS,
-                    "Multiple current methods share legacy descriptor: " + descriptorMatches);
-        }
-
         // The legacy invocation owner can be a subclass while the actual member is
-        // declared by a superclass/interface. First preserve exact recovered method
-        // identity across that hierarchy; only then fall back to descriptor shape.
+        // declared by a superclass/interface. Exact recovered identity is stronger
+        // evidence than any descriptor-only match declared directly on the subclass,
+        // so resolve it before structural descriptor fallbacks.
         List<String> inheritedExactMatches = new ArrayList<>();
         collectHierarchyExactMatches(owner, legacyMethod, descriptor, new HashSet<>(), true, inheritedExactMatches);
         List<String> uniqueInheritedExactMatches = new ArrayList<>(new LinkedHashSet<>(inheritedExactMatches));
@@ -253,6 +243,17 @@ public final class Forge1192MappingLayer {
         if (uniqueInheritedExactMatches.size() > 1) {
             return new Mapping(legacySymbol, "", Status.AMBIGUOUS,
                     "Exact method identity appears in multiple current ancestors: " + uniqueInheritedExactMatches);
+        }
+
+        if (descriptorMatches.size() == 1) {
+            String current = descriptorMatches.getFirst();
+            return new Mapping(legacySymbol, owner + "#" + current + descriptor,
+                    Status.DESCRIPTOR_MATCH,
+                    "Unique current method with the legacy descriptor; candidate requires semantic verification");
+        }
+        if (descriptorMatches.size() > 1) {
+            return new Mapping(legacySymbol, "", Status.AMBIGUOUS,
+                    "Multiple current methods share legacy descriptor: " + descriptorMatches);
         }
 
         // No exact identity survived; descriptor matching is structural evidence only.
