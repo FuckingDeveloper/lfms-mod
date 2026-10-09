@@ -5,6 +5,7 @@ import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyRuntimeBytecodeInspector;
 import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
+import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -46,6 +47,24 @@ public final class LmsMod {
                         LOG.info("LMS analysis id={} modAnnotationCandidates={} mixinConfigs={} nestedJars={} transformerHints={}",
                                 mod.modId(), report.modAnnotationCandidates(), report.mixinConfigs(),
                                 report.nestedJars(), report.transformerHints());
+                        // First controlled-classloading milestone. Link only the statically
+                        // discovered legacy @Mod candidate classes and never initialize them.
+                        // This deliberately happens before lifecycle adaptation: linkage errors
+                        // become attributable compatibility evidence rather than accidental execution.
+                        ClassLoader targetLoader = Thread.currentThread().getContextClassLoader();
+                        if (targetLoader == null) targetLoader = LmsMod.class.getClassLoader();
+                        try (var legacyLoader = new ManagedLegacyClassLoader(mod.file(), targetLoader)) {
+                            for (String candidate : report.modAnnotationCandidates()) {
+                                try {
+                                    Class<?> linked = legacyLoader.linkOwnedClass(candidate);
+                                    LOG.info("LMS classlink id={} class={} status=LINKED initialized=false loader={}",
+                                            mod.modId(), candidate, linked.getClassLoader().getClass().getSimpleName());
+                                } catch (LinkageError | ClassNotFoundException e) {
+                                    LOG.info("LMS classlink id={} class={} status=BLOCKED initialized=false error={} message={}",
+                                            mod.modId(), candidate, e.getClass().getName(), e.getMessage());
+                                }
+                            }
+                        }
                         var metadata = new LegacyMetadataAnalyzer().analyze(mod.file(), report.mixinConfigs());
                         LOG.info("LMS metadata id={} dependencies={}", mod.modId(), metadata.dependencies());
                         LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
