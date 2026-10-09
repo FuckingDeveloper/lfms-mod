@@ -60,6 +60,11 @@ tasks.register('launchJar', Jar) {
     dependsOn tasks.named('launchClasses')
 }
 
+// Generate inspectable launch scripts for the actual ModDevGradle client/server
+// pipeline. This is diagnostic only; it does not inject the LMS launch JAR yet.
+tasks.named('createClientLaunchScript') {
+    dependsOn tasks.named('launchJar')
+}
 
 /**
  * Isolated ForgeGradle 5 workspace. Forge 1.19.2 requires Java 17 and an
