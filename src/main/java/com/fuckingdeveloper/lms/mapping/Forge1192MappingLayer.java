@@ -159,6 +159,37 @@ public final class Forge1192MappingLayer {
         return new MethodSemantics(owner, method, descriptor, List.copyOf(operations));
     }
 
+    /**
+     * Inspect a named current-runtime method even when its descriptor changed.
+     * Exact name is strong migration evidence; overloaded names remain ambiguous.
+     */
+    public MethodSearch searchNamedMethods(String owner, String method) {
+        String legacySymbol = owner + "#" + method;
+        InputStream stream = openClass(owner);
+        if (stream == null) {
+            return new MethodSearch(legacySymbol, List.of(), "Owner class is absent from the current runtime");
+        }
+        List<MethodCandidate> candidates = new ArrayList<>();
+        try (stream) {
+            new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override public MethodVisitor visitMethod(int access, String name, String desc,
+                                                           String signature, String[] exceptions) {
+                    if (name.equals(method)) {
+                        candidates.add(new MethodCandidate(owner + "#" + name + desc, desc));
+                    }
+                    return null;
+                }
+            }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } catch (IOException | RuntimeException ex) {
+            return new MethodSearch(legacySymbol, List.of(),
+                    "Could not inspect current owner bytecode: " + ex.getClass().getSimpleName());
+        }
+        return new MethodSearch(legacySymbol, List.copyOf(candidates),
+                candidates.size() == 1 ? "Unique current method preserves recovered legacy name"
+                        : candidates.isEmpty() ? "Recovered legacy name is absent from current owner"
+                        : "Recovered legacy name is overloaded in current owner");
+    }
+
     /** Retained for callers that do not yet have owner/descriptor evidence. */
     public Mapping classifyMethod(String legacyMethod) {
         return mappings.computeIfAbsent("method:" + legacyMethod, key ->
