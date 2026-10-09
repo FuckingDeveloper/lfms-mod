@@ -2,6 +2,8 @@ package com.fuckingdeveloper.lms.runtime;
 
 import java.util.Objects;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.Registry;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /**
@@ -66,7 +68,13 @@ public final class Forge1192RegistrationContext {
         Scope scope = requireActive();
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(value, "value");
-        scope.event().register(scope.event().getRegistryKey(), helper -> helper.register(name, value));
+
+        // RegisterEvent#getRegistryKey intentionally exposes a wildcard because
+        // the event is runtime-typed. The value type is known only to the
+        // legacy call site, so contain the unavoidable erasure at this bridge.
+        ResourceKey<? extends Registry<Object>> key =
+                (ResourceKey<? extends Registry<Object>>) (ResourceKey) scope.event().getRegistryKey();
+        scope.event().register(key, name, () -> value);
     }
 
     public static void register(String name, Object value) {
