@@ -43,6 +43,7 @@ public final class TransformationSpecPlanner {
                     TransformationSpec.Kind.INSTRUCTION_EDIT,
                     parseRef(plan.currentTarget(), TransformationSpec.Invocation.UNKNOWN),
                     null, null,
+                    parseAnchorBindings(plan),
                     parseInstructionEdits(plan.operations(), plan.values()),
                     TransformationSpec.Readiness.UNRESOLVED,
                     "Instruction edit structure captured; inserted instruction expressions still require parsing: "
@@ -76,6 +77,7 @@ public final class TransformationSpecPlanner {
                     new TransformationSpec.MethodRef(
                             internal(hook.owner()), hook.method(), hook.descriptor(), hookInvocation),
                     List.of(),
+                    List.of(),
                     TransformationSpec.Readiness.UNRESOLVED,
                     "Target/anchor/hook resolved; legacy anchor invocation opcode is not captured");
         }
@@ -88,8 +90,25 @@ public final class TransformationSpecPlanner {
                 new TransformationSpec.MethodRef(
                         internal(hook.owner()), hook.method(), hook.descriptor(), hookInvocation),
                 List.of(),
+                List.of(),
                 TransformationSpec.Readiness.READY,
                 "Target, anchor, invocation opcode and replacement hook are resolved");
+    }
+
+    private static List<TransformationSpec.AnchorBinding> parseAnchorBindings(
+            LegacyCompatibilityPlanner.CoremodTransformationPlan plan) {
+        List<TransformationSpec.AnchorBinding> result = new ArrayList<>();
+        for (var resolution : plan.anchorResolutions()) {
+            if (resolution.currentSymbol().isEmpty()) continue;
+            String variable = resolution.anchor().variable();
+            if (variable == null || variable.isEmpty()) continue;
+            MethodParts current = parseSymbol(resolution.currentSymbol());
+            if (current == null) continue;
+            var invocation = invocation(resolution.anchor().invocationType());
+            result.add(new TransformationSpec.AnchorBinding(
+                    variable, ref(current, invocation)));
+        }
+        return List.copyOf(result);
     }
 
     private static List<TransformationSpec.InstructionEdit> parseInstructionEdits(
