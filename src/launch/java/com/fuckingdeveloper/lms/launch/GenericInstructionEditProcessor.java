@@ -154,21 +154,14 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 || jump.kind() != ValueKind.JUMP || ret.kind() != ValueKind.SIMPLE_OPCODE
                 || ret.opcode() != Opcodes.RETURN) return spec.edits();
 
-        AbstractInsnNode successor = nextExecutable(anchorNode);
-        if (!(successor instanceof MethodInsnNode consumer)) {
-            System.out.println("[LMS/early] semantic-adapt skipped id=" + spec.id()
-                    + " reason=anchor-successor-not-call successor=" + describeNode(successor));
-            return spec.edits();
-        }
         Type result = Type.getReturnType(original.descriptor());
-        Type[] consumerArgs = Type.getArgumentTypes(consumer.desc);
-        if (consumerArgs.length == 0 || !consumerArgs[consumerArgs.length - 1].equals(result)) {
+        ConsumerSite consumerSite = findConsumerOfTopValue(anchorNode, result);
+        if (consumerSite == null) {
             System.out.println("[LMS/early] semantic-adapt skipped id=" + spec.id()
-                    + " reason=consumer-does-not-consume-result consumer="
-                    + consumer.owner + "#" + consumer.name + consumer.desc
-                    + " result=" + result.getDescriptor());
+                    + " reason=no-safe-stack-consumer successor=" + describeNode(nextExecutable(anchorNode)));
             return spec.edits();
         }
+        MethodInsnNode consumer = consumerSite.consumer();
 
         // Replace the migrated producer in-place. Its current consumer remains intact.
         anchorNode = bindings.get(anchor.variable());
@@ -182,18 +175,45 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         InsnList beforeConsumer = new InsnList();
         beforeConsumer.add(new InsnNode(result.getSize() == 2 ? Opcodes.DUP2 : Opcodes.DUP));
         beforeConsumer.add(new VarInsnNode(store.opcode(), store.variable()));
-        method.instructions.insertBefore(successor, beforeConsumer);
+        method.instructions.insertBefore(consumerSite.insertionPoint(), beforeConsumer);
 
         InsnList suffix = build(values.subList(2, values.size() - 2), bindings);
         LabelNode continueLabel = new LabelNode();
         suffix.add(new JumpInsnNode(jump.opcode(), continueLabel));
         suffix.add(new InsnNode(Opcodes.RETURN));
         suffix.add(continueLabel);
-        method.instructions.insert(successor, suffix);
+        method.instructions.insert(consumer, suffix);
         System.out.println("[LMS/early] semantic-adapt id=" + spec.id()
                 + " pattern=RESULT_REWRITE_PRESERVE_CONSUMER consumer="
                 + consumer.owner + "#" + consumer.name + consumer.desc);
         return List.of();
+    }
+
+    private record ConsumerSite(MethodInsnNode consumer, AbstractInsnNode insertionPoint) {}
+
+    private static ConsumerSite findConsumerOfTopValue(AbstractInsnNode producer, Type producedType) {
+        int carriedSlots = producedType.getSize();
+        for (AbstractInsnNode n = nextExecutable(producer); n != null; n = nextExecutable(n)) {
+            int op = n.getOpcode();
+            // Stack-only shuffles that preserve the produced value while arranging
+            // other operands for the eventual consumer.
+            if (op == Opcodes.SWAP || op == Opcodes.DUP || op == Opcodes.DUP_X1
+                    || op == Opcodes.DUP_X2 || op == Opcodes.DUP2 || op == Opcodes.DUP2_X1
+                    || op == Opcodes.DUP2_X2) {
+                continue;
+            }
+            if (n instanceof MethodInsnNode call) {
+                Type[] args = Type.getArgumentTypes(call.desc);
+                if (args.length > 0 && args[args.length - 1].equals(producedType)) {
+                    return new ConsumerSite(call, call);
+                }
+                return null;
+            }
+            // Any load/store/arithmetic/field/control-flow operation means we can no
+            // longer prove that the original producer value reaches a unique consumer.
+            return null;
+        }
+        return null;
     }
 
     private static String describeNode(AbstractInsnNode node) {
