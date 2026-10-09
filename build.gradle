@@ -77,8 +77,20 @@ def installLaunchJar = tasks.register('installLaunchJar', Copy) {
 
 def launchJarPathProvider = tasks.named('launchJar').flatMap { it.archiveFile }.map { it.asFile.absolutePath }
 
+def prepareLaunchPlan = tasks.register('prepareLaunchPlan', JavaExec) {
+    group = 'lms'
+    description = 'Compile the current legacy compatibility plan before FancyModLoader starts'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.fuckingdeveloper.lms.PreLaunchPlanCompiler'
+    workingDir = layout.projectDirectory.dir('run')
+    doFirst {
+        delete layout.projectDirectory.file('run/lms/launch-plan.tsv')
+    }
+}
+
 tasks.named('runClient') {
-    dependsOn installLaunchJar
+    dependsOn installLaunchJar, prepareLaunchPlan
     doFirst {
         logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())
         logger.lifecycle("LMS installed launch JARs: {}", fileTree(layout.projectDirectory.dir('run/mods')) {
@@ -87,7 +99,7 @@ tasks.named('runClient') {
     }
 }
 tasks.named('runServer') {
-    dependsOn installLaunchJar
+    dependsOn installLaunchJar, prepareLaunchPlan
     doFirst {
         logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())
         logger.lifecycle("LMS installed launch JARs: {}", fileTree(layout.projectDirectory.dir('run/mods')) {
