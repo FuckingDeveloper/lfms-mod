@@ -66,8 +66,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             boolean anchorsStillMatch = spec.anchors().stream().anyMatch(anchor ->
                     containsMatchingCall(method, anchor.method()));
             int maxStackBefore = method.maxStack;
-            dumpWindow(method, 76, 92, "edited-region");
-            dumpWindow(method, 138, 151, "merge-failure-region");
+            dumpInsertedRegions(method);
             int computedMaxStack = recomputeMaxStack(input.name, method);
             String bytecodeVerification = verifyBytecode(input.name, method);
             System.out.println("[LMS/early] verify id=" + spec.id()
@@ -134,6 +133,24 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             }
         }
         return result;
+    }
+
+    private void dumpInsertedRegions(MethodNode method) {
+        Set<MethodRef> hooks = new HashSet<>();
+        for (Edit edit : spec.edits()) {
+            for (Value value : edit.values()) {
+                if (value.kind() == ValueKind.METHOD_CALL && value.method() != null) hooks.add(value.method());
+            }
+        }
+        Set<Integer> dumped = new HashSet<>();
+        for (int i = 0; i < method.instructions.size(); i++) {
+            AbstractInsnNode n = method.instructions.get(i);
+            if (n instanceof MethodInsnNode call && hooks.stream().anyMatch(hook -> matches(call, hook))) {
+                int from = Math.max(0, i - 12);
+                int to = Math.min(method.instructions.size() - 1, i + 20);
+                if (dumped.add(i)) dumpWindow(method, from, to, "inserted-hook@" + i);
+            }
+        }
     }
 
     private static void dumpWindow(MethodNode method, int from, int to, String reason) {
