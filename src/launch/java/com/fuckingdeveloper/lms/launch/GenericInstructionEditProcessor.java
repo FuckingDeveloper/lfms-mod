@@ -36,6 +36,11 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             if (!spec.targetMethod().equals(method.name) || !spec.targetDescriptor().equals(method.desc)) continue;
             targetFound = true;
             Map<String, AbstractInsnNode> bindings = bindAnchors(method);
+            if (bindings.size() != spec.anchors().size()) {
+                System.out.println("[LMS/early] unresolved anchors id=" + spec.id()
+                        + " expected=" + spec.anchors() + " bound=" + bindings.keySet()
+                        + " calls=" + methodCalls(method));
+            }
             for (Edit edit : spec.edits()) {
                 AbstractInsnNode location = resolve(bindings, edit.location());
                 if (location == null) continue;
@@ -68,6 +73,16 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             }
         }
         return result;
+    }
+
+    private static List<String> methodCalls(MethodNode method) {
+        List<String> calls = new ArrayList<>();
+        for (AbstractInsnNode insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof MethodInsnNode call) {
+                calls.add(call.getOpcode() + " " + call.owner + "#" + call.name + call.desc + " itf=" + call.itf);
+            }
+        }
+        return List.copyOf(calls);
     }
 
     private static AbstractInsnNode resolve(Map<String, AbstractInsnNode> bindings, Reference reference) {
