@@ -185,9 +185,11 @@ public final class TransformationSpecPlanner {
                 "new\\s+InsnNode\\s*\\(\\s*(?:Opcodes\\.)?([A-Z_]+)\\s*\\)")
                 .matcher(resolved);
         if (insn.matches()) {
+            Integer opcode = asmOpcode(insn.group(1));
             return new TransformationSpec.InstructionSpec(
-                    TransformationSpec.InstructionKind.SIMPLE_OPCODE, null,
-                    asmOpcode(insn.group(1)), null, resolved, null);
+                    opcode == null ? TransformationSpec.InstructionKind.UNRESOLVED
+                            : TransformationSpec.InstructionKind.SIMPLE_OPCODE,
+                    null, opcode, null, resolved, null);
         }
 
         var jump = Pattern.compile(
@@ -256,6 +258,8 @@ public final class TransformationSpecPlanner {
 
     private static Integer asmOpcode(String name) {
         return switch (name) {
+            case "NOP" -> 0;
+            case "ACONST_NULL" -> 1;
             case "FCONST_0" -> 11;
             case "FCONST_1" -> 12;
             case "FCONST_2" -> 13;
