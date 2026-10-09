@@ -67,16 +67,22 @@ public final class LmsMod {
                         }
                         Path srgFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "joined.tsrg");
                         var srgIndex = LegacySrgIndex.load(srgFile);
-                        LOG.info("LMS SRG mappings file={} loaded={} methods={} namespaces={}",
+                        Path mojmapFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "client.txt");
+                        var mojmap = new com.fuckingdeveloper.lms.mapping.MappingFileLoader().load(mojmapFile);
+                        LOG.info("LMS SRG mappings file={} loaded={} methods={} namespaces={} mojmapFile={} mojmapLoaded={}",
                                 srgFile.toAbsolutePath(), srgIndex.isPresent(),
                                 srgIndex.map(LegacySrgIndex::methodCount).orElse(0),
-                                srgIndex.map(LegacySrgIndex::namespaces).orElse(List.of()));
+                                srgIndex.map(LegacySrgIndex::namespaces).orElse(List.of()),
+                                mojmapFile.toAbsolutePath(), mojmap.isPresent());
                         for (var plan : compatibility.coremodPlans()) {
                             if (srgIndex.isPresent()) {
                                 for (var anchor : plan.anchors()) {
+                                    var resolution = mojmap.isPresent()
+                                            ? srgIndex.get().resolveWithNamedOwner(anchor.owner(), anchor.method(),
+                                                    anchor.descriptor(), mojmap.get().index())
+                                            : srgIndex.get().resolve(anchor.owner(), anchor.method(), anchor.descriptor());
                                     LOG.info("LMS SRG anchor source={} legacy={} resolution={}",
-                                            plan.source(), anchor,
-                                            srgIndex.get().resolve(anchor.owner(), anchor.method(), anchor.descriptor()));
+                                            plan.source(), anchor, resolution);
                                 }
                             }
                             LOG.info("LMS coremod plan source={} target={} anchors={} anchorResolutions={} hooks={} mutations={} mapping={} current={}",
