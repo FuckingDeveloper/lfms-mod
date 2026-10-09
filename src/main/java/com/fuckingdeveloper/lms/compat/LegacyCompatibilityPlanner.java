@@ -139,6 +139,31 @@ public final class LegacyCompatibilityPlanner {
                         }
                     }
                 }
+                // If the canonical owner disappeared, consult the target-runtime index.
+                // This is candidate discovery only: exact global identity can recover a moved
+                // declaration, while name-only results remain diagnostic evidence and never
+                // authorize an executable transformation.
+                String targetIndexEvidence = "";
+                if ((mapping.currentSymbol() == null || mapping.currentSymbol().isEmpty())
+                        && targetOfficialName != null) {
+                    var exactRuntimeIdentity = mappings.searchExactIdentity(
+                            targetOfficialName, target.descriptor());
+                    if (exactRuntimeIdentity.candidates().size() == 1) {
+                        var candidate = exactRuntimeIdentity.candidates().getFirst();
+                        mapping = new Forge1192MappingLayer.Mapping(
+                                canonicalOwner + "#" + target.method() + target.descriptor(),
+                                candidate.symbol(),
+                                Forge1192MappingLayer.Status.IDENTITY_CANDIDATE,
+                                "Target owner moved; unique exact recovered method identity found in runtime index");
+                    } else {
+                        var runtimeByName = mappings.searchRuntimeByName(targetOfficialName);
+                        targetIndexEvidence = " targetRuntimeIndex exact=" + exactRuntimeIdentity.reason()
+                                + " candidates=" + exactRuntimeIdentity.candidates()
+                                + " byName=" + runtimeByName.reason()
+                                + " candidates=" + runtimeByName.candidates();
+                    }
+                }
+
                 String targetSemanticEvidence = "";
                 if (legacyRuntime != null && targetOfficialName != null && !mapping.currentSymbol().isEmpty()) {
                     var legacyTargetSemantics = legacyRuntime.semantics(
@@ -308,7 +333,7 @@ public final class LegacyCompatibilityPlanner {
                         "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()
                                 + hooks + " mapping=" + mapping.status() + mapped
                                 + " reason=" + mapping.reason()
-                                + targetSemanticEvidence
+                                + targetSemanticEvidence + targetIndexEvidence
                                 + " legacy=" + legacyTargetResolution.status()));
             }
         }
