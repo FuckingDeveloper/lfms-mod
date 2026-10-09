@@ -57,5 +57,6 @@ public final class LmsTransformationService implements ITransformationService {
             return Set.of(Target.targetClass("net.minecraft.world.entity.player.Player"));
         }
         @Override public String[] labels() { return new String[] {"lms-player-probe"}; }
+        @Override public TargetType getTargetType() { return TargetType.CLASS; }
     }
 }
