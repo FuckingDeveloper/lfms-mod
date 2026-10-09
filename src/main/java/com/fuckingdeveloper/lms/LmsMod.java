@@ -60,8 +60,9 @@ public final class LmsMod {
                         // become attributable compatibility evidence rather than accidental execution.
                         ClassLoader targetLoader = Thread.currentThread().getContextClassLoader();
                         if (targetLoader == null) targetLoader = LmsMod.class.getClassLoader();
+                        var managedTransformer = new Forge1192LegacyClassTransformer();
                         try (var legacyLoader = new ManagedLegacyClassLoader(
-                                mod.file(), targetLoader, new Forge1192LegacyClassTransformer())) {
+                                mod.file(), targetLoader, managedTransformer)) {
                             for (String candidate : report.modAnnotationCandidates()) {
                                 try {
                                     Class<?> linked = legacyLoader.linkOwnedClass(candidate);
@@ -72,6 +73,9 @@ public final class LmsMod {
                                             mod.modId(), candidate, e.getClass().getName(), e.getMessage());
                                 }
                             }
+                            LOG.info("LMS managed-transform id={} transformedClasses={} namespaceRewrites={}",
+                                    mod.modId(), managedTransformer.transformedClasses(),
+                                    managedTransformer.totalRewrites());
                         }
                         var lifecyclePlanner = new Forge1192LifecyclePlanner();
                         boolean lifecyclePlanReady = !report.modAnnotationCandidates().isEmpty();
