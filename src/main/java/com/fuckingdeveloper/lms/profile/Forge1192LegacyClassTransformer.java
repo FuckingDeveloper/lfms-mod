@@ -39,6 +39,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
 
         int rewrites = rewriteExactNamespaceMigrations(node);
+        rewrites += rewriteSemanticAdapters(node);
         if (rewrites > 0) {
             transformedClasses++;
             totalRewrites += rewrites;
@@ -93,6 +94,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if (!migratedMethodDesc.equals(method.desc)) {
                 method.desc = migratedMethodDesc;
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+
+    private static int rewriteSemanticAdapters(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+
+                // Forge 1.19.2 IEventBus#post returned cancellation state.
+                // NeoForge's EventBus returns the posted Event. Preserve the
+                // legacy boolean contract through an LMS runtime adapter.
+                if (call.owner.equals("net/neoforged/bus/api/IEventBus")
+                        && call.name.equals("post")
+                        && call.desc.equals("(Lnet/neoforged/bus/api/Event;)Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                    call.name = "post";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Lnet/neoforged/bus/api/Event;)Z";
+                    call.itf = false;
+                    rewrites++;
+                }
             }
         }
         return rewrites;
