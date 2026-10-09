@@ -9,6 +9,8 @@ import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicVerifier;
 import org.objectweb.asm.tree.analysis.BasicValue;
 import org.objectweb.asm.tree.analysis.Frame;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 import java.util.*;
 
@@ -57,7 +59,8 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             int hooksBefore = countInsertedHookCalls(method);
             int methodApplied = 0;
             try {
-                for (Edit edit : spec.edits()) {
+                List<Edit> executableEdits = adaptLegacyResultRewrite(method, bindings);
+                for (Edit edit : executableEdits) {
                     AbstractInsnNode location = resolve(bindings, edit.location());
                     if (location == null || method.instructions.indexOf(location) < 0) {
                         throw new IllegalStateException("edit location is no longer in method: " + edit.location());
@@ -104,6 +107,88 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         System.out.println("[LMS/early] transform id=" + spec.id() + " target=" + spec.targetClass()
                 + "#" + spec.targetMethod() + spec.targetDescriptor() + " targetFound=" + targetFound
                 + " editsApplied=" + applied + " engine=GENERIC_INSTRUCTION_EDIT");
+    }
+
+
+    /**
+     * Adapts the common legacy shape "remove anchor successor; insert hook/check after
+     * anchor; remove anchor" when the migrated call result is now consumed by a larger
+     * current expression. Literal relative-node replay is unsafe in that situation.
+     *
+     * The adaptation is structural, not mod-specific: it requires one anchor, a
+     * same-stack-signature replacement call, a store/reload/check/conditional-return
+     * suffix, and a current successor that consumes the anchor result. It rewrites
+     * the anchor call to the replacement call, preserves the current consumer, and
+     * moves the result check after that consumer.
+     */
+    private List<Edit> adaptLegacyResultRewrite(MethodNode method, Map<String, AbstractInsnNode> bindings) {
+        if (spec.anchors().size() != 1 || spec.edits().size() != 3) return spec.edits();
+        Anchor anchor = spec.anchors().getFirst();
+        AbstractInsnNode anchorNode = bindings.get(anchor.variable());
+        if (!(anchorNode instanceof MethodInsnNode)) return spec.edits();
+
+        Edit removeNext = null, insertAfter = null, removeAnchor = null;
+        for (Edit edit : spec.edits()) {
+            if (!edit.location().variable().equals(anchor.variable())) return spec.edits();
+            if (edit.kind() == EditKind.REMOVE && edit.location().relativeOffset() == 1) removeNext = edit;
+            else if (edit.kind() == EditKind.INSERT_AFTER && edit.location().relativeOffset() == 0) insertAfter = edit;
+            else if (edit.kind() == EditKind.REMOVE && edit.location().relativeOffset() == 0) removeAnchor = edit;
+        }
+        if (removeNext == null || insertAfter == null || removeAnchor == null) return spec.edits();
+
+        List<Value> values = insertAfter.values();
+        if (values.size() < 6 || values.getFirst().kind() != ValueKind.METHOD_CALL) return spec.edits();
+        MethodRef replacement = values.getFirst().method();
+        MethodRef original = anchor.method();
+        if (replacement == null
+                || !Type.getReturnType(replacement.descriptor()).equals(Type.getReturnType(original.descriptor()))
+                || argumentStackSlots(replacement) != argumentStackSlots(original)) return spec.edits();
+
+        Value store = values.get(1), load = values.get(2), jump = values.get(4), ret = values.get(5);
+        if (store.kind() != ValueKind.VARIABLE || load.kind() != ValueKind.VARIABLE
+                || !Objects.equals(store.variable(), load.variable())
+                || jump.kind() != ValueKind.JUMP || ret.kind() != ValueKind.SIMPLE_OPCODE
+                || ret.opcode() != Opcodes.RETURN) return spec.edits();
+
+        AbstractInsnNode successor = nextExecutable(anchorNode);
+        if (!(successor instanceof MethodInsnNode consumer)) return spec.edits();
+        Type result = Type.getReturnType(original.descriptor());
+        Type[] consumerArgs = Type.getArgumentTypes(consumer.desc);
+        if (consumerArgs.length == 0 || !consumerArgs[consumerArgs.length - 1].equals(result)) return spec.edits();
+
+        // Replace the migrated producer in-place. Its current consumer remains intact.
+        anchorNode = bindings.get(anchor.variable());
+        method.instructions.set(anchorNode, new MethodInsnNode(
+                replacement.opcode(), replacement.owner(), replacement.name(),
+                replacement.descriptor(), replacement.isInterface()));
+
+        // Keep the current consumer, then perform the legacy result check from the
+        // local written by the hook. Store a duplicate before the consumer so the
+        // consumer still receives the hook result.
+        InsnList beforeConsumer = new InsnList();
+        beforeConsumer.add(new InsnNode(result.getSize() == 2 ? Opcodes.DUP2 : Opcodes.DUP));
+        beforeConsumer.add(new VarInsnNode(store.opcode(), store.variable()));
+        method.instructions.insertBefore(successor, beforeConsumer);
+
+        List<Value> suffix = values.subList(2, values.size());
+        method.instructions.insert(successor, build(suffix, bindings));
+        System.out.println("[LMS/early] semantic-adapt id=" + spec.id()
+                + " pattern=RESULT_REWRITE_PRESERVE_CONSUMER consumer="
+                + consumer.owner + "#" + consumer.name + consumer.desc);
+        return List.of();
+    }
+
+    private static AbstractInsnNode nextExecutable(AbstractInsnNode node) {
+        for (AbstractInsnNode n = node.getNext(); n != null; n = n.getNext()) {
+            if (n.getOpcode() >= 0) return n;
+        }
+        return null;
+    }
+
+    private static int argumentStackSlots(MethodRef method) {
+        int slots = method.opcode() == Opcodes.INVOKESTATIC ? 0 : 1;
+        for (Type type : Type.getArgumentTypes(method.descriptor())) slots += type.getSize();
+        return slots;
     }
 
     private record BindingResult(Map<String, AbstractInsnNode> bindings, Set<String> ambiguous) {}
