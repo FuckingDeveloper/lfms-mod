@@ -80,7 +80,7 @@ public final class LmsMod {
                                     lifecyclePlan.constructors(), lifecyclePlan.interfaces(),
                                     lifecyclePlan.forgeReferences(), lifecyclePlan.reason());
                         }
-                        var lifecycleDecision = new LegacyLifecycleGate().evaluate(report);
+                        var lifecycleDecision = new LegacyLifecycleGate().evaluate(report, lifecyclePlanReady);
                         for (var capability : lifecycleDecision.capabilities()) {
                             LOG.info("LMS capability id={} artifact={} capability={} state={} mandatory={} reason={}",
                                     mod.modId(), mod.file().getFileName(), capability.id(),
