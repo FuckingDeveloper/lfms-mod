@@ -62,17 +62,26 @@ tasks.register('launchJar', Jar) {
     dependsOn tasks.named('launchClasses')
 }
 
-def installLaunchJar = tasks.register('installLaunchJar', Sync) {
+def installLaunchJar = tasks.register('installLaunchJar') {
     group = 'lms'
     description = 'Install the current early FML transformation library into the development mods directory'
     dependsOn tasks.named('launchJar')
-    from(tasks.named('launchJar').flatMap { it.archiveFile })
-    into layout.projectDirectory.dir('run/mods')
-    include 'lms-*-launch.jar'
-    includeEmptyDirs = false
-    preserve {
-        include '**'
-        exclude 'lms-*-launch.jar'
+    inputs.file(tasks.named('launchJar').flatMap { it.archiveFile })
+    outputs.upToDateWhen { false }
+    doLast {
+        def modsDir = layout.projectDirectory.dir('run/mods').asFile
+        modsDir.mkdirs()
+        fileTree(modsDir) {
+            include 'lms-*-launch.jar'
+        }.files.each { delete it }
+
+        def sourceJar = tasks.named('launchJar').get().archiveFile.get().asFile
+        copy {
+            from sourceJar
+            into modsDir
+        }
+        logger.lifecycle("LMS launch JAR installed from {} ({} bytes, modified={})",
+                sourceJar.absolutePath, sourceJar.length(), sourceJar.lastModified())
     }
 }
 
