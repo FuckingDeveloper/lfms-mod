@@ -41,6 +41,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                         + " expected=" + spec.anchors() + " bound=" + bindings.keySet()
                         + " calls=" + methodCalls(method));
             }
+            int hooksBefore = countInsertedHookCalls(method);
             for (Edit edit : spec.edits()) {
                 AbstractInsnNode location = resolve(bindings, edit.location());
                 if (location == null) continue;
@@ -56,6 +57,14 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 }
                 applied++;
             }
+            int hooksAfter = countInsertedHookCalls(method);
+            boolean anchorsStillMatch = spec.anchors().stream().anyMatch(anchor ->
+                    containsMatchingCall(method, anchor.method()));
+            System.out.println("[LMS/early] verify id=" + spec.id()
+                    + " methodIdentity=" + Integer.toHexString(System.identityHashCode(method))
+                    + " hooksBefore=" + hooksBefore + " hooksAfter=" + hooksAfter
+                    + " anchorsStillMatch=" + anchorsStillMatch
+                    + " instructionCount=" + method.instructions.size());
         }
         System.out.println("[LMS/early] transform id=" + spec.id() + " target=" + spec.targetClass()
                 + "#" + spec.targetMethod() + spec.targetDescriptor() + " targetFound=" + targetFound
@@ -113,6 +122,27 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             }
         }
         return result;
+    }
+
+    private int countInsertedHookCalls(MethodNode method) {
+        Set<MethodRef> hooks = new HashSet<>();
+        for (Edit edit : spec.edits()) {
+            for (Value value : edit.values()) {
+                if (value.kind() == ValueKind.METHOD_CALL && value.method() != null) hooks.add(value.method());
+            }
+        }
+        int count = 0;
+        for (AbstractInsnNode insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof MethodInsnNode call && hooks.stream().anyMatch(hook -> matches(call, hook))) count++;
+        }
+        return count;
+    }
+
+    private static boolean containsMatchingCall(MethodNode method, MethodRef expected) {
+        for (AbstractInsnNode insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof MethodInsnNode call && matches(call, expected)) return true;
+        }
+        return false;
     }
 
     private static boolean matches(MethodInsnNode call, MethodRef expected) {
