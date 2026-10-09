@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Handle;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,10 +22,11 @@ import java.util.zip.ZipFile;
  * Input classes must use the same namespace as the queried symbols (typically named/Mojang).
  */
 public final class LegacyRuntimeBytecodeInspector {
-    public record MethodInfo(String name, String descriptor, int access) {}
+    public record MethodInfo(String name, String descriptor, int access, List<String> operations) {}
     public record ClassInfo(String name, String parent, List<String> interfaces, List<MethodInfo> methods) {}
     public record Finding(String owner, String method, String descriptor, String status,
                           String declaringOwner, String detail) {}
+    public record MethodSemantics(String owner, String method, String descriptor, List<String> operations) {}
 
     private final Map<String, ClassInfo> classes = new HashMap<>();
 
@@ -51,10 +53,11 @@ public final class LegacyRuntimeBytecodeInspector {
                         @Override
                         public MethodVisitor visitMethod(int access, String name, String descriptor,
                                                          String signature, String[] exceptions) {
-                            methods.add(new MethodInfo(name, descriptor, access));
-                            return null;
+                            List<String> operations = new ArrayList<>();
+                            methods.add(new MethodInfo(name, descriptor, access, operations));
+                            return semanticVisitor(operations);
                         }
-                    }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                    }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
                     inspector.classes.put(reader.getClassName(),
                             new ClassInfo(reader.getClassName(), parent[0], List.copyOf(interfaces), List.copyOf(methods)));
                 } catch (IllegalArgumentException ex) {
@@ -66,6 +69,51 @@ public final class LegacyRuntimeBytecodeInspector {
     }
 
     public int classCount() { return classes.size(); }
+    public MethodSemantics semantics(String owner, String method, String descriptor) {
+        String internalOwner = owner.replace('.', '/');
+        MethodSemantics direct = semanticsRecursive(internalOwner, method, descriptor, new HashSet<>());
+        return direct == null ? new MethodSemantics(owner, method, descriptor, List.of()) : direct;
+    }
+
+    private MethodSemantics semanticsRecursive(String current, String method, String descriptor, Set<String> visited) {
+        if (!visited.add(current)) return null;
+        ClassInfo info = classes.get(current);
+        if (info == null) return null;
+        for (MethodInfo candidate : info.methods()) {
+            if (candidate.name().equals(method) && candidate.descriptor().equals(descriptor)) {
+                return new MethodSemantics(current.replace('/', '.'), method, descriptor,
+                        List.copyOf(candidate.operations()));
+            }
+        }
+        if (info.parent() != null) {
+            MethodSemantics found = semanticsRecursive(info.parent(), method, descriptor, visited);
+            if (found != null) return found;
+        }
+        for (String implemented : info.interfaces()) {
+            MethodSemantics found = semanticsRecursive(implemented, method, descriptor, visited);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static MethodVisitor semanticVisitor(List<String> operations) {
+        return new MethodVisitor(Opcodes.ASM9) {
+            @Override public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean itf) {
+                operations.add("CALL " + owner + "#" + name + descriptor);
+            }
+            @Override public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+                operations.add("FIELD " + owner + "#" + name + ":" + descriptor);
+            }
+            @Override public void visitTypeInsn(int opcode, String type) {
+                operations.add("TYPE " + opcode + " " + type);
+            }
+            @Override public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
+                                                         Object... bootstrapMethodArguments) {
+                operations.add("INDY " + name + descriptor);
+            }
+        };
+    }
+
 
     public Finding find(String owner, String method, String descriptor) {
         String internalOwner = owner.replace('.', '/');
