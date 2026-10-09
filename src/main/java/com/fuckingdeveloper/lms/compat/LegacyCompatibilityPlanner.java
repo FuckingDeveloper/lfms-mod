@@ -215,7 +215,10 @@ public final class LegacyCompatibilityPlanner {
                             // A member absent from vanilla 1.19.2 mappings is a Forge patch.
                             // Keep bridge classification only when the recovered Forge member
                             // does not survive as the same exact identity in the current runtime.
-                            boolean bridgeRequired = legacyPatchMember && !currentIdentityVerified;
+                            boolean bridgeRequired = legacyPatchMember
+                                    && !currentIdentityVerified
+                                    && !uniqueNamedMigration
+                                    && !uniqueSemanticMigration;
                             var status = bridgeRequired
                                     ? Forge1192MappingLayer.Status.FORGE_BRIDGE_REQUIRED
                                     : effectiveMapping.status();
