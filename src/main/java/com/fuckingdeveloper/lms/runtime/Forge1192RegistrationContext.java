@@ -4,6 +4,7 @@ import java.util.Objects;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.core.Registry;
+import java.util.Iterator;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /**
@@ -79,5 +80,32 @@ public final class Forge1192RegistrationContext {
 
     public static void register(String name, Object value) {
         register(checkPrefix(name, false), value);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Registry<Object> activeRegistry() {
+        Scope scope = requireActive();
+        // RegisterEvent exposes the actual registry for the current phase.
+        // Keep the unavoidable runtime type erasure contained in this bridge.
+        return (Registry<Object>) (Registry) scope.event().getRegistry();
+    }
+
+    public static boolean containsKey(Identifier name) {
+        Objects.requireNonNull(name, "name");
+        return activeRegistry().containsKey(name);
+    }
+
+    public static Object getValue(Identifier name) {
+        Objects.requireNonNull(name, "name");
+        return activeRegistry().getValue(name);
+    }
+
+    public static Identifier getKey(Object value) {
+        Objects.requireNonNull(value, "value");
+        return activeRegistry().getKey(value);
+    }
+
+    public static Iterator<Object> iterator() {
+        return activeRegistry().iterator();
     }
 }
