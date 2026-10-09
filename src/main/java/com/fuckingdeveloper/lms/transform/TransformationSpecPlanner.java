@@ -26,6 +26,24 @@ public final class TransformationSpecPlanner {
     private static TransformationSpec toSpec(LegacyCompatibilityPlanner.CoremodTransformationPlan plan) {
         String id = sanitize(plan.source());
 
+        boolean instructionEdit = plan.mutationKinds().stream().anyMatch(kind -> !"set".equals(kind));
+        if (instructionEdit) {
+            var edits = parseInstructionEdits(plan.operations(), plan.values());
+            boolean locationsResolved = edits.stream().allMatch(edit -> edit.locationReference() != null);
+            return new TransformationSpec(
+                    id,
+                    TransformationSpec.Kind.INSTRUCTION_EDIT,
+                    parseRef(plan.currentTarget(), TransformationSpec.Invocation.UNKNOWN),
+                    null, null,
+                    parseAnchorBindings(plan),
+                    edits,
+                    TransformationSpec.Readiness.UNRESOLVED,
+                    plan.currentTarget().isEmpty()
+                            ? "Instruction edit captured; current target method is unresolved"
+                            : locationsResolved
+                            ? "Instruction edit structure and locations captured; execution readiness still requires operand/local migration"
+                            : "Instruction edit captured; one or more edit locations are unresolved");
+        }
         if (plan.currentTarget().isEmpty()) {
             return unresolved(id, "Current target method is unresolved");
         }
@@ -36,18 +54,6 @@ public final class TransformationSpecPlanner {
         if (plan.hooks().size() != 1) {
             return unresolved(id, "METHOD_CALL_REDIRECT requires exactly one hook; found "
                     + plan.hooks().size());
-        }
-        if (!plan.mutationKinds().contains("set")) {
-            return new TransformationSpec(
-                    id,
-                    TransformationSpec.Kind.INSTRUCTION_EDIT,
-                    parseRef(plan.currentTarget(), TransformationSpec.Invocation.UNKNOWN),
-                    null, null,
-                    parseAnchorBindings(plan),
-                    parseInstructionEdits(plan.operations(), plan.values()),
-                    TransformationSpec.Readiness.UNRESOLVED,
-                    "Instruction edit structure captured; inserted instruction expressions still require parsing: "
-                            + plan.mutationKinds());
         }
 
         var anchorResolution = plan.anchorResolutions().getFirst();
@@ -136,7 +142,7 @@ public final class TransformationSpecPlanner {
             if (kind == null) continue;
             String valueExpression = args.size() > 1 ? args.get(1) : "";
             edits.add(new TransformationSpec.InstructionEdit(
-                    kind, location, first, valueExpression,
+                    kind, location, parseInstructionReference(first), first, valueExpression,
                     resolveInstructionValue(valueExpression, values),
                     resolveInstructionValues(valueExpression, values)));
         }
