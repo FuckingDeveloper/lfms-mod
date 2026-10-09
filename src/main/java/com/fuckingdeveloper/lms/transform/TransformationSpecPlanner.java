@@ -114,6 +114,11 @@ public final class TransformationSpecPlanner {
         if (edits.isEmpty()) return "Instruction edit contains no supported operations";
 
         var anchorNames = anchors.stream().map(TransformationSpec.AnchorBinding::variable).collect(java.util.stream.Collectors.toSet());
+        for (var anchor : anchors) {
+            if (anchor.method() == null || anchor.method().invocation() == TransformationSpec.Invocation.UNKNOWN) {
+                return "Instruction edit anchor invocation is unresolved: " + anchor.variable();
+            }
+        }
         for (var edit : edits) {
             if (!referenceResolved(edit.locationReference(), anchorNames)) {
                 return "Instruction edit location is unresolved: " + edit.firstArgument();
