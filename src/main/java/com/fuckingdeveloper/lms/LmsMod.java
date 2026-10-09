@@ -74,8 +74,9 @@ public final class LmsMod {
                         for (var plan : compatibility.coremodPlans()) {
                             if (srgIndex.isPresent()) {
                                 for (var anchor : plan.anchors()) {
-                                    LOG.info("LMS SRG anchor source={} legacy={} matches={}",
-                                            plan.source(), anchor, srgIndex.get().findBySrgName(anchor.method()));
+                                    LOG.info("LMS SRG anchor source={} legacy={} resolution={}",
+                                            plan.source(), anchor,
+                                            srgIndex.get().resolve(anchor.owner(), anchor.method(), anchor.descriptor()));
                                 }
                             }
                             LOG.info("LMS coremod plan source={} target={} anchors={} anchorResolutions={} hooks={} mutations={} mapping={} current={}",
