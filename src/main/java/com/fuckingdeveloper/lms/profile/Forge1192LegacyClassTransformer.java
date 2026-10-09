@@ -4,6 +4,11 @@ import com.fuckingdeveloper.lms.classloading.LegacyClassTransformer;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.Type;
 
 /**
  * Forge 1.19.2 legacy-owned class transformation pipeline.
@@ -27,10 +32,80 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     "Class identity mismatch: requested=" + expected + " bytecode=" + node.name);
         }
 
+        int rewrites = rewriteExactNamespaceMigrations(node);
+
         ClassWriter writer = new ClassWriter(0);
         node.accept(writer);
         byte[] verified = writer.toByteArray();
-        return new Result(verified, false,
-                "forge-1.19.2 profile pipeline parsed and re-emitted class before definition");
+        return new Result(verified, rewrites > 0,
+                "forge-1.19.2 exact namespace migrations=" + rewrites);
+    }
+    /**
+     * Conservative first migration pass. Only namespaces whose classes are
+     * supplied by current NeoForge are rewritten here. Removed APIs are left
+     * untouched so linkage remains fail-closed until a semantic adapter exists.
+     */
+    private static int rewriteExactNamespaceMigrations(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call) {
+                    String owner = migrateInternalName(call.owner);
+                    String desc = migrateDescriptor(call.desc);
+                    if (!owner.equals(call.owner) || !desc.equals(call.desc)) {
+                        call.owner = owner;
+                        call.desc = desc;
+                        rewrites++;
+                    }
+                } else if (insn instanceof FieldInsnNode field) {
+                    String owner = migrateInternalName(field.owner);
+                    String desc = migrateDescriptor(field.desc);
+                    if (!owner.equals(field.owner) || !desc.equals(field.desc)) {
+                        field.owner = owner;
+                        field.desc = desc;
+                        rewrites++;
+                    }
+                } else if (insn instanceof TypeInsnNode type) {
+                    String migrated = migrateInternalName(type.desc);
+                    if (!migrated.equals(type.desc)) {
+                        type.desc = migrated;
+                        rewrites++;
+                    }
+                } else if (insn instanceof LdcInsnNode ldc && ldc.cst instanceof Type type) {
+                    String descriptor = migrateDescriptor(type.getDescriptor());
+                    if (!descriptor.equals(type.getDescriptor())) {
+                        ldc.cst = Type.getType(descriptor);
+                        rewrites++;
+                    }
+                }
+            }
+            String migratedMethodDesc = migrateDescriptor(method.desc);
+            if (!migratedMethodDesc.equals(method.desc)) {
+                method.desc = migratedMethodDesc;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static String migrateInternalName(String value) {
+        if (value.startsWith("net/minecraftforge/eventbus/"))
+            return value.replace("net/minecraftforge/eventbus/", "net/neoforged/bus/");
+        if (value.startsWith("net/minecraftforge/fml/"))
+            return value.replace("net/minecraftforge/fml/", "net/neoforged/fml/");
+        if (value.startsWith("net/minecraftforge/forgespi/"))
+            return value.replace("net/minecraftforge/forgespi/", "net/neoforged/neoforgespi/");
+        // Main Forge API moved below NeoForge's neoforge namespace.
+        if (value.startsWith("net/minecraftforge/"))
+            return value.replace("net/minecraftforge/", "net/neoforged/neoforge/");
+        return value;
+    }
+
+    private static String migrateDescriptor(String descriptor) {
+        return descriptor
+                .replace("net/minecraftforge/eventbus/", "net/neoforged/bus/")
+                .replace("net/minecraftforge/fml/", "net/neoforged/fml/")
+                .replace("net/minecraftforge/forgespi/", "net/neoforged/neoforgespi/")
+                .replace("net/minecraftforge/", "net/neoforged/neoforge/");
     }
 }
