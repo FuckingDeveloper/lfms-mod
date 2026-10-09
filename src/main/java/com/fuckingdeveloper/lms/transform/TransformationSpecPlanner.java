@@ -180,8 +180,15 @@ public final class TransformationSpecPlanner {
             if (invocation == TransformationSpec.Invocation.UNKNOWN) {
                 invocation = inferAnchorInvocation(resolution);
             }
+            // currentSymbol may point at the declaring class, while an invokevirtual
+            // call-site legitimately uses the receiver/source owner (e.g. subclass).
+            // Preserve the coremod invocation owner when the mapped method identity
+            // (name+descriptor) survives; declaringOwner is evidence, not call-site identity.
+            String invocationOwner = resolution.anchor().owner();
+            MethodParts callSite = new MethodParts(
+                    invocationOwner, current.name(), current.descriptor());
             result.add(new TransformationSpec.AnchorBinding(
-                    variable, ref(current, invocation)));
+                    variable, ref(callSite, invocation)));
         }
         return List.copyOf(result);
     }
