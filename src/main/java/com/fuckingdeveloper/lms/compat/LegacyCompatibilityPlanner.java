@@ -114,8 +114,19 @@ public final class LegacyCompatibilityPlanner {
                                     anchor.owner(), anchor.method(), anchor.descriptor());
                             var legacyResolution = resolveLegacy(srgIndex, mojmap,
                                     anchor.owner(), anchor.method(), anchor.descriptor());
-                            return new AnchorResolution(anchor, anchorMapping.status(),
-                                    anchorMapping.currentSymbol(), search.candidates(), anchorMapping.reason(),
+                            boolean legacyPatchMember = anchor.owner().startsWith("net.minecraft.")
+                                    && !anchor.method().matches("m_\\d+_")
+                                    && legacyResolution.status() == LegacySrgIndex.ResolutionStatus.NOT_FOUND;
+                            var status = legacyPatchMember
+                                    ? Forge1192MappingLayer.Status.FORGE_BRIDGE_REQUIRED
+                                    : anchorMapping.status();
+                            String reason = legacyPatchMember
+                                    ? "Non-SRG coremod anchor is absent from vanilla 1.19.2 mappings; "
+                                      + "treat as a Forge-patched member requiring a compatibility bridge"
+                                    : anchorMapping.reason();
+                            return new AnchorResolution(anchor, status,
+                                    legacyPatchMember ? "" : anchorMapping.currentSymbol(),
+                                    legacyPatchMember ? List.of() : search.candidates(), reason,
                                     legacyResolution);
                         })
                         .toList();
