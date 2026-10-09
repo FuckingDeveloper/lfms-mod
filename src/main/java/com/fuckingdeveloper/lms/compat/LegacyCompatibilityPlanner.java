@@ -137,6 +137,22 @@ public final class LegacyCompatibilityPlanner {
                         }
                     }
                 }
+                String targetSemanticEvidence = "";
+                if (legacyRuntime != null && targetOfficialName != null && !mapping.currentSymbol().isEmpty()) {
+                    var legacyTargetSemantics = legacyRuntime.semantics(
+                            canonicalOwner, targetOfficialName, target.descriptor());
+                    // A malformed source owner (old MCP-style package) can differ from
+                    // the canonical 1.19.2 Mojang owner recovered from mappings.
+                    if (legacyTargetSemantics.operations().isEmpty()
+                            && !canonicalOwner.equals(target.owner())) {
+                        legacyTargetSemantics = legacyRuntime.semantics(
+                                target.owner(), targetOfficialName, target.descriptor());
+                    }
+                    var currentTargetSemantics = mappings.semantics(mapping.currentSymbol());
+                    targetSemanticEvidence = " targetSemanticFingerprint legacyOps="
+                            + legacyTargetSemantics.operations()
+                            + " currentOps=" + currentTargetSemantics.operations();
+                }
                 String mapped = mapping.currentSymbol().isEmpty() ? "" : " current=" + mapping.currentSymbol();
                 String hooks = transform.hookCalls().isEmpty() ? "" : " hooks=" + transform.hookCalls();
                 List<LegacyInjectionAnalyzer.CoremodAnchor> anchors = transform.anchors();
@@ -225,6 +241,7 @@ public final class LegacyCompatibilityPlanner {
                         "types=" + coremod.transformKinds() + " ASMAPI=" + coremod.asmApiCalls()
                                 + hooks + " mapping=" + mapping.status() + mapped
                                 + " reason=" + mapping.reason()
+                                + targetSemanticEvidence
                                 + " legacy=" + legacyTargetResolution.status()));
             }
         }
