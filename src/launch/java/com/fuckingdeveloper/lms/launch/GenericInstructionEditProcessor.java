@@ -7,6 +7,8 @@ import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicVerifier;
+import org.objectweb.asm.tree.analysis.BasicValue;
+import org.objectweb.asm.tree.analysis.Frame;
 
 import java.util.*;
 
@@ -63,12 +65,15 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             int hooksAfter = countInsertedHookCalls(method);
             boolean anchorsStillMatch = spec.anchors().stream().anyMatch(anchor ->
                     containsMatchingCall(method, anchor.method()));
+            int maxStackBefore = method.maxStack;
+            int computedMaxStack = recomputeMaxStack(input.name, method);
             String bytecodeVerification = verifyBytecode(input.name, method);
             System.out.println("[LMS/early] verify id=" + spec.id()
                     + " methodIdentity=" + Integer.toHexString(System.identityHashCode(method))
                     + " hooksBefore=" + hooksBefore + " hooksAfter=" + hooksAfter
                     + " anchorsStillMatch=" + anchorsStillMatch
                     + " instructionCount=" + method.instructions.size()
+                    + " maxStack=" + maxStackBefore + "->" + computedMaxStack
                     + " bytecode=" + bytecodeVerification);
         }
         System.out.println("[LMS/early] transform id=" + spec.id() + " target=" + spec.targetClass()
@@ -127,6 +132,28 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             }
         }
         return result;
+    }
+
+    private static int recomputeMaxStack(String owner, MethodNode method) {
+        int original = method.maxStack;
+        // Analyzer allocates frames from MethodNode.maxStack, so first give it a
+        // conservative ceiling. The exact peak is then derived from analyzed frames.
+        method.maxStack = Math.max(original, method.instructions.size() + method.maxLocals + 8);
+        try {
+            Frame<BasicValue>[] frames = new Analyzer<>(new BasicVerifier()).analyze(owner, method);
+            int peak = 0;
+            for (Frame<BasicValue> frame : frames) {
+                if (frame != null) peak = Math.max(peak, frame.getStackSize());
+            }
+            method.maxStack = peak;
+            return peak;
+        } catch (AnalyzerException | RuntimeException e) {
+            method.maxStack = original;
+            System.out.println("[LMS/early] maxStack recompute failure owner=" + owner
+                    + " method=" + method.name + method.desc + " error=" + e);
+            e.printStackTrace(System.out);
+            return original;
+        }
     }
 
     private static String verifyBytecode(String owner, MethodNode method) {
