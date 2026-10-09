@@ -1,22 +1,25 @@
 package com.fuckingdeveloper.lms.launch;
 
 import net.neoforged.neoforgespi.transformation.ClassProcessorProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 
 /** Early FML entry point consuming only serialized, loader-neutral LMS plans. */
 public final class LmsClassProcessorProvider implements ClassProcessorProvider {
+    private static final Logger LOG = LoggerFactory.getLogger(LmsClassProcessorProvider.class);
+
     @Override
     public void createProcessors(Context context, Collector collector) {
-        System.out.println("[LMS/early] FML class processor provider loaded");
+        LOG.info("[LMS/early] FML class processor provider loaded");
         Path plan = Path.of(System.getProperty("user.dir"), "lms", "launch-plan.tsv");
         try {
             var redirects = LaunchPlanReader.readRedirects(plan);
             for (var spec : redirects) collector.add(new GenericMethodCallRedirectProcessor(spec));
-            System.out.println("[LMS/early] launch plan=" + plan.toAbsolutePath()
-                    + " redirects=" + redirects.size());
+            LOG.info("[LMS/early] launch plan={} redirects={}", plan.toAbsolutePath(), redirects.size());
         } catch (Exception e) {
-            System.err.println("[LMS/early] failed to read launch plan " + plan.toAbsolutePath() + ": " + e);
+            LOG.error("[LMS/early] failed to read launch plan {}", plan.toAbsolutePath(), e);
         }
     }
 }
