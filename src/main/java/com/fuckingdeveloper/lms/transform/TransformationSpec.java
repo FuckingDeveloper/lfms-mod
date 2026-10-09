@@ -12,6 +12,7 @@ public record TransformationSpec(
         MethodRef target,
         MethodRef anchor,
         MethodRef replacement,
+        java.util.List<AnchorBinding> anchors,
         java.util.List<InstructionEdit> edits,
         Readiness readiness,
         String reason
@@ -27,6 +28,8 @@ public record TransformationSpec(
     }
 
     public record MethodRef(String owner, String name, String descriptor, Invocation invocation) {}
+
+    public record AnchorBinding(String variable, MethodRef method) {}
 
     /** Loader-neutral edit recovered from legacy instruction-list JavaScript. */
     public record InstructionEdit(EditKind kind, InstructionLocation location,
