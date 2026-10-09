@@ -186,40 +186,50 @@ public final class LegacyCompatibilityPlanner {
             LegacyInjectionAnalyzer.CoremodAnchor anchor,
             LegacySrgIndex.Resolution legacyResolution,
             ProguardMappingReader.Index mojmap) {
-        String owner = anchor.owner();
-        String name = anchor.method();
+        // ForgeGradle's mapped_official runtime contains official/Mojang method names,
+        // while coremod source uses SRG names. Resolve the official name by the
+        // legacy descriptor first; obfuscated method letters are not globally unique.
+        String officialName = officialMethodName(anchor, legacyResolution, mojmap);
+        if (officialName == null) {
+            return runtime.find(anchor.owner(), anchor.method(), anchor.descriptor());
+        }
 
-        if (mojmap != null && !legacyResolution.matches().isEmpty()) {
-            // SRG names can occur on several overriding declarations. Translate every
-            // candidate's obfuscated identity to its official name and accept the name
-            // only when all resolvable candidates agree. This also handles Forge-added
-            // overloads whose descriptor is intentionally absent from vanilla TSRG.
-            var officialNames = legacyResolution.matches().stream()
-                    .flatMap(match -> {
-                        if (match.owners().isEmpty()) return java.util.stream.Stream.empty();
-                        String obfuscatedOwner = match.owners().getFirst();
-                        String obfuscatedName = match.sourceName();
-                        return mojmap.namedMethods().values().stream()
-                                .filter(method -> method.obfuscatedOwner().equals(obfuscatedOwner)
-                                        && method.obfuscatedName().equals(obfuscatedName))
-                                .map(ProguardMappingReader.MethodMapping::namedName);
-                    })
-                    .distinct()
-                    .toList();
-            if (officialNames.size() == 1) name = officialNames.getFirst();
+        // Always probe the source invocation owner first. This preserves inherited
+        // evidence (Player -> LivingEntity, BlockState -> BlockStateBase/IForge...).
+        var sourceFinding = runtime.find(anchor.owner(), officialName, anchor.descriptor());
+        if (isRuntimeVerified(sourceFinding)) return sourceFinding;
 
-            if (legacyResolution.matches().size() == 1) {
-                var match = legacyResolution.matches().getFirst();
-                if (!match.owners().isEmpty()) {
-                    String declaringOwner = mojmap.namedClass(match.owners().getFirst()).orElse(owner);
-                    // Probe the source owner first so inheritance is preserved as evidence.
-                    var sourceFinding = runtime.find(owner, name, anchor.descriptor());
-                    if (isRuntimeVerified(sourceFinding)) return sourceFinding;
-                    owner = declaringOwner;
-                }
+        // For exact single mapping matches, also probe the mapped declaring owner.
+        if (mojmap != null && legacyResolution.matches().size() == 1) {
+            var match = legacyResolution.matches().getFirst();
+            if (!match.owners().isEmpty()) {
+                String declaringOwner = mojmap.namedClass(match.owners().getFirst()).orElse(anchor.owner());
+                var declaringFinding = runtime.find(declaringOwner, officialName, anchor.descriptor());
+                if (isRuntimeVerified(declaringFinding)) return declaringFinding;
             }
         }
-        return runtime.find(owner, name, anchor.descriptor());
+        return sourceFinding;
+    }
+
+    private static String officialMethodName(
+            LegacyInjectionAnalyzer.CoremodAnchor anchor,
+            LegacySrgIndex.Resolution legacyResolution,
+            ProguardMappingReader.Index mojmap) {
+        if (mojmap == null || legacyResolution.matches().isEmpty()) return null;
+
+        // The source descriptor is in named classes. Mojmap's MethodMapping carries
+        // the named descriptor, so owner + descriptor is stronger evidence than the
+        // one-letter obfuscated method name.
+        var candidateOwners = legacyResolution.matches().stream()
+                .flatMap(match -> match.owners().stream().limit(1))
+                .collect(java.util.stream.Collectors.toSet());
+        var names = mojmap.namedMethods().values().stream()
+                .filter(method -> candidateOwners.contains(method.obfuscatedOwner()))
+                .filter(method -> method.namedDescriptor().equals(anchor.descriptor()))
+                .map(ProguardMappingReader.MethodMapping::namedName)
+                .distinct()
+                .toList();
+        return names.size() == 1 ? names.getFirst() : null;
     }
 
     private static boolean isRuntimeVerified(LegacyRuntimeBytecodeInspector.Finding finding) {
