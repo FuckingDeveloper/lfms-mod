@@ -25,7 +25,9 @@ public final class LegacyCompatibilityPlanner {
     public record Requirement(Kind kind, String source, String target, String detail) {}
     public record AnchorResolution(LegacyInjectionAnalyzer.CoremodAnchor anchor,
                                    Forge1192MappingLayer.Status mappingStatus,
-                                   String currentSymbol, String reason) {}
+                                   String currentSymbol,
+                                   List<Forge1192MappingLayer.MethodCandidate> candidates,
+                                   String reason) {}
     public record CoremodTransformationPlan(String source, String target,
                                             List<LegacyInjectionAnalyzer.CoremodAnchor> anchors,
                                             List<AnchorResolution> anchorResolutions,
@@ -92,8 +94,10 @@ public final class LegacyCompatibilityPlanner {
                         .map(anchor -> {
                             var anchorMapping = mappings.classifyMethod(
                                     anchor.owner(), anchor.method(), anchor.descriptor());
+                            var search = mappings.searchMethods(
+                                    anchor.owner(), anchor.method(), anchor.descriptor());
                             return new AnchorResolution(anchor, anchorMapping.status(),
-                                    anchorMapping.currentSymbol(), anchorMapping.reason());
+                                    anchorMapping.currentSymbol(), search.candidates(), anchorMapping.reason());
                         })
                         .toList();
                 List<String> mutationKinds = transform.operations().stream()
