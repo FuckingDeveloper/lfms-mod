@@ -23,9 +23,13 @@ import java.util.zip.ZipFile;
  */
 public final class LegacyRuntimeBytecodeInspector {
     public record MethodInfo(String name, String descriptor, int access, List<String> operations) {}
-    public record ClassInfo(String name, String parent, List<String> interfaces, List<MethodInfo> methods) {}
+    public record ClassInfo(String name, String parent, List<String> interfaces, int access, List<MethodInfo> methods) {}
     public record Finding(String owner, String method, String descriptor, String status,
-                          String declaringOwner, String detail) {}
+                          String declaringOwner, int declaringClassAccess, int methodAccess, String detail) {
+        public boolean declaringInterface() { return (declaringClassAccess & Opcodes.ACC_INTERFACE) != 0; }
+        public boolean methodStatic() { return (methodAccess & Opcodes.ACC_STATIC) != 0; }
+        public boolean methodPrivate() { return (methodAccess & Opcodes.ACC_PRIVATE) != 0; }
+    }
     public record MethodSemantics(String owner, String method, String descriptor, List<String> operations) {}
 
     private final Map<String, ClassInfo> classes = new HashMap<>();
@@ -42,12 +46,14 @@ public final class LegacyRuntimeBytecodeInspector {
                     ClassReader reader = new ClassReader(stream);
                     List<MethodInfo> methods = new ArrayList<>();
                     String[] parent = new String[1];
+                    int[] classAccess = new int[1];
                     List<String> interfaces = new ArrayList<>();
                     reader.accept(new ClassVisitor(Opcodes.ASM9) {
                         @Override
                         public void visit(int version, int access, String name, String signature,
                                           String superName, String[] implemented) {
                             parent[0] = superName;
+                            classAccess[0] = access;
                             if (implemented != null) interfaces.addAll(List.of(implemented));
                         }
                         @Override
@@ -59,7 +65,7 @@ public final class LegacyRuntimeBytecodeInspector {
                         }
                     }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
                     inspector.classes.put(reader.getClassName(),
-                            new ClassInfo(reader.getClassName(), parent[0], List.copyOf(interfaces), List.copyOf(methods)));
+                            new ClassInfo(reader.getClassName(), parent[0], List.copyOf(interfaces), classAccess[0], List.copyOf(methods)));
                 } catch (IllegalArgumentException ex) {
                     throw new IOException("Cannot parse class " + entry.getName() + " in " + jar, ex);
                 }
@@ -118,7 +124,7 @@ public final class LegacyRuntimeBytecodeInspector {
     public Finding find(String owner, String method, String descriptor) {
         String internalOwner = owner.replace('.', '/');
         if (!classes.containsKey(internalOwner)) {
-            return new Finding(owner, method, descriptor, "OWNER_NOT_IN_JAR", "",
+            return new Finding(owner, method, descriptor, "OWNER_NOT_IN_JAR", "", 0, 0,
                     "No class at this exact namespace/path; verify that the JAR is deobfuscated and includes this class");
         }
         return findRecursive(internalOwner, owner, method, descriptor, new HashSet<>());
@@ -127,7 +133,7 @@ public final class LegacyRuntimeBytecodeInspector {
     public Finding findUniqueByDescriptor(String owner, String descriptor) {
         String internalOwner = owner.replace('.', '/');
         if (!classes.containsKey(internalOwner)) {
-            return new Finding(owner, "", descriptor, "OWNER_NOT_IN_JAR", "",
+            return new Finding(owner, "", descriptor, "OWNER_NOT_IN_JAR", "", 0, 0,
                     "No class at this exact namespace/path; verify that the JAR is deobfuscated and includes this class");
         }
         List<DescriptorMatch> matches = new ArrayList<>();
@@ -139,11 +145,13 @@ public final class LegacyRuntimeBytecodeInspector {
             var match = unique.getFirst();
             String declaringOwner = match.owner().replace('/', '.');
             String status = match.owner().equals(internalOwner) ? "DECLARED" : "INHERITED";
+            ClassInfo declaring = classes.get(match.owner());
             return new Finding(owner, match.method().name(), descriptor, status, declaringOwner,
+                    declaring == null ? 0 : declaring.access(), match.method().access(),
                     "Unique exact descriptor in runtime hierarchy; method name recovered from Forge bytecode");
         }
         return new Finding(owner, "", descriptor,
-                unique.isEmpty() ? "DESCRIPTOR_NOT_FOUND" : "DESCRIPTOR_AMBIGUOUS", "",
+                unique.isEmpty() ? "DESCRIPTOR_NOT_FOUND" : "DESCRIPTOR_AMBIGUOUS", "", 0, 0,
                 unique.isEmpty() ? "No method with exact descriptor in runtime hierarchy"
                         : "Multiple methods with exact descriptor in runtime hierarchy: "
                         + unique.stream().map(match -> match.owner().replace('/', '.') + "#"
@@ -171,15 +179,15 @@ public final class LegacyRuntimeBytecodeInspector {
     private Finding findRecursive(String current, String requestedOwner, String method,
                                   String descriptor, Set<String> visited) {
         if (!visited.add(current)) return new Finding(requestedOwner, method, descriptor,
-                "HIERARCHY_CYCLE", "", "Cycle in runtime class hierarchy");
+                "HIERARCHY_CYCLE", "", 0, 0, "Cycle in runtime class hierarchy");
         ClassInfo info = classes.get(current);
         if (info == null) return new Finding(requestedOwner, method, descriptor,
-                "HIERARCHY_INCOMPLETE", "", "Missing ancestor class: " + current);
+                "HIERARCHY_INCOMPLETE", "", 0, 0, "Missing ancestor class: " + current);
         for (MethodInfo candidate : info.methods()) {
             if (candidate.name().equals(method) && candidate.descriptor().equals(descriptor)) {
                 return new Finding(requestedOwner, method, descriptor,
                         current.equals(requestedOwner.replace('.', '/')) ? "DECLARED" : "INHERITED",
-                        current.replace('/', '.'), "Exact method name and descriptor in runtime bytecode");
+                        current.replace('/', '.'), info.access(), candidate.access(), "Exact method name and descriptor in runtime bytecode");
             }
         }
         List<String> parents = new ArrayList<>();
@@ -190,13 +198,13 @@ public final class LegacyRuntimeBytecodeInspector {
             Finding result = findRecursive(parent, requestedOwner, method, descriptor, visited);
             if (result.status().equals("DECLARED") || result.status().equals("INHERITED")) {
                 return new Finding(requestedOwner, method, descriptor, "INHERITED",
-                        result.declaringOwner(), "Exact method in runtime ancestor " + result.declaringOwner());
+                        result.declaringOwner(), result.declaringClassAccess(), result.methodAccess(), "Exact method in runtime ancestor " + result.declaringOwner());
             }
             if (result.status().equals("HIERARCHY_INCOMPLETE")) incomplete = true;
         }
         return new Finding(requestedOwner, method, descriptor,
                 incomplete ? "NOT_FOUND_IN_INCOMPLETE_HIERARCHY" : "NOT_FOUND",
-                "", incomplete ? "No match in available classes; at least one ancestor is missing"
+                "", 0, 0, incomplete ? "No match in available classes; at least one ancestor is missing"
                         : "No exact method in the inspected class hierarchy");
     }
 }
