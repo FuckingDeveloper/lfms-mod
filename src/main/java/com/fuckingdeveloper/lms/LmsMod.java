@@ -71,7 +71,7 @@ public final class LmsMod {
                             LOG.info("LMS requirement kind={} source={} target={} detail={}",
                                     requirement.kind(), requirement.source(), requirement.target(), requirement.detail());
                         }
-                        LOG.info("LMS SRG mappings file={} loaded={} methods={} namespaces={} mojmapFile={} mojmapLoaded={},
+                        LOG.info("LMS SRG mappings file={} loaded={} methods={} namespaces={} mojmapFile={} mojmapLoaded={}",
                                 srgFile.toAbsolutePath(), srgIndex.isPresent(),
                                 srgIndex.map(LegacySrgIndex::methodCount).orElse(0),
                                 srgIndex.map(LegacySrgIndex::namespaces).orElse(List.of()),
