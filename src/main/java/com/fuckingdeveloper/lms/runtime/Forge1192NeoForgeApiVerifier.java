@@ -7,8 +7,12 @@ import org.objectweb.asm.Opcodes;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Verifies the mechanically plausible Forge -> NeoForge namespace migration
@@ -37,7 +41,7 @@ public final class Forge1192NeoForgeApiVerifier {
         String legacyTarget = legacyOwner + "#" + boundary.name() + boundary.descriptor();
         String resource = targetOwner.replace('.', '/') + ".class";
 
-        try (InputStream in = targetLoader.getResourceAsStream(resource)) {
+        try (InputStream in = openTargetClass(targetLoader, resource)) {
             if (in == null) {
                 return new Verification(legacyTarget, targetOwner, targetDescriptor,
                         State.TARGET_CLASS_MISSING);
@@ -59,6 +63,63 @@ public final class Forge1192NeoForgeApiVerifier {
             return new Verification(legacyTarget, targetOwner, targetDescriptor,
                     State.TARGET_CLASS_MISSING);
         }
+    }
+
+    private static InputStream openTargetClass(ClassLoader targetLoader, String resource)
+            throws IOException {
+        InputStream direct = targetLoader.getResourceAsStream(resource);
+        if (direct != null) return direct;
+
+        // FML/ModDev uses layered/module class loaders whose resources are not
+        // necessarily exposed through ClassLoader#getResourceAsStream. Inspect
+        // the actual runtime class path without defining target classes.
+        String classPath = System.getProperty("java.class.path", "");
+        for (String element : classPath.split(java.io.File.pathSeparator)) {
+            if (element.isBlank()) continue;
+            Path path = Paths.get(element);
+            InputStream found = openFromPath(path, resource);
+            if (found != null) return found;
+        }
+
+        // Also inspect code-source roots visible from representative NeoForge
+        // classes. This covers development/module layers omitted from java.class.path.
+        String[] anchors = {
+                "net.neoforged.fml.ModList",
+                "net.neoforged.neoforge.common.NeoForge"
+        };
+        for (String anchor : anchors) {
+            try {
+                Class<?> type = Class.forName(anchor, false, targetLoader);
+                var source = type.getProtectionDomain().getCodeSource();
+                if (source == null) continue;
+                Path path = Paths.get(source.getLocation().toURI());
+                InputStream found = openFromPath(path, resource);
+                if (found != null) return found;
+            } catch (ReflectiveOperationException | java.net.URISyntaxException | SecurityException ignored) {
+                // Evidence source unavailable; continue with remaining roots.
+            }
+        }
+        return null;
+    }
+
+    private static InputStream openFromPath(Path path, String resource) throws IOException {
+        if (Files.isDirectory(path)) {
+            Path candidate = path.resolve(resource);
+            return Files.isRegularFile(candidate) ? Files.newInputStream(candidate) : null;
+        }
+        if (!Files.isRegularFile(path) || !path.toString().endsWith(".jar")) return null;
+        java.util.jar.JarFile jar = new java.util.jar.JarFile(path.toFile(), false);
+        var entry = jar.getJarEntry(resource);
+        if (entry == null) {
+            jar.close();
+            return null;
+        }
+        InputStream raw = jar.getInputStream(entry);
+        return new java.io.FilterInputStream(raw) {
+            @Override public void close() throws IOException {
+                try { super.close(); } finally { jar.close(); }
+            }
+        };
     }
 
     private static String migrate(String value) {
