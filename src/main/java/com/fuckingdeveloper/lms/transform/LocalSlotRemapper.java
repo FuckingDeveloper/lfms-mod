@@ -18,6 +18,20 @@ public final class LocalSlotRemapper {
 
     private LocalSlotRemapper() {}
 
+    public static Result remapArgumentSlotUnknownAccess(String legacyDescriptor, String currentDescriptor,
+                                                        int legacySlot) {
+        Result instance = remapArgumentSlot(legacyDescriptor, currentDescriptor, false, legacySlot);
+        Result statik = remapArgumentSlot(legacyDescriptor, currentDescriptor, true, legacySlot);
+        if (instance.resolved() && !statik.resolved()) return instance;
+        if (!instance.resolved() && statik.resolved()) return statik;
+        if (instance.resolved() && statik.resolved()
+                && java.util.Objects.equals(instance.currentSlot(), statik.currentSlot())) {
+            return new Result(true, instance.currentSlot(), "Static/instance access is immaterial for this slot mapping");
+        }
+        return new Result(false, null,
+                "Target access is unknown and static/instance slot mappings are ambiguous");
+    }
+
     public static Result remapArgumentSlot(String legacyDescriptor, String currentDescriptor,
                                            boolean isStatic, int legacySlot) {
         List<Slot> legacy = argumentSlots(legacyDescriptor, isStatic);
