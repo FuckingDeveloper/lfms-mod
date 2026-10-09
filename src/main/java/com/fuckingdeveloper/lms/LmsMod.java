@@ -9,6 +9,7 @@ import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
 import com.fuckingdeveloper.lms.transform.TransformationSpecPlanner;
+import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
 import org.slf4j.Logger;
@@ -114,7 +115,10 @@ public final class LmsMod {
                                     plan.mappingStatus(), plan.currentTarget());
                         }
                         var transformationSpecs = new TransformationSpecPlanner().plan(compatibility);
-                        for (var spec : transformationSpecs) {
+                        Path launchPlan = Path.of(System.getProperty("user.dir"), "lms", "launch-plan.tsv");
+                        LaunchPlanWriter.write(launchPlan, transformationSpecs);
+                        LOG.info("LMS launch plan written file={}", launchPlan.toAbsolutePath());
+                                                for (var spec : transformationSpecs) {
                             LOG.info("LMS transformation spec id={} kind={} readiness={} target={} anchor={} replacement={} edits={} reason={}",
                                     spec.id(), spec.kind(), spec.readiness(), spec.target(),
                                     spec.anchor(), spec.replacement(), spec.edits(), spec.reason());
