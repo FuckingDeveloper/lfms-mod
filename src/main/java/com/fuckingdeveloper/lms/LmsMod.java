@@ -10,6 +10,7 @@ import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
 import com.fuckingdeveloper.lms.runtime.Forge1192LifecyclePlanner;
 import com.fuckingdeveloper.lms.runtime.Forge1192EntrypointInspector;
 import com.fuckingdeveloper.lms.runtime.Forge1192RegistrationPlanner;
+import com.fuckingdeveloper.lms.runtime.Forge1192CompatibilitySurface;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -91,6 +92,16 @@ public final class LmsMod {
                                         mod.modId(), candidate, registrationPlan.inspectedMethods(),
                                         registrationPlan.complete(), registrationPlan.boundaries().size(),
                                         registrationPlan.unresolved().size(), registrationPlan.reason());
+                                var compatibilitySurface = new Forge1192CompatibilitySurface()
+                                        .assess(registrationPlan.boundaries());
+                                var compatibilityFamilies = compatibilitySurface.requirements().stream()
+                                        .collect(java.util.stream.Collectors.groupingBy(
+                                                Forge1192CompatibilitySurface.Requirement::adapter,
+                                                java.util.TreeMap::new,
+                                                java.util.stream.Collectors.counting()));
+                                LOG.info("LMS compatibility-surface id={} requirements={} executable={} families={}",
+                                        mod.modId(), compatibilitySurface.requirements().size(),
+                                        compatibilitySurface.executable(), compatibilityFamilies);
                                 var boundaryGroups = registrationPlan.boundaries().stream()
                                         .collect(java.util.stream.Collectors.groupingBy(
                                                 boundary -> boundary.owner() + "#" + boundary.name() + boundary.descriptor(),
