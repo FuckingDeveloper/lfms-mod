@@ -75,11 +75,25 @@ def installLaunchJar = tasks.register('installLaunchJar', Copy) {
     includeEmptyDirs = false
 }
 
+def launchJarPathProvider = tasks.named('launchJar').flatMap { it.archiveFile }.map { it.asFile.absolutePath }
+
 tasks.named('runClient') {
     dependsOn installLaunchJar
+    doFirst {
+        logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())
+        logger.lifecycle("LMS installed launch JARs: {}", fileTree(layout.projectDirectory.dir('run/mods')) {
+            include 'lms-*-launch.jar'
+        }.files*.absolutePath)
+    }
 }
 tasks.named('runServer') {
     dependsOn installLaunchJar
+    doFirst {
+        logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())
+        logger.lifecycle("LMS installed launch JARs: {}", fileTree(layout.projectDirectory.dir('run/mods')) {
+            include 'lms-*-launch.jar'
+        }.files*.absolutePath)
+    }
 }
 
 // Generate inspectable launch scripts for the actual ModDevGradle client/server pipeline.
