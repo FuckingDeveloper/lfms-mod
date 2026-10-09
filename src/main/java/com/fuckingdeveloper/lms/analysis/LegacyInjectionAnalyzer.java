@@ -28,10 +28,11 @@ public final class LegacyInjectionAnalyzer {
     public record CoremodMethodTarget(String owner, String method, String descriptor) {}
     public record CoremodHookCall(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodOperation(String kind, String detail, String arguments) {}
+    public record CoremodValue(String name, String expression) {}
     public record CoremodAnchor(String owner, String method, String descriptor, String invocationType) {}
     public record CoremodTransform(String name, CoremodMethodTarget target, List<String> mappedMethods,
                                    List<CoremodAnchor> anchors, List<CoremodHookCall> hookCalls,
-                                   List<CoremodOperation> operations) {}
+                                   List<CoremodOperation> operations, List<CoremodValue> values) {}
     public record Coremod(String path, List<String> declaredTargets, List<String> referencedClasses,
                           List<String> asmApiCalls, List<String> mappedMethods,
                           List<String> builtMethodCalls, List<String> transformKinds,
@@ -123,7 +124,8 @@ public final class LegacyInjectionAnalyzer {
             List<CoremodAnchor> anchors = extractAnchors(segment, current.target());
             List<CoremodHookCall> hooks = extractHookCalls(extractFunctionCalls(segment, "ASMAPI.buildMethodCall"));
             List<CoremodOperation> operations = extractTransformOperations(segment);
-            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), mappedMethods, anchors, hooks, operations));
+            List<CoremodValue> values = extractCoremodValues(segment);
+            transforms.add(new CoremodTransform("transform-" + (i + 1), current.target(), mappedMethods, anchors, hooks, operations, values));
         }
         return List.copyOf(transforms);
     }
@@ -149,6 +151,45 @@ public final class LegacyInjectionAnalyzer {
             }
         }
         return List.copyOf(anchors);
+    }
+
+    private static List<CoremodValue> extractCoremodValues(String source) {
+        List<CoremodValue> values = new ArrayList<>();
+        Pattern declaration = Pattern.compile(
+                "(?:const|let|var)\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s*=\\s*");
+        Matcher matcher = declaration.matcher(source);
+        while (matcher.find()) {
+            int expressionStart = matcher.end();
+            int expressionEnd = findStatementEnd(source, expressionStart);
+            if (expressionEnd <= expressionStart) continue;
+            String expression = source.substring(expressionStart, expressionEnd).trim();
+            if (!expression.isEmpty()) values.add(new CoremodValue(matcher.group(1), expression));
+        }
+        return List.copyOf(values);
+    }
+
+    private static int findStatementEnd(String source, int start) {
+        int parens = 0, brackets = 0, braces = 0;
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = start; i < source.length(); i++) {
+            char ch = source.charAt(i);
+            if (quote != 0) {
+                if (escaped) escaped = false;
+                else if (ch == '\\') escaped = true;
+                else if (ch == quote) quote = 0;
+                continue;
+            }
+            if (ch == '\'' || ch == '"' || ch == '`') quote = ch;
+            else if (ch == '(') parens++;
+            else if (ch == ')') parens--;
+            else if (ch == '[') brackets++;
+            else if (ch == ']') brackets--;
+            else if (ch == '{') braces++;
+            else if (ch == '}') braces--;
+            else if (ch == ';' && parens == 0 && brackets == 0 && braces == 0) return i;
+        }
+        return source.length();
     }
 
     private static List<CoremodOperation> extractTransformOperations(String source) {
