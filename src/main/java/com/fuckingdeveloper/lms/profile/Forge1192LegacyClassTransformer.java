@@ -611,11 +611,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (!(previous instanceof FieldInsnNode field)
                         || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
                         || !field.owner.equals(material)
-                        || !field.name.equals("f_76279_")
                         || !field.desc.equals("L" + material + ";")) continue;
+                String bridge = switch (field.name) {
+                    case "f_76279_" -> "metalBlockProperties";
+                    case "f_76275_" -> "glassBlockProperties";
+                    default -> null;
+                };
+                if (bridge == null) continue;
                 method.instructions.remove(field);
                 call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
-                call.name = "metalBlockProperties";
+                call.name = bridge;
                 call.desc = "()L" + properties + ";";
                 call.itf = false;
                 rewrites++;
@@ -2724,6 +2729,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor";
         if (value.equals("net/minecraft/client/color/item/ItemColor"))
             return "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor";
+        if (value.equals("net/minecraft/client/model/PlayerModel"))
+            return "net/minecraft/client/model/player/PlayerModel";
         // IForgeItem was a Forge extension interface mixed into Item in 1.19.2.
         // It has no target class in 26.3; references must remain on Item and its
         // operations are resolved/adapted separately rather than namespace-guessed.
@@ -2841,13 +2848,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return value.replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/");
         if (value.equals("net/minecraft/resources/ResourceLocation"))
             return "net/minecraft/resources/Identifier";
-        if (value.startsWith("net/minecraft/")) {
-            var relocation = VANILLA_RELOCATIONS.resolveRelocatedClass(value);
-            if (relocation.status() == Forge1192MappingLayer.Status.VERIFIED_IDENTITY
-                    && !relocation.targetInternalName().isEmpty()) {
-                return relocation.targetInternalName();
-            }
-        }
+        // A removed vanilla type must not be relocated solely because an
+        // unrelated target class has the same simple name. Moved types require
+        // an explicit mapping/semantic adapter above; otherwise fail closed.
         if (value.startsWith("net/minecraftforge/eventbus/"))
             return value.replace("net/minecraftforge/eventbus/", "net/neoforged/bus/");
         if (value.startsWith("net/minecraftforge/fml/"))
@@ -2876,6 +2879,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/api/distmarker/Dist", "net/neoforged/api/distmarker/Dist")
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
+                .replace("net/minecraft/client/model/PlayerModel", "net/minecraft/client/model/player/PlayerModel")
                 .replace("net/minecraftforge/common/IPlantable", "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable")
                 .replace("net/minecraftforge/common/PlantType", "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType")
                 .replace("net/minecraftforge/energy/IEnergyStorage", "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage")

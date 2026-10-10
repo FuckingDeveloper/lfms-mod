@@ -58,6 +58,11 @@ public final class Forge1192VanillaConstructionBridge {
         return BlockBehaviour.Properties.of().mapColor(MapColor.METAL);
     }
 
+    /** Preserves the surviving color/solid semantics of Properties.of(Material.GLASS). */
+    public static BlockBehaviour.Properties glassBlockProperties() {
+        return BlockBehaviour.Properties.of().mapColor(MapColor.NONE);
+    }
+
     /** Attach the legacy block name before the modern Block constructor reads it. */
     public static BlockBehaviour.Properties withBlockId(
             BlockBehaviour.Properties properties, String legacyName) {
