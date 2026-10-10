@@ -64,8 +64,15 @@ public final class LmsMod {
                         // become attributable compatibility evidence rather than accidental execution.
                         ClassLoader targetLoader = Thread.currentThread().getContextClassLoader();
                         if (targetLoader == null) targetLoader = LmsMod.class.getClassLoader();
-                        var runtimeSession = new Forge1192RuntimeSession(
-                                mod.modId(), mod.file(), targetLoader, report.modAnnotationCandidates());
+                        Forge1192RuntimeSession runtimeSession;
+                        try {
+                            runtimeSession = new Forge1192RuntimeSession(
+                                    mod.modId(), mod.file(), targetLoader, report.modAnnotationCandidates());
+                        } catch (ClassNotFoundException e) {
+                            LOG.warn("LMS runtime session blocked id={} artifact={} reason=entrypoint-linkage error={} message={}",
+                                    mod.modId(), mod.file().getFileName(), e.getClass().getName(), e.getMessage());
+                            continue;
+                        }
                         runtimeSessions.add(runtimeSession);
                         var managedTransformer = runtimeSession.transformer();
                         for (String candidate : report.modAnnotationCandidates()) {
