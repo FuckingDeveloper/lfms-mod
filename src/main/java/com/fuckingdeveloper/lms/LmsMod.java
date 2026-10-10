@@ -88,6 +88,21 @@ public final class LmsMod {
                                         mod.modId(), candidate, e.getClass().getName(), e.getMessage());
                             }
                         }
+                        var symbolPreflight = new com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight()
+                                .analyze(mod.file());
+                        LOG.info("LMS symbol-preflight id={} ownedClasses={} externalTypes={} uses={}",
+                                mod.modId(), symbolPreflight.ownedClasses(),
+                                symbolPreflight.externalTypes(), symbolPreflight.counts());
+                        var structural = symbolPreflight.references().stream()
+                                .filter(ref -> ref.use() == com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight.Use.SUPER
+                                        || ref.use() == com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight.Use.INTERFACE
+                                        || ref.use() == com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight.Use.NEW)
+                                .toList();
+                        LOG.info("LMS symbol-preflight id={} structuralReferences={}", mod.modId(), structural.size());
+                        for (var ref : structural) {
+                            LOG.info("LMS structural-reference id={} owner={} use={} target={}",
+                                    mod.modId(), ref.owner(), ref.use(), ref.target());
+                        }
                         LOG.info("LMS managed-transform id={} transformedClasses={} namespaceRewrites={}",
                                 mod.modId(), managedTransformer.transformedClasses(),
                                 managedTransformer.totalRewrites());
