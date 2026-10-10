@@ -497,7 +497,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BuiltinRegistryBridge";
                     call.name = "get";
-                    call.desc = "(Ljava/lang/Object;)Ljava/lang/Object;";
+                    call.desc = "(Lcom/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject;)Ljava/lang/Object;";
                     call.itf = false;
                     rewrites++;
                 }
