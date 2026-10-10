@@ -69,6 +69,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
+        rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -1064,6 +1065,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         case "REACH_DISTANCE" -> "reachDistance";
                         case "ATTACK_RANGE" -> "attackRange";
                         case "ENTITY_GRAVITY" -> "entityGravity";
+                        case "STEP_HEIGHT_ADDITION" -> "stepHeightAddition";
                         default -> null;
                     };
                     if (bridgeMethod != null) {
@@ -1076,6 +1078,89 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         rewrites++;
                     }
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Attribute modifiers moved from UUID/name identity to Identifier identity.
+     * Preserve the UUID as the authoritative stable key and adapt the complete
+     * construction/query/removal family together.
+     */
+    private static int rewriteLegacyAttributeModifiers(ClassNode node) {
+        final String modifier = "net/minecraft/world/entity/ai/attributes/AttributeModifier";
+        final String operation = modifier + "$Operation";
+        final String legacyConstructor = "(Ljava/util/UUID;Ljava/lang/String;DL" + operation + ";)V";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (insn instanceof TypeInsnNode allocation
+                        && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                        && allocation.desc.equals(modifier)) {
+                    var duplicate = allocation.getNext();
+                    MethodInsnNode constructor = null;
+                    int nested = 0;
+                    if (duplicate != null && duplicate.getOpcode() == org.objectweb.asm.Opcodes.DUP) {
+                        for (var cursor = duplicate.getNext(); cursor != null; cursor = cursor.getNext()) {
+                            if (cursor instanceof TypeInsnNode nestedType
+                                    && nestedType.getOpcode() == org.objectweb.asm.Opcodes.NEW) nested++;
+                            else if (cursor instanceof MethodInsnNode call
+                                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                                    && call.name.equals("<init>")) {
+                                if (nested > 0) nested--;
+                                else if (call.owner.equals(modifier)) { constructor = call; break; }
+                            }
+                        }
+                    }
+                    if (constructor != null && constructor.desc.equals(legacyConstructor)) {
+                        method.instructions.remove(allocation);
+                        method.instructions.remove(duplicate);
+                        var factory = new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "com/fuckingdeveloper/lms/runtime/Forge1192AttributeBridge",
+                                "modifier", "(Ljava/util/UUID;Ljava/lang/String;DL" + operation + ";)L"
+                                        + modifier + ";", false);
+                        method.instructions.set(constructor, factory);
+                        next = factory.getNext();
+                        rewrites++;
+                    }
+                } else if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals(operation)) {
+                    String modern = switch (field.name) {
+                        case "ADDITION" -> "ADD_VALUE";
+                        case "MULTIPLY_BASE" -> "ADD_MULTIPLIED_BASE";
+                        case "MULTIPLY_TOTAL" -> "ADD_MULTIPLIED_TOTAL";
+                        default -> null;
+                    };
+                    if (modern != null) {
+                        field.name = modern;
+                        rewrites++;
+                    }
+                } else if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/entity/ai/attributes/AttributeInstance")) {
+                    if (call.name.equals("m_22111_")
+                            && call.desc.equals("(Ljava/util/UUID;)L" + modifier + ";")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192AttributeBridge";
+                        call.name = "getModifier";
+                        call.desc = "(Lnet/minecraft/world/entity/ai/attributes/AttributeInstance;Ljava/util/UUID;)L"
+                                + modifier + ";";
+                        call.itf = false;
+                        rewrites++;
+                    } else if (call.name.equals("m_22120_")
+                            && call.desc.equals("(Ljava/util/UUID;)V")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192AttributeBridge";
+                        call.name = "removeModifier";
+                        call.desc = "(Lnet/minecraft/world/entity/ai/attributes/AttributeInstance;Ljava/util/UUID;)V";
+                        call.itf = false;
+                        rewrites++;
+                    }
+                }
+                insn = next;
             }
         }
         return rewrites;

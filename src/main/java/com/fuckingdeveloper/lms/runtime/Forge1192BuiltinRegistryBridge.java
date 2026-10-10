@@ -33,6 +33,10 @@ public final class Forge1192BuiltinRegistryBridge {
         return LegacyRegistryObject.builtin("minecraft", "gravity");
     }
 
+    public static LegacyRegistryObject stepHeightAddition() {
+        return LegacyRegistryObject.builtin("minecraft", "step_height");
+    }
+
     public static Object get(LegacyRegistryObject builtin) {
         if (builtin == null)
             throw new IllegalArgumentException("Unsupported null legacy builtin registry handle");
@@ -41,6 +45,7 @@ public final class Forge1192BuiltinRegistryBridge {
                 case "block_interaction_range" -> Attributes.BLOCK_INTERACTION_RANGE.value();
                 case "entity_interaction_range" -> Attributes.ENTITY_INTERACTION_RANGE.value();
                 case "gravity" -> Attributes.GRAVITY.value();
+                case "step_height" -> Attributes.STEP_HEIGHT.value();
                 default -> throw new IllegalStateException("UNRESOLVED_BUILTIN_REGISTRY_VALUE "
                         + builtin.namespace() + ":" + builtin.path());
             };
