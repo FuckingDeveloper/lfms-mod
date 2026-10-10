@@ -944,8 +944,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         if (value.startsWith("net/minecraftforge/forgespi/"))
             return value.replace("net/minecraftforge/forgespi/", "net/neoforged/neoforgespi/");
         // Main Forge API moved below NeoForge's neoforge namespace.
-        if (value.startsWith("net/minecraftforge/"))
-            return value.replace("net/minecraftforge/", "net/neoforged/neoforge/");
+        if (value.startsWith("net/minecraftforge/")) {
+            String candidate = value.replace("net/minecraftforge/", "net/neoforged/neoforge/");
+            if (Forge1192LegacyClassTransformer.class.getClassLoader()
+                    .getResource(candidate + ".class") != null) {
+                return candidate;
+            }
+            // Absent Forge APIs are semantic migration boundaries. Keeping the
+            // legacy name here is intentional: a later family adapter must own
+            // the transformation instead of manufacturing a nonexistent
+            // NeoForge class name.
+            return value;
+        }
         return value;
     }
 
