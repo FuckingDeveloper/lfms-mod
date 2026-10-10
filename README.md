@@ -25,6 +25,7 @@ See `openspec/` for normative requirements, architecture and change proposals. I
 - `openspec/project.md` — product scope and normative goals;
 - `openspec/specs/version-profiles/spec.md` — legacy source generations/profile families;
 - `openspec/specs/compatibility-architecture/spec.md` — Source Profile -> semantic operations -> Target Adapter architecture;
+- `openspec/specs/compatibility-runtime-vision/spec.md` — long-term Legacy Minecraft Mod Compatibility Runtime vision, including loader-neutral semantics and future Fabric/multi-generation possibilities;
 - `openspec/specs/target-runtimes/spec.md` — maintaining LMS across future Minecraft/NeoForge targets;
 - `openspec/specs/compatibility-verification/spec.md` — testing and compatibility evidence;
 - `AGENTS.md` — mandatory repository rules for autonomous coding agents.
