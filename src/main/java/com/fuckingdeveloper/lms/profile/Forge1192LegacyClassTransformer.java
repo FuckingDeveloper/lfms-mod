@@ -1070,7 +1070,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 // The old GameData helper relied on implicit active mod
                 // registration context. Redirect to an explicit scoped bridge.
-                if (call.owner.equals("net/neoforged/neoforge/registries/GameData")
+                if ((call.owner.equals("net/neoforged/neoforge/registries/GameData")
+                        || call.owner.equals("net/minecraftforge/registries/GameData"))
                         && call.name.equals("checkPrefix")
                         && call.desc.equals("(Ljava/lang/String;Z)Lnet/minecraft/resources/Identifier;")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
