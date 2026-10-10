@@ -3,7 +3,6 @@ package com.fuckingdeveloper.lms.runtime;
 import com.mojang.datafixers.types.Type;
 import java.util.Set;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
 /** Exact construction adapters for vanilla constructors removed after 1.19.2. */
@@ -18,8 +17,12 @@ public final class Forge1192VanillaConstructionBridge {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static BlockEntityType<?> blockEntityType(
             BlockEntityType.BlockEntitySupplier<?> supplier, Set<?> validBlocks, Type<?> dataFixerType) {
-        Block[] blocks = ((Set<Block>) (Set) validBlocks).toArray(Block[]::new);
-        return BlockEntityType.Builder.of((BlockEntityType.BlockEntitySupplier) supplier, blocks)
-                .build(dataFixerType);
+        // Minecraft 26.3/NeoForge keeps direct construction, but dropped the
+        // old DataFixer Type parameter. It did not move to a Builder API.
+        // The legacy third argument carried DFU schema metadata, not runtime
+        // factory/valid-block semantics, so preserve those two surviving parts.
+        return new BlockEntityType<>(
+                (BlockEntityType.BlockEntitySupplier) supplier,
+                (Set<Block>) (Set) validBlocks);
     }
 }
