@@ -23,6 +23,28 @@ import java.util.function.Supplier;
 public final class Forge1192NetworkBridge {
     private Forge1192NetworkBridge() {}
 
+    /**
+     * Forge 1.19.2 FriendlyByteBuf#writeRegistryIdUnsafe serialized the raw
+     * numeric id from the supplied registry. LMS registry facade tokens are
+     * concrete vanilla Registry instances, so preserve that wire contract.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static void writeRegistryIdUnsafe(FriendlyByteBuf buffer, Object registryToken, Object value) {
+        Objects.requireNonNull(buffer, "buffer");
+        Objects.requireNonNull(value, "value");
+        if (!(registryToken instanceof net.minecraft.core.Registry registry)) {
+            throw new IllegalStateException("Legacy registry network token is not a vanilla Registry: "
+                    + (registryToken == null ? "null" : registryToken.getClass().getName()));
+        }
+        int id = registry.getId(value);
+        if (id < 0) {
+            throw new IllegalArgumentException("Value is not present in legacy registry network token: " + value);
+        }
+        buffer.writeVarInt(id);
+    }
+
+
+
     public enum Flow { CLIENTBOUND, SERVERBOUND, BIDIRECTIONAL }
 
     public record LegacyMessage(
