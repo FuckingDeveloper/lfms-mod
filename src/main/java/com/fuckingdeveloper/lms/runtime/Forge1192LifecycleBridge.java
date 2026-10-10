@@ -12,10 +12,11 @@ import java.util.Objects;
 public final class Forge1192LifecycleBridge {
     private static final ThreadLocal<Context> CURRENT = new ThreadLocal<>();
 
-    public record Context(String modId, IEventBus modEventBus) {
+    public record Context(String modId, IEventBus modEventBus, LegacyContainer container) {
         public Context {
             Objects.requireNonNull(modId, "modId");
             Objects.requireNonNull(modEventBus, "modEventBus");
+            Objects.requireNonNull(container, "container");
         }
     }
 
@@ -23,7 +24,7 @@ public final class Forge1192LifecycleBridge {
 
     public static AutoCloseable enter(String modId, IEventBus modEventBus) {
         if (CURRENT.get() != null) throw new IllegalStateException("Nested legacy lifecycle scopes are not supported");
-        Context context = new Context(modId, modEventBus);
+        Context context = new Context(modId, modEventBus, new LegacyContainer(modId));
         Thread owner = Thread.currentThread();
         CURRENT.set(context);
         return () -> {
@@ -56,18 +57,13 @@ public final class Forge1192LifecycleBridge {
     public static Object getActiveContainer(Object token) {
         Context context = requireActive();
         if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
-        // LMS does not fabricate a NeoForge ModContainer for a legacy artifact.
-        // The legacy active-container contract therefore remains explicit and
-        // fail-closed until a per-artifact container facade exists.
-        throw new UnsupportedOperationException(
-                "Legacy ModLoadingContext#getActiveContainer requires a per-artifact ModContainer facade for " + context.modId());
+        return context.container().active();
     }
 
     public static void setActiveContainer(Object token, Object container) {
         Context context = requireActive();
         if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
-        throw new UnsupportedOperationException(
-                "Legacy ModLoadingContext#setActiveContainer requires a per-artifact ModContainer facade for " + context.modId());
+        context.container().setActive(container);
     }
 
     public static String getActiveNamespace(Object token) {
@@ -75,4 +71,17 @@ public final class Forge1192LifecycleBridge {
         if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
         return context.modId();
     }
+    /** Per-artifact legacy active-container slot; never exposes LMS's own container. */
+    public static final class LegacyContainer {
+        private final String modId;
+        private Object active;
+        private LegacyContainer(String modId) { this.modId = modId; this.active = this; }
+        public String modId() { return modId; }
+        private Object active() { return active; }
+        private void setActive(Object value) {
+            if (value == null) throw new NullPointerException("legacy active container");
+            active = value;
+        }
+    }
 }
+
