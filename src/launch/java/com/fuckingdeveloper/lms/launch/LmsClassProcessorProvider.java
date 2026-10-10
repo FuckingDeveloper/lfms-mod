@@ -13,7 +13,7 @@ public final class LmsClassProcessorProvider implements ClassProcessorProvider {
     @Override
     public void createProcessors(Context context, Collector collector) {
         LOG.info("[LMS/early] FML class processor provider loaded");
-        LOG.info("[LMS/early] build-fingerprint=2026-10-09T20:23Z providerSource={} processorSource={}",
+        LOG.info("[LMS/early] build-fingerprint=2026-10-10T17:early-v2 providerSource={} processorSource={}",
                 codeSource(LmsClassProcessorProvider.class),
                 codeSource(GenericInstructionEditProcessor.class));
         Path plan = Path.of(System.getProperty("user.dir"), "lms", "launch-plan.tsv");
@@ -33,6 +33,8 @@ public final class LmsClassProcessorProvider implements ClassProcessorProvider {
             }
             LOG.info("[LMS/early] launch plan={} redirects={} instructionEdits={}",
                     plan.toAbsolutePath(), launchPlan.redirects().size(), launchPlan.edits().size());
+            LOG.info("[LMS/early] provider createProcessors DONE processorsRegistered={}",
+                    launchPlan.redirects().size() + (disableEdits ? 0 : launchPlan.edits().size()));
         } catch (Exception e) {
             LOG.error("[LMS/early] failed to read launch plan {}", plan.toAbsolutePath(), e);
         }
