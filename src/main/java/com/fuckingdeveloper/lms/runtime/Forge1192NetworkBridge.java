@@ -44,6 +44,26 @@ public final class Forge1192NetworkBridge {
     }
 
 
+    /**
+     * Inverse of the Forge 1.19.2 raw registry-id writer: consume the varint
+     * numeric id and resolve it against the explicit registry token.
+     */
+    @SuppressWarnings("rawtypes")
+    public static Object readRegistryIdUnsafe(FriendlyByteBuf buffer, Object registryToken) {
+        Objects.requireNonNull(buffer, "buffer");
+        if (!(registryToken instanceof net.minecraft.core.Registry registry)) {
+            throw new IllegalStateException("Legacy registry network token is not a vanilla Registry: "
+                    + (registryToken == null ? "null" : registryToken.getClass().getName()));
+        }
+        int id = buffer.readVarInt();
+        Object value = registry.byId(id);
+        if (value == null) {
+            throw new IllegalArgumentException("Unknown raw registry id " + id + " for legacy registry network token");
+        }
+        return value;
+    }
+
+
 
     public enum Flow { CLIENTBOUND, SERVERBOUND, BIDIRECTIONAL }
 
