@@ -40,6 +40,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
         int rewrites = rewriteExactNamespaceMigrations(node);
         rewrites += rewriteSemanticAdapters(node);
+        verifyNoEscapingLegacyRegistryFacade(node);
         if (rewrites > 0) {
             transformedClasses++;
             totalRewrites += rewrites;
@@ -99,6 +100,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+
+    private static void verifyNoEscapingLegacyRegistryFacade(ClassNode node) {
+        String legacyRegistry = "net/neoforged/neoforge/registries/IForgeRegistry";
+        for (var method : node.methods) {
+            if (method.desc.contains(legacyRegistry)) {
+                throw new IllegalStateException("Legacy IForgeRegistry escapes through method descriptor: "
+                        + node.name + "#" + method.name + method.desc);
+            }
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && (call.owner.contains(legacyRegistry) || call.desc.contains(legacyRegistry))) {
+                    throw new IllegalStateException("Unadapted legacy IForgeRegistry method boundary: "
+                            + node.name + "#" + method.name + " -> " + call.owner + "#" + call.name + call.desc);
+                }
+                if (insn instanceof FieldInsnNode field && field.desc.contains(legacyRegistry)) {
+                    throw new IllegalStateException("Legacy IForgeRegistry escapes through field: "
+                            + node.name + "#" + field.name + field.desc);
+                }
+                if (insn instanceof TypeInsnNode type && type.desc.contains(legacyRegistry)) {
+                    throw new IllegalStateException("Legacy IForgeRegistry escapes through type instruction: "
+                            + node.name + "#" + method.name);
+                }
+            }
+        }
+    }
 
     private static int rewriteSemanticAdapters(ClassNode node) {
         int rewrites = 0;
