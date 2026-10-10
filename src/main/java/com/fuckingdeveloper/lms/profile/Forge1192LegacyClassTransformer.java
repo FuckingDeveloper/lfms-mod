@@ -345,6 +345,15 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
 
+                // Current NeoForge EventHooks posts the same NeighborNotifyEvent
+                // and returns it; the old ForgeEventFactory owner was removed.
+                if (call.owner.equals("net/neoforged/neoforge/event/ForgeEventFactory")
+                        && call.name.equals("onNeighborNotify")
+                        && call.desc.equals("(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Ljava/util/EnumSet;Z)Lnet/neoforged/neoforge/event/level/BlockEvent$NeighborNotifyEvent;")) {
+                    call.owner = "net/neoforged/neoforge/event/EventHooks";
+                    rewrites++;
+                }
+
                 // Forge 1.19.2 capability type declarations no longer map
                 // to a mutable modern capability registry. Validate/capture the
                 // declaration without inventing a global registration side effect.
