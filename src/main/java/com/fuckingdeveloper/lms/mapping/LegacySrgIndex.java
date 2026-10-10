@@ -3,7 +3,9 @@ package com.fuckingdeveloper.lms.mapping;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -17,9 +19,13 @@ public final class LegacySrgIndex {
                         List<String> names, List<String> namespaces) {}
     public record Resolution(ResolutionStatus status, List<Match> matches, String reason) {}
     private final TsrgMappingReader.Index index;
+    private final Map<String, List<Match>> methodsBySrgName;
+    private final Map<String, List<TsrgMappingReader.FieldEntry>> fieldsBySrgName;
 
     private LegacySrgIndex(TsrgMappingReader.Index index) {
         this.index = index;
+        this.methodsBySrgName = indexMethodsBySrgName(index);
+        this.fieldsBySrgName = indexFieldsBySrgName(index);
     }
 
     public static Optional<LegacySrgIndex> load(Path file) throws IOException {
@@ -27,19 +33,7 @@ public final class LegacySrgIndex {
     }
 
     public List<Match> findBySrgName(String name) {
-        String normalized = normalizeSrgName(name);
-        List<Match> matches = new ArrayList<>();
-        for (var entry : index.methods().values()) {
-            boolean matched = entry.names().stream()
-                    .anyMatch(candidate -> candidate.equals(name)
-                            || candidate.equals(normalized)
-                            || normalizeSrgName(candidate).equals(normalized));
-            if (matched) {
-                matches.add(new Match(entry.owners(), entry.names().getFirst(),
-                        entry.descriptor(), entry.names(), index.namespaces()));
-            }
-        }
-        return List.copyOf(matches);
+        return methodsBySrgName.getOrDefault(normalizeSrgName(name), List.of());
     }
 
 
@@ -171,12 +165,34 @@ public final class LegacySrgIndex {
     }
 
     public List<TsrgMappingReader.FieldEntry> findFieldsBySrgName(String name) {
-        String normalized = normalizeSrgName(name);
-        return index.fields().values().stream()
-                .filter(entry -> entry.names().stream().anyMatch(candidate ->
-                        candidate.equals(name) || normalizeSrgName(candidate).equals(normalized)))
-                .distinct()
-                .toList();
+        return fieldsBySrgName.getOrDefault(normalizeSrgName(name), List.of());
+    }
+
+    private static Map<String, List<Match>> indexMethodsBySrgName(TsrgMappingReader.Index index) {
+        Map<String, List<Match>> mutable = new LinkedHashMap<>();
+        for (var entry : index.methods().values()) {
+            Match match = new Match(entry.owners(), entry.names().getFirst(),
+                    entry.descriptor(), entry.names(), index.namespaces());
+            for (String name : entry.names()) {
+                mutable.computeIfAbsent(normalizeSrgName(name), ignored -> new ArrayList<>())
+                        .add(match);
+            }
+        }
+        mutable.replaceAll((ignored, matches) -> matches.stream().distinct().toList());
+        return Map.copyOf(mutable);
+    }
+
+    private static Map<String, List<TsrgMappingReader.FieldEntry>> indexFieldsBySrgName(
+            TsrgMappingReader.Index index) {
+        Map<String, List<TsrgMappingReader.FieldEntry>> mutable = new LinkedHashMap<>();
+        for (var entry : index.fields().values()) {
+            for (String name : entry.names()) {
+                mutable.computeIfAbsent(normalizeSrgName(name), ignored -> new ArrayList<>())
+                        .add(entry);
+            }
+        }
+        mutable.replaceAll((ignored, fields) -> fields.stream().distinct().toList());
+        return Map.copyOf(mutable);
     }
 
     public int methodCount() {
