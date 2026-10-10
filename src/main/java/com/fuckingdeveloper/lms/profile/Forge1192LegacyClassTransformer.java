@@ -488,7 +488,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 // Removed ForgeMod RegistryObject fields are converted to
                 // explicit LMS builtin handles. Their RegistryObject operations are
                 // adapted below, so the removed Forge holder never reaches linkage.
-                if (call.owner.equals("net/neoforged/neoforge/registries/RegistryObject")
+                if ((call.owner.equals("net/minecraftforge/registries/RegistryObject")
+                        || call.owner.equals("net/neoforged/neoforge/registries/RegistryObject"))
                         && call.name.equals("get")
                         && call.desc.equals("()Ljava/lang/Object;")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
