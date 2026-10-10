@@ -61,9 +61,24 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
         synchronized (getClassLoadingLock(name)) {
             Class<?> loaded = findLoadedClass(name);
             if (loaded == null) {
-                if (parentFirst(name) || !owns(name)) {
+                // Legacy Forge names may survive in constant-pool class
+                // references even when all executable call sites are migrated.
+                // Resolve the class identity against the current NeoForge namespace
+                // without defining fake classes in either framework namespace.
+                if (name.startsWith("net.minecraftforge.") && !owns(name)) {
+                    String migrated = migrateLegacyFrameworkName(name);
+                    if (!migrated.equals(name)) {
+                        try {
+                            loaded = getParent().loadClass(migrated);
+                        } catch (ClassNotFoundException ignored) {
+                            // Preserve the original lookup/error when this is a
+                            // removed API that requires a semantic adapter.
+                        }
+                    }
+                }
+                if (loaded == null && (parentFirst(name) || !owns(name))) {
                     loaded = getParent().loadClass(name);
-                } else {
+                } else if (loaded == null) {
                     try {
                         loaded = findClass(name);
                     } catch (ClassNotFoundException e) {
@@ -90,6 +105,18 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
         } catch (Exception e) {
             throw new ClassNotFoundException("Profile transformation failed for " + name, e);
         }
+    }
+
+    private static String migrateLegacyFrameworkName(String value) {
+        if (value.startsWith("net.minecraftforge.eventbus."))
+            return value.replace("net.minecraftforge.eventbus.", "net.neoforged.bus.");
+        if (value.startsWith("net.minecraftforge.fml."))
+            return value.replace("net.minecraftforge.fml.", "net.neoforged.fml.");
+        if (value.startsWith("net.minecraftforge.forgespi."))
+            return value.replace("net.minecraftforge.forgespi.", "net.neoforged.neoforgespi.");
+        if (value.startsWith("net.minecraftforge."))
+            return value.replace("net.minecraftforge.", "net.neoforged.neoforge.");
+        return value;
     }
 
     private static boolean parentFirst(String name) {
