@@ -1411,6 +1411,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // would force the managed loader to resolve a removed framework class.
         if (value.equals("net/minecraftforge/common/MinecraftForge"))
             return "net/neoforged/neoforge/common/NeoForge";
+        // IForgeRegistry was removed. Keep only a verifier-visible LMS facade;
+        // all executable registry operations are redirected to
+        // Forge1192RegistrationContext by semantic adapters below.
+        if (value.equals("net/minecraftforge/registries/IForgeRegistry"))
+            return "com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry";
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem";
         if (value.equals("net/minecraftforge/registries/RegistryObject"))
