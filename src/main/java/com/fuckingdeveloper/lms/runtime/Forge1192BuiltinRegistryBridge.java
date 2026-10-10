@@ -1,4 +1,4 @@
-package com.fuckingdeveloper.lms.runtime;
+package com.fuckingdeveloper.lms.runtime;\n\nimport com.fuckingdeveloper.lms.runtime.registry.LegacyRegistryObject;
 
 /**
  * Compatibility boundary for Forge 1.19.2 built-in registry bootstrap requests.
