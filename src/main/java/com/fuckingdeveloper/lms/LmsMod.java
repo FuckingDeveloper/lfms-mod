@@ -44,6 +44,11 @@ public final class LmsMod {
         try {
             Files.createDirectories(directory);
             List<LegacyModDescriptor> mods = new LegacyJarScanner().scan(directory);
+            java.util.Map<String, Path> legacyArtifacts = mods.stream()
+                    .filter(candidate -> candidate.modId() != null && !candidate.modId().isBlank())
+                    .collect(java.util.stream.Collectors.toMap(
+                            LegacyModDescriptor::modId, LegacyModDescriptor::file,
+                            (first, duplicate) -> first));
             LOG.info("LMS discovery: {} candidate(s) in {}", mods.size(), directory.toAbsolutePath());
             Forge1192Profile profile = new Forge1192Profile();
             for (LegacyModDescriptor mod : mods) {
@@ -65,7 +70,7 @@ public final class LmsMod {
                                 mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
                                 metadata.coremodTargetHints());
                         var dependencyDecision = new com.fuckingdeveloper.lms.runtime.LegacyDependencyGate()
-                                .evaluate(metadata.dependencies());
+                                .evaluate(metadata.dependencies(), legacyArtifacts);
                         if (!dependencyDecision.satisfied()) {
                             LOG.error("LMS dependency-gate id={} state=BLOCKED reason=MISSING_MANDATORY_DEPENDENCY missing={}",
                                     mod.modId(), dependencyDecision.missing());
@@ -92,7 +97,8 @@ public final class LmsMod {
                         Forge1192RuntimeSession runtimeSession;
                         try {
                             runtimeSession = new Forge1192RuntimeSession(
-                                    mod.modId(), mod.file(), targetLoader, report.modAnnotationCandidates());
+                                    mod.modId(), mod.file(), dependencyDecision.artifacts(),
+                                    targetLoader, report.modAnnotationCandidates());
                         } catch (ClassNotFoundException e) {
                             LOG.warn("LMS runtime session blocked id={} artifact={} reason=entrypoint-linkage error={} message={}",
                                     mod.modId(), mod.file().getFileName(), e.getClass().getName(), e.getMessage());
