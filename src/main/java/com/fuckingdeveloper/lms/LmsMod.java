@@ -157,6 +157,7 @@ public final class LmsMod {
                                 "member-gaps-" + mod.modId() + ".tsv");
                         Files.createDirectories(memberReportFile.getParent());
                         var memberReportLines = new java.util.ArrayList<String>();
+                        memberReportLines.add("# planner=" + MEMBER_PLANNER_FINGERPRINT);
                         memberReportLines.add("state\tkind\tcaller\ttarget\tsameNameDescriptors");
                         for (var finding : memberMigration.findings()) {
                             if (finding.state()
@@ -166,9 +167,19 @@ public final class LmsMod {
                                     + boundary.callerClass() + "#" + boundary.callerMethod() + "\t"
                                     + boundary.identity() + "\t" + finding.sameNameDescriptors());
                         }
-                        Files.write(memberReportFile, memberReportLines);
-                        LOG.info("LMS member-migration-report id={} file={} gaps={}", mod.modId(),
-                                memberReportFile.toAbsolutePath(), memberReportLines.size() - 1);
+                        Path memberReportTemp = memberReportFile.resolveSibling(memberReportFile.getFileName() + ".tmp");
+                        Files.write(memberReportTemp, memberReportLines);
+                        try {
+                            Files.move(memberReportTemp, memberReportFile,
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                        } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
+                            Files.move(memberReportTemp, memberReportFile,
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        }
+                        LOG.info("LMS member-migration-report id={} planner={} file={} gaps={}", mod.modId(),
+                                MEMBER_PLANNER_FINGERPRINT, memberReportFile.toAbsolutePath(),
+                                memberReportLines.size() - 2);
                         var migrationFamilies = migrationPreflight.findings().stream()
                                 .filter(finding -> finding.state()
                                         != com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.State.TARGET_AVAILABLE)
