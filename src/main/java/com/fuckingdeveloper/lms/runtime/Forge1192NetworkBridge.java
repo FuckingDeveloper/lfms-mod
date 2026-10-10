@@ -23,12 +23,27 @@ import java.util.function.Supplier;
 public final class Forge1192NetworkBridge {
     private Forge1192NetworkBridge() {}
 
+    public enum Flow { CLIENTBOUND, SERVERBOUND, BIDIRECTIONAL }
+
     public record LegacyMessage(
             int discriminator,
             Class<?> messageType,
             BiConsumer<Object, Object> encoder,
             Function<Object, Object> decoder,
-            BiConsumer<Object, Supplier<Object>> consumer) {}
+            BiConsumer<Object, Supplier<Object>> consumer,
+            Flow flow) {
+        public LegacyMessage {
+            Objects.requireNonNull(messageType, "messageType");
+            Objects.requireNonNull(encoder, "encoder");
+            Objects.requireNonNull(decoder, "decoder");
+            Objects.requireNonNull(consumer, "consumer");
+        }
+
+        public LegacyMessage withFlow(Flow value) {
+            return new LegacyMessage(discriminator, messageType, encoder, decoder, consumer,
+                    Objects.requireNonNull(value, "flow"));
+        }
+    }
 
     private static final ConcurrentHashMap<LegacyChannel, ConcurrentHashMap<Integer, LegacyMessage>> MESSAGES =
             new ConcurrentHashMap<>();
@@ -58,10 +73,13 @@ public final class Forge1192NetworkBridge {
         if (registered.isEmpty())
             return new PayloadPreflight(channel.modId(), channel.name(), 0,
                     PayloadReadiness.EMPTY_CHANNEL, "No legacy messages registered");
+        if (registered.stream().anyMatch(message -> message.flow() == null))
+            return new PayloadPreflight(channel.modId(), channel.name(), registered.size(),
+                    PayloadReadiness.DIRECTION_UNRESOLVED,
+                    "One or more legacy messages have no proven packet direction");
         return new PayloadPreflight(channel.modId(), channel.name(), registered.size(),
-                PayloadReadiness.DIRECTION_UNRESOLVED,
-                "Forge 1.19.2 registerMessage does not encode packet direction or "
-                + "connection phase; NeoForge 26.3 requires explicit payload flow and codec");
+                PayloadReadiness.CODEC_UNVERIFIED,
+                "Legacy message flow is resolved; NeoForge payload type/phase binding remains unverified");
     }
 
     /**
@@ -70,6 +88,16 @@ public final class Forge1192NetworkBridge {
      * FriendlyByteBuf-compatible buffers; the original generic signatures
      * were erased when captured from the legacy registration.
      */
+    public static void resolveFlow(Object token, int discriminator, Flow flow) {
+        LegacyChannel channel = requireChannel(token);
+        var registrations = MESSAGES.get(channel);
+        LegacyMessage message = registrations.get(discriminator);
+        if (message == null)
+            throw new IllegalArgumentException("Unknown legacy network discriminator " + discriminator
+                    + " on channel " + channel.name());
+        registrations.put(discriminator, message.withFlow(flow));
+    }
+
     public static StreamCodec<FriendlyByteBuf, Object> codec(LegacyMessage message) {
         Objects.requireNonNull(message, "message");
         return new StreamCodec<>() {
@@ -147,7 +175,7 @@ public final class Forge1192NetworkBridge {
         Objects.requireNonNull(encoder, "encoder");
         Objects.requireNonNull(decoder, "decoder");
         Objects.requireNonNull(consumer, "consumer");
-        LegacyMessage message = new LegacyMessage(discriminator, messageType, encoder, decoder, consumer);
+        LegacyMessage message = new LegacyMessage(discriminator, messageType, encoder, decoder, consumer, null);
         LegacyMessage previous = MESSAGES.get(channel).putIfAbsent(discriminator, message);
         if (previous != null)
             throw new IllegalStateException("Duplicate legacy network discriminator " + discriminator
