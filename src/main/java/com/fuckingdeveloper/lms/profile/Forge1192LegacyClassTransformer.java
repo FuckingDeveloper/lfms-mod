@@ -152,34 +152,42 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         protected String getCommonSuperClass(String type1, String type2) {
             if (type1.equals(type2)) return type1;
 
-            // The legacy ModListScreen adapter deliberately replaces the
-            // removed Forge screen with its parent Screen. Other branches may
-            // still produce concrete vanilla Screen subclasses. Their verifier
-            // merge must therefore remain Screen, not Object.
-            if (isMinecraftScreen(type1) && isMinecraftScreen(type2)) {
-                return "net/minecraft/client/gui/screens/Screen";
-            }
+            // Never resolve legacy Forge/managed types through the parent
+            // loader. For current Minecraft/NeoForge/JDK types, however, the
+            // runtime hierarchy is authoritative and gives ASM the precise
+            // verifier merge it needs (e.g. Screen + ConfigScreen -> Screen).
+            if (isParentRuntimeType(type1) && isParentRuntimeType(type2)) {
+                try {
+                    ClassLoader loader = Forge1192LegacyClassTransformer.class.getClassLoader();
+                    Class<?> first = Class.forName(type1.replace('/', '.'), false, loader);
+                    Class<?> second = Class.forName(type2.replace('/', '.'), false, loader);
 
-            // Never reflectively load managed legacy classes here. Doing so
-            // would bypass ManagedLegacyClassLoader and can recursively enter
-            // transformation. For unrelated/unknown references Object remains
-            // the verifier-safe fallback.
+                    if (first.isAssignableFrom(second)) return type1;
+                    if (second.isAssignableFrom(first)) return type2;
+                    if (first.isInterface() || second.isInterface()) return "java/lang/Object";
+
+                    Class<?> cursor = first;
+                    while (cursor != null && !cursor.isAssignableFrom(second)) {
+                        cursor = cursor.getSuperclass();
+                    }
+                    if (cursor != null) return cursor.getName().replace('.', '/');
+                } catch (LinkageError | ClassNotFoundException ignored) {
+                    // Fall through to the verifier-safe conservative merge.
+                }
+            }
             return "java/lang/Object";
         }
 
-        private static boolean isMinecraftScreen(String type) {
-            if (type.equals("net/minecraft/client/gui/screens/Screen")) return true;
-            if (!type.startsWith("net/minecraft/client/gui/screens/")) return false;
-            try {
-                Class<?> candidate = Class.forName(type.replace('/', '.'), false,
-                        Forge1192LegacyClassTransformer.class.getClassLoader());
-                Class<?> screen = Class.forName("net.minecraft.client.gui.screens.Screen", false,
-                        Forge1192LegacyClassTransformer.class.getClassLoader());
-                return screen.isAssignableFrom(candidate);
-            } catch (LinkageError | ClassNotFoundException ignored) {
-                return false;
-            }
+        private static boolean isParentRuntimeType(String type) {
+            return type.startsWith("java/")
+                    || type.startsWith("javax/")
+                    || type.startsWith("jdk/")
+                    || type.startsWith("net/minecraft/")
+                    || type.startsWith("net/neoforged/")
+                    || type.startsWith("com/mojang/");
         }
+    }
+
     }
 
     /**
