@@ -1438,6 +1438,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // NeoForge; the target event family dispatches Pre/Post subclasses.
         if (value.equals("net/minecraftforge/event/TickEvent$PlayerTickEvent"))
             return "net/neoforged/neoforge/event/tick/PlayerTickEvent";
+        // LivingAttackEvent was replaced by the early, cancellable incoming
+        // damage event. The legacy contract used by 1.19.2 mods (entity,
+        // source, amount and cancellation) is preserved by this target.
+        if (value.equals("net/minecraftforge/event/entity/living/LivingAttackEvent"))
+            return "net/neoforged/neoforge/event/entity/living/LivingIncomingDamageEvent";
         // Common Forge living/player gameplay events retained their semantic
         // event identity under NeoForge. Map only when the exact target class
         // exists; removed/split event families remain explicit migration boundaries.
