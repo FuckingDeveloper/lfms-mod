@@ -110,7 +110,8 @@ public final class Forge1192CompatibilitySurface {
                     ? State.SUPPORTED
                     : EXPLICIT_UNSUPPORTED.contains(target) ? State.UNSUPPORTED
                     : NETWORK_ADAPTERS.contains(target) ? State.ADAPTER_REQUIRED : State.ADAPTER_REQUIRED;
-            requirements.add(new Requirement(target, entry.getValue(), state, family(target)));
+            requirements.add(new Requirement(target, entry.getValue(), state,
+                    NETWORK_ADAPTERS.contains(target) ? "NETWORK_PROTOCOL" : family(target)));
         }
         boolean executable = requirements.stream()
                 .allMatch(requirement -> requirement.state() == State.SUPPORTED);
