@@ -99,6 +99,23 @@ public final class LmsMod {
                                         || ref.use() == com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight.Use.NEW)
                                 .toList();
                         LOG.info("LMS symbol-preflight id={} structuralReferences={}", mod.modId(), structural.size());
+                        var migrationPreflight = new com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight()
+                                .classify(symbolPreflight, targetLoader);
+                        LOG.info("LMS migration-preflight id={} states={}", mod.modId(), migrationPreflight.states());
+                        var migrationFamilies = migrationPreflight.findings().stream()
+                                .filter(finding -> finding.state()
+                                        != com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.State.TARGET_AVAILABLE)
+                                .collect(java.util.stream.Collectors.groupingBy(
+                                        com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.Finding::state,
+                                        () -> new java.util.EnumMap<>(
+                                                com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.State.class),
+                                        java.util.stream.Collectors.mapping(
+                                                com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.Finding::target,
+                                                java.util.stream.Collectors.toCollection(java.util.TreeSet::new))));
+                        for (var family : migrationFamilies.entrySet()) {
+                            LOG.info("LMS migration-family id={} state={} targets={}",
+                                    mod.modId(), family.getKey(), family.getValue());
+                        }
                         for (var ref : structural) {
                             LOG.info("LMS structural-reference id={} owner={} use={} target={}",
                                     mod.modId(), ref.owner(), ref.use(), ref.target());
