@@ -60,6 +60,7 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.fluids.capability.templates.FluidTank#<init>(ILjava/util/function/Predicate;)V",
             "net.minecraftforge.common.ForgeMod#enableMilkFluid()V",
             "net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent#register(Ljava/lang/Class;)V",
+            "net.minecraftforge.event.ForgeEventFactory#onNeighborNotify(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Ljava/util/EnumSet;Z)Lnet/minecraftforge/event/level/BlockEvent$NeighborNotifyEvent;",
             "net.minecraftforge.common.util.LazyOptional#empty()Lnet/minecraftforge/common/util/LazyOptional;",
             "net.minecraftforge.common.util.LazyOptional#invalidate()V",
             "net.minecraftforge.common.util.LazyOptional#isPresent()Z",
