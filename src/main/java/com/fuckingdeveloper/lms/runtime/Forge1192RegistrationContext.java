@@ -27,15 +27,25 @@ public final class Forge1192RegistrationContext {
     public static AutoCloseable enterMod(String modId) {
         Objects.requireNonNull(modId, "modId");
         if (CURRENT_MOD.get() != null) throw new IllegalStateException("Nested legacy mod scopes are not supported");
+        Thread owner = Thread.currentThread();
         CURRENT_MOD.set(modId);
-        return () -> CURRENT_MOD.remove();
+        return () -> {
+            if (Thread.currentThread() != owner || !Objects.equals(CURRENT_MOD.get(), modId))
+                throw new IllegalStateException("Legacy mod scope closed out of order or on another thread");
+            CURRENT_MOD.remove();
+        };
     }
 
     public static AutoCloseable enterRegistration(RegisterEvent event) {
         Objects.requireNonNull(event, "event");
         if (CURRENT_EVENT.get() != null) throw new IllegalStateException("Nested legacy registration scopes are not supported");
+        Thread owner = Thread.currentThread();
         CURRENT_EVENT.set(event);
-        return () -> CURRENT_EVENT.remove();
+        return () -> {
+            if (Thread.currentThread() != owner || CURRENT_EVENT.get() != event)
+                throw new IllegalStateException("Legacy registration scope closed out of order or on another thread");
+            CURRENT_EVENT.remove();
+        };
     }
 
     public static AutoCloseable enter(String modId, RegisterEvent event) {
