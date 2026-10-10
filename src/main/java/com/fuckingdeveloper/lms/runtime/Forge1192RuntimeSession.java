@@ -3,6 +3,7 @@ package com.fuckingdeveloper.lms.runtime;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
 import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
 
 import java.lang.reflect.Constructor;
 import java.nio.file.Path;
@@ -24,6 +25,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     private volatile State state = State.LINKED;
     private volatile Object entrypoint;
     private volatile IEventBus modEventBus;
+    private volatile ModContainer hostContainer;
 
     public Forge1192RuntimeSession(String modId, Path artifact, ClassLoader parent, List<String> entrypoints)
             throws java.io.IOException, ClassNotFoundException {
@@ -47,16 +49,18 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     public State state() { return state; }
     public Forge1192LegacyClassTransformer transformer() { return transformer; }
 
-    public void bindModEventBus(IEventBus eventBus) {
+    public void bindModEventBus(IEventBus eventBus, ModContainer container) {
         if (state != State.LINKED) throw new IllegalStateException("Cannot bind event bus in state " + state);
         this.modEventBus = Objects.requireNonNull(eventBus);
+        this.hostContainer = Objects.requireNonNull(container);
     }
 
     public synchronized void initialize() throws Exception {
         if (state != State.LINKED) throw new IllegalStateException("Cannot initialize legacy session in state " + state);
         IEventBus eventBus = Objects.requireNonNull(modEventBus, "Legacy mod event bus has not been bound");
         try (var ignored = Forge1192RegistrationContext.enterMod(modId);
-             var lifecycle = Forge1192LifecycleBridge.enter(modId, eventBus)) {
+             var lifecycle = Forge1192LifecycleBridge.enter(modId, eventBus,
+                     Objects.requireNonNull(hostContainer, "Host ModContainer has not been bound"))) {
             Class<?> type = Class.forName(entrypoints.getFirst(), true, loader);
             Constructor<?> ctor = type.getDeclaredConstructor();
             if (!ctor.canAccess(null)) ctor.setAccessible(true);
