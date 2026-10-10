@@ -85,6 +85,8 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext#get()Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext;",
             "net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext#getModEventBus()Lnet/minecraftforge/eventbus/api/IEventBus;",
             "net.minecraftforge.fml.ModLoadingContext#get()Lnet/minecraftforge/fml/ModLoadingContext;",
+            "net.minecraftforge.fml.ModLoadingContext#getActiveContainer()Lnet/minecraftforge/fml/ModContainer;",
+            "net.minecraftforge.fml.ModLoadingContext#setActiveContainer(Lnet/minecraftforge/fml/ModContainer;)V",
             "net.minecraftforge.fml.ModLoadingContext#getActiveNamespace()Ljava/lang/String;",
             "net.minecraftforge.fml.ModList#get()Lnet/minecraftforge/fml/ModList;",
             "net.minecraftforge.fml.ModList#getAllScanData()Ljava/util/List;",
@@ -106,10 +108,7 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.network.simple.SimpleChannel#registerMessage(ILjava/lang/Class;Ljava/util/function/BiConsumer;Ljava/util/function/Function;Ljava/util/function/BiConsumer;)Lnet/minecraftforge/network/simple/IndexedMessageCodec$MessageHandler;"
     );
 
-    private static final Set<String> EXPLICIT_UNSUPPORTED = Set.of(
-            "net.minecraftforge.fml.ModLoadingContext#getActiveContainer()Lnet/minecraftforge/fml/ModContainer;",
-            "net.minecraftforge.fml.ModLoadingContext#setActiveContainer(Lnet/minecraftforge/fml/ModContainer;)V"
-    );
+    private static final Set<String> EXPLICIT_UNSUPPORTED = Set.of();
 
     public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries) {
         var grouped = boundaries.stream().collect(java.util.stream.Collectors.groupingBy(
