@@ -179,7 +179,7 @@ public final class LmsMod {
                         for (var sendSite : networkFlow) {
                             LOG.info("LMS network-send id={} caller={}#{} operation={} direction={} messageTypeHint={}",
                                     mod.modId(), sendSite.callerClass(), sendSite.callerMethod(),
-                                    sendSite.operation(), sendSite.direction(), sendSite.messageTypeHint());
+                                    sendSite.operation(), sendSite.direction(), sendSite.messageTypeHint() + " evidence=" + sendSite.evidence());
                         }
                         var lifecycleDecision = new LegacyLifecycleGate().evaluate(
                                 report, lifecyclePlanReady, registrationPlanComplete, compatibilitySurfaceExecutable);
