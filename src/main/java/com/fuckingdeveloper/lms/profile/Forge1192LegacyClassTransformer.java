@@ -28,6 +28,34 @@ import org.objectweb.asm.Type;
  */
 public final class Forge1192LegacyClassTransformer implements LegacyClassTransformer {
     private static final Forge1192MappingLayer VANILLA_RELOCATIONS = new Forge1192MappingLayer();
+    private static final java.util.Map<String, String> EXPLICIT_VANILLA_CLASS_RELOCATIONS = java.util.Map.ofEntries(
+            java.util.Map.entry("net/minecraft/client/model/ArmorStandArmorModel", "net/minecraft/client/model/object/armorstand/ArmorStandArmorModel"),
+            java.util.Map.entry("net/minecraft/client/model/BoatModel", "net/minecraft/client/model/object/boat/BoatModel"),
+            java.util.Map.entry("net/minecraft/client/model/BookModel", "net/minecraft/client/model/object/book/BookModel"),
+            java.util.Map.entry("net/minecraft/client/model/DrownedModel", "net/minecraft/client/model/monster/zombie/DrownedModel"),
+            java.util.Map.entry("net/minecraft/client/model/GiantZombieModel", "net/minecraft/client/model/monster/zombie/GiantZombieModel"),
+            java.util.Map.entry("net/minecraft/client/model/PlayerModel", "net/minecraft/client/model/player/PlayerModel"),
+            java.util.Map.entry("net/minecraft/client/model/SkeletonModel", "net/minecraft/client/model/monster/skeleton/SkeletonModel"),
+            java.util.Map.entry("net/minecraft/client/model/VillagerModel", "net/minecraft/client/model/npc/VillagerModel"),
+            java.util.Map.entry("net/minecraft/client/model/ZombieModel", "net/minecraft/client/model/monster/zombie/ZombieModel"),
+            java.util.Map.entry("net/minecraft/client/model/ZombieVillagerModel", "net/minecraft/client/model/monster/zombie/ZombieVillagerModel"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderType", "net/minecraft/client/renderer/rendertype/RenderType"),
+            java.util.Map.entry("net/minecraft/world/level/BlockAndTintGetter", "net/minecraft/client/renderer/block/BlockAndTintGetter"),
+            java.util.Map.entry("net/minecraft/core/BlockSource", "net/minecraft/core/dispenser/BlockSource"),
+            java.util.Map.entry("net/minecraft/world/entity/animal/Sheep", "net/minecraft/world/entity/animal/sheep/Sheep"),
+            java.util.Map.entry("net/minecraft/world/entity/boss/EnderDragonPart", "net/minecraft/world/entity/boss/enderdragon/EnderDragonPart"),
+            java.util.Map.entry("net/minecraft/world/entity/decoration/PaintingVariant", "net/minecraft/world/entity/decoration/painting/PaintingVariant"),
+            java.util.Map.entry("net/minecraft/world/entity/npc/Villager", "net/minecraft/world/entity/npc/villager/Villager"),
+            java.util.Map.entry("net/minecraft/world/entity/npc/VillagerData", "net/minecraft/world/entity/npc/villager/VillagerData"),
+            java.util.Map.entry("net/minecraft/world/entity/npc/VillagerProfession", "net/minecraft/world/entity/npc/villager/VillagerProfession"),
+            java.util.Map.entry("net/minecraft/world/entity/npc/VillagerType", "net/minecraft/world/entity/npc/villager/VillagerType"),
+            java.util.Map.entry("net/minecraft/world/entity/vehicle/AbstractMinecart", "net/minecraft/world/entity/vehicle/minecart/AbstractMinecart"),
+            java.util.Map.entry("net/minecraft/world/entity/vehicle/Boat", "net/minecraft/world/entity/vehicle/boat/Boat"),
+            java.util.Map.entry("net/minecraft/world/entity/vehicle/Minecart", "net/minecraft/world/entity/vehicle/minecart/Minecart"),
+            java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "net/minecraft/world/item/equipment/ArmorMaterial"),
+            java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "net/minecraft/world/item/equipment/ArmorMaterials"),
+            java.util.Map.entry("net/minecraft/world/level/GameRules", "net/minecraft/world/level/gamerules/GameRules"),
+            java.util.Map.entry("net/minecraft/world/level/chunk/ChunkStatus", "net/minecraft/world/level/chunk/status/ChunkStatus"));
     private static final java.util.Optional<Forge1192SrgRuntimeResolver> SRG_RUNTIME_RESOLVER =
             Forge1192SrgRuntimeResolver.load(java.nio.file.Path.of(System.getProperty("user.dir")));
     private int transformedClasses;
@@ -2729,8 +2757,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor";
         if (value.equals("net/minecraft/client/color/item/ItemColor"))
             return "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor";
-        if (value.equals("net/minecraft/client/model/PlayerModel"))
-            return "net/minecraft/client/model/player/PlayerModel";
+        String explicitVanillaRelocation = EXPLICIT_VANILLA_CLASS_RELOCATIONS.get(value);
+        if (explicitVanillaRelocation != null) return explicitVanillaRelocation;
         // IForgeItem was a Forge extension interface mixed into Item in 1.19.2.
         // It has no target class in 26.3; references must remain on Item and its
         // operations are resolved/adapted separately rather than namespace-guessed.
@@ -2874,12 +2902,15 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateDescriptor(String descriptor) {
-        return descriptor
+        String migrated = descriptor;
+        for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
+            migrated = migrated.replace(relocation.getKey(), relocation.getValue());
+        }
+        return migrated
                 .replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge")
                 .replace("net/minecraftforge/api/distmarker/Dist", "net/neoforged/api/distmarker/Dist")
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
-                .replace("net/minecraft/client/model/PlayerModel", "net/minecraft/client/model/player/PlayerModel")
                 .replace("net/minecraftforge/common/IPlantable", "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable")
                 .replace("net/minecraftforge/common/PlantType", "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType")
                 .replace("net/minecraftforge/energy/IEnergyStorage", "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage")
