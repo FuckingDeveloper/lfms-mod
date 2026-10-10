@@ -149,7 +149,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
                     call.name = "activeRegistryObject";
-                    call.desc = "()Ljava/lang/Object;";
+                    call.desc = "(Lnet/neoforged/neoforge/registries/RegisterEvent;)Ljava/lang/Object;";
                     call.itf = false;
                     rewrites++;
                 }
