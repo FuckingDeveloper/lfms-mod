@@ -310,15 +310,28 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
-                // Minecraft 1.19.2 exposed CreativeModeTab(String). Current
-                // Minecraft uses a builder/factory lifecycle; constructor migration
-                // requires a semantic adapter and must not be guessed here.
+                // Constructor-only adaptation for legacy subclasses. The
+                // builder supplies the modern superclass state, while the
+                // original subclass and its virtual icon method remain intact.
+                // Creative inventory registration/content still require a
+                // separate, verified lifecycle migration.
                 if (call.owner.equals("net/minecraft/world/item/CreativeModeTab")
                         && call.name.equals("<init>")
                         && call.desc.equals("(Ljava/lang/String;)V")) {
-                    throw new IllegalStateException(
-                            "Legacy CreativeModeTab(String) construction requires profile semantic migration at "
-                                    + node.name + "#" + method.name);
+                    if (!node.superName.equals("net/minecraft/world/item/CreativeModeTab")
+                            || !method.name.equals("<init>")) {
+                        throw new IllegalStateException(
+                                "Unsupported legacy CreativeModeTab constructor context: "
+                                        + node.name + "#" + method.name);
+                    }
+                    method.instructions.insertBefore(call, new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192CreativeTabBridge",
+                            "builder",
+                            "(Ljava/lang/String;)Lnet/minecraft/world/item/CreativeModeTab$Builder;",
+                            false));
+                    call.desc = "(Lnet/minecraft/world/item/CreativeModeTab$Builder;)V";
+                    rewrites++;
                 }
 
                 // Forge 1.19.2 Dist exposed convenience predicates that are
