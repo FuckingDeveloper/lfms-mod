@@ -2016,6 +2016,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "net/minecraft/world/level/block/ButtonBlock";
         if (value.equals("net/minecraft/world/level/block/state/properties/DirectionProperty"))
             return "net/minecraft/world/level/block/state/properties/EnumProperty";
+        // BakedModel was split into unrelated block-state and item rendering
+        // contracts. Preserve legacy-owned model identity without pretending
+        // either modern interface is a drop-in replacement.
+        if (value.equals("net/minecraft/client/resources/model/BakedModel"))
+            return "com/fuckingdeveloper/lms/runtime/render/LegacyBakedModel";
         if (value.equals("net/minecraft/world/entity/MobSpawnType"))
             return "net/minecraft/world/entity/EntitySpawnReason";
         if (value.startsWith("net/minecraftforge/client/model/data/"))
@@ -2074,6 +2079,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/fluids/capability/templates/FluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank")
                 .replace("net/minecraft/world/item/ArmorItem", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem")
                 .replace("net/minecraft/world/level/block/state/properties/DirectionProperty", "net/minecraft/world/level/block/state/properties/EnumProperty")
+                .replace("net/minecraft/client/resources/model/BakedModel", "com/fuckingdeveloper/lms/runtime/render/LegacyBakedModel")
                 .replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/")
                 .replace("net/minecraft/resources/ResourceLocation", "net/minecraft/resources/Identifier")
                 .replace("net/minecraftforge/eventbus/", "net/neoforged/bus/")
