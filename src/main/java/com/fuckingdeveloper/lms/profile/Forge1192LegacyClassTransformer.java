@@ -739,12 +739,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 };
                 method.instructions.remove(allocation);
                 method.instructions.remove(dup);
-                method.instructions.set(init, new MethodInsnNode(
+                MethodInsnNode factory = new MethodInsnNode(
                         org.objectweb.asm.Opcodes.INVOKESTATIC,
                         "com/fuckingdeveloper/lms/runtime/Forge1192IdentifierBridge",
-                        "create", factoryDesc, false));
+                        "create", factoryDesc, false);
+                method.instructions.set(init, factory);
                 rewrites++;
-                insn = next;
+                // 'next' was the DUP we just removed. Continuing from that
+                // detached node terminates ASM traversal after the first
+                // ResourceLocation in a method. Resume after the replacement
+                // factory so every allocation in large <clinit> methods is adapted.
+                insn = factory.getNext();
             }
         }
         return rewrites;
