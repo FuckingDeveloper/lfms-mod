@@ -64,6 +64,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMetalBlockProperties(node);
+        rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -584,6 +585,37 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 call.name = "metalBlockProperties";
                 call.desc = "()L" + properties + ";";
                 call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Modern blocks require their registry key in Properties before the Block
+     * superclass constructor runs. IC2 already carries the eventual registry
+     * name as constructor argument zero, so attach that exact key early.
+     */
+    private static int rewriteLegacyNamedBlockConstruction(ClassNode node) {
+        if (!node.name.equals("ic2/core/block/base/IC2ContainerBlock")) return 0;
+        final String properties = "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if (!method.name.equals("<init>")
+                    || !method.desc.equals("(Ljava/lang/String;" + properties + ")V")) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals("net/minecraft/world/level/block/BaseEntityBlock")
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals("(" + properties + ")V")) continue;
+                var adaptation = new org.objectweb.asm.tree.InsnList();
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, 1));
+                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "withBlockId", "(" + properties + "Ljava/lang/String;)" + properties, false));
+                method.instructions.insertBefore(call, adaptation);
                 rewrites++;
             }
         }

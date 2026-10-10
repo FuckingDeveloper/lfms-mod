@@ -6,6 +6,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 
 /** Exact construction adapters for vanilla constructors removed after 1.19.2. */
 public final class Forge1192VanillaConstructionBridge {
@@ -14,6 +16,14 @@ public final class Forge1192VanillaConstructionBridge {
     /** Preserves the surviving color semantics of Properties.of(Material.METAL). */
     public static BlockBehaviour.Properties metalBlockProperties() {
         return BlockBehaviour.Properties.of().mapColor(MapColor.METAL);
+    }
+
+    /** Attach the legacy block name before the modern Block constructor reads it. */
+    public static BlockBehaviour.Properties withBlockId(
+            BlockBehaviour.Properties properties, String legacyName) {
+        return properties.setId(ResourceKey.create(
+                Registries.BLOCK,
+                Forge1192RegistrationContext.checkPrefix(legacyName, false)));
     }
 
     /**
