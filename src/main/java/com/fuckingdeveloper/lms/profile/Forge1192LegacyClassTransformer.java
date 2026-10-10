@@ -240,7 +240,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 // registration context. Redirect to an explicit scoped bridge.
                 if (call.owner.equals("net/neoforged/neoforge/registries/GameData")
                         && call.name.equals("checkPrefix")
-                        && call.desc.equals("(Ljava/lang/String;Z)Lnet/minecraft/resources/ResourceLocation;")) {
+                        && call.desc.equals("(Ljava/lang/String;Z)Lnet/minecraft/resources/Identifier;")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
                     call.desc = "(Ljava/lang/String;Z)Lnet/minecraft/resources/Identifier;";
