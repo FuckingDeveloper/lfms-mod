@@ -62,6 +62,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacySignItemConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
+        rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -515,6 +516,41 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 call.owner = "net/minecraft/world/level/block/ButtonBlock";
                 call.desc = "(Lnet/minecraft/world/level/block/state/properties/BlockSetType;I" + properties + ")V";
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * DirectionProperty was folded into the generic EnumProperty. Keep the
+     * legacy factories behind a small bridge because the collection overload
+     * also narrowed from Collection to List in the target runtime.
+     */
+    private static int rewriteLegacyDirectionPropertyFactories(ClassNode node) {
+        int rewrites = 0;
+        final String owner = "net/minecraft/world/level/block/state/properties/DirectionProperty";
+        final String predicateDesc = "(Ljava/lang/String;Ljava/util/function/Predicate;)L" + owner + ";";
+        final String collectionDesc = "(Ljava/lang/String;Ljava/util/Collection;)L" + owner + ";";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                        || !call.owner.equals(owner)) continue;
+                if (call.desc.equals(predicateDesc)) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192DirectionPropertyBridge";
+                    call.name = "create";
+                    call.desc = "(Ljava/lang/String;Ljava/util/function/Predicate;)"
+                            + "Lnet/minecraft/world/level/block/state/properties/EnumProperty;";
+                    call.itf = false;
+                    rewrites++;
+                } else if (call.desc.equals(collectionDesc)) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192DirectionPropertyBridge";
+                    call.name = "create";
+                    call.desc = "(Ljava/lang/String;Ljava/util/Collection;)"
+                            + "Lnet/minecraft/world/level/block/state/properties/EnumProperty;";
+                    call.itf = false;
+                    rewrites++;
+                }
             }
         }
         return rewrites;
@@ -1978,6 +2014,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "net/minecraft/world/item/StandingAndWallBlockItem";
         if (value.equals("net/minecraft/world/level/block/WoodButtonBlock"))
             return "net/minecraft/world/level/block/ButtonBlock";
+        if (value.equals("net/minecraft/world/level/block/state/properties/DirectionProperty"))
+            return "net/minecraft/world/level/block/state/properties/EnumProperty";
         if (value.equals("net/minecraft/world/entity/MobSpawnType"))
             return "net/minecraft/world/entity/EntitySpawnReason";
         if (value.startsWith("net/minecraftforge/client/model/data/"))
@@ -2035,6 +2073,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/fluids/IFluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidTank")
                 .replace("net/minecraftforge/fluids/capability/templates/FluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank")
                 .replace("net/minecraft/world/item/ArmorItem", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem")
+                .replace("net/minecraft/world/level/block/state/properties/DirectionProperty", "net/minecraft/world/level/block/state/properties/EnumProperty")
                 .replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/")
                 .replace("net/minecraft/resources/ResourceLocation", "net/minecraft/resources/Identifier")
                 .replace("net/minecraftforge/eventbus/", "net/neoforged/bus/")
