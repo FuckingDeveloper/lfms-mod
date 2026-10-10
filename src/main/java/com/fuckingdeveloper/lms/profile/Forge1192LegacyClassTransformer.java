@@ -988,6 +988,23 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = 0;
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof InvokeDynamicInsnNode indy) {
+                    for (int i = 0; i < indy.bsmArgs.length; i++) {
+                        if (!(indy.bsmArgs[i] instanceof Handle handle)
+                                || !handle.getName().startsWith("m_")) continue;
+                        var resolved = handle.getOwner().startsWith("net/minecraft/")
+                                ? SRG_RUNTIME_RESOLVER.get().resolve(
+                                        handle.getOwner(), handle.getName(), handle.getDesc())
+                                : resolveInheritedVanillaMethod(
+                                        handle.getOwner(), handle.getName(), handle.getDesc());
+                        if (resolved == null || !resolved.resolved()) continue;
+                        String owner = handle.getOwner().startsWith("net/minecraft/")
+                                ? resolved.owner() : handle.getOwner();
+                        indy.bsmArgs[i] = new Handle(handle.getTag(), owner,
+                                resolved.name(), resolved.descriptor(), handle.isInterface());
+                        rewrites++;
+                    }
+                }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
                 // The 1.19.2 record accessor's SRG name is field-shaped and
@@ -1006,6 +1023,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         && call.name.equals("m_135827_")
                         && call.desc.equals("()Ljava/lang/String;")) {
                     call.name = "getPath";
+                    rewrites++;
+                }
+
+                if (call.owner.equals("net/minecraft/resources/Identifier")
+                        && call.name.equals("m_135815_")
+                        && call.desc.equals("()Ljava/lang/String;")) {
+                    call.name = "getNamespace";
                     rewrites++;
                 }
 
@@ -2530,6 +2554,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType";
         if (value.equals("net/minecraftforge/energy/IEnergyStorage"))
             return "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage";
+        if (value.equals("net/minecraftforge/items/IItemHandler"))
+            return "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyIItemHandler";
+        if (value.equals("net/minecraftforge/items/IItemHandlerModifiable"))
+            return "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyIItemHandlerModifiable";
         if (value.equals("net/minecraft/world/item/Tier"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyTier";
         if (value.equals("net/minecraft/world/item/AxeItem"))
@@ -2625,6 +2653,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/common/IPlantable", "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable")
                 .replace("net/minecraftforge/common/PlantType", "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType")
                 .replace("net/minecraftforge/energy/IEnergyStorage", "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage")
+                .replace("net/minecraftforge/items/IItemHandlerModifiable", "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyIItemHandlerModifiable")
+                .replace("net/minecraftforge/items/IItemHandler", "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyIItemHandler")
                 .replace("net/minecraft/world/item/Tier", "com/fuckingdeveloper/lms/runtime/item/LegacyTier")
                 .replace("net/minecraft/world/item/AxeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyAxeItem")
                 .replace("net/minecraft/world/item/HoeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyHoeItem")
