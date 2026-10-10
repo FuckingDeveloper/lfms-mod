@@ -97,6 +97,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyMaterialBlockProperties(node);
         rewrites += rewriteLegacyMaterialColorProperties(node);
         rewrites += rewriteLegacyNamedBlockConstruction(node);
+        rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
@@ -624,6 +625,37 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     /**
+     * Door and trapdoor constructors replaced their implicit Material-based
+     * behavior with an explicit BlockSetType. Recover that semantic input from
+     * the same Properties object created by the legacy Material adapter.
+     */
+    private static int rewriteLegacyBlockSetTypeConstruction(ClassNode node) {
+        int rewrites = 0;
+        final String properties = "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+        final String blockSetType = "Lnet/minecraft/world/level/block/state/properties/BlockSetType;";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals("(" + properties + ")V")
+                        || !(call.owner.equals("net/minecraft/world/level/block/DoorBlock")
+                            || call.owner.equals("net/minecraft/world/level/block/TrapDoorBlock"))) continue;
+                var adaptation = new org.objectweb.asm.tree.InsnList();
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
+                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "legacyBlockSetType", "(" + properties + ")" + blockSetType, false));
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                method.instructions.insertBefore(call, adaptation);
+                call.desc = "(" + blockSetType + properties + ")V";
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
      * The gameplay Material class was removed. Translate only the exact
      * legacy Material field -> Properties.of(Material) shape into a typed
      * semantic material consumed by the target construction adapter.
@@ -920,7 +952,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * its registry name by passing it through Forge GameData#checkPrefix and
      * storing the resulting ResourceLocation on the constructed object.
      */
-    private record RegistryNameEvidence(int local, boolean lowercase) {}
+    private record RegistryNameEvidence(int local, boolean lowercase, String literal) {}
 
     private static RegistryNameEvidence legacyRegistryNameEvidence(
             ClassNode node, org.objectweb.asm.tree.MethodNode method) {
@@ -948,7 +980,37 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     || !field.owner.equals(node.name)
                     || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")
                     || !isStringArgumentLocal(method, load.var)) continue;
-            RegistryNameEvidence evidence = new RegistryNameEvidence(load.var, lowercase);
+            RegistryNameEvidence evidence = new RegistryNameEvidence(load.var, lowercase, null);
+            if (match != null && !match.equals(evidence)) return null;
+            match = evidence;
+        }
+        return match != null ? match : literalRegistryNameEvidence(node);
+    }
+
+    /** Exact getRegistryName() shape returning new ResourceLocation(ns, path). */
+    private static RegistryNameEvidence literalRegistryNameEvidence(ClassNode node) {
+        RegistryNameEvidence match = null;
+        for (var method : node.methods) {
+            if (!method.name.equals("getRegistryName")
+                    || !method.desc.equals("()Lnet/minecraft/resources/ResourceLocation;")) continue;
+            java.util.ArrayList<org.objectweb.asm.tree.AbstractInsnNode> code = new java.util.ArrayList<>();
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn.getOpcode() >= 0) code.add(insn);
+            }
+            if (code.size() != 6
+                    || !(code.get(0) instanceof TypeInsnNode allocation)
+                    || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                    || !allocation.desc.equals("net/minecraft/resources/ResourceLocation")
+                    || code.get(1).getOpcode() != org.objectweb.asm.Opcodes.DUP
+                    || !(code.get(2) instanceof LdcInsnNode namespace) || !(namespace.cst instanceof String ns)
+                    || !(code.get(3) instanceof LdcInsnNode pathValue) || !(pathValue.cst instanceof String path)
+                    || !(code.get(4) instanceof MethodInsnNode constructor)
+                    || constructor.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                    || !constructor.owner.equals("net/minecraft/resources/ResourceLocation")
+                    || !constructor.name.equals("<init>")
+                    || !constructor.desc.equals("(Ljava/lang/String;Ljava/lang/String;)V")
+                    || code.get(5).getOpcode() != org.objectweb.asm.Opcodes.ARETURN) continue;
+            RegistryNameEvidence evidence = new RegistryNameEvidence(-1, false, ns + ":" + path);
             if (match != null && !match.equals(evidence)) return null;
             match = evidence;
         }
@@ -957,6 +1019,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private static void appendRegistryNameLoad(org.objectweb.asm.tree.InsnList instructions,
                                                RegistryNameEvidence evidence) {
+        if (evidence.literal() != null) {
+            instructions.add(new LdcInsnNode(evidence.literal()));
+            return;
+        }
         instructions.add(new org.objectweb.asm.tree.VarInsnNode(
                 org.objectweb.asm.Opcodes.ALOAD, evidence.local()));
         if (evidence.lowercase()) {

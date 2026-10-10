@@ -17,6 +17,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
+import net.minecraft.world.level.block.state.properties.BlockSetType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
@@ -45,6 +46,8 @@ public final class Forge1192VanillaConstructionBridge {
             Collections.synchronizedMap(new IdentityHashMap<>());
     private static final Map<FoodProperties, LegacyFoodIntent> LEGACY_FOODS =
             Collections.synchronizedMap(new IdentityHashMap<>());
+    private static final Map<BlockBehaviour.Properties, LegacyMaterial> LEGACY_MATERIALS_BY_PROPERTIES =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     private record LegacyFoodEffect(Supplier<MobEffectInstance> effect, float probability) {}
     private static final class LegacyFoodIntent {
@@ -112,7 +115,16 @@ public final class Forge1192VanillaConstructionBridge {
         if (material.liquid) properties = properties.liquid();
         if (material.flammable) properties = properties.ignitedByLava();
         if (material.replaceable) properties = properties.replaceable();
+        LEGACY_MATERIALS_BY_PROPERTIES.put(properties, material);
         return properties;
+    }
+
+    /** Recover behavior that legacy door-like blocks derived from Material. */
+    public static BlockSetType legacyBlockSetType(BlockBehaviour.Properties properties) {
+        LegacyMaterial material = LEGACY_MATERIALS_BY_PROPERTIES.get(properties);
+        if (material == LegacyMaterial.WOOD) return BlockSetType.OAK;
+        if (material == LegacyMaterial.METAL) return BlockSetType.IRON;
+        throw new IllegalStateException("Legacy door-like block has no supported Material semantics");
     }
 
     /** Attach the legacy block name before the modern Block constructor reads it. */
