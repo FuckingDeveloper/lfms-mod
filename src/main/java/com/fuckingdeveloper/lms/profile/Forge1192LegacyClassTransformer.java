@@ -461,6 +461,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Forge 1.19.2 exposed enableMilkFluid() as an opt-in bootstrap
+                // request. The removed ForgeMod holder must never escape into the
+                // target loader; preserve the operation as an explicit LMS boundary.
+                if (call.owner.equals("net/minecraftforge/common/ForgeMod")
+                        && call.name.equals("enableMilkFluid")
+                        && call.desc.equals("()V")
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BuiltinRegistryBridge";
+                    call.name = "enableMilkFluid";
+                    call.desc = "()V";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Removed Forge 1.19.2 static lifecycle contexts are represented by
                 // scoped LMS tokens. Instance calls consume and validate those tokens.
                 if (call.owner.equals("net/neoforged/fml/javafmlmod/FMLJavaModLoadingContext")
