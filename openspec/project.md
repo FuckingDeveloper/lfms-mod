@@ -50,7 +50,7 @@ See `openspec/specs/compatibility-architecture/spec.md`, `openspec/specs/target-
 
 - Universal compatibility with every Forge mod.
 - Support for every historical Minecraft/Forge generation.
-- Fabric and additional target-loader compatibility.
+- Fabric and additional target-loader compatibility for the current 01.000.00 milestone. Fabric remains a documented future source-profile/target possibility, not an implemented or promised feature.
 - Transparent migration of old worlds/saves.
 - Full compatibility with every optional third-party integration such as JEI.
 - Treating transformed legacy code as trusted or sandboxed code.
@@ -59,3 +59,11 @@ See `openspec/specs/compatibility-architecture/spec.md`, `openspec/specs/target-
 ## Trust boundary
 
 Legacy mods are executable third-party Java code. LMS transformation MUST NOT be described as a security sandbox, malware scanner, or trust mechanism. Users remain responsible for the provenance of legacy artifacts.
+
+## Long-term runtime vision
+
+The long-term architectural direction is a **Legacy Minecraft Mod Compatibility Runtime**: legacy Minecraft and loader APIs are normalized into evidence-backed semantic compatibility contracts and executed through modern target adapters.
+
+This vision MUST grow from proven compatibility work rather than speculative abstraction. The current MVP remains Forge 1.19.2 -> Minecraft 26.3 / NeoForge 26.3.x.
+
+See `openspec/specs/compatibility-runtime-vision/spec.md`.
