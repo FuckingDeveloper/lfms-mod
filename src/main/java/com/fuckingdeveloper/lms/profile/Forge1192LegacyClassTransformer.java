@@ -1018,12 +1018,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // DistExecutor was removed from current NeoForge. Keep the Forge 1.19.2
         // physical-side execution contract behind an LMS-owned runtime boundary
         // instead of migrating it into a non-existent NeoForge class.
-        // Verified Forge -> NeoForge client UI class relocation. This must
-        // happen before the generic classpath-resource heuristic: NeoForge's
-        // module layer may not expose class resources to the LMS loader even
-        // when the class is present in the target runtime.
-        if (value.equals("net/minecraftforge/client/gui/ModListScreen"))
-            return "net/neoforged/neoforge/client/gui/ModListScreen";
         if (value.equals("net/minecraftforge/fml/DistExecutor"))
             return "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge";
         if (value.equals("net/minecraftforge/api/distmarker/Dist"))
