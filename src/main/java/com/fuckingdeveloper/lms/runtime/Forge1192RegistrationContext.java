@@ -65,7 +65,7 @@ public final class Forge1192RegistrationContext {
      * executing strictly inside NeoForge's matching RegisterEvent phase.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public static void register(Identifier name, Object value) {
+    public static void register(Object ignoredRegistry, Identifier name, Object value) {
         Scope scope = requireActive();
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(value, "value");
@@ -78,8 +78,8 @@ public final class Forge1192RegistrationContext {
         scope.event().register(key, name, () -> value);
     }
 
-    public static void register(String name, Object value) {
-        register(checkPrefix(name, false), value);
+    public static void register(Object ignoredRegistry, String name, Object value) {
+        register(ignoredRegistry, checkPrefix(name, false), value);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -99,22 +99,22 @@ public final class Forge1192RegistrationContext {
         return activeRegistry();
     }
 
-    public static boolean containsKey(Identifier name) {
+    public static boolean containsKey(Object ignoredRegistry, Identifier name) {
         Objects.requireNonNull(name, "name");
         return activeRegistry().containsKey(name);
     }
 
-    public static Object getValue(Identifier name) {
+    public static Object getValue(Object ignoredRegistry, Identifier name) {
         Objects.requireNonNull(name, "name");
         return activeRegistry().getValue(name);
     }
 
-    public static Identifier getKey(Object value) {
+    public static Identifier getKey(Object ignoredRegistry, Object value) {
         Objects.requireNonNull(value, "value");
         return activeRegistry().getKey(value);
     }
 
-    public static Iterator<Object> iterator() {
+    public static Iterator<Object> iterator(Object ignoredRegistry) {
         return activeRegistry().iterator();
     }
 }
