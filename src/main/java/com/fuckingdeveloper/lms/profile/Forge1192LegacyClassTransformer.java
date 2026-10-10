@@ -152,10 +152,33 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         protected String getCommonSuperClass(String type1, String type2) {
             if (type1.equals(type2)) return type1;
 
-            // Avoid reflective class loading entirely. Arrays are reference
-            // types too; Object is conservative and verifier-correct for a
-            // merge when their exact common array type is not known locally.
+            // The legacy ModListScreen adapter deliberately replaces the
+            // removed Forge screen with its parent Screen. Other branches may
+            // still produce concrete vanilla Screen subclasses. Their verifier
+            // merge must therefore remain Screen, not Object.
+            if (isMinecraftScreen(type1) && isMinecraftScreen(type2)) {
+                return "net/minecraft/client/gui/screens/Screen";
+            }
+
+            // Never reflectively load managed legacy classes here. Doing so
+            // would bypass ManagedLegacyClassLoader and can recursively enter
+            // transformation. For unrelated/unknown references Object remains
+            // the verifier-safe fallback.
             return "java/lang/Object";
+        }
+
+        private static boolean isMinecraftScreen(String type) {
+            if (type.equals("net/minecraft/client/gui/screens/Screen")) return true;
+            if (!type.startsWith("net/minecraft/client/gui/screens/")) return false;
+            try {
+                Class<?> candidate = Class.forName(type.replace('/', '.'), false,
+                        Forge1192LegacyClassTransformer.class.getClassLoader());
+                Class<?> screen = Class.forName("net.minecraft.client.gui.screens.Screen", false,
+                        Forge1192LegacyClassTransformer.class.getClassLoader());
+                return screen.isAssignableFrom(candidate);
+            } catch (LinkageError | ClassNotFoundException ignored) {
+                return false;
+            }
         }
     }
 
