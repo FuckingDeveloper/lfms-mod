@@ -692,37 +692,57 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private static int rewriteLegacyIdentifierConstruction(ClassNode node) {
         int rewrites = 0;
+        final String identifier = "net/minecraft/resources/Identifier";
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; ) {
                 var next = insn.getNext();
-                if (insn instanceof TypeInsnNode allocation
-                        && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW
-                        && allocation.desc.equals("net/minecraft/resources/Identifier")) {
-                    var dup = allocation.getNext();
-                    var cursor = dup == null ? null : dup.getNext();
-                    while (cursor != null && !(cursor instanceof MethodInsnNode)) cursor = cursor.getNext();
-                    if (dup != null && dup.getOpcode() == org.objectweb.asm.Opcodes.DUP
-                            && cursor instanceof MethodInsnNode init
-                            && init.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
-                            && init.owner.equals("net/minecraft/resources/Identifier")
-                            && init.name.equals("<init>")
-                            && (init.desc.equals("(Ljava/lang/String;Ljava/lang/String;)V")
-                                || init.desc.equals("(Ljava/lang/String;)V"))) {
-                        String factoryDesc = init.desc.equals("(Ljava/lang/String;)V")
-                                ? "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
-                                : "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;";
-                        method.instructions.remove(allocation);
-                        method.instructions.remove(dup);
-                        MethodInsnNode factory = new MethodInsnNode(
-                                org.objectweb.asm.Opcodes.INVOKESTATIC,
-                                "com/fuckingdeveloper/lms/runtime/Forge1192IdentifierBridge",
-                                "create",
-                                factoryDesc,
-                                false);
-                        method.instructions.set(init, factory);
-                        rewrites++;
+                if (!(insn instanceof TypeInsnNode allocation)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !allocation.desc.equals(identifier)) {
+                    insn = next;
+                    continue;
+                }
+                var dup = allocation.getNext();
+                if (dup == null || dup.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                    throw new IllegalStateException("Unsupported legacy Identifier allocation: "
+                            + node.name + "#" + method.name);
+                }
+                MethodInsnNode init = null;
+                int nested = 0;
+                for (var cursor = dup.getNext(); cursor != null; cursor = cursor.getNext()) {
+                    if (cursor instanceof TypeInsnNode type
+                            && type.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                        nested++;
+                    } else if (cursor instanceof MethodInsnNode call
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && call.name.equals("<init>")) {
+                        if (nested > 0) {
+                            nested--;
+                        } else if (call.owner.equals(identifier)) {
+                            init = call;
+                            break;
+                        }
                     }
                 }
+                if (init == null) {
+                    throw new IllegalStateException("Cannot match legacy Identifier constructor: "
+                            + node.name + "#" + method.name);
+                }
+                String factoryDesc = switch (init.desc) {
+                    case "(Ljava/lang/String;)V" ->
+                            "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;";
+                    case "(Ljava/lang/String;Ljava/lang/String;)V" ->
+                            "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;";
+                    default -> throw new IllegalStateException("Unsupported legacy Identifier constructor: "
+                            + node.name + "#" + method.name + init.desc);
+                };
+                method.instructions.remove(allocation);
+                method.instructions.remove(dup);
+                method.instructions.set(init, new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192IdentifierBridge",
+                        "create", factoryDesc, false));
+                rewrites++;
                 insn = next;
             }
         }
