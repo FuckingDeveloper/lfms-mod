@@ -311,6 +311,19 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         if (node == null || !reference.label()) return node;
         if (node instanceof LabelNode label) return label;
         if (node instanceof JumpInsnNode jump) return jump.label;
+
+        // Legacy coremods commonly construct a label from
+        // anchor.getNext()...getLabel(). In ASM tree form the resolved
+        // instruction can be separated from its control-flow label by
+        // LineNumber/Frame metadata, so an exact node-kind check loses the
+        // original branch destination. Resolve the label attached immediately
+        // before the referenced executable instruction, stopping at another
+        // executable instruction. This preserves the legacy getLabel() intent
+        // without guessing across basic-block boundaries.
+        for (AbstractInsnNode cursor = node.getPrevious(); cursor != null; cursor = cursor.getPrevious()) {
+            if (cursor instanceof LabelNode label) return label;
+            if (cursor.getOpcode() >= 0) break;
+        }
         return null;
     }
 
