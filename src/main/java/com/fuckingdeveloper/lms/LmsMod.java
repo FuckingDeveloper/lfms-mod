@@ -22,6 +22,7 @@ import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +38,7 @@ public final class LmsMod {
     private final java.util.List<Forge1192RuntimeSession> runtimeSessions = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public LmsMod(IEventBus modBus) {
+        modBus.addListener(this::onPayloadRegistration);
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {
             Files.createDirectories(directory);
@@ -285,5 +287,12 @@ public final class LmsMod {
     }
 
 
+
+    private void onPayloadRegistration(RegisterPayloadHandlersEvent event) {
+        // NeoForge 26.3 requires explicit payload type, codec, flow and phase.
+        // The old indexed-message descriptor alone does not prove these.
+        // Do not register an invented bidirectional protocol.
+        LOG.info("LMS network-payload-registration state=BLOCKED reason=legacy-direction-and-codec-unverified");
+    }
 
 }
