@@ -993,7 +993,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 // producer and all known legacy consumer calls as one contract.
                 if (call.owner.equals("net/neoforged/neoforge/registries/RegisterEvent")
                         && call.name.equals("getForgeRegistry")
-                        && call.desc.equals("()Lnet/neoforged/neoforge/registries/IForgeRegistry;")) {
+                        && (call.desc.equals("()Lnet/neoforged/neoforge/registries/IForgeRegistry;")
+                            || call.desc.equals("()Lnet/minecraftforge/registries/IForgeRegistry;"))) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
                     call.name = "activeRegistryObject";
@@ -1401,6 +1402,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // IForgeItem was a Forge extension interface mixed into Item in 1.19.2.
         // It has no target class in 26.3; references must remain on Item and its
         // operations are resolved/adapted separately rather than namespace-guessed.
+        // Forge's global gameplay event bus survived conceptually as NeoForge.EVENT_BUS.
+        // This is an exact static-singleton migration; keeping MinecraftForge around
+        // would force the managed loader to resolve a removed framework class.
+        if (value.equals("net/minecraftforge/common/MinecraftForge"))
+            return "net/neoforged/neoforge/common/NeoForge";
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem";
         if (value.equals("net/minecraftforge/registries/RegistryObject"))
