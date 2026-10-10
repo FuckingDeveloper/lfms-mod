@@ -566,6 +566,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+                // Forge 1.19.2 FriendlyByteBuf registry-id serialization used
+                // IForgeRegistry as an explicit registry token. LMS represents that
+                // token as the concrete vanilla Registry and preserves the raw-id
+                // varint wire contract in the network bridge.
+                if (call.owner.equals("net/minecraft/network/FriendlyByteBuf")
+                        && call.name.equals("writeRegistryIdUnsafe")
+                        && call.desc.equals("(Lnet/neoforged/neoforge/registries/IForgeRegistry;Ljava/lang/Object;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                    call.name = "writeRegistryIdUnsafe";
+                    call.desc = "(Lnet/minecraft/network/FriendlyByteBuf;Ljava/lang/Object;Ljava/lang/Object;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Forge 1.19.2 SimpleChannel is a protocol object, not a class
                 // that can be namespace-migrated into current NeoForge. Replace
                 // construction with an LMS-owned token; message registration stays
