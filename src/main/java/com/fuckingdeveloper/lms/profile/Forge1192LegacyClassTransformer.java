@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms.profile;
 
 import com.fuckingdeveloper.lms.classloading.LegacyClassTransformer;
+import com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
@@ -25,6 +26,7 @@ import org.objectweb.asm.Type;
  * claiming that removed Forge APIs have already been adapted.</p>
  */
 public final class Forge1192LegacyClassTransformer implements LegacyClassTransformer {
+    private static final Forge1192MappingLayer VANILLA_RELOCATIONS = new Forge1192MappingLayer();
     private int transformedClasses;
     private int totalRewrites;
 
@@ -711,6 +713,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return value.replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/");
         if (value.equals("net/minecraft/resources/ResourceLocation"))
             return "net/minecraft/resources/Identifier";
+        if (value.startsWith("net/minecraft/")) {
+            var relocation = VANILLA_RELOCATIONS.resolveRelocatedClass(value);
+            if (relocation.status() == Forge1192MappingLayer.Status.VERIFIED_IDENTITY
+                    && !relocation.targetInternalName().isEmpty()) {
+                return relocation.targetInternalName();
+            }
+        }
         if (value.startsWith("net/minecraftforge/eventbus/"))
             return value.replace("net/minecraftforge/eventbus/", "net/neoforged/bus/");
         if (value.startsWith("net/minecraftforge/fml/"))
