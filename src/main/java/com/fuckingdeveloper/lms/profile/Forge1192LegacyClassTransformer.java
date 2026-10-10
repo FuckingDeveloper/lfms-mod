@@ -55,6 +55,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyIdentifierConstruction(node);
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
+        rewrites += rewriteLegacyArmorConstructorDescriptors(node);
         rewrites += rewriteSemanticAdapters(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -374,6 +375,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * TransientCraftingContainer is its vanilla concrete successor. Only migrate
      * construction when the target runtime proves an identical public constructor.
      */
+    /**
+     * ArmorMaterial no longer exists in the target runtime. After ArmorItem is
+     * structurally redirected to LegacyArmorItem, erase only that constructor
+     * parameter to Object. The runtime value remains an opaque legacy token.
+     */
+    private static int rewriteLegacyArmorConstructorDescriptors(ClassNode node) {
+        final String owner = "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem";
+        final String legacy = "(Lnet/minecraft/world/item/ArmorMaterial;Lnet/minecraft/world/entity/EquipmentSlot;Lnet/minecraft/world/item/Item$Properties;)V";
+        final String erased = "(Ljava/lang/Object;Lnet/minecraft/world/entity/EquipmentSlot;Lnet/minecraft/world/item/Item$Properties;)V";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals(owner)
+                        && call.name.equals("<init>")
+                        && call.desc.equals(legacy)) {
+                    call.desc = erased;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
     private static int rewriteLegacyCraftingContainerConstruction(ClassNode node) {
         final String legacy = "net/minecraft/world/inventory/CraftingContainer";
         final String target = "net/minecraft/world/inventory/TransientCraftingContainer";
