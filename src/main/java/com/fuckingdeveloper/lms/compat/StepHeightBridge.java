@@ -11,7 +11,7 @@ import java.util.function.ToDoubleFunction;
  * <p>The NeoForge 26.3 fallback is Player#maxUpStep(). A legacy-mod adapter can
  * install a delegate later, after controlled legacy class loading is available.
  * Until then the transformed Player keeps vanilla/NeoForge behaviour instead of
- * linking directly against an IC2 class that is not yet loadable.</p>
+ * linking directly against a managed legacy class that is not yet loadable.</p>
  */
 public final class StepHeightBridge {
     private static volatile ToDoubleFunction<Player> delegate;

@@ -1,7 +1,13 @@
 package com.fuckingdeveloper.lms.runtime;
 
 import com.mojang.datafixers.types.Type;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -13,6 +19,14 @@ import net.minecraft.world.item.Item;
 
 /** Exact construction adapters for vanilla constructors removed after 1.19.2. */
 public final class Forge1192VanillaConstructionBridge {
+    private static final org.slf4j.Logger LOG =
+            org.slf4j.LoggerFactory.getLogger(Forge1192VanillaConstructionBridge.class);
+    private static final Map<Item.Properties, CreativeModeTab> LEGACY_TABS_BY_PROPERTIES =
+            Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<net.minecraft.resources.Identifier, CreativeModeTab> LEGACY_TABS_BY_ITEM_ID =
+            new ConcurrentHashMap<>();
+    private static final AtomicBoolean CREATIVE_TAB_GAP_REPORTED = new AtomicBoolean();
+
     private Forge1192VanillaConstructionBridge() {}
 
     /** Preserves the surviving color semantics of Properties.of(Material.METAL). */
@@ -28,9 +42,19 @@ public final class Forge1192VanillaConstructionBridge {
                 Forge1192RegistrationContext.checkPrefix(legacyName, false)));
     }
 
-    /** Creative tab membership is event-driven now; retain the old fluent chain. */
-    public static Item.Properties withoutLegacyCreativeTab(
-            Item.Properties properties, CreativeModeTab ignoredTab) {
+    /**
+     * Preserve legacy construction-time tab intent for a future modern
+     * creative-tab population bridge. This is deliberately not presented as
+     * completed tab support: custom legacy tabs do not have a proven 26.3
+     * lifecycle mapping yet.
+     */
+    public static Item.Properties recordLegacyCreativeTab(
+            Item.Properties properties, CreativeModeTab legacyTab) {
+        LEGACY_TABS_BY_PROPERTIES.put(properties, legacyTab);
+        if (CREATIVE_TAB_GAP_REPORTED.compareAndSet(false, true)) {
+            LOG.warn("LMS preserved legacy Item.Properties creative-tab membership, but modern creative-tab "
+                    + "population is not implemented yet; items will not be silently claimed as populated");
+        }
         return properties;
     }
 
@@ -41,6 +65,7 @@ public final class Forge1192VanillaConstructionBridge {
             if (!(value instanceof net.minecraft.resources.Identifier id)) {
                 throw new IllegalStateException("Legacy block registry name is not an Identifier: " + value);
             }
+            rememberCreativeTab(properties, id);
             return properties.setId(ResourceKey.create(Registries.ITEM, id));
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Legacy block does not expose getRegistryName(): "
@@ -50,9 +75,22 @@ public final class Forge1192VanillaConstructionBridge {
 
     /** Attach an explicitly named legacy item's modern registry key. */
     public static Item.Properties withItemId(Item.Properties properties, String legacyName) {
-        return properties.setId(ResourceKey.create(
-                Registries.ITEM,
-                Forge1192RegistrationContext.checkPrefix(legacyName, false)));
+        net.minecraft.resources.Identifier id =
+                Forge1192RegistrationContext.checkPrefix(legacyName, false);
+        rememberCreativeTab(properties, id);
+        return properties.setId(ResourceKey.create(Registries.ITEM, id));
+    }
+
+    /** Retained intent for the eventual modern creative-tab population bridge. */
+    public static Optional<CreativeModeTab> legacyCreativeTabIntent(
+            net.minecraft.resources.Identifier itemId) {
+        return Optional.ofNullable(LEGACY_TABS_BY_ITEM_ID.get(itemId));
+    }
+
+    private static void rememberCreativeTab(Item.Properties properties,
+                                            net.minecraft.resources.Identifier itemId) {
+        CreativeModeTab tab = LEGACY_TABS_BY_PROPERTIES.remove(properties);
+        if (tab != null) LEGACY_TABS_BY_ITEM_ID.put(itemId, tab);
     }
 
     /**

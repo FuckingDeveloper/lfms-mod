@@ -68,7 +68,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
-        rewrites += rewriteLegacyNamedAxeConstruction(node);
+        rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -597,25 +597,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     /**
      * Modern blocks require their registry key in Properties before the Block
-     * superclass constructor runs. IC2 already carries the eventual registry
-     * name as constructor argument zero, so attach that exact key early.
+     * superclass constructor runs. Adapt only constructors whose own bytecode
+     * proves which String parameter becomes the legacy registry name.
      */
     private static int rewriteLegacyNamedBlockConstruction(ClassNode node) {
-        if (!node.name.equals("ic2/core/block/base/IC2ContainerBlock")) return 0;
         final String properties = "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
         int rewrites = 0;
         for (var method : node.methods) {
-            if (!method.name.equals("<init>")
-                    || !method.desc.equals("(Ljava/lang/String;" + properties + ")V")) continue;
+            if (!method.name.equals("<init>")) continue;
+            int registryNameLocal = legacyRegistryNameStringLocal(node, method);
+            if (registryNameLocal < 0) continue;
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
-                        || !call.owner.equals("net/minecraft/world/level/block/BaseEntityBlock")
+                        || !(call.owner.equals("net/minecraft/world/level/block/Block")
+                            || call.owner.equals("net/minecraft/world/level/block/BaseEntityBlock"))
                         || !call.name.equals("<init>")
                         || !call.desc.equals("(" + properties + ")V")) continue;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
-                        org.objectweb.asm.Opcodes.ALOAD, 1));
+                        org.objectweb.asm.Opcodes.ALOAD, registryNameLocal));
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
                         "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                         "withBlockId", "(" + properties + "Ljava/lang/String;)" + properties, false));
@@ -626,15 +627,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    /** Restore CableBlock's vanilla override so its cable instance exists during Block construction. */
-    private static int rewriteLegacyCableStateDefinitionOverride(ClassNode node) {
-        if (!node.name.equals("ic2/core/block/cables/CableBlock")) return 0;
+    /** Restore legacy SRG-named overrides of Block#createBlockStateDefinition. */
+    private int rewriteLegacyCableStateDefinitionOverride(ClassNode node) {
+        if (!isManagedSubtypeOf(node, "net/minecraft/world/level/block/Block")) return 0;
         final String desc = "(Lnet/minecraft/world/level/block/state/StateDefinition$Builder;)V";
         for (var method : node.methods) {
-            if (method.name.equals("m_7926_") && method.desc.equals(desc)) {
-                method.name = "createBlockStateDefinition";
-                return 1;
-            }
+            if (!method.name.equals("m_7926_") || !method.desc.equals(desc)) continue;
+            var resolved = resolveCanonicalBlockMethod(method.name, method.desc);
+            if (resolved == null
+                    || !resolved.name().equals("createBlockStateDefinition")
+                    || !resolved.descriptor().equals(desc)) continue;
+            method.name = resolved.name();
+            return 1;
         }
         return 0;
     }
@@ -656,7 +660,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.desc.equals(desc)) continue;
                 call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                 call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
-                call.name = "withoutLegacyCreativeTab";
+                call.name = "recordLegacyCreativeTab";
                 call.desc = "(L" + owner + ";Lnet/minecraft/world/item/CreativeModeTab;)L" + owner + ";";
                 call.itf = false;
                 rewrites++;
@@ -665,9 +669,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    /** Supply IC2 block-item ids before the modern Item constructor requires them. */
+    /** Supply paired block-item ids before the modern Item constructor requires them. */
     private static int rewriteLegacyBlockItemConstruction(ClassNode node) {
-        if (!node.name.equals("ic2/core/item/base/IC2BlockItem")) return 0;
+        if (!declaresLegacyRegistryNameAccessor(node)) return 0;
         final String desc = "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item$Properties;)V";
         int rewrites = 0;
         for (var method : node.methods) {
@@ -695,25 +699,24 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    /** Attach AxeTool's explicit legacy name before its replacement Item superclass runs. */
-    private static int rewriteLegacyNamedAxeConstruction(ClassNode node) {
-        if (!node.name.equals("ic2/core/item/tool/simple/AxeTool")) return 0;
-        final String owner = "net/minecraft/world/item/AxeItem";
-        final String desc = "(Lnet/minecraft/world/item/Tier;FFLnet/minecraft/world/item/Item$Properties;)V";
+    /** Attach an explicit legacy registry name before a removed tool superclass runs. */
+    private static int rewriteLegacyNamedSimpleToolConstruction(ClassNode node) {
         int rewrites = 0;
         for (var method : node.methods) {
             if (!method.name.equals("<init>")) continue;
+            int registryNameLocal = legacyRegistryNameStringLocal(node, method);
+            if (registryNameLocal < 0) continue;
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
-                        || !call.owner.equals(owner)
                         || !call.name.equals("<init>")
-                        || !call.desc.equals(desc)) continue;
+                        || !isLegacyToolConstructor(call.owner, call.desc)) continue;
                 int propertiesLocal = method.maxLocals++;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
-                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, registryNameLocal));
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
                         "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                         "withItemId",
@@ -724,6 +727,76 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private static boolean isLegacyToolConstructor(String owner, String desc) {
+        return switch (owner) {
+            case "net/minecraft/world/item/AxeItem", "net/minecraft/world/item/ShovelItem" ->
+                    desc.equals("(Lnet/minecraft/world/item/Tier;FFLnet/minecraft/world/item/Item$Properties;)V");
+            case "net/minecraft/world/item/HoeItem", "net/minecraft/world/item/PickaxeItem",
+                 "net/minecraft/world/item/SwordItem" ->
+                    desc.equals("(Lnet/minecraft/world/item/Tier;IFLnet/minecraft/world/item/Item$Properties;)V");
+            default -> false;
+        };
+    }
+
+    /**
+     * Locate a String parameter that the legacy constructor itself proves is
+     * its registry name by passing it through Forge GameData#checkPrefix and
+     * storing the resulting ResourceLocation on the constructed object.
+     */
+    private static int legacyRegistryNameStringLocal(ClassNode node, org.objectweb.asm.tree.MethodNode method) {
+        int match = -1;
+        for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (!(insn instanceof MethodInsnNode call)
+                    || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                    || !call.owner.equals("net/minecraftforge/registries/GameData")
+                    || !call.name.equals("checkPrefix")
+                    || !call.desc.equals("(Ljava/lang/String;Z)Lnet/minecraft/resources/ResourceLocation;")) continue;
+            var warn = previousExecutable(call);
+            var name = warn == null ? null : previousExecutable(warn);
+            var store = nextExecutable(call);
+            if (warn == null || warn.getOpcode() != org.objectweb.asm.Opcodes.ICONST_0
+                    || !(name instanceof org.objectweb.asm.tree.VarInsnNode load)
+                    || load.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
+                    || !(store instanceof FieldInsnNode field)
+                    || store.getOpcode() != org.objectweb.asm.Opcodes.PUTFIELD
+                    || !field.owner.equals(node.name)
+                    || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")
+                    || !isStringArgumentLocal(method, load.var)) continue;
+            if (match >= 0 && match != load.var) return -1;
+            match = load.var;
+        }
+        return match;
+    }
+
+    private static boolean declaresLegacyRegistryNameAccessor(ClassNode node) {
+        return node.methods.stream().anyMatch(method -> method.name.equals("getRegistryName")
+                && method.desc.equals("()Lnet/minecraft/resources/ResourceLocation;")
+                && (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0);
+    }
+
+    private static boolean isStringArgumentLocal(org.objectweb.asm.tree.MethodNode method, int local) {
+        int cursor = (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0 ? 1 : 0;
+        for (Type argument : Type.getArgumentTypes(method.desc)) {
+            if (cursor == local) return argument.equals(Type.getType(String.class));
+            cursor += argument.getSize();
+        }
+        return false;
+    }
+
+    private static org.objectweb.asm.tree.AbstractInsnNode previousExecutable(
+            org.objectweb.asm.tree.AbstractInsnNode instruction) {
+        var cursor = instruction.getPrevious();
+        while (cursor != null && cursor.getOpcode() < 0) cursor = cursor.getPrevious();
+        return cursor;
+    }
+
+    private static org.objectweb.asm.tree.AbstractInsnNode nextExecutable(
+            org.objectweb.asm.tree.AbstractInsnNode instruction) {
+        var cursor = instruction.getNext();
+        while (cursor != null && cursor.getOpcode() < 0) cursor = cursor.getNext();
+        return cursor;
     }
 
     /**
@@ -839,7 +912,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
     }
 
-    private static int rewriteVerifiedSrgMethodCalls(ClassNode node) {
+    private int rewriteVerifiedSrgMethodCalls(ClassNode node) {
         if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
         int rewrites = 0;
         for (var method : node.methods) {
@@ -847,19 +920,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
                 // javac records the concrete receiver class for inherited
-                // calls. The runtime resolver cannot walk managed IC2 class
-                // hierarchies, but these SRG ids uniquely identify Block's
-                // unchanged default-state operations.
-                if (call.owner.startsWith("ic2/")
-                        && call.name.equals("m_49966_")
-                        && call.desc.equals("()Lnet/minecraft/world/level/block/state/BlockState;")) {
-                    call.name = "defaultBlockState";
-                    rewrites++;
-                } else if (call.owner.startsWith("ic2/")
-                        && call.name.equals("m_49959_")
-                        && call.desc.equals("(Lnet/minecraft/world/level/block/state/BlockState;)V")) {
-                    call.name = "registerDefaultState";
-                    rewrites++;
+                // calls. Resolve the SRG identity against its canonical Block
+                // declaration, then retain the verified managed receiver.
+                if ((call.owner.equals(node.name)
+                        ? isManagedSubtypeOf(node, "net/minecraft/world/level/block/Block")
+                        : isManagedSubtypeOf(call.owner, "net/minecraft/world/level/block/Block"))) {
+                    var inherited = resolveCanonicalBlockMethod(call.name, call.desc);
+                    if (inherited != null) {
+                        call.name = inherited.name();
+                        call.desc = inherited.descriptor();
+                        rewrites++;
+                    }
                 }
                 if (call.owner.equals("net/minecraft/world/level/block/state/BlockState")) {
                     String inheritedName = switch (call.name) {
@@ -898,6 +969,56 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private Forge1192SrgRuntimeResolver.Resolution resolveCanonicalBlockMethod(String name, String desc) {
+        if (!name.startsWith("m_") || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        var resolved = SRG_RUNTIME_RESOLVER.get().resolve(
+                "net/minecraft/world/level/block/Block", name, desc);
+        return resolved.resolved()
+                && resolved.owner().equals("net/minecraft/world/level/block/Block")
+                ? resolved : null;
+    }
+
+    private boolean isManagedSubtypeOf(String candidate, String target) {
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        pending.add(candidate);
+        return hierarchyContains(pending, target);
+    }
+
+    private boolean isManagedSubtypeOf(ClassNode candidate, String target) {
+        if (candidate.name.equals(target)) return true;
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        if (candidate.superName != null) pending.add(candidate.superName);
+        pending.addAll(candidate.interfaces);
+        return hierarchyContains(pending, target);
+    }
+
+    private boolean hierarchyContains(java.util.ArrayDeque<String> pending, String target) {
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        while (!pending.isEmpty()) {
+            String current = pending.removeFirst();
+            if (!seen.add(current)) continue;
+            if (current.equals(target)) return true;
+            byte[] bytes = null;
+            try {
+                if (managedClassBytes != null) bytes = managedClassBytes.find(current);
+                if (bytes == null) {
+                    if (!SafeFrameClassWriter.isParentRuntimeType(current)) continue;
+                    try (var stream = Forge1192LegacyClassTransformer.class.getClassLoader()
+                            .getResourceAsStream(current + ".class")) {
+                        if (stream == null) continue;
+                        bytes = stream.readAllBytes();
+                    }
+                }
+                ClassReader reader = new ClassReader(bytes);
+                if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
+                java.util.Collections.addAll(pending, reader.getInterfaces());
+            } catch (java.io.IOException | LinkageError | RuntimeException ignored) {
+                // Missing/corrupt hierarchy evidence must fail closed.
+            }
+        }
+        return false;
     }
 
     private static int rewriteVerifiedSrgFieldAccesses(ClassNode node) {
@@ -2189,6 +2310,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/item/LegacyTier";
         if (value.equals("net/minecraft/world/item/AxeItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyAxeItem";
+        if (value.equals("net/minecraft/world/item/HoeItem"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyHoeItem";
+        if (value.equals("net/minecraft/world/item/PickaxeItem"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyPickaxeItem";
+        if (value.equals("net/minecraft/world/item/ShovelItem"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyShovelItem";
+        if (value.equals("net/minecraft/world/item/SwordItem"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacySwordItem";
         if (value.equals("net/minecraftforge/common/extensions/IForgeBlock"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock";
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
@@ -2272,6 +2401,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/energy/IEnergyStorage", "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage")
                 .replace("net/minecraft/world/item/Tier", "com/fuckingdeveloper/lms/runtime/item/LegacyTier")
                 .replace("net/minecraft/world/item/AxeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyAxeItem")
+                .replace("net/minecraft/world/item/HoeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyHoeItem")
+                .replace("net/minecraft/world/item/PickaxeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyPickaxeItem")
+                .replace("net/minecraft/world/item/ShovelItem", "com/fuckingdeveloper/lms/runtime/item/LegacyShovelItem")
+                .replace("net/minecraft/world/item/SwordItem", "com/fuckingdeveloper/lms/runtime/item/LegacySwordItem")
                 .replace("net/minecraftforge/common/extensions/IForgeBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")
