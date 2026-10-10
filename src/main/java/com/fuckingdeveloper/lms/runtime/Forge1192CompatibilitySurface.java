@@ -32,6 +32,27 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.fluids."
     );
 
+    /**
+     * Semantic bridges implemented by the Forge 1.19.2 profile. These are
+     * exact legacy owner/name/descriptor contracts, not namespace guesses.
+     */
+    private static final Set<String> SUPPORTED_BRIDGES = Set.of(
+            "net.minecraftforge.eventbus.api.IEventBus#post(Lnet/minecraftforge/eventbus/api/Event;)Z",
+            "net.minecraftforge.fluids.FluidStack#isFluidEqual(Lnet/minecraftforge/fluids/FluidStack;)Z",
+            "net.minecraftforge.registries.GameData#checkPrefix(Ljava/lang/String;Z)Lnet/minecraft/resources/ResourceLocation;",
+            "net.minecraftforge.registries.IForgeRegistry#containsKey(Lnet/minecraft/resources/ResourceLocation;)Z",
+            "net.minecraftforge.registries.IForgeRegistry#getValue(Lnet/minecraft/resources/ResourceLocation;)Ljava/lang/Object;",
+            "net.minecraftforge.registries.IForgeRegistry#getKey(Ljava/lang/Object;)Lnet/minecraft/resources/ResourceLocation;",
+            "net.minecraftforge.registries.IForgeRegistry#iterator()Ljava/util/Iterator;",
+            "net.minecraftforge.registries.IForgeRegistry#register(Ljava/lang/String;Ljava/lang/Object;)V",
+            "net.minecraftforge.registries.IForgeRegistry#register(Lnet/minecraft/resources/ResourceLocation;Ljava/lang/Object;)V",
+            "net.minecraftforge.registries.RegisterEvent#getForgeRegistry()Lnet/minecraftforge/registries/IForgeRegistry;",
+            "net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext#get()Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext;",
+            "net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext#getModEventBus()Lnet/minecraftforge/eventbus/api/IEventBus;",
+            "net.minecraftforge.fml.ModLoadingContext#get()Lnet/minecraftforge/fml/ModLoadingContext;",
+            "net.minecraftforge.fml.ModLoadingContext#getActiveNamespace()Ljava/lang/String;"
+    );
+
     public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries) {
         var grouped = boundaries.stream().collect(java.util.stream.Collectors.groupingBy(
                 boundary -> boundary.owner() + "#" + boundary.name() + boundary.descriptor(),
@@ -39,12 +60,13 @@ public final class Forge1192CompatibilitySurface {
         List<Requirement> requirements = new ArrayList<>();
         for (var entry : grouped.entrySet()) {
             String target = entry.getKey();
-            requirements.add(new Requirement(target, entry.getValue(),
-                    State.ADAPTER_REQUIRED, family(target)));
+            State state = SUPPORTED_BRIDGES.contains(target)
+                    ? State.SUPPORTED : State.ADAPTER_REQUIRED;
+            requirements.add(new Requirement(target, entry.getValue(), state, family(target)));
         }
-        // No API family is executable yet. This object is the authoritative
-        // inventory consumed by future bridge implementations.
-        return new Assessment(List.copyOf(requirements), false);
+        boolean executable = requirements.stream()
+                .allMatch(requirement -> requirement.state() == State.SUPPORTED);
+        return new Assessment(List.copyOf(requirements), executable);
     }
 
     private static String family(String target) {
