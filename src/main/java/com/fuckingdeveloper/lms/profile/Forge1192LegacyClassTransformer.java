@@ -197,6 +197,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
+                // Forge 1.19.2 Dist exposed convenience predicates that are
+                // absent from the current enum. Preserve physical-side semantics.
+                if (call.owner.equals("net/neoforged/api/distmarker/Dist")
+                        && call.name.equals("isClient") && call.desc.equals("()Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192SideBridge";
+                    call.name = "isClient";
+                    call.desc = "(Lnet/neoforged/api/distmarker/Dist;)Z";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/api/distmarker/Dist")
+                        && call.name.equals("isDedicatedServer") && call.desc.equals("()Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192SideBridge";
+                    call.name = "isDedicatedServer";
+                    call.desc = "(Lnet/neoforged/api/distmarker/Dist;)Z";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // EffectiveSide is a logical-side query. Keep it distinct from
                 // physical Dist and route through a profile-owned semantic boundary.
                 if (call.owner.equals("net/neoforged/fml/util/thread/EffectiveSide")
