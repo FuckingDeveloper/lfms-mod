@@ -1,6 +1,12 @@
 package com.fuckingdeveloper.lms.runtime;
 
 import java.util.Objects;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.core.Registry;
@@ -14,6 +20,11 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 public final class Forge1192RegistrationContext {
     private static final ThreadLocal<String> CURRENT_MOD = new ThreadLocal<>();
     private static final ThreadLocal<RegisterEvent> CURRENT_EVENT = new ThreadLocal<>();
+    private static final Map<String, Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>>> PENDING =
+            new HashMap<>();
+    private static final Map<String, Set<ResourceKey<? extends Registry<?>>>> COMPLETED = new HashMap<>();
+
+    private record PendingRegistration(Identifier name, Object value) {}
 
     private Forge1192RegistrationContext() {}
 
@@ -39,11 +50,22 @@ public final class Forge1192RegistrationContext {
     public static AutoCloseable enterRegistration(RegisterEvent event) {
         Objects.requireNonNull(event, "event");
         if (CURRENT_EVENT.get() != null) throw new IllegalStateException("Nested legacy registration scopes are not supported");
+        String modId = CURRENT_MOD.get();
+        if (modId == null) throw new IllegalStateException("Legacy registration scope requires an active mod scope");
         Thread owner = Thread.currentThread();
         CURRENT_EVENT.set(event);
+        try {
+            flushPending(modId, event);
+        } catch (RuntimeException | Error e) {
+            CURRENT_EVENT.remove();
+            throw e;
+        }
         return () -> {
             if (Thread.currentThread() != owner || CURRENT_EVENT.get() != event)
                 throw new IllegalStateException("Legacy registration scope closed out of order or on another thread");
+            synchronized (PENDING) {
+                COMPLETED.computeIfAbsent(modId, ignored -> new HashSet<>()).add(event.getRegistryKey());
+            }
             CURRENT_EVENT.remove();
         };
     }
@@ -93,18 +115,30 @@ public final class Forge1192RegistrationContext {
      * executing strictly inside NeoForge's matching RegisterEvent phase.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public static void register(Object ignoredRegistry, Identifier name, Object value) {
-        requireActiveRegistryToken(ignoredRegistry);
+    public static void register(Object registryToken, Identifier name, Object value) {
+        Registry<Object> target = requireRegistryToken(registryToken);
         Scope scope = requireActive();
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(value, "value");
+
+        ResourceKey<? extends Registry<?>> targetKey = target.key();
+        if (!targetKey.equals(scope.event().getRegistryKey())) {
+            stage(scope.modId(), targetKey, name, value);
+            return;
+        }
+
+        registerOn(scope.event(), name, value);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void registerOn(RegisterEvent event, Identifier name, Object value) {
 
         // RegisterEvent#getRegistryKey intentionally exposes a wildcard because
         // the event is runtime-typed. The value type is known only to the
         // legacy call site, so contain the unavoidable erasure at this bridge.
         ResourceKey<? extends Registry<Object>> key =
-                (ResourceKey<? extends Registry<Object>>) (ResourceKey) scope.event().getRegistryKey();
-        scope.event().register(key, name, () -> value);
+                (ResourceKey<? extends Registry<Object>>) (ResourceKey) event.getRegistryKey();
+        event.register(key, name, () -> value);
     }
 
     public static void register(Object ignoredRegistry, String name, Object value) {
@@ -140,12 +174,29 @@ public final class Forge1192RegistrationContext {
         return activeRegistry();
     }
 
-    private static void requireActiveRegistryToken(Object token) {
-        Registry<Object> registry = requireRegistryToken(token);
-        Registry<Object> active = activeRegistry();
-        if (!registry.key().equals(active.key())) {
-            throw new IllegalStateException("Legacy registry receiver " + registry.key().identifier()
-                    + " does not match active RegisterEvent registry " + active.key().identifier());
+    private static void stage(String modId, ResourceKey<? extends Registry<?>> targetKey,
+                              Identifier name, Object value) {
+        synchronized (PENDING) {
+            if (COMPLETED.getOrDefault(modId, Set.of()).contains(targetKey)) {
+                throw new IllegalStateException("Legacy registration for " + targetKey.identifier()
+                        + " occurred after its NeoForge RegisterEvent phase: " + name);
+            }
+            PENDING.computeIfAbsent(modId, ignored -> new HashMap<>())
+                    .computeIfAbsent(targetKey, ignored -> new ArrayList<>())
+                    .add(new PendingRegistration(name, value));
+        }
+    }
+
+    private static void flushPending(String modId, RegisterEvent event) {
+        List<PendingRegistration> registrations;
+        synchronized (PENDING) {
+            Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
+            registrations = byRegistry == null ? null : byRegistry.remove(event.getRegistryKey());
+            if (byRegistry != null && byRegistry.isEmpty()) PENDING.remove(modId);
+        }
+        if (registrations == null) return;
+        for (PendingRegistration registration : registrations) {
+            registerOn(event, registration.name(), registration.value());
         }
     }
 
