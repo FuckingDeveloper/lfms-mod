@@ -41,6 +41,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = rewriteExactNamespaceMigrations(node);
         rewrites += rewriteSemanticAdapters(node);
         verifyNoEscapingLegacyRegistryFacade(node);
+        verifyNoUnadaptedLifecycleCalls(node);
         if (rewrites > 0) {
             transformedClasses++;
             totalRewrites += rewrites;
@@ -320,6 +321,19 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private static void verifyNoUnadaptedLifecycleCalls(ClassNode node) {
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.owner.equals("net/neoforged/fml/ModLoadingContext")
+                        && (call.name.equals("getActiveContainer") || call.name.equals("setActiveContainer"))) {
+                    throw new IllegalStateException("Unadapted legacy ModLoadingContext boundary: "
+                            + node.name + "#" + method.name + " -> " + call.name + call.desc);
+                }
+            }
+        }
     }
 
     private static String migrateInternalName(String value) {
