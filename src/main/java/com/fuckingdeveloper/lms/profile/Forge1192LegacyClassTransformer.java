@@ -52,7 +52,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
-        rewrites += rewriteLegacyEnvironmentFieldAccess(node);
+        rewrites += rewriteLegacyForgeBuiltinFields(node);\n        rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyIdentifierConstruction(node);
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
         rewrites += rewriteLegacyArmorConstructorDescriptors(node);
@@ -308,6 +308,29 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    private static int rewriteLegacyForgeBuiltinFields(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals("net/minecraftforge/common/ForgeMod")) continue;
+                if (field.name.equals("MILK")
+                        && field.desc.equals("Lnet/minecraftforge/registries/RegistryObject;")) {
+                    MethodInsnNode replacement = new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192BuiltinRegistryBridge",
+                            "milk",
+                            "()Ljava/lang/Object;",
+                            false);
+                    method.instructions.set(field, replacement);
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
     private static int rewriteLegacyEnvironmentFieldAccess(ClassNode node) {
         int rewrites = 0;
         for (var method : node.methods) {
@@ -460,6 +483,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
+
+                // Removed ForgeMod RegistryObject fields are converted to
+                // explicit LMS builtin handles. Their RegistryObject operations are
+                // adapted below, so the removed Forge holder never reaches linkage.
+                if (call.owner.equals("net/neoforged/neoforge/registries/RegistryObject")
+                        && call.name.equals("get")
+                        && call.desc.equals("()Ljava/lang/Object;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BuiltinRegistryBridge";
+                    call.name = "get";
+                    call.desc = "(Ljava/lang/Object;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
 
                 // Forge 1.19.2 exposed enableMilkFluid() as an opt-in bootstrap
                 // request. The removed ForgeMod holder must never escape into the
