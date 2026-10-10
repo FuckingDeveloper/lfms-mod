@@ -279,6 +279,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+                // Legacy listeners capture the active legacy mod identity when
+                // registered. RegisterEvent callbacks additionally receive a scoped
+                // registration context, so old registry facade adapters execute only
+                // during the legal NeoForge registration phase.
+                if (call.owner.equals("net/neoforged/bus/api/IEventBus")
+                        && call.name.equals("addListener")
+                        && call.desc.equals("(Ljava/util/function/Consumer;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                    call.name = "addListener";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Ljava/util/function/Consumer;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/bus/api/IEventBus")
+                        && call.name.equals("addListener")
+                        && call.desc.equals("(Lnet/neoforged/bus/api/EventPriority;Ljava/util/function/Consumer;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                    call.name = "addListener";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Lnet/neoforged/bus/api/EventPriority;Ljava/util/function/Consumer;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Forge 1.19.2 IEventBus#post returned cancellation state.
                 // NeoForge's EventBus returns the posted Event. Preserve the
                 // legacy boolean contract through an LMS runtime adapter.
