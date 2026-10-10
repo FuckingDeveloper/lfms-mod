@@ -65,6 +65,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMetalBlockProperties(node);
         rewrites += rewriteLegacyNamedBlockConstruction(node);
+        rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -620,6 +621,19 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Restore CableBlock's vanilla override so its cable instance exists during Block construction. */
+    private static int rewriteLegacyCableStateDefinitionOverride(ClassNode node) {
+        if (!node.name.equals("ic2/core/block/cables/CableBlock")) return 0;
+        final String desc = "(Lnet/minecraft/world/level/block/state/StateDefinition$Builder;)V";
+        for (var method : node.methods) {
+            if (method.name.equals("m_7926_") && method.desc.equals(desc)) {
+                method.name = "createBlockStateDefinition";
+                return 1;
+            }
+        }
+        return 0;
     }
 
     /**
