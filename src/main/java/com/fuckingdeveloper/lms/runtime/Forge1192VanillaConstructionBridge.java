@@ -16,6 +16,8 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 
 /** Exact construction adapters for vanilla constructors removed after 1.19.2. */
 public final class Forge1192VanillaConstructionBridge {
@@ -79,6 +81,17 @@ public final class Forge1192VanillaConstructionBridge {
                 Forge1192RegistrationContext.checkPrefix(legacyName, false);
         rememberCreativeTab(properties, id);
         return properties.setId(ResourceKey.create(Registries.ITEM, id));
+    }
+
+    /**
+     * 1.19.2's EntityType.Builder#build accepted the DFU identity as a
+     * string. Modern Minecraft requires the equivalent typed registry key.
+     */
+    public static <T extends Entity> EntityType<T> entityType(
+            EntityType.Builder<T> builder, String legacyName) {
+        return builder.build(ResourceKey.create(
+                Registries.ENTITY_TYPE,
+                Forge1192RegistrationContext.checkPrefix(legacyName, false)));
     }
 
     /** Retained intent for the eventual modern creative-tab population bridge. */

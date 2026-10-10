@@ -469,6 +469,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         final String legacyOwner = "net/minecraft/world/item/SignItem";
         final String legacyDesc = "(Lnet/minecraft/world/item/Item$Properties;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/level/block/Block;)V";
         for (var method : node.methods) {
+            RegistryNameEvidence registryName = method.name.equals("<init>")
+                    ? legacyRegistryNameEvidence(node, method) : null;
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
@@ -477,12 +479,35 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.desc.equals(legacyDesc)) continue;
 
                 var adaptation = new org.objectweb.asm.tree.InsnList();
-                // this, properties, standing, wall -> this, standing, wall, properties
-                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP2_X1));
-                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.POP2));
-                adaptation.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
-                        "net/minecraft/core/Direction", "DOWN", "Lnet/minecraft/core/Direction;"));
-                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                if (registryName != null) {
+                    // Keep uninitialized this untouched on the operand stack;
+                    // spill only the constructor arguments while attaching the
+                    // bytecode-proven item id to Properties.
+                    int wallLocal = method.maxLocals++;
+                    int standingLocal = method.maxLocals++;
+                    int propertiesLocal = method.maxLocals++;
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, wallLocal));
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, standingLocal));
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, standingLocal));
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, wallLocal));
+                    adaptation.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
+                            "net/minecraft/core/Direction", "DOWN", "Lnet/minecraft/core/Direction;"));
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                    appendRegistryNameLoad(adaptation, registryName);
+                    adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                            "withItemId",
+                            "(Lnet/minecraft/world/item/Item$Properties;Ljava/lang/String;)"
+                                    + "Lnet/minecraft/world/item/Item$Properties;", false));
+                } else {
+                    // this, properties, standing, wall -> this, standing, wall, properties
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP2_X1));
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.POP2));
+                    adaptation.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
+                            "net/minecraft/core/Direction", "DOWN", "Lnet/minecraft/core/Direction;"));
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                }
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
                         "net/minecraft/world/item/Item$Properties", "signText",
                         "()Lnet/minecraft/world/item/Item$Properties;", false));
@@ -964,6 +989,48 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
+
+                // The 1.19.2 record accessor's SRG name is field-shaped and
+                // therefore outside the normal m_* resolver. Its exact owner
+                // and return type identify TagKey#location unambiguously.
+                if (call.owner.equals("net/minecraft/tags/TagKey")
+                        && call.name.equals("f_203868_")
+                        && call.desc.equals("()Lnet/minecraft/resources/Identifier;")) {
+                    call.name = "location";
+                    rewrites++;
+                }
+
+                // ResourceLocation#getPath was projected to Identifier in the
+                // target namespace; retain the exact 1.19.2 SRG member identity.
+                if (call.owner.equals("net/minecraft/resources/Identifier")
+                        && call.name.equals("m_135827_")
+                        && call.desc.equals("()Ljava/lang/String;")) {
+                    call.name = "getPath";
+                    rewrites++;
+                }
+
+                // The legacy flag disabled anvil combination repair. That
+                // surviving semantic is named setNoCombineRepair in 26.3.
+                if (call.owner.equals("net/minecraft/world/item/Item$Properties")
+                        && call.name.equals("setNoRepair")
+                        && call.desc.equals("()Lnet/minecraft/world/item/Item$Properties;")) {
+                    call.name = "setNoCombineRepair";
+                    rewrites++;
+                }
+
+                // Builder#build migrated from an untyped legacy DFU name to
+                // the corresponding EntityType ResourceKey. Match the exact
+                // 1.19.2 SRG member, not merely its descriptor.
+                if (call.owner.equals("net/minecraft/world/entity/EntityType$Builder")
+                        && call.name.equals("m_20712_")
+                        && call.desc.equals("(Ljava/lang/String;)Lnet/minecraft/world/entity/EntityType;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                    call.name = "entityType";
+                    call.desc = "(Lnet/minecraft/world/entity/EntityType$Builder;Ljava/lang/String;)Lnet/minecraft/world/entity/EntityType;";
+                    call.itf = false;
+                    rewrites++;
+                }
 
                 // javac records the concrete receiver class for inherited
                 // calls. Walk the managed hierarchy to the declaring vanilla
