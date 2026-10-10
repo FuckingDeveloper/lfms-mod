@@ -54,6 +54,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyIdentifierConstruction(node);
+        rewrites += rewriteLegacyCraftingContainerConstruction(node);
         rewrites += rewriteSemanticAdapters(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -363,6 +364,55 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * CraftingContainer changed from a concrete 1.19.2 inventory to an interface.
+     * TransientCraftingContainer is its vanilla concrete successor. Only migrate
+     * construction when the target runtime proves an identical public constructor.
+     */
+    private static int rewriteLegacyCraftingContainerConstruction(ClassNode node) {
+        final String legacy = "net/minecraft/world/inventory/CraftingContainer";
+        final String target = "net/minecraft/world/inventory/TransientCraftingContainer";
+        int rewrites = 0;
+        var constructors = VANILLA_RELOCATIONS.constructorsOf(target);
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof TypeInsnNode allocation)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !allocation.desc.equals(legacy)) continue;
+                // Only pair a standard NEW/DUP with its matching constructor.
+                var dup = allocation.getNext();
+                if (dup == null || dup.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                    throw new IllegalStateException("Unsupported legacy CraftingContainer allocation pattern: "
+                            + node.name + "#" + method.name);
+                }
+                MethodInsnNode init = null;
+                for (var cursor = dup.getNext(); cursor != null; cursor = cursor.getNext()) {
+                    if (cursor instanceof TypeInsnNode nested
+                            && nested.getOpcode() == org.objectweb.asm.Opcodes.NEW) break;
+                    if (cursor instanceof MethodInsnNode candidate
+                            && candidate.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && candidate.owner.equals(legacy) && candidate.name.equals("<init>")) {
+                        init = candidate;
+                        break;
+                    }
+                }
+                if (init == null) {
+                    throw new IllegalStateException("Cannot pair legacy CraftingContainer allocation with constructor: "
+                            + node.name + "#" + method.name);
+                }
+                if (!constructors.contains(init.desc)) {
+                    throw new IllegalStateException("CraftingContainer constructor requires semantic adapter: "
+                            + node.name + "#" + method.name + init.desc
+                            + "; target public constructors=" + constructors);
+                }
+                allocation.desc = target;
+                init.owner = target;
+                rewrites++;
             }
         }
         return rewrites;
