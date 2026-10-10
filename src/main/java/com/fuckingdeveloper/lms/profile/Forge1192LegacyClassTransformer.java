@@ -551,6 +551,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
+
+                if (call.owner.equals("net/minecraft/world/level/block/state/BlockState")
+                        && call.name.equals("canSustainPlant")
+                        && call.desc.equals("(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;Lcom/fuckingdeveloper/lms/runtime/block/LegacyIPlantable;)Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable";
+                    call.desc = "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;Lcom/fuckingdeveloper/lms/runtime/block/LegacyIPlantable;)Z";
+                    call.itf = true;
+                    rewrites++;
+                }
                 var resolved = SRG_RUNTIME_RESOLVER.get().resolve(call.owner, call.name, call.desc);
                 if (!resolved.resolved()) continue;
                 if (!call.owner.equals(resolved.owner()) || !call.name.equals(resolved.name())
@@ -1842,6 +1852,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // Forge1192RegistrationContext by semantic adapters below.
         if (value.equals("net/minecraftforge/registries/IForgeRegistry"))
             return "com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry";
+        if (value.equals("net/minecraftforge/common/IPlantable"))
+            return "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable";
+        if (value.equals("net/minecraftforge/common/PlantType"))
+            return "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType";
         if (value.equals("net/minecraftforge/common/extensions/IForgeBlock"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock";
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
@@ -1911,6 +1925,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/api/distmarker/Dist", "net/neoforged/api/distmarker/Dist")
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
+                .replace("net/minecraftforge/common/IPlantable", "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable")
+                .replace("net/minecraftforge/common/PlantType", "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType")
                 .replace("net/minecraftforge/common/extensions/IForgeBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")

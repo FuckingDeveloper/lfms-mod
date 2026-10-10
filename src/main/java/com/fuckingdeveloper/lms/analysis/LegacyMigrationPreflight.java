@@ -26,6 +26,8 @@ public final class LegacyMigrationPreflight {
             if (available(targetLoader, target)) {
                 state = State.TARGET_AVAILABLE; reason = "exact target class exists";
             } else if (target.equals("net/minecraft/world/item/ArmorItem")
+                    || target.equals("net/minecraftforge/common/IPlantable")
+                    || target.equals("net/minecraftforge/common/PlantType")
                     || target.equals("net/minecraftforge/common/extensions/IForgeBlock")
                     || target.equals("net/minecraftforge/common/extensions/IForgeItem")) {
                 state = State.LMS_BRIDGE; reason = "explicit structural LMS compatibility contract";
