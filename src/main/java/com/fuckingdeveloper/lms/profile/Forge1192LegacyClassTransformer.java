@@ -8,6 +8,9 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Type;
 
 /**
@@ -86,11 +89,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         type.desc = migrated;
                         rewrites++;
                     }
-                } else if (insn instanceof LdcInsnNode ldc && ldc.cst instanceof Type type) {
-                    String descriptor = migrateDescriptor(type.getDescriptor());
-                    if (!descriptor.equals(type.getDescriptor())) {
-                        ldc.cst = Type.getType(descriptor);
+                } else if (insn instanceof LdcInsnNode ldc) {
+                    Object migrated = migrateConstant(ldc.cst);
+                    if (migrated != ldc.cst) {
+                        ldc.cst = migrated;
                         rewrites++;
+                    }
+                } else if (insn instanceof InvokeDynamicInsnNode indy) {
+                    String descriptor = migrateDescriptor(indy.desc);
+                    if (!descriptor.equals(indy.desc)) { indy.desc = descriptor; rewrites++; }
+                    Handle bootstrap = migrateHandle(indy.bsm);
+                    if (bootstrap != indy.bsm) { indy.bsm = bootstrap; rewrites++; }
+                    for (int i = 0; i < indy.bsmArgs.length; i++) {
+                        Object migrated = migrateConstant(indy.bsmArgs[i]);
+                        if (migrated != indy.bsmArgs[i]) { indy.bsmArgs[i] = migrated; rewrites++; }
                     }
                 }
             }
@@ -550,6 +562,34 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
             }
         }
+    }
+
+    private static Handle migrateHandle(Handle handle) {
+        String owner = migrateInternalName(handle.getOwner());
+        String desc = migrateDescriptor(handle.getDesc());
+        if (owner.equals(handle.getOwner()) && desc.equals(handle.getDesc())) return handle;
+        return new Handle(handle.getTag(), owner, handle.getName(), desc, handle.isInterface());
+    }
+
+    private static Object migrateConstant(Object value) {
+        if (value instanceof Type type) {
+            String descriptor = migrateDescriptor(type.getDescriptor());
+            return descriptor.equals(type.getDescriptor()) ? value : Type.getType(descriptor);
+        }
+        if (value instanceof Handle handle) return migrateHandle(handle);
+        if (value instanceof ConstantDynamic dynamic) {
+            String descriptor = migrateDescriptor(dynamic.getDescriptor());
+            Handle bootstrap = migrateHandle(dynamic.getBootstrapMethod());
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
+            boolean changed = !descriptor.equals(dynamic.getDescriptor()) || bootstrap != dynamic.getBootstrapMethod();
+            for (int i = 0; i < args.length; i++) {
+                Object old = dynamic.getBootstrapMethodArgument(i);
+                args[i] = migrateConstant(old);
+                changed |= args[i] != old;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), descriptor, bootstrap, args) : value;
+        }
+        return value;
     }
 
     private static String migrateInternalName(String value) {
