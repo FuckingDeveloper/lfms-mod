@@ -47,6 +47,23 @@ public final class Forge1192LifecycleBridge {
         return requireActive();
     }
 
+    public static Object getActiveContainer(Object token) {
+        Context context = requireActive();
+        if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
+        // LMS does not fabricate a NeoForge ModContainer for a legacy artifact.
+        // The legacy active-container contract therefore remains explicit and
+        // fail-closed until a per-artifact container facade exists.
+        throw new UnsupportedOperationException(
+                "Legacy ModLoadingContext#getActiveContainer requires a per-artifact ModContainer facade for " + context.modId());
+    }
+
+    public static void setActiveContainer(Object token, Object container) {
+        Context context = requireActive();
+        if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
+        throw new UnsupportedOperationException(
+                "Legacy ModLoadingContext#setActiveContainer requires a per-artifact ModContainer facade for " + context.modId());
+    }
+
     public static String getActiveNamespace(Object token) {
         Context context = requireActive();
         if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
