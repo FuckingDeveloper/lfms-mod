@@ -345,6 +345,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
 
+                // Forge 1.19.2 capability type declarations no longer map
+                // to a mutable modern capability registry. Validate/capture the
+                // declaration without inventing a global registration side effect.
+                if (call.owner.equals("net/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent")
+                        && call.name.equals("register")
+                        && call.desc.equals("(Ljava/lang/Class;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192CapabilityBridge";
+                    call.name = "register";
+                    call.desc = "(Lnet/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent;Ljava/lang/Class;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Legacy ForgeMod milk-fluid opt-in is an imperative profile
                 // request. Capture it explicitly rather than invoking a removed API.
                 if (call.owner.equals("net/neoforged/neoforge/common/ForgeMod")
