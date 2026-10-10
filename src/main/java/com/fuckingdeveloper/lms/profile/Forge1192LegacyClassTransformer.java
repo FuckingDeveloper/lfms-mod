@@ -39,6 +39,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
 
         int rewrites = rewriteExactNamespaceMigrations(node);
+        rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteSemanticAdapters(node);
         verifyNoEscapingLegacyRegistryFacade(node);
         verifyNoUnadaptedLifecycleCalls(node);
@@ -102,6 +103,54 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+
+    /**
+     * Migrate class-structure references as well as executable instructions.
+     * JVM linkage can resolve field descriptors, signatures, exceptions and
+     * annotations before the corresponding code path is ever executed.
+     */
+    private static int rewriteClassStructureNamespaceMigrations(ClassNode node) {
+        int rewrites = 0;
+        String superName = migrateInternalName(node.superName);
+        if (!superName.equals(node.superName)) { node.superName = superName; rewrites++; }
+        for (int i = 0; i < node.interfaces.size(); i++) {
+            String old = node.interfaces.get(i), migrated = migrateInternalName(old);
+            if (!migrated.equals(old)) { node.interfaces.set(i, migrated); rewrites++; }
+        }
+        if (node.signature != null) {
+            String migrated = migrateDescriptor(node.signature);
+            if (!migrated.equals(node.signature)) { node.signature = migrated; rewrites++; }
+        }
+        for (var field : node.fields) {
+            String migrated = migrateDescriptor(field.desc);
+            if (!migrated.equals(field.desc)) { field.desc = migrated; rewrites++; }
+            if (field.signature != null) {
+                migrated = migrateDescriptor(field.signature);
+                if (!migrated.equals(field.signature)) { field.signature = migrated; rewrites++; }
+            }
+        }
+        for (var method : node.methods) {
+            if (method.signature != null) {
+                String migrated = migrateDescriptor(method.signature);
+                if (!migrated.equals(method.signature)) { method.signature = migrated; rewrites++; }
+            }
+            if (method.exceptions != null) {
+                for (int i = 0; i < method.exceptions.size(); i++) {
+                    String old = method.exceptions.get(i), migrated = migrateInternalName(old);
+                    if (!migrated.equals(old)) { method.exceptions.set(i, migrated); rewrites++; }
+                }
+            }
+            for (var local : method.localVariables == null ? java.util.List.<org.objectweb.asm.tree.LocalVariableNode>of() : method.localVariables) {
+                String migrated = migrateDescriptor(local.desc);
+                if (!migrated.equals(local.desc)) { local.desc = migrated; rewrites++; }
+                if (local.signature != null) {
+                    migrated = migrateDescriptor(local.signature);
+                    if (!migrated.equals(local.signature)) { local.signature = migrated; rewrites++; }
+                }
+            }
+        }
+        return rewrites;
+    }
 
     private static void verifyNoEscapingLegacyRegistryFacade(ClassNode node) {
         String legacyRegistry = "net/neoforged/neoforge/registries/IForgeRegistry";
