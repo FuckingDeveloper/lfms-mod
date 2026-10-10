@@ -2,6 +2,7 @@ package com.fuckingdeveloper.lms.profile;
 
 import com.fuckingdeveloper.lms.classloading.LegacyClassTransformer;
 import com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer;
+import com.fuckingdeveloper.lms.mapping.Forge1192SrgRuntimeResolver;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.tree.ClassNode;
@@ -27,6 +28,8 @@ import org.objectweb.asm.Type;
  */
 public final class Forge1192LegacyClassTransformer implements LegacyClassTransformer {
     private static final Forge1192MappingLayer VANILLA_RELOCATIONS = new Forge1192MappingLayer();
+    private static final java.util.Optional<Forge1192SrgRuntimeResolver> SRG_RUNTIME_RESOLVER =
+            Forge1192SrgRuntimeResolver.load(java.nio.file.Path.of(System.getProperty("user.dir")));
     private int transformedClasses;
     private int totalRewrites;
 
@@ -47,6 +50,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
         int rewrites = rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
+        rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteSemanticAdapters(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -256,6 +260,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
             }
         }
+    }
+
+    private static int rewriteVerifiedSrgMethodCalls(ClassNode node) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                var resolved = SRG_RUNTIME_RESOLVER.get().resolve(call.owner, call.name, call.desc);
+                if (!resolved.resolved()) continue;
+                if (!call.owner.equals(resolved.owner()) || !call.name.equals(resolved.name())
+                        || !call.desc.equals(resolved.descriptor())) {
+                    call.owner = resolved.owner();
+                    call.name = resolved.name();
+                    call.desc = resolved.descriptor();
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
     }
 
     private static int rewriteSemanticAdapters(ClassNode node) {
