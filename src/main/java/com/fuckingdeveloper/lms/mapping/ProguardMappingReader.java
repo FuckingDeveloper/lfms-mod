@@ -14,11 +14,14 @@ import java.util.List;
  */
 public final class ProguardMappingReader {
     public record MethodKey(String owner, String name, String parameters) {}
+    public record FieldMapping(String namedOwner, String namedName, String namedType,
+                               String obfuscatedOwner, String obfuscatedName) {}
     public record MethodMapping(String namedOwner, String namedName, String parameters,
                                 String obfuscatedOwner, String obfuscatedName) {}
     public record Index(Map<String, String> namedToObfuscatedClasses,
                         Map<String, String> obfuscatedToNamedClasses,
-                        Map<MethodKey, MethodMapping> namedMethods) {
+                        Map<MethodKey, MethodMapping> namedMethods,
+                        List<FieldMapping> namedFields) {
         public Optional<MethodMapping> find(String owner, String name, String parameters) {
             return Optional.ofNullable(namedMethods.get(new MethodKey(toBinaryName(owner), name, parameters)));
         }
@@ -27,6 +30,13 @@ public final class ProguardMappingReader {
         }
         public Optional<String> namedClass(String obfuscatedClass) {
             return Optional.ofNullable(obfuscatedToNamedClasses.get(toBinaryName(obfuscatedClass)));
+        }
+        public List<FieldMapping> findFieldByObfuscated(String owner, String name) {
+            String normalizedOwner = toBinaryName(owner);
+            return namedFields.stream()
+                    .filter(field -> field.obfuscatedOwner().equals(normalizedOwner))
+                    .filter(field -> field.obfuscatedName().equals(name))
+                    .toList();
         }
         public List<MethodMapping> findByObfuscated(String owner, String name) {
             String normalizedOwner = toBinaryName(owner);
@@ -64,6 +74,7 @@ public final class ProguardMappingReader {
         Map<String, String> classes = new LinkedHashMap<>();
         Map<String, String> reverseClasses = new LinkedHashMap<>();
         Map<MethodKey, MethodMapping> methods = new LinkedHashMap<>();
+        List<FieldMapping> fields = new java.util.ArrayList<>();
         String owner = null;
         String obfuscatedOwner = null;
         BufferedReader reader = new BufferedReader(input);
@@ -88,7 +99,18 @@ public final class ProguardMappingReader {
             int arrow = trimmed.lastIndexOf(" -> ");
             int open = trimmed.indexOf('(');
             int close = trimmed.indexOf(')', open + 1);
-            if (arrow < 0 || open < 0 || close < 0 || close > arrow) continue;
+            if (arrow < 0) continue;
+            if (open < 0) {
+                String leftField = trimmed.substring(0, arrow).trim();
+                int space = leftField.lastIndexOf(' ');
+                if (space > 0) {
+                    fields.add(new FieldMapping(owner, leftField.substring(space + 1),
+                            leftField.substring(0, space), obfuscatedOwner,
+                            trimmed.substring(arrow + 4).trim()));
+                }
+                continue;
+            }
+            if (close < 0 || close > arrow) continue;
             String left = trimmed.substring(0, arrow).trim();
             // ProGuard may prefix methods with source line ranges. Recompute positions
             // after stripping them: the old indexes belonged to the original string.
@@ -104,6 +126,6 @@ public final class ProguardMappingReader {
             MethodKey key = new MethodKey(owner, name, params);
             methods.putIfAbsent(key, new MethodMapping(owner, name, params, obfuscatedOwner, obfuscatedName));
         }
-        return new Index(Map.copyOf(classes), Map.copyOf(reverseClasses), Map.copyOf(methods));
+        return new Index(Map.copyOf(classes), Map.copyOf(reverseClasses), Map.copyOf(methods), List.copyOf(fields));
     }
 }
