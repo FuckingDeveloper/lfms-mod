@@ -62,6 +62,8 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.network.NetworkEvent$Context#enqueueWork(Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;",
             "net.minecraftforge.network.NetworkEvent$Context#getSender()Lnet/minecraft/server/level/ServerPlayer;",
             "net.minecraftforge.network.NetworkEvent$Context#setPacketHandled(Z)V",
+            "net.minecraftforge.network.NetworkRegistry#newSimpleChannel(Lnet/minecraft/resources/ResourceLocation;Ljava/util/function/Supplier;Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Lnet/minecraftforge/network/simple/SimpleChannel;",
+            "net.minecraftforge.network.simple.SimpleChannel#registerMessage(ILjava/lang/Class;Ljava/util/function/BiConsumer;Ljava/util/function/Function;Ljava/util/function/BiConsumer;)Lnet/minecraftforge/network/simple/IndexedMessageCodec$MessageHandler;",
             "net.minecraftforge.eventbus.api.IEventBus#addListener(Lnet/minecraftforge/eventbus/api/EventPriority;Ljava/util/function/Consumer;)V",
             "net.minecraftforge.eventbus.api.IEventBus#post(Lnet/minecraftforge/eventbus/api/Event;)Z",
             "net.minecraftforge.fluids.FluidStack#isFluidEqual(Lnet/minecraftforge/fluids/FluidStack;)Z",
