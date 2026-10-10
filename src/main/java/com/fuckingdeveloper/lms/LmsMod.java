@@ -4,6 +4,7 @@ import com.fuckingdeveloper.lms.analysis.LegacyJarAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyRuntimeBytecodeInspector;
+import com.fuckingdeveloper.lms.analysis.Forge1192NetworkFlowAnalyzer;
 import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
 import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
@@ -167,6 +168,18 @@ public final class LmsMod {
                                     LOG.info("LMS registration-unresolved id={} detail={}", mod.modId(), unresolved);
                                 }
                             }
+                        }
+                        var networkFlow = new Forge1192NetworkFlowAnalyzer().analyze(mod.file());
+                        var networkFlowStates = networkFlow.stream().collect(java.util.stream.Collectors.groupingBy(
+                                Forge1192NetworkFlowAnalyzer.SendSite::direction,
+                                () -> new java.util.EnumMap<>(Forge1192NetworkFlowAnalyzer.Direction.class),
+                                java.util.stream.Collectors.counting()));
+                        LOG.info("LMS network-flow id={} sendSites={} directions={}",
+                                mod.modId(), networkFlow.size(), networkFlowStates);
+                        for (var sendSite : networkFlow) {
+                            LOG.info("LMS network-send id={} caller={}#{} operation={} direction={} messageTypeHint={}",
+                                    mod.modId(), sendSite.callerClass(), sendSite.callerMethod(),
+                                    sendSite.operation(), sendSite.direction(), sendSite.messageTypeHint());
                         }
                         var lifecycleDecision = new LegacyLifecycleGate().evaluate(
                                 report, lifecyclePlanReady, registrationPlanComplete, compatibilitySurfaceExecutable);
