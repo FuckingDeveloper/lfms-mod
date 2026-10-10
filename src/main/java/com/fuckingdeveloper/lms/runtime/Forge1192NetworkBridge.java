@@ -3,6 +3,7 @@ package com.fuckingdeveloper.lms.runtime;
 import net.minecraft.resources.Identifier;
 
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -84,4 +85,56 @@ public final class Forge1192NetworkBridge {
         // the current NeoForge payload adapter has bound this descriptor.
         return message;
     }
+    /**
+     * LMS-owned replacement for the old Forge NetworkEvent.Context. The actual
+     * NeoForge payload adapter will construct this object with explicit sender
+     * and work scheduling semantics; legacy handlers never receive a guessed
+     * modern context object.
+     */
+    public static final class LegacyContext {
+        private final net.minecraft.server.level.ServerPlayer sender;
+        private final Function<Runnable, CompletableFuture<Void>> scheduler;
+        private volatile boolean packetHandled;
+
+        public LegacyContext(net.minecraft.server.level.ServerPlayer sender,
+                             Function<Runnable, CompletableFuture<Void>> scheduler) {
+            this.sender = sender;
+            this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
+        }
+
+        public CompletableFuture<Void> enqueueWork(Runnable work) {
+            return scheduler.apply(Objects.requireNonNull(work, "work"));
+        }
+
+        public net.minecraft.server.level.ServerPlayer sender() {
+            return sender;
+        }
+
+        public void setPacketHandled(boolean handled) {
+            packetHandled = handled;
+        }
+
+        public boolean packetHandled() {
+            return packetHandled;
+        }
+    }
+
+    private static LegacyContext requireContext(Object token) {
+        if (!(token instanceof LegacyContext context))
+            throw new IllegalStateException("Legacy NetworkEvent.Context token escaped or has invalid provenance");
+        return context;
+    }
+
+    public static CompletableFuture<Void> enqueueWork(Object token, Runnable work) {
+        return requireContext(token).enqueueWork(work);
+    }
+
+    public static net.minecraft.server.level.ServerPlayer getSender(Object token) {
+        return requireContext(token).sender();
+    }
+
+    public static void setPacketHandled(Object token, boolean handled) {
+        requireContext(token).setPacketHandled(handled);
+    }
+
 }
