@@ -51,6 +51,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
+        rewrites += rewriteVerifiedSrgFieldAccesses(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteSemanticAdapters(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
@@ -276,6 +277,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.owner = resolved.owner();
                     call.name = resolved.name();
                     call.desc = resolved.descriptor();
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteVerifiedSrgFieldAccesses(ClassNode node) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof FieldInsnNode field)) continue;
+                var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(field.owner, field.name, field.desc);
+                if (!resolved.resolved()) continue;
+                if (!field.owner.equals(resolved.owner()) || !field.name.equals(resolved.name())
+                        || !field.desc.equals(resolved.descriptor())) {
+                    field.owner = resolved.owner();
+                    field.name = resolved.name();
+                    field.desc = resolved.descriptor();
                     rewrites++;
                 }
             }
