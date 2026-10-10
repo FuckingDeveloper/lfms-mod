@@ -66,15 +66,12 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
                 // Resolve the class identity against the current NeoForge namespace
                 // without defining fake classes in either framework namespace.
                 if (name.startsWith("net.minecraftforge.") && !owns(name)) {
-                    String migrated = migrateLegacyFrameworkName(name);
-                    if (!migrated.equals(name)) {
-                        try {
-                            loaded = getParent().loadClass(migrated);
-                        } catch (ClassNotFoundException ignored) {
-                            // Preserve the original lookup/error when this is a
-                            // removed API that requires a semantic adapter.
-                        }
-                    }
+                    // A ClassLoader cannot satisfy a request for binary name A
+                    // by returning a Class whose binary name is B. Namespace
+                    // migration must therefore be completed in transformed
+                    // bytecode, never aliased here.
+                    throw new ClassNotFoundException(
+                            "Residual legacy Forge type escaped transformation: " + name);
                 }
                 if (loaded == null && (parentFirst(name) || !owns(name))) {
                     loaded = getParent().loadClass(name);
@@ -105,21 +102,6 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
         } catch (Exception e) {
             throw new ClassNotFoundException("Profile transformation failed for " + name, e);
         }
-    }
-
-    private static String migrateLegacyFrameworkName(String value) {
-        // Binary-name form of the exact namespace rules used by the bytecode
-        // transformer. Keep these segment-aware: eventbus.api.IEventBus moved
-        // to bus.api.IEventBus, not bus.api.api.IEventBus.
-        if (value.startsWith("net.minecraftforge.eventbus."))
-            return "net.neoforged.bus." + value.substring("net.minecraftforge.eventbus.".length());
-        if (value.startsWith("net.minecraftforge.fml."))
-            return "net.neoforged.fml." + value.substring("net.minecraftforge.fml.".length());
-        if (value.startsWith("net.minecraftforge.forgespi."))
-            return "net.neoforged.neoforgespi." + value.substring("net.minecraftforge.forgespi.".length());
-        if (value.startsWith("net.minecraftforge."))
-            return "net.neoforged.neoforge." + value.substring("net.minecraftforge.".length());
-        return value;
     }
 
     private static boolean parentFirst(String name) {
