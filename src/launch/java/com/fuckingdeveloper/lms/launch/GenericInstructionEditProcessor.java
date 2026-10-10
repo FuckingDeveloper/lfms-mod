@@ -324,6 +324,18 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             if (cursor instanceof LabelNode label) return label;
             if (cursor.getOpcode() >= 0) break;
         }
+
+        // A legacy ASM coremod's getLabel() is also commonly invoked on a
+        // JumpInsnNode reached by a relative getNext() chain. When mappings or
+        // target bytecode evolution move metadata nodes, the literal relative
+        // node can land on metadata immediately before that jump. Look forward
+        // only across metadata and reuse that jump's existing destination.
+        // Never cross an executable instruction: that would invent control flow.
+        for (AbstractInsnNode cursor = node.getNext(); cursor != null; cursor = cursor.getNext()) {
+            if (cursor instanceof LabelNode label) return label;
+            if (cursor instanceof JumpInsnNode jump) return jump.label;
+            if (cursor.getOpcode() >= 0) break;
+        }
         return null;
     }
 
