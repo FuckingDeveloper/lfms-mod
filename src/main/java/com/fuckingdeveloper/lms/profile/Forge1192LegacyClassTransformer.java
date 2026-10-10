@@ -1413,6 +1413,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // would force the managed loader to resolve a removed framework class.
         if (value.equals("net/minecraftforge/common/MinecraftForge"))
             return "net/neoforged/neoforge/common/NeoForge";
+        // Forge 1.19.2's common player tick event became a base event in
+        // NeoForge; the target event family dispatches Pre/Post subclasses.
+        if (value.equals("net/minecraftforge/event/TickEvent$PlayerTickEvent"))
+            return "net/neoforged/neoforge/event/tick/PlayerTickEvent";
         // IForgeRegistry was removed. Keep only a verifier-visible LMS facade;
         // all executable registry operations are redirected to
         // Forge1192RegistrationContext by semantic adapters below.
