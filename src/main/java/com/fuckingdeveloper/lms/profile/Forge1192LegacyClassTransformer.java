@@ -39,6 +39,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/model/VillagerModel", "net/minecraft/client/model/npc/VillagerModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieModel", "net/minecraft/client/model/monster/zombie/ZombieModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieVillagerModel", "net/minecraft/client/model/monster/zombie/ZombieVillagerModel"),
+            java.util.Map.entry("net/minecraft/client/gui/screens/SoundOptionsScreen", "net/minecraft/client/gui/screens/options/SoundOptionsScreen"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType", "net/minecraft/client/renderer/rendertype/RenderType"),
             java.util.Map.entry("net/minecraft/world/level/BlockAndTintGetter", "net/minecraft/client/renderer/block/BlockAndTintGetter"),
             java.util.Map.entry("net/minecraft/core/BlockSource", "net/minecraft/core/dispenser/BlockSource"),
@@ -55,7 +56,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "net/minecraft/world/item/equipment/ArmorMaterial"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "net/minecraft/world/item/equipment/ArmorMaterials"),
             java.util.Map.entry("net/minecraft/world/level/GameRules", "net/minecraft/world/level/gamerules/GameRules"),
-            java.util.Map.entry("net/minecraft/world/level/chunk/ChunkStatus", "net/minecraft/world/level/chunk/status/ChunkStatus"));
+            java.util.Map.entry("net/minecraft/world/level/chunk/ChunkStatus", "net/minecraft/world/level/chunk/status/ChunkStatus"),
+            java.util.Map.entry("net/minecraft/world/level/material/MaterialColor", "net/minecraft/world/level/material/MapColor"),
+            java.util.Map.entry("net/minecraft/world/level/material/MaterialColor$Brightness", "net/minecraft/world/level/material/MapColor$Brightness"));
     private static final java.util.Optional<Forge1192SrgRuntimeResolver> SRG_RUNTIME_RESOLVER =
             Forge1192SrgRuntimeResolver.load(java.nio.file.Path.of(System.getProperty("user.dir")));
     private int transformedClasses;
@@ -91,7 +94,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
-        rewrites += rewriteLegacyMetalBlockProperties(node);
+        rewrites += rewriteLegacyMaterialBlockProperties(node);
+        rewrites += rewriteLegacyMaterialColorProperties(node);
         rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
@@ -620,38 +624,123 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     /**
-     * The gameplay Material class was removed. For the verified METAL ->
-     * Properties.of call shape, retain its surviving map-color semantics and
-     * avoid relocating it to the unrelated client sprite Material record.
+     * The gameplay Material class was removed. Translate only the exact
+     * legacy Material field -> Properties.of(Material) shape into a typed
+     * semantic material consumed by the target construction adapter.
      */
-    private static int rewriteLegacyMetalBlockProperties(ClassNode node) {
+    private static int rewriteLegacyMaterialBlockProperties(ClassNode node) {
         int rewrites = 0;
         final String material = "net/minecraft/world/level/material/Material";
         final String properties = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
+        final String bridge = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+        final String legacyMaterial = bridge + "$LegacyMaterial";
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
                         || !call.owner.equals(properties)
-                        || !call.name.equals("m_60939_")
-                        || !call.desc.equals("(L" + material + ";)L" + properties + ";")) continue;
-                var previous = call.getPrevious();
-                if (!(previous instanceof FieldInsnNode field)
-                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
-                        || !field.owner.equals(material)
-                        || !field.desc.equals("L" + material + ";")) continue;
-                String bridge = switch (field.name) {
-                    case "f_76279_" -> "metalBlockProperties";
-                    case "f_76275_" -> "glassBlockProperties";
-                    default -> null;
-                };
-                if (bridge == null) continue;
-                method.instructions.remove(field);
-                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
-                call.name = bridge;
-                call.desc = "()L" + properties + ";";
+                        || !(call.name.equals("m_60939_")
+                            && call.desc.equals("(L" + material + ";)L" + properties + ";")
+                            || call.name.equals("m_60944_")
+                            && call.desc.equals("(L" + material + ";Lnet/minecraft/world/level/material/MaterialColor;)L"
+                                    + properties + ";"))) continue;
+                FieldInsnNode field = call.name.equals("m_60939_")
+                        ? materialField(call.getPrevious(), material, 1)
+                        : materialField(call.getPrevious(), material, 8);
+                if (field == null) continue;
+                String materialKind = legacyMaterialKind(field.name);
+                if (materialKind == null) continue;
+                field.owner = legacyMaterial;
+                field.name = materialKind;
+                field.desc = "L" + legacyMaterial + ";";
+                call.owner = bridge;
+                call.name = "legacyMaterialProperties";
+                call.desc = call.desc.startsWith("(L" + material + ";L")
+                        ? "(L" + legacyMaterial + ";Lnet/minecraft/world/level/material/MaterialColor;)L"
+                            + properties + ";"
+                        : "(L" + legacyMaterial + ";)L" + properties + ";";
                 call.itf = false;
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static FieldInsnNode materialField(
+            org.objectweb.asm.tree.AbstractInsnNode start, String owner, int maxRealInstructions) {
+        FieldInsnNode match = null;
+        int inspected = 0;
+        for (var cursor = start; cursor != null && inspected < maxRealInstructions; cursor = cursor.getPrevious()) {
+            if (cursor.getOpcode() < 0) continue;
+            inspected++;
+            if (cursor instanceof FieldInsnNode field
+                    && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                    && field.owner.equals(owner)
+                    && field.desc.equals("L" + owner + ";")) {
+                if (match != null) return null;
+                match = field;
+            }
+        }
+        return match;
+    }
+
+    private static String legacyMaterialKind(String fieldName) {
+        return switch (fieldName) {
+            case "f_76296_" -> "AIR";
+            case "f_76299_" -> "CLOTH_DECORATION";
+            case "f_76300_" -> "PLANT";
+            case "f_76310_" -> "DECORATION";
+            case "f_76272_" -> "WOOL";
+            case "f_76273_" -> "EXPLOSIVE";
+            case "f_76275_" -> "GLASS";
+            case "f_76278_" -> "STONE";
+            case "f_76279_" -> "METAL";
+            case "f_76283_" -> "PISTON";
+            case "f_76287_" -> "CAKE";
+            case "f_76317_" -> "SAND";
+            case "f_76320_" -> "WOOD";
+            default -> null;
+        };
+    }
+
+    /**
+     * MaterialColor was replaced by MapColor. Adapt source static constants
+     * only when the same Mojang field identity exists on that explicit target
+     * replacement, plus the exact legacy Properties.color invocation. Keeping
+     * the two proofs independent also covers ordinary control-flow joins where
+     * several constants feed one color call.
+     */
+    private static int rewriteLegacyMaterialColorProperties(ClassNode node) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
+        int rewrites = 0;
+        final String sourceColor = "net/minecraft/world/level/material/MaterialColor";
+        final String targetColor = "net/minecraft/world/level/material/MapColor";
+        final String properties = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
+        final String sourceDescriptor = "L" + sourceColor + ";";
+        final String targetDescriptor = "L" + targetColor + ";";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals(sourceColor)
+                        && field.desc.equals(sourceDescriptor)) {
+                    var resolved = SRG_RUNTIME_RESOLVER.get().resolveRelocatedField(
+                            sourceColor, field.name, sourceDescriptor, targetColor, targetDescriptor);
+                    if (resolved.resolved()) {
+                        field.owner = resolved.owner();
+                        field.name = resolved.name();
+                        field.desc = resolved.descriptor();
+                        rewrites++;
+                    }
+                } else if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals(properties)
+                        && call.name.equals("m_155949_")
+                        && call.desc.equals("(" + sourceDescriptor + ")L" + properties + ";")) {
+                    call.name = "mapColor";
+                    call.desc = "(" + targetDescriptor + ")L" + properties + ";";
+                    rewrites++;
+                }
             }
         }
         return rewrites;

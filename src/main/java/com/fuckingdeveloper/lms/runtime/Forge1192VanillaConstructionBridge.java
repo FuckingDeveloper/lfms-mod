@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
@@ -53,14 +54,65 @@ public final class Forge1192VanillaConstructionBridge {
 
     private Forge1192VanillaConstructionBridge() {}
 
-    /** Preserves the surviving color semantics of Properties.of(Material.METAL). */
-    public static BlockBehaviour.Properties metalBlockProperties() {
-        return BlockBehaviour.Properties.of().mapColor(MapColor.METAL);
+    /** Source Material semantics consumed by the Minecraft 26.3 properties adapter. */
+    public enum LegacyMaterial {
+        AIR(MapColor.NONE, false, false, false, false, true, false, PushReaction.PUSH_PULL),
+        CLOTH_DECORATION(MapColor.WOOL, false, false, false, true, false, false, PushReaction.POPPED),
+        PLANT(MapColor.PLANT, false, false, false, false, false, false, PushReaction.POPPED),
+        DECORATION(MapColor.NONE, false, false, false, false, false, false, PushReaction.POPPED),
+        WOOL(MapColor.WOOL, false, true, true, true, false, true, PushReaction.PUSH_PULL),
+        EXPLOSIVE(MapColor.FIRE, false, true, true, true, false, false, PushReaction.PUSH_PULL),
+        GLASS(MapColor.NONE, false, true, true, false, false, false, PushReaction.PUSH_PULL),
+        STONE(MapColor.STONE, false, true, true, false, false, true, PushReaction.PUSH_PULL),
+        METAL(MapColor.METAL, false, true, true, false, false, true, PushReaction.PUSH_PULL),
+        PISTON(MapColor.STONE, false, true, true, false, false, true, PushReaction.IMMOVEABLE),
+        CAKE(MapColor.NONE, false, true, true, false, false, true, PushReaction.POPPED),
+        SAND(MapColor.SAND, false, true, true, false, false, true, PushReaction.PUSH_PULL),
+        WOOD(MapColor.WOOD, false, true, true, true, false, true, PushReaction.PUSH_PULL);
+
+        private final MapColor color;
+        private final boolean liquid;
+        private final boolean solid;
+        private final boolean blocksMotion;
+        private final boolean flammable;
+        private final boolean replaceable;
+        private final boolean solidBlocking;
+        private final PushReaction pushReaction;
+
+        LegacyMaterial(MapColor color, boolean liquid, boolean solid, boolean blocksMotion,
+                       boolean flammable, boolean replaceable, boolean solidBlocking,
+                       PushReaction pushReaction) {
+            this.color = color;
+            this.liquid = liquid;
+            this.solid = solid;
+            this.blocksMotion = blocksMotion;
+            this.flammable = flammable;
+            this.replaceable = replaceable;
+            this.solidBlocking = solidBlocking;
+            this.pushReaction = pushReaction;
+        }
     }
 
-    /** Preserves the surviving color/solid semantics of Properties.of(Material.GLASS). */
-    public static BlockBehaviour.Properties glassBlockProperties() {
-        return BlockBehaviour.Properties.of().mapColor(MapColor.NONE);
+    /** Preserve the source Material contribution to BlockBehaviour.Properties. */
+    public static BlockBehaviour.Properties legacyMaterialProperties(LegacyMaterial material) {
+        return legacyMaterialProperties(material, material.color);
+    }
+
+    /** Preserve an explicit source map-color override in Properties.of. */
+    public static BlockBehaviour.Properties legacyMaterialProperties(
+            LegacyMaterial material, MapColor color) {
+        BlockBehaviour.Properties properties = BlockBehaviour.Properties.of()
+                .mapColor(color)
+                .pushReaction(material.pushReaction)
+                .isRedstoneConductor((state, level, pos) -> material.blocksMotion
+                        && state.isCollisionShapeFullBlock(level, pos))
+                .isSuffocating((state, level, pos) -> material.solidBlocking
+                        && state.isCollisionShapeFullBlock(level, pos));
+        properties = material.solid ? properties.forceSolidOn() : properties.forceSolidOff();
+        if (material.liquid) properties = properties.liquid();
+        if (material.flammable) properties = properties.ignitedByLava();
+        if (material.replaceable) properties = properties.replaceable();
+        return properties;
     }
 
     /** Attach the legacy block name before the modern Block constructor reads it. */

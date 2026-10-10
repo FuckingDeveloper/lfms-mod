@@ -107,6 +107,52 @@ public final class Forge1192SrgRuntimeResolver {
                 "Verified SRG -> Mojang named -> target runtime field identity");
     }
 
+    /**
+     * Resolve a source SRG field by Mojang identity when the containing class
+     * has an explicit, independently verified target replacement. This keeps
+     * class relocation policy outside the mapping resolver while still
+     * requiring exact owner, member and descriptor evidence at both ends.
+     */
+    public FieldResolution resolveRelocatedField(
+            String sourceOwner, String srgName, String sourceDescriptor,
+            String targetOwner, String targetDescriptor) {
+        if (!sourceOwner.startsWith("net/minecraft/") || !srgName.startsWith("f_")) {
+            return new FieldResolution(sourceOwner, srgName, sourceDescriptor, false,
+                    "Not a vanilla SRG field");
+        }
+        String namedOwner = sourceOwner.replace('/', '.');
+        var obfuscatedOwner = mojmap.obfuscatedClass(namedOwner);
+        if (obfuscatedOwner.isEmpty()) {
+            return new FieldResolution(sourceOwner, srgName, sourceDescriptor, false,
+                    "Legacy owner absent from Mojang mappings");
+        }
+        var srgFields = srg.findFieldsBySrgName(srgName).stream()
+                .filter(field -> !field.owners().isEmpty()
+                        && field.owners().getFirst().equals(obfuscatedOwner.get()))
+                .toList();
+        if (srgFields.size() != 1 || srgFields.getFirst().names().isEmpty()) {
+            return new FieldResolution(sourceOwner, srgName, sourceDescriptor, false,
+                    "SRG field identity missing or ambiguous");
+        }
+        var namedFields = mojmap.findFieldByObfuscated(
+                obfuscatedOwner.get(), srgFields.getFirst().names().getFirst());
+        if (namedFields.size() != 1) {
+            return new FieldResolution(sourceOwner, srgName, sourceDescriptor, false,
+                    "Mojang field identity missing or ambiguous");
+        }
+        String canonicalName = namedFields.getFirst().namedName();
+        var targetFields = target.searchExactField(
+                targetOwner.replace('/', '.'), canonicalName, targetDescriptor);
+        if (targetFields.size() != 1) {
+            return new FieldResolution(sourceOwner, srgName, sourceDescriptor, false,
+                    "Canonical relocated field absent or ambiguous in target runtime");
+        }
+        var field = targetFields.getFirst();
+        return new FieldResolution(field.owner().replace('.', '/'), field.name(),
+                field.descriptor(), true,
+                "Verified SRG -> Mojang named -> explicit relocated target field identity");
+    }
+
     private static boolean parametersMatch(String parameters, String descriptor) {
         Type[] args = Type.getArgumentTypes(descriptor);
         if (parameters.isBlank()) return args.length == 0;
