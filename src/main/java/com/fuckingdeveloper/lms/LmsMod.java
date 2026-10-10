@@ -10,6 +10,7 @@ import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
 import com.fuckingdeveloper.lms.runtime.Forge1192LifecyclePlanner;
 import com.fuckingdeveloper.lms.runtime.Forge1192EntrypointInspector;
 import com.fuckingdeveloper.lms.runtime.Forge1192RegistrationPlanner;
+import com.fuckingdeveloper.lms.runtime.Forge1192RuntimeSession;
 import com.fuckingdeveloper.lms.runtime.Forge1192CompatibilitySurface;
 import com.fuckingdeveloper.lms.runtime.Forge1192NeoForgeApiVerifier;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
@@ -20,6 +21,8 @@ import com.fuckingdeveloper.lms.transform.TransformationSpecPlanner;
 import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.registries.RegisterEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,9 +35,10 @@ import java.util.List;
 public final class LmsMod {
     public static final String MOD_ID = "lms";
     private static final Logger LOG = LoggerFactory.getLogger(LmsMod.class);
+    private final java.util.List<Forge1192RuntimeSession> runtimeSessions = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public LmsMod() {
-        // Discovery-only milestone: never load or transform arbitrary legacy classes.
+        NeoForge.EVENT_BUS.addListener(this::onRegisterEvent);
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {
             Files.createDirectories(directory);
@@ -60,23 +64,22 @@ public final class LmsMod {
                         // become attributable compatibility evidence rather than accidental execution.
                         ClassLoader targetLoader = Thread.currentThread().getContextClassLoader();
                         if (targetLoader == null) targetLoader = LmsMod.class.getClassLoader();
-                        var managedTransformer = new Forge1192LegacyClassTransformer();
-                        try (var legacyLoader = new ManagedLegacyClassLoader(
-                                mod.file(), targetLoader, managedTransformer)) {
-                            for (String candidate : report.modAnnotationCandidates()) {
-                                try {
-                                    Class<?> linked = legacyLoader.linkOwnedClass(candidate);
-                                    LOG.info("LMS classlink id={} class={} status=LINKED initialized=false loader={}",
-                                            mod.modId(), candidate, linked.getClassLoader().getClass().getSimpleName());
-                                } catch (LinkageError | ClassNotFoundException e) {
-                                    LOG.info("LMS classlink id={} class={} status=BLOCKED initialized=false error={} message={}",
-                                            mod.modId(), candidate, e.getClass().getName(), e.getMessage());
-                                }
+                        var runtimeSession = new Forge1192RuntimeSession(
+                                mod.modId(), mod.file(), targetLoader, report.modAnnotationCandidates());
+                        runtimeSessions.add(runtimeSession);
+                        var managedTransformer = runtimeSession.transformer();
+                        for (String candidate : report.modAnnotationCandidates()) {
+                            try {
+                                LOG.info("LMS classlink id={} class={} status=LINKED initialized=false loader=ManagedLegacyClassLoader",
+                                        mod.modId(), candidate);
+                            } catch (RuntimeException e) {
+                                LOG.info("LMS classlink id={} class={} status=BLOCKED initialized=false error={} message={}",
+                                        mod.modId(), candidate, e.getClass().getName(), e.getMessage());
                             }
-                            LOG.info("LMS managed-transform id={} transformedClasses={} namespaceRewrites={}",
-                                    mod.modId(), managedTransformer.transformedClasses(),
-                                    managedTransformer.totalRewrites());
                         }
+                        LOG.info("LMS managed-transform id={} transformedClasses={} namespaceRewrites={}",
+                                mod.modId(), managedTransformer.transformedClasses(),
+                                managedTransformer.totalRewrites());
                         var lifecyclePlanner = new Forge1192LifecyclePlanner();
                         boolean lifecyclePlanReady = !report.modAnnotationCandidates().isEmpty();
                         for (String candidate : report.modAnnotationCandidates()) {
@@ -252,6 +255,16 @@ public final class LmsMod {
             }
         } catch (IOException e) {
             LOG.error("LMS legacy discovery failed for {}", directory, e);
+        }
+    }
+
+    private void onRegisterEvent(RegisterEvent event) {
+        for (var session : runtimeSessions) {
+            try {
+                session.onRegister(event);
+            } catch (Exception e) {
+                LOG.error("LMS registration dispatch failed id={} registry={}", session.modId(), event.getRegistryKey(), e);
+            }
         }
     }
 
