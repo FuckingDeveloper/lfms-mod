@@ -132,6 +132,49 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Removed Forge 1.19.2 static lifecycle contexts are represented by
+                // scoped LMS tokens. Instance calls consume and validate those tokens.
+                if (call.owner.equals("net/neoforged/fml/javafmlmod/FMLJavaModLoadingContext")
+                        && call.name.equals("get")
+                        && call.desc.equals("()Lnet/neoforged/fml/javafmlmod/FMLJavaModLoadingContext;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
+                    call.name = "getJavaModLoadingContext";
+                    call.desc = "()Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/fml/javafmlmod/FMLJavaModLoadingContext")
+                        && call.name.equals("getModEventBus")
+                        && call.desc.equals("()Lnet/neoforged/bus/api/IEventBus;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
+                    call.name = "getModEventBus";
+                    call.desc = "(Ljava/lang/Object;)Lnet/neoforged/bus/api/IEventBus;";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/fml/ModLoadingContext")
+                        && call.name.equals("get")
+                        && call.desc.equals("()Lnet/neoforged/fml/ModLoadingContext;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
+                    call.name = "getModLoadingContext";
+                    call.desc = "()Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/fml/ModLoadingContext")
+                        && call.name.equals("getActiveNamespace")
+                        && call.desc.equals("()Ljava/lang/String;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
+                    call.name = "getActiveNamespace";
+                    call.desc = "(Ljava/lang/Object;)Ljava/lang/String;";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // RegisterEvent no longer exposes Forge 1.19.2's
                 // IForgeRegistry facade. Preserve the registry key directly;
                 // mutable registry operations are handled by scoped adapters.
