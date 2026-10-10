@@ -28,6 +28,7 @@ public final class LegacyMigrationPreflight {
             } else if (target.equals("net/minecraft/world/item/ArmorItem")
                     || target.equals("net/minecraft/client/resources/model/BakedModel")
                     || target.equals("net/minecraft/world/item/Tier")
+                    || target.equals("net/minecraft/world/item/AxeItem")
                     || target.equals("net/minecraftforge/common/IPlantable")
                     || target.equals("net/minecraftforge/common/PlantType")
                     || target.equals("net/minecraftforge/energy/IEnergyStorage")

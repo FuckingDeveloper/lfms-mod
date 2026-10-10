@@ -48,6 +48,13 @@ public final class Forge1192VanillaConstructionBridge {
         }
     }
 
+    /** Attach an explicitly named legacy item's modern registry key. */
+    public static Item.Properties withItemId(Item.Properties properties, String legacyName) {
+        return properties.setId(ResourceKey.create(
+                Registries.ITEM,
+                Forge1192RegistrationContext.checkPrefix(legacyName, false)));
+    }
+
     /**
      * 1.19.2 exposed BlockEntityType(supplier, validBlocks, dataFixerType).
      * The public builder is the surviving construction contract. The legacy

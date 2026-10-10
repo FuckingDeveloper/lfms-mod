@@ -68,6 +68,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
+        rewrites += rewriteLegacyNamedAxeConstruction(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -686,6 +687,37 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                         "withBlockItemId",
                         "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item$Properties;)"
+                                + "Lnet/minecraft/world/item/Item$Properties;", false));
+                method.instructions.insertBefore(call, adaptation);
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Attach AxeTool's explicit legacy name before its replacement Item superclass runs. */
+    private static int rewriteLegacyNamedAxeConstruction(ClassNode node) {
+        if (!node.name.equals("ic2/core/item/tool/simple/AxeTool")) return 0;
+        final String owner = "net/minecraft/world/item/AxeItem";
+        final String desc = "(Lnet/minecraft/world/item/Tier;FFLnet/minecraft/world/item/Item$Properties;)V";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if (!method.name.equals("<init>")) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals(desc)) continue;
+                int propertiesLocal = method.maxLocals++;
+                var adaptation = new org.objectweb.asm.tree.InsnList();
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
+                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "withItemId",
+                        "(Lnet/minecraft/world/item/Item$Properties;Ljava/lang/String;)"
                                 + "Lnet/minecraft/world/item/Item$Properties;", false));
                 method.instructions.insertBefore(call, adaptation);
                 rewrites++;
@@ -2155,6 +2187,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage";
         if (value.equals("net/minecraft/world/item/Tier"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyTier";
+        if (value.equals("net/minecraft/world/item/AxeItem"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyAxeItem";
         if (value.equals("net/minecraftforge/common/extensions/IForgeBlock"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock";
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
@@ -2237,6 +2271,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/common/PlantType", "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType")
                 .replace("net/minecraftforge/energy/IEnergyStorage", "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage")
                 .replace("net/minecraft/world/item/Tier", "com/fuckingdeveloper/lms/runtime/item/LegacyTier")
+                .replace("net/minecraft/world/item/AxeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyAxeItem")
                 .replace("net/minecraftforge/common/extensions/IForgeBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")
