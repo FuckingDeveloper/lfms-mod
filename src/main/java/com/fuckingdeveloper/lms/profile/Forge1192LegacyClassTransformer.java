@@ -751,8 +751,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * superclass constructor runs. Adapt only constructors whose own bytecode
      * proves which String parameter becomes the legacy registry name.
      */
-    private static int rewriteLegacyNamedBlockConstruction(ClassNode node) {
+    private int rewriteLegacyNamedBlockConstruction(ClassNode node) {
         final String properties = "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+        if (!isManagedSubtypeOf(node, "net/minecraft/world/level/block/Block")) return 0;
         int rewrites = 0;
         for (var method : node.methods) {
             if (!method.name.equals("<init>")) continue;
@@ -761,8 +762,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
-                        || !(call.owner.equals("net/minecraft/world/level/block/Block")
-                            || call.owner.equals("net/minecraft/world/level/block/BaseEntityBlock"))
+                        || !call.owner.equals(node.superName)
                         || !call.name.equals("<init>")
                         || !call.desc.equals("(" + properties + ")V")) continue;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
