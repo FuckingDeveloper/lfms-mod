@@ -22,6 +22,7 @@ import com.fuckingdeveloper.lms.transform.TransformationSpecPlanner;
 import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import org.slf4j.Logger;
@@ -39,7 +40,7 @@ public final class LmsMod {
     private static final String MEMBER_PLANNER_FINGERPRINT = "2026-10-10-member-v2";
     private final java.util.List<Forge1192RuntimeSession> runtimeSessions = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-    public LmsMod(IEventBus modBus) {
+    public LmsMod(IEventBus modBus, ModContainer hostContainer) {
         modBus.addListener(this::onPayloadRegistration);
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {
@@ -106,7 +107,7 @@ public final class LmsMod {
                                     mod.modId(), mod.file().getFileName(), e.getClass().getName(), e.getMessage());
                             continue;
                         }
-                        runtimeSession.bindModEventBus(modBus);
+                        runtimeSession.bindModEventBus(modBus, hostContainer);
                         runtimeSessions.add(runtimeSession);
                         LOG.info("LMS runtime-session id={} modEventBusBound=true state={}",
                                 mod.modId(), runtimeSession.state());
