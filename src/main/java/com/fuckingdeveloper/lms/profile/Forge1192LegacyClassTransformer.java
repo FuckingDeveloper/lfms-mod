@@ -165,6 +165,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
                 if (call.owner.equals("net/neoforged/fml/ModLoadingContext")
+                        && call.name.equals("getActiveContainer")
+                        && call.desc.equals("()Lnet/neoforged/fml/ModContainer;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
+                    call.name = "getActiveContainer";
+                    call.desc = "(Ljava/lang/Object;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/fml/ModLoadingContext")
+                        && call.name.equals("setActiveContainer")
+                        && call.desc.equals("(Lnet/neoforged/fml/ModContainer;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
+                    call.name = "setActiveContainer";
+                    call.desc = "(Ljava/lang/Object;Ljava/lang/Object;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/fml/ModLoadingContext")
                         && call.name.equals("getActiveNamespace")
                         && call.desc.equals("()Ljava/lang/String;")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
