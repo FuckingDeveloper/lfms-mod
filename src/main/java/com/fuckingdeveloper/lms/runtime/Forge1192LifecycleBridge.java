@@ -2,7 +2,6 @@ package com.fuckingdeveloper.lms.runtime;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.ModList;
 
 import java.util.Objects;
 
@@ -26,8 +25,7 @@ public final class Forge1192LifecycleBridge {
 
     public static AutoCloseable enter(String modId, IEventBus modEventBus) {
         if (CURRENT.get() != null) throw new IllegalStateException("Nested legacy lifecycle scopes are not supported");
-        ModContainer targetContainer = ModList.get().getModContainerById(modId).orElse(null);
-        Context context = new Context(modId, modEventBus, new LegacyContainer(modId, targetContainer));
+        Context context = new Context(modId, modEventBus, new LegacyContainer(modId));
         Thread owner = Thread.currentThread();
         CURRENT.set(context);
         return () -> {
@@ -60,7 +58,11 @@ public final class Forge1192LifecycleBridge {
     public static ModContainer getActiveContainer(Object token) {
         Context context = requireActive();
         if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
-        return context.container().active();
+        Object active = context.container().active();
+        if (active == null) return null;
+        if (!(active instanceof ModContainer container))
+            throw new IllegalStateException("Legacy active container is not a target ModContainer: " + active.getClass().getName());
+        return container;
     }
 
     public static void setActiveContainer(Object token, Object container) {
@@ -77,15 +79,13 @@ public final class Forge1192LifecycleBridge {
     /** Per-artifact legacy active-container slot; never exposes LMS's own container. */
     public static final class LegacyContainer {
         private final String modId;
-        private ModContainer active;
-        private LegacyContainer(String modId, ModContainer active) { this.modId = modId; this.active = active; }
+        private Object active;
+        private LegacyContainer(String modId) { this.modId = modId; this.active = this; }
         public String modId() { return modId; }
-        private ModContainer active() { return active; }
+        private Object active() { return active; }
         private void setActive(Object value) {
-            if (value == null) { active = null; return; }
-            if (!(value instanceof ModContainer container))
-                throw new IllegalArgumentException("legacy active container is not a target ModContainer: " + value.getClass().getName());
-            active = container;
+            if (value == null) throw new NullPointerException("legacy active container");
+            active = value;
         }
     }
 }
