@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms.runtime;
 
 import com.fuckingdeveloper.lms.runtime.registry.LegacyRegistryObject;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 /**
  * Compatibility boundary for Forge 1.19.2 built-in registry bootstrap requests.
@@ -20,11 +21,30 @@ public final class Forge1192BuiltinRegistryBridge {
         return LegacyRegistryObject.builtin("minecraft", "milk");
     }
 
+    public static LegacyRegistryObject reachDistance() {
+        return LegacyRegistryObject.builtin("minecraft", "block_interaction_range");
+    }
+
+    public static LegacyRegistryObject attackRange() {
+        return LegacyRegistryObject.builtin("minecraft", "entity_interaction_range");
+    }
+
+    public static LegacyRegistryObject entityGravity() {
+        return LegacyRegistryObject.builtin("minecraft", "gravity");
+    }
+
     public static Object get(LegacyRegistryObject builtin) {
         if (builtin == null)
             throw new IllegalArgumentException("Unsupported null legacy builtin registry handle");
-        // Resolution is intentionally deferred until the target registry identity
-        // is proven for this Minecraft/NeoForge version.
+        if (builtin.namespace().equals("minecraft")) {
+            return switch (builtin.path()) {
+                case "block_interaction_range" -> Attributes.BLOCK_INTERACTION_RANGE.value();
+                case "entity_interaction_range" -> Attributes.ENTITY_INTERACTION_RANGE.value();
+                case "gravity" -> Attributes.GRAVITY.value();
+                default -> throw new IllegalStateException("UNRESOLVED_BUILTIN_REGISTRY_VALUE "
+                        + builtin.namespace() + ":" + builtin.path());
+            };
+        }
         throw new IllegalStateException("UNRESOLVED_BUILTIN_REGISTRY_VALUE "
                 + builtin.namespace() + ":" + builtin.path());
     }

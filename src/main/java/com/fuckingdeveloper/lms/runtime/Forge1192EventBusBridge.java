@@ -4,6 +4,16 @@ import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CookingFuel;
+import net.minecraft.world.level.storage.loot.providers.number.floats.ResolvableFloat;
+import net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt;
 
 import java.util.function.Consumer;
 
@@ -27,14 +37,14 @@ public final class Forge1192EventBusBridge {
     public static <T extends Event> void addListener(IEventBus bus, Consumer<T> listener,
                                                      Class<T> eventType) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        bus.addListener(net.neoforged.bus.api.EventPriority.NORMAL, false, eventType,
+        registerListener(bus, net.neoforged.bus.api.EventPriority.NORMAL, eventType,
                 event -> invokeScoped(modId, listener, event));
     }
 
     public static <T extends Event> void addListener(IEventBus bus, net.neoforged.bus.api.EventPriority priority,
                                                      Consumer<T> listener, Class<T> eventType) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        bus.addListener(priority, false, eventType,
+        registerListener(bus, priority, eventType,
                 event -> invokeScoped(modId, listener, event));
     }
 
@@ -68,8 +78,59 @@ public final class Forge1192EventBusBridge {
             Class<? extends Event> eventType = method.getParameterTypes()[0].asSubclass(Event.class);
             method.setAccessible(true);
             Consumer listener = event -> invokeScoped(modId, ignored -> invokeSubscriber(subscriber, method, ignored), (Event) event);
-            bus.addListener(annotation.priority(), false, eventType, listener);
+            registerListener(bus, annotation.priority(), eventType, listener);
         }
+    }
+
+    /**
+     * Forge 1.19.2 represented tick phase as data on one concrete event class.
+     * NeoForge represents the same two dispatch points as Pre/Post subclasses
+     * and rejects listeners registered on the abstract base. Fan out the one
+     * legacy listener so it still observes both phases exactly once.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static <T extends Event> void registerListener(
+            IEventBus bus, net.neoforged.bus.api.EventPriority priority,
+            Class<T> eventType, Consumer<T> listener) {
+        if (eventType == LegacyFurnaceFuelBurnTimeEvent.class) {
+            IEventBus modBus = Forge1192LifecycleBridge.requireActive().modEventBus();
+            modBus.addListener(priority, false, ModifyDefaultComponentsEvent.class,
+                    event -> registerLegacyFuelComponents(event, (Consumer) listener));
+            return;
+        }
+        for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
+            bus.addListener(priority, false, (Class) concreteType, (Consumer) listener);
+        }
+    }
+
+    private static void registerLegacyFuelComponents(
+            ModifyDefaultComponentsEvent event,
+            Consumer<LegacyFurnaceFuelBurnTimeEvent> listener) {
+        event.modifyMatching((item, components) -> true, (components, lookup, item) -> {
+            CookingFuel existing = components.get(DataComponents.COOKING_FUEL);
+            int initial = existing != null && existing.burnTime() instanceof ResolvableInt.Constant constant
+                    ? constant.value() : 0;
+            LegacyFurnaceFuelBurnTimeEvent legacy =
+                    new LegacyFurnaceFuelBurnTimeEvent(new ItemStack(item), initial);
+            listener.accept(legacy);
+            if (!legacy.overridden()) return;
+            ResolvableFloat speed = existing == null
+                    ? new ResolvableFloat.Constant(1.0F) : existing.speedMultiplier();
+            components.set(DataComponents.COOKING_FUEL,
+                    new CookingFuel(new ResolvableInt.Constant(legacy.getBurnTime()), speed));
+        });
+    }
+
+    private static List<Class<? extends Event>> concreteEventTypes(Class<? extends Event> eventType) {
+        if (eventType == ServerTickEvent.class)
+            return List.of(ServerTickEvent.Pre.class, ServerTickEvent.Post.class);
+        if (eventType == LevelTickEvent.class)
+            return List.of(LevelTickEvent.Pre.class, LevelTickEvent.Post.class);
+        if (eventType == PlayerTickEvent.class)
+            return List.of(PlayerTickEvent.Pre.class, PlayerTickEvent.Post.class);
+        if (eventType == ClientTickEvent.class)
+            return List.of(ClientTickEvent.Pre.class, ClientTickEvent.Post.class);
+        return List.of(eventType);
     }
 
     private static void invokeSubscriber(Object subscriber, Method method, Event event) {

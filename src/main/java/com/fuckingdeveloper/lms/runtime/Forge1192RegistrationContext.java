@@ -119,6 +119,14 @@ public final class Forge1192RegistrationContext {
         return (Registry<Object>) (Registry) scope.event().getRegistry();
     }
 
+    /** Return the active event registry only when it represents {@code key}. */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    static Registry<?> activeRegistry(ResourceKey<? extends Registry<?>> key) {
+        RegisterEvent event = CURRENT_EVENT.get();
+        if (event == null || !event.getRegistryKey().equals(key)) return null;
+        return (Registry) event.getRegistry();
+    }
+
     /**
      * Stack-compatible replacement for legacy RegisterEvent#getForgeRegistry.
      * Consumer calls are rewritten to static LMS operations, so the concrete
@@ -133,32 +141,40 @@ public final class Forge1192RegistrationContext {
     }
 
     private static void requireActiveRegistryToken(Object token) {
-        Objects.requireNonNull(token, "legacy registry receiver");
-        if (token != activeRegistry()) {
-            throw new IllegalStateException("Legacy registry receiver does not match the active RegisterEvent registry");
+        Registry<Object> registry = requireRegistryToken(token);
+        Registry<Object> active = activeRegistry();
+        if (!registry.key().equals(active.key())) {
+            throw new IllegalStateException("Legacy registry receiver " + registry.key().identifier()
+                    + " does not match active RegisterEvent registry " + active.key().identifier());
         }
     }
 
-    public static boolean containsKey(Object ignoredRegistry, Identifier name) {
-        requireActiveRegistryToken(ignoredRegistry);
-        Objects.requireNonNull(name, "name");
-        return activeRegistry().containsKey(name);
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Registry<Object> requireRegistryToken(Object token) {
+        Objects.requireNonNull(token, "legacy registry receiver");
+        if (!(token instanceof Registry registry)) {
+            throw new IllegalStateException("Legacy registry receiver is not a target Registry: "
+                    + token.getClass().getName());
+        }
+        return (Registry<Object>) registry;
     }
 
-    public static Object getValue(Object ignoredRegistry, Identifier name) {
-        requireActiveRegistryToken(ignoredRegistry);
+    public static boolean containsKey(Object registryToken, Identifier name) {
         Objects.requireNonNull(name, "name");
-        return activeRegistry().getValue(name);
+        return requireRegistryToken(registryToken).containsKey(name);
     }
 
-    public static Identifier getKey(Object ignoredRegistry, Object value) {
-        requireActiveRegistryToken(ignoredRegistry);
+    public static Object getValue(Object registryToken, Identifier name) {
+        Objects.requireNonNull(name, "name");
+        return requireRegistryToken(registryToken).getValue(name);
+    }
+
+    public static Identifier getKey(Object registryToken, Object value) {
         Objects.requireNonNull(value, "value");
-        return activeRegistry().getKey(value);
+        return requireRegistryToken(registryToken).getKey(value);
     }
 
-    public static Iterator<Object> iterator(Object ignoredRegistry) {
-        requireActiveRegistryToken(ignoredRegistry);
-        return activeRegistry().iterator();
+    public static Iterator<Object> iterator(Object registryToken) {
+        return requireRegistryToken(registryToken).iterator();
     }
 }

@@ -63,9 +63,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
+        rewrites += rewriteLegacyVanillaRegistryFields(node);
         rewrites += rewriteLegacyForgeBuiltinFields(node);
+        rewrites += rewriteLegacyForgeRegistries(node);
         rewrites += rewriteLegacyForgeRegistryKeys(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
+        rewrites += rewriteLegacyTickEventFields(node);
+        rewrites += rewriteLegacySpawnCheckSemantics(node);
         rewrites += rewriteLegacyIdentifierConstruction(node);
         rewrites += rewriteLegacyBlockEntityTypeConstruction(node);
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
@@ -561,10 +565,147 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             false);
                     method.instructions.set(field, replacement);
                     rewrites++;
+                } else if (field.desc.equals("Lcom/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject;")) {
+                    String bridgeMethod = switch (field.name) {
+                        case "REACH_DISTANCE" -> "reachDistance";
+                        case "ATTACK_RANGE" -> "attackRange";
+                        case "ENTITY_GRAVITY" -> "entityGravity";
+                        default -> null;
+                    };
+                    if (bridgeMethod != null) {
+                        method.instructions.set(field, new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "com/fuckingdeveloper/lms/runtime/Forge1192BuiltinRegistryBridge",
+                                bridgeMethod,
+                                "()Lcom/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject;",
+                                false));
+                        rewrites++;
+                    }
                 }
             }
         }
         return rewrites;
+    }
+
+    /** Registry static fields moved to BuiltInRegistries after 1.19.2. */
+    private static int rewriteLegacyVanillaRegistryFields(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/core/Registry")
+                        && field.name.equals("f_122832_")
+                        && field.desc.equals("Lnet/minecraft/core/Registry;")) {
+                    field.owner = "net/minecraft/core/registries/BuiltInRegistries";
+                    field.name = "CUSTOM_STAT";
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 exposed process-global registry objects through
+     * ForgeRegistries. Current built-in registries are the same concrete
+     * Registry instances under BuiltInRegistries/NeoForgeRegistries. Replace
+     * only fields with a verified process-global target; data-driven registries
+     * deliberately remain migration boundaries because they require a
+     * RegistryAccess rather than a fabricated global facade.
+     */
+    private static int rewriteLegacyForgeRegistries(ClassNode node) {
+        int rewrites = 0;
+        final String legacyOwner = "net/minecraftforge/registries/ForgeRegistries";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (!(insn instanceof FieldInsnNode field)
+                        || !field.owner.equals(legacyOwner)) {
+                    insn = next;
+                    continue;
+                }
+                if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC) {
+                    throw new IllegalStateException("Unsupported ForgeRegistries field write: "
+                            + node.name + "#" + method.name + " " + field.name);
+                }
+
+                if (field.name.equals("FLUID_TYPES")
+                        && field.desc.equals("Ljava/util/function/Supplier;")) {
+                    var supplierGet = nextRealInstruction(field.getNext());
+                    var cast = nextRealInstruction(supplierGet == null ? null : supplierGet.getNext());
+                    if (!(supplierGet instanceof MethodInsnNode get)
+                            || get.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                            || !get.owner.equals("java/util/function/Supplier")
+                            || !get.name.equals("get")
+                            || !get.desc.equals("()Ljava/lang/Object;")
+                            || !(cast instanceof TypeInsnNode type)
+                            || type.getOpcode() != org.objectweb.asm.Opcodes.CHECKCAST
+                            || !type.desc.equals("com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry")) {
+                        throw new IllegalStateException("Unsupported ForgeRegistries.FLUID_TYPES access pattern: "
+                                + node.name + "#" + method.name);
+                    }
+                    field.owner = "net/neoforged/neoforge/registries/NeoForgeRegistries";
+                    field.desc = "Lnet/minecraft/core/Registry;";
+                    next = cast.getNext();
+                    method.instructions.remove(supplierGet);
+                    method.instructions.remove(cast);
+                    rewrites++;
+                    insn = next;
+                    continue;
+                }
+
+                String targetName = switch (field.name) {
+                    case "BLOCKS" -> "BLOCK";
+                    case "BLOCK_ENTITY_TYPES" -> "BLOCK_ENTITY_TYPE";
+                    case "ENTITY_TYPES" -> "ENTITY_TYPE";
+                    case "FLUIDS" -> "FLUID";
+                    case "FOLIAGE_PLACER_TYPES" -> "FOLIAGE_PLACER_TYPE";
+                    case "ITEMS" -> "ITEM";
+                    case "MOB_EFFECTS" -> "MOB_EFFECT";
+                    case "POI_TYPES" -> "POINT_OF_INTEREST_TYPE";
+                    case "RECIPE_SERIALIZERS" -> "RECIPE_SERIALIZER";
+                    case "VILLAGER_PROFESSIONS" -> "VILLAGER_PROFESSION";
+                    default -> null;
+                };
+                if (targetName == null) {
+                    String bridgeMethod = switch (field.name) {
+                        case "ENCHANTMENTS" -> "enchantments";
+                        case "PAINTING_VARIANTS" -> "paintingVariants";
+                        default -> null;
+                    };
+                    if (bridgeMethod != null) {
+                        method.instructions.set(field, new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "com/fuckingdeveloper/lms/runtime/Forge1192DynamicRegistryBridge",
+                                bridgeMethod,
+                                "()Lnet/minecraft/core/Registry;",
+                                false));
+                        rewrites++;
+                        insn = next;
+                        continue;
+                    }
+                    throw new IllegalStateException("Forge 1.19.2 registry has no verified process-global target: "
+                            + node.name + "#" + method.name + " ForgeRegistries." + field.name);
+                }
+                field.owner = "net/minecraft/core/registries/BuiltInRegistries";
+                field.name = targetName;
+                field.desc = switch (targetName) {
+                    case "BLOCK", "ENTITY_TYPE", "FLUID", "ITEM", "VILLAGER_PROFESSION" ->
+                            "Lnet/minecraft/core/DefaultedRegistry;";
+                    default -> "Lnet/minecraft/core/Registry;";
+                };
+                rewrites++;
+                insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    private static org.objectweb.asm.tree.AbstractInsnNode nextRealInstruction(
+            org.objectweb.asm.tree.AbstractInsnNode instruction) {
+        while (instruction != null && instruction.getOpcode() < 0) instruction = instruction.getNext();
+        return instruction;
     }
 
     /**
@@ -684,6 +825,101 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             "()Lnet/neoforged/api/distmarker/Dist;",
                             false);
                     method.instructions.set(field, getter);
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyTickEventFields(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD) {
+                    MethodInsnNode replacement = legacyTickFieldAdapter(field);
+                    if (replacement != null) {
+                        method.instructions.set(field, replacement);
+                        rewrites++;
+                    }
+                }
+                insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    private static MethodInsnNode legacyTickFieldAdapter(FieldInsnNode field) {
+        String bridge = "com/fuckingdeveloper/lms/runtime/Forge1192TickEventBridge";
+        boolean tickOwner = field.owner.equals("net/neoforged/neoforge/event/tick/ServerTickEvent")
+                || field.owner.equals("net/neoforged/neoforge/event/tick/LevelTickEvent")
+                || field.owner.equals("net/neoforged/neoforge/event/tick/PlayerTickEvent")
+                || field.owner.equals("net/neoforged/neoforge/client/event/ClientTickEvent");
+        if (tickOwner && field.name.equals("phase")) {
+            return new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, "phase",
+                    "(Ljava/lang/Object;)Lcom/fuckingdeveloper/lms/runtime/Forge1192TickEventBridge$Phase;",
+                    false);
+        }
+        if (field.owner.equals("net/neoforged/neoforge/event/tick/PlayerTickEvent")) {
+            if (field.name.equals("side")) {
+                return new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, "side",
+                        "(Lnet/neoforged/neoforge/event/tick/PlayerTickEvent;)Lnet/neoforged/fml/LogicalSide;",
+                        false);
+            }
+            if (field.name.equals("player")) {
+                return new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, "player",
+                        "(Lnet/neoforged/neoforge/event/tick/PlayerTickEvent;)Lnet/minecraft/world/entity/player/Player;",
+                        false);
+            }
+        }
+        if (field.owner.equals("net/neoforged/neoforge/event/tick/LevelTickEvent")) {
+            if (field.name.equals("side")) {
+                return new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, "side",
+                        "(Lnet/neoforged/neoforge/event/tick/LevelTickEvent;)Lnet/neoforged/fml/LogicalSide;",
+                        false);
+            }
+            if (field.name.equals("level")) {
+                return new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, "level",
+                        "(Lnet/neoforged/neoforge/event/tick/LevelTickEvent;)Lnet/minecraft/world/level/Level;",
+                        false);
+            }
+        }
+        return null;
+    }
+
+    private static int rewriteLegacySpawnCheckSemantics(ClassNode node) {
+        int rewrites = 0;
+        String eventOwner = "net/neoforged/neoforge/event/entity/living/MobSpawnEvent$PositionCheck";
+        String resultOwner = eventOwner + "$Result";
+        for (var method : node.methods) {
+            boolean hasPositionResult = false;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call && call.owner.equals(eventOwner)
+                        && call.name.equals("setResult")) {
+                    hasPositionResult = true;
+                    break;
+                }
+            }
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call && call.owner.equals(eventOwner)) {
+                    if (call.name.equals("getSpawnReason")
+                            && call.desc.equals("()Lnet/minecraft/world/entity/EntitySpawnReason;")) {
+                        call.name = "getSpawnType";
+                        rewrites++;
+                    } else if (call.name.equals("setResult")
+                            && call.desc.equals("(Lnet/neoforged/bus/api/Event$Result;)V")) {
+                        call.desc = "(L" + resultOwner + ";)V";
+                        rewrites++;
+                    }
+                } else if (hasPositionResult && insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/neoforged/bus/api/Event$Result")
+                        && field.name.equals("DENY")) {
+                    field.owner = resultOwner;
+                    field.name = "FAIL";
+                    field.desc = "L" + resultOwner + ";";
                     rewrites++;
                 }
             }
@@ -825,6 +1061,22 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 insn = next;
+            }
+            // Legacy subclasses invoke the removed three-argument constructor
+            // directly on super and therefore have no NEW/DUP pair to replace.
+            // Discard the obsolete DFU Type value and bind to the verified
+            // 26.3 direct constructor while preserving supplier + valid blocks.
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals(owner)
+                        && call.name.equals("<init>")
+                        && call.desc.equals(legacyDesc)) {
+                    method.instructions.insertBefore(call,
+                            new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.POP));
+                    call.desc = "(Lnet/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier;Ljava/util/Set;)V";
+                    rewrites++;
+                }
             }
         }
         return rewrites;
@@ -1055,6 +1307,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+                if (call.owner.equals("net/neoforged/neoforge/event/entity/living/LivingShieldBlockEvent")
+                        && call.name.equals("setShieldTakesDamage") && call.desc.equals("(Z)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LivingEventBridge";
+                    call.desc = "(Lnet/neoforged/neoforge/event/entity/living/LivingShieldBlockEvent;Z)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+                // DFU renamed the value-preserving Supplier overload while
+                // keeping its Codec return contract unchanged.
+                if (call.owner.equals("com/mojang/serialization/Codec")
+                        && call.name.equals("unit")
+                        && call.desc.equals("(Ljava/util/function/Supplier;)Lcom/mojang/serialization/Codec;")) {
+                    call.owner = "com/mojang/serialization/MapCodec";
+                    call.name = "unitCodec";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/minecraft/core/Registry")
+                        && call.name.equals("m_122965_")
+                        && call.desc.equals("(Lnet/minecraft/core/Registry;Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)Ljava/lang/Object;")) {
+                    call.name = "register";
+                    call.itf = true;
+                    rewrites++;
+                }
                 // RegisterEvent no longer exposes Forge 1.19.2's
                 // IForgeRegistry facade. Preserve the registry key directly;
                 // mutable registry operations are handled by scoped adapters.
@@ -1101,7 +1378,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 // Legacy IForgeRegistry#register is no longer a mutable
                 // registry call. Route it through the active RegisterEvent scope.
-                if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
+                if ((call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
+                        || call.owner.equals("com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry"))
                         && call.name.equals("register")
                         && call.desc.equals("(Ljava/lang/String;Ljava/lang/Object;)V")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
@@ -1110,7 +1388,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
-                if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
+                if ((call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
+                        || call.owner.equals("com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry"))
                         && call.name.equals("register")
                         && call.desc.equals("(Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)V")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
@@ -1485,15 +1764,30 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // would force the managed loader to resolve a removed framework class.
         if (value.equals("net/minecraftforge/common/MinecraftForge"))
             return "net/neoforged/neoforge/common/NeoForge";
-        // Forge 1.19.2's common player tick event became a base event in
-        // NeoForge; the target event family dispatches Pre/Post subclasses.
+        // Forge 1.19.2's phase-bearing tick events became base events whose
+        // concrete Pre/Post subclasses encode the old phase. Field reads are
+        // adapted by Forge1192TickEventBridge after namespace projection.
+        if (value.equals("net/minecraftforge/event/TickEvent$Phase"))
+            return "com/fuckingdeveloper/lms/runtime/Forge1192TickEventBridge$Phase";
         if (value.equals("net/minecraftforge/event/TickEvent$PlayerTickEvent"))
             return "net/neoforged/neoforge/event/tick/PlayerTickEvent";
+        if (value.equals("net/minecraftforge/event/TickEvent$ServerTickEvent"))
+            return "net/neoforged/neoforge/event/tick/ServerTickEvent";
+        if (value.equals("net/minecraftforge/event/TickEvent$LevelTickEvent"))
+            return "net/neoforged/neoforge/event/tick/LevelTickEvent";
+        if (value.equals("net/minecraftforge/event/TickEvent$ClientTickEvent"))
+            return "net/neoforged/neoforge/client/event/ClientTickEvent";
+        if (value.equals("net/minecraftforge/event/furnace/FurnaceFuelBurnTimeEvent"))
+            return "com/fuckingdeveloper/lms/runtime/LegacyFurnaceFuelBurnTimeEvent";
+        if (value.equals("net/minecraftforge/event/entity/living/LivingSpawnEvent$CheckSpawn"))
+            return "net/neoforged/neoforge/event/entity/living/MobSpawnEvent$PositionCheck";
         // LivingAttackEvent was replaced by the early, cancellable incoming
         // damage event. The legacy contract used by 1.19.2 mods (entity,
         // source, amount and cancellation) is preserved by this target.
         if (value.equals("net/minecraftforge/event/entity/living/LivingAttackEvent"))
             return "net/neoforged/neoforge/event/entity/living/LivingIncomingDamageEvent";
+        if (value.equals("net/minecraftforge/event/entity/living/ShieldBlockEvent"))
+            return "net/neoforged/neoforge/event/entity/living/LivingShieldBlockEvent";
         // Common Forge living/player gameplay events retained their semantic
         // event identity under NeoForge. Map only when the exact target class
         // exists; removed/split event families remain explicit migration boundaries.
@@ -1534,6 +1828,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank";
         if (value.equals("net/minecraft/world/item/ArmorItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem";
+        if (value.equals("net/minecraft/world/entity/MobSpawnType"))
+            return "net/minecraft/world/entity/EntitySpawnReason";
         if (value.startsWith("net/minecraftforge/client/model/data/"))
             return value.replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/");
         if (value.equals("net/minecraft/resources/ResourceLocation"))
