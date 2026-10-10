@@ -23,7 +23,7 @@ public final class Forge1192NetworkFlowAnalyzer {
 
     public record SendSite(String callerClass, String callerMethod, String channelOwner,
                            String operation, String descriptor, Direction direction,
-                           String messageTypeHint) {}
+                           String messageTypeHint, String evidence) {}
 
     public List<SendSite> analyze(Path artifact) throws IOException {
         List<SendSite> sites = new ArrayList<>();
@@ -53,7 +53,10 @@ public final class Forge1192NetworkFlowAnalyzer {
                                     Type[] args = Type.getArgumentTypes(targetDesc);
                                     String hint = args.length == 0 ? "" : args[args.length - 1].getClassName();
                                     sites.add(new SendSite(owner.replace('/', '.'), name + descriptor,
-                                            targetOwner.replace('/', '.'), targetName, targetDesc, direction, hint));
+                                            targetOwner.replace('/', '.'), targetName, targetDesc, direction, hint,
+                                            direction == Direction.SERVERBOUND
+                                                    ? "SimpleChannel#sendToServer"
+                                                    : "SimpleChannel#" + targetName + " requires PacketTarget data-flow"));
                                 }
                             };
                         }
