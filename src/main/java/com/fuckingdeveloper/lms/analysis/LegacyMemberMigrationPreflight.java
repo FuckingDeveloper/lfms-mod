@@ -45,21 +45,21 @@ public final class LegacyMemberMigrationPreflight {
                     if (interfaces != null) parents.addAll(Arrays.asList(interfaces));
                 }
                 @Override public MethodVisitor visitMethod(int access, String name, String desc, String sig, String[] ex) {
-                    if (b.kind() == LegacyMemberPreflight.Kind.METHOD && name.equals(b.name())) {
-                        sameName.add(desc); if (desc.equals(b.descriptor())) exact[0] = true;
+                    if (projected.kind() == LegacyMemberPreflight.Kind.METHOD && name.equals(projected.name())) {
+                        sameName.add(desc); if (desc.equals(projected.descriptor())) exact[0] = true;
                     }
                     return null;
                 }
                 @Override public FieldVisitor visitField(int access, String name, String desc, String sig, Object value) {
-                    if (b.kind() == LegacyMemberPreflight.Kind.FIELD && name.equals(b.name())) {
-                        sameName.add(desc); if (desc.equals(b.descriptor())) exact[0] = true;
+                    if (projected.kind() == LegacyMemberPreflight.Kind.FIELD && name.equals(projected.name())) {
+                        sameName.add(desc); if (desc.equals(projected.descriptor())) exact[0] = true;
                     }
                     return null;
                 }
             }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
             if (exact[0]) return new Finding(projected, State.EXACT_TARGET, List.copyOf(sameName));
             if (findInherited(loader, parents, projected, sameName, new HashSet<>()))
-                return new Finding(b, State.EXACT_TARGET, List.copyOf(sameName));
+                return new Finding(projected, State.EXACT_TARGET, List.copyOf(sameName));
             return new Finding(projected, sameName.isEmpty() ? State.MEMBER_MISSING : State.DESCRIPTOR_CHANGED,
                     List.copyOf(sameName));
         } catch (Exception e) {
