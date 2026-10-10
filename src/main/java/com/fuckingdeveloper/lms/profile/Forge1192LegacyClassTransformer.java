@@ -1010,6 +1010,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject";
         if (value.equals("net/minecraftforge/common/capabilities/ICapabilityProvider"))
             return "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider";
+        if (value.equals("net/minecraftforge/common/capabilities/CapabilityToken"))
+            return "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken";
         if (value.equals("net/minecraftforge/fluids/capability/IFluidHandler"))
             return "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler";
         if (value.equals("net/minecraftforge/fluids/IFluidTank"))
@@ -1060,6 +1062,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")
                 .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
+                .replace("net/minecraftforge/common/capabilities/CapabilityToken", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken")
                 .replace("net/minecraftforge/fluids/capability/IFluidHandler", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler")
                 .replace("net/minecraftforge/fluids/IFluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidTank")
                 .replace("net/minecraftforge/fluids/capability/templates/FluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank")
