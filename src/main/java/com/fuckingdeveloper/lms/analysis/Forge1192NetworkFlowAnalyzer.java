@@ -43,11 +43,13 @@ public final class Forge1192NetworkFlowAnalyzer {
                                                                      String targetDesc, boolean isInterface) {
                                     if (!targetOwner.equals("net/minecraftforge/network/simple/SimpleChannel")) return;
                                     Direction direction = switch (targetName) {
+                                        // SimpleChannel#send(PacketDistributor.PacketTarget, Object)
+                                        // is not intrinsically clientbound: direction is encoded by
+                                        // the PacketTarget producer. Keep it unresolved until the
+                                        // receiver data flow is proven.
                                         case "sendToServer" -> Direction.SERVERBOUND;
-                                        case "send", "reply" -> Direction.CLIENTBOUND;
                                         default -> Direction.UNKNOWN;
                                     };
-                                    if (direction == Direction.UNKNOWN) return;
                                     Type[] args = Type.getArgumentTypes(targetDesc);
                                     String hint = args.length == 0 ? "" : args[args.length - 1].getClassName();
                                     sites.add(new SendSite(owner.replace('/', '.'), name + descriptor,
