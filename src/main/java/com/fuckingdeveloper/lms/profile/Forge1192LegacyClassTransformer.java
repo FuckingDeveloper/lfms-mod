@@ -53,6 +53,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
+        rewrites += rewriteLegacyIdentifierConstruction(node);
         rewrites += rewriteSemanticAdapters(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -327,6 +328,41 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     method.instructions.set(field, getter);
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyIdentifierConstruction(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (insn instanceof TypeInsnNode allocation
+                        && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                        && allocation.desc.equals("net/minecraft/resources/Identifier")) {
+                    var dup = allocation.getNext();
+                    var cursor = dup == null ? null : dup.getNext();
+                    while (cursor != null && !(cursor instanceof MethodInsnNode)) cursor = cursor.getNext();
+                    if (dup != null && dup.getOpcode() == org.objectweb.asm.Opcodes.DUP
+                            && cursor instanceof MethodInsnNode init
+                            && init.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && init.owner.equals("net/minecraft/resources/Identifier")
+                            && init.name.equals("<init>")
+                            && init.desc.equals("(Ljava/lang/String;Ljava/lang/String;)V")) {
+                        method.instructions.remove(allocation);
+                        method.instructions.remove(dup);
+                        MethodInsnNode factory = new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "com/fuckingdeveloper/lms/runtime/Forge1192IdentifierBridge",
+                                "create",
+                                "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;",
+                                false);
+                        method.instructions.set(init, factory);
+                        rewrites++;
+                    }
+                }
+                insn = next;
             }
         }
         return rewrites;
