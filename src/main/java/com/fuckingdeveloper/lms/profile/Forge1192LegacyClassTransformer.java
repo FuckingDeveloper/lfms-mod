@@ -32,6 +32,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             Forge1192SrgRuntimeResolver.load(java.nio.file.Path.of(System.getProperty("user.dir")));
     private int transformedClasses;
     private int totalRewrites;
+    private volatile LegacyClassTransformer.ClassBytesLookup managedClassBytes;
+
+    @Override
+    public void bindManagedClassBytes(LegacyClassTransformer.ClassBytesLookup lookup) {
+        this.managedClassBytes = java.util.Objects.requireNonNull(lookup, "lookup");
+    }
 
     public int transformedClasses() { return transformedClasses; }
     public int totalRewrites() { return totalRewrites; }
@@ -78,7 +84,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // Frames from the legacy class are therefore no longer authoritative.
         // Recompute both frames and maxs before definition.
         ClassWriter writer = new SafeFrameClassWriter(
-                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS, managedClassBytes);
         node.accept(writer);
         byte[] verified = writer.toByteArray();
         return new Result(verified, rewrites > 0,
@@ -144,38 +150,118 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * can safely reason about without class loading; otherwise merge to Object.
      */
     private static final class SafeFrameClassWriter extends ClassWriter {
-        private SafeFrameClassWriter(int flags) {
+        private static final String OBJECT = "java/lang/Object";
+        private final LegacyClassTransformer.ClassBytesLookup managedClassBytes;
+        private final java.util.Map<String, TypeInfo> cache = new java.util.HashMap<>();
+
+        private SafeFrameClassWriter(int flags, LegacyClassTransformer.ClassBytesLookup managedClassBytes) {
             super(flags);
+            this.managedClassBytes = managedClassBytes;
         }
 
         @Override
         protected String getCommonSuperClass(String type1, String type2) {
             if (type1.equals(type2)) return type1;
-
-            // Never resolve legacy Forge/managed types through the parent
-            // loader. For current Minecraft/NeoForge/JDK types, however, the
-            // runtime hierarchy is authoritative and gives ASM the precise
-            // verifier merge it needs (e.g. Screen + ConfigScreen -> Screen).
-            if (isParentRuntimeType(type1) && isParentRuntimeType(type2)) {
-                try {
-                    ClassLoader loader = Forge1192LegacyClassTransformer.class.getClassLoader();
-                    Class<?> first = Class.forName(type1.replace('/', '.'), false, loader);
-                    Class<?> second = Class.forName(type2.replace('/', '.'), false, loader);
-
-                    if (first.isAssignableFrom(second)) return type1;
-                    if (second.isAssignableFrom(first)) return type2;
-                    if (first.isInterface() || second.isInterface()) return "java/lang/Object";
-
-                    Class<?> cursor = first;
-                    while (cursor != null && !cursor.isAssignableFrom(second)) {
-                        cursor = cursor.getSuperclass();
-                    }
-                    if (cursor != null) return cursor.getName().replace('.', '/');
-                } catch (LinkageError | ClassNotFoundException ignored) {
-                    // Fall through to the verifier-safe conservative merge.
-                }
+            if (type1.startsWith("[") || type2.startsWith("[")) {
+                return commonArrayType(type1, type2);
             }
-            return "java/lang/Object";
+            if (isAssignableFrom(type1, type2)) return type1;
+            if (isAssignableFrom(type2, type1)) return type2;
+
+            TypeInfo first = info(type1);
+            TypeInfo second = info(type2);
+            if (first == null || second == null || first.isInterface || second.isInterface) return OBJECT;
+
+            String cursor = first.superName;
+            java.util.HashSet<String> seen = new java.util.HashSet<>();
+            while (cursor != null && seen.add(cursor)) {
+                if (isAssignableFrom(cursor, type2)) return cursor;
+                TypeInfo parent = info(cursor);
+                cursor = parent == null ? null : parent.superName;
+            }
+            return OBJECT;
+        }
+
+        private String commonArrayType(String first, String second) {
+            if (!first.startsWith("[") || !second.startsWith("[")) return OBJECT;
+            Type a = Type.getType(first);
+            Type b = Type.getType(second);
+            if (a.getDimensions() != b.getDimensions()) return OBJECT;
+            Type ae = a.getElementType();
+            Type be = b.getElementType();
+            if (ae.getSort() != Type.OBJECT || be.getSort() != Type.OBJECT) return OBJECT;
+            String common = getCommonSuperClass(ae.getInternalName(), be.getInternalName());
+            return "[".repeat(a.getDimensions()) + "L" + common + ";";
+        }
+
+        private boolean isAssignableFrom(String target, String candidate) {
+            if (target.equals(candidate) || target.equals(OBJECT)) return true;
+            java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+            java.util.HashSet<String> seen = new java.util.HashSet<>();
+            pending.add(candidate);
+            while (!pending.isEmpty()) {
+                String current = pending.removeFirst();
+                if (!seen.add(current)) continue;
+                if (target.equals(current)) return true;
+                TypeInfo type = info(current);
+                if (type == null) continue;
+                if (type.superName != null) pending.addLast(type.superName);
+                pending.addAll(type.interfaces);
+            }
+            return false;
+        }
+
+        private TypeInfo info(String internalName) {
+            if (internalName == null) return null;
+            if (cache.containsKey(internalName)) return cache.get(internalName);
+            TypeInfo resolved = readManagedInfo(internalName);
+            if (resolved == null) resolved = readRuntimeInfo(internalName);
+            cache.put(internalName, resolved);
+            return resolved;
+        }
+
+        private TypeInfo readManagedInfo(String internalName) {
+            if (managedClassBytes == null) return null;
+            try {
+                byte[] bytes = managedClassBytes.find(internalName);
+                if (bytes == null) return null;
+                ClassReader reader = new ClassReader(bytes);
+                String superName = projectHierarchyName(reader.getSuperName());
+                String[] rawInterfaces = reader.getInterfaces();
+                java.util.ArrayList<String> interfaces = new java.util.ArrayList<>(rawInterfaces.length);
+                for (String iface : rawInterfaces) interfaces.add(projectHierarchyName(iface));
+                return new TypeInfo(
+                        projectHierarchyName(reader.getClassName()),
+                        superName,
+                        java.util.List.copyOf(interfaces),
+                        (reader.getAccess() & org.objectweb.asm.Opcodes.ACC_INTERFACE) != 0);
+            } catch (java.io.IOException | RuntimeException ignored) {
+                return null;
+            }
+        }
+
+        private TypeInfo readRuntimeInfo(String internalName) {
+            if (!isParentRuntimeType(internalName)) return null;
+            try {
+                ClassLoader loader = Forge1192LegacyClassTransformer.class.getClassLoader();
+                Class<?> type = Class.forName(internalName.replace('/', '.'), false, loader);
+                Class<?> parent = type.getSuperclass();
+                java.util.ArrayList<String> interfaces = new java.util.ArrayList<>();
+                for (Class<?> iface : type.getInterfaces()) {
+                    interfaces.add(iface.getName().replace('.', '/'));
+                }
+                return new TypeInfo(
+                        internalName,
+                        parent == null ? null : parent.getName().replace('.', '/'),
+                        java.util.List.copyOf(interfaces),
+                        type.isInterface());
+            } catch (LinkageError | ClassNotFoundException ignored) {
+                return null;
+            }
+        }
+
+        private static String projectHierarchyName(String internalName) {
+            return internalName == null ? null : migrateInternalName(internalName);
         }
 
         private static boolean isParentRuntimeType(String type) {
@@ -184,10 +270,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     || type.startsWith("jdk/")
                     || type.startsWith("net/minecraft/")
                     || type.startsWith("net/neoforged/")
-                    || type.startsWith("com/mojang/");
+                    || type.startsWith("com/mojang/")
+                    || type.startsWith("com/fuckingdeveloper/lms/");
         }
-    }
 
+        private record TypeInfo(String name, String superName, java.util.List<String> interfaces,
+                                boolean isInterface) {}
     }
 
     /**
