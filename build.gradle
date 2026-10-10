@@ -109,6 +109,12 @@ def prepareLaunchPlan = tasks.register('prepareLaunchPlan', JavaExec) {
 tasks.named('compileJava') {
     outputs.upToDateWhen { false }
 }
+tasks.named('compileLaunchJava') {
+    outputs.upToDateWhen { false }
+}
+tasks.named('launchJar') {
+    outputs.upToDateWhen { false }
+}
 tasks.named('runClient') {
     dependsOn installLaunchJar, prepareLaunchPlan, tasks.named('classes')
     doFirst {
