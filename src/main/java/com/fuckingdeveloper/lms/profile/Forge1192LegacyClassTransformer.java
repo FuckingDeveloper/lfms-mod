@@ -48,6 +48,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     "Class identity mismatch: requested=" + expected + " bytecode=" + node.name);
         }
 
+        // ArmorItem was removed rather than relocated: armor semantics moved
+        // into Item data components. Never silently substitute Item as a superclass.
+        if ("net/minecraft/world/item/ArmorItem".equals(node.superName)) {
+            var constructors = node.methods.stream()
+                    .filter(method -> method.name.equals("<init>"))
+                    .map(method -> method.desc)
+                    .toList();
+            throw new IllegalStateException("ARMOR_COMPONENT_MIGRATION_REQUIRED ownedClass="
+                    + node.name + " legacySuper=" + node.superName
+                    + " constructors=" + constructors
+                    + " reason=ArmorItem was removed; replacing superclass with Item "
+                    + "would discard armor material, slot and equipment semantics");
+        }
+
         int rewrites = rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
