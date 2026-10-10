@@ -12,7 +12,8 @@ import net.neoforged.neoforge.registries.RegisterEvent;
  * registry-specific registration phase. No global registry mutation is allowed.
  */
 public final class Forge1192RegistrationContext {
-    private static final ThreadLocal<Scope> CURRENT = new ThreadLocal<>();
+    private static final ThreadLocal<String> CURRENT_MOD = new ThreadLocal<>();
+    private static final ThreadLocal<RegisterEvent> CURRENT_EVENT = new ThreadLocal<>();
 
     private Forge1192RegistrationContext() {}
 
@@ -23,26 +24,43 @@ public final class Forge1192RegistrationContext {
         }
     }
 
+    public static AutoCloseable enterMod(String modId) {
+        Objects.requireNonNull(modId, "modId");
+        if (CURRENT_MOD.get() != null) throw new IllegalStateException("Nested legacy mod scopes are not supported");
+        CURRENT_MOD.set(modId);
+        return () -> CURRENT_MOD.remove();
+    }
+
+    public static AutoCloseable enterRegistration(RegisterEvent event) {
+        Objects.requireNonNull(event, "event");
+        if (CURRENT_EVENT.get() != null) throw new IllegalStateException("Nested legacy registration scopes are not supported");
+        CURRENT_EVENT.set(event);
+        return () -> CURRENT_EVENT.remove();
+    }
+
     public static AutoCloseable enter(String modId, RegisterEvent event) {
-        if (CURRENT.get() != null) {
-            throw new IllegalStateException("Nested legacy registration scopes are not supported");
+        AutoCloseable mod = enterMod(modId);
+        try {
+            AutoCloseable registration = enterRegistration(event);
+            return () -> { try { registration.close(); } finally { mod.close(); } };
+        } catch (RuntimeException e) {
+            try { mod.close(); } catch (Exception suppressed) { e.addSuppressed(suppressed); }
+            throw e;
         }
-        Scope scope = new Scope(modId, event);
-        CURRENT.set(scope);
-        return () -> {
-            if (CURRENT.get() != scope) {
-                throw new IllegalStateException("Legacy registration scope closed on another thread or out of order");
-            }
-            CURRENT.remove();
-        };
     }
 
     public static Scope requireActive() {
-        Scope scope = CURRENT.get();
-        if (scope == null) {
-            throw new IllegalStateException("Legacy registration attempted outside NeoForge RegisterEvent");
-        }
-        return scope;
+        String modId = CURRENT_MOD.get();
+        RegisterEvent event = CURRENT_EVENT.get();
+        if (modId == null || event == null)
+            throw new IllegalStateException("Legacy registry operation attempted outside NeoForge RegisterEvent");
+        return new Scope(modId, event);
+    }
+
+    public static String requireModId() {
+        String modId = CURRENT_MOD.get();
+        if (modId == null) throw new IllegalStateException("Legacy namespace resolution attempted outside LMS mod scope");
+        return modId;
     }
 
     /**
@@ -50,14 +68,14 @@ public final class Forge1192RegistrationContext {
      * namespace. Qualified names are kept qualified.
      */
     public static Identifier checkPrefix(String name, boolean warn) {
-        Scope scope = requireActive();
+        String modId = requireModId();
         Objects.requireNonNull(name, "name");
         if (name.isBlank()) throw new IllegalArgumentException("Empty legacy registry name");
         int colon = name.indexOf(':');
         if (colon >= 0) {
             return Identifier.parse(name);
         }
-        return Identifier.fromNamespaceAndPath(scope.modId(), name);
+        return Identifier.fromNamespaceAndPath(modId, name);
     }
 
     /**
