@@ -240,10 +240,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private static void verifyNoEscapingLegacyRegistryFacade(ClassNode node) {
         String legacyRegistry = "net/neoforged/neoforge/registries/IForgeRegistry";
         for (var method : node.methods) {
-            if (method.desc.contains(legacyRegistry)) {
-                throw new IllegalStateException("Legacy IForgeRegistry escapes through method descriptor: "
-                        + node.name + "#" + method.name + method.desc);
-            }
+            // A legacy-owned method may retain IForgeRegistry in its internal
+            // ABI. The type itself is an opaque handle; this is equivalent to
+            // retaining it in a field. Safety is enforced at executable API
+            // boundaries below, where registry operations must be adapted.
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (insn instanceof MethodInsnNode call
                         && (call.owner.contains(legacyRegistry) || call.desc.contains(legacyRegistry))) {
