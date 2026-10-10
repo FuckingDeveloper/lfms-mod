@@ -51,6 +51,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
+        rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteSemanticAdapters(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -275,6 +276,34 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.owner = resolved.owner();
                     call.name = resolved.name();
                     call.desc = resolved.descriptor();
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyEnvironmentFieldAccess(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof FieldInsnNode field)) continue;
+                // Forge 1.19.2 exposed the physical distribution as the static
+                // FMLEnvironment.dist field. Current FML exposes it through
+                // getDist(); preserve the legacy read contract without inventing
+                // mutable field state.
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/neoforged/fml/loading/FMLEnvironment")
+                        && field.name.equals("dist")
+                        && (field.desc.equals("Lnet/neoforged/api/distmarker/Dist;")
+                            || field.desc.equals("Lnet/neoforged/neoforge/api/distmarker/Dist;"))) {
+                    MethodInsnNode getter = new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "net/neoforged/fml/loading/FMLEnvironment",
+                            "getDist",
+                            "()Lnet/neoforged/api/distmarker/Dist;",
+                            false);
+                    method.instructions.set(field, getter);
                     rewrites++;
                 }
             }
