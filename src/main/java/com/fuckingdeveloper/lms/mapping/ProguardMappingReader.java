@@ -6,6 +6,7 @@ import java.io.Reader;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.List;
 
 /**
  * Reads Mojang's ProGuard-format class and method mappings without loading classes.
@@ -26,6 +27,14 @@ public final class ProguardMappingReader {
         }
         public Optional<String> namedClass(String obfuscatedClass) {
             return Optional.ofNullable(obfuscatedToNamedClasses.get(toBinaryName(obfuscatedClass)));
+        }
+        public List<MethodMapping> findByObfuscated(String owner, String name) {
+            String normalizedOwner = toBinaryName(owner);
+            return namedMethods.values().stream()
+                    .filter(method -> method.obfuscatedOwner().equals(normalizedOwner))
+                    .filter(method -> method.obfuscatedName().equals(name))
+                    .distinct()
+                    .toList();
         }
         public String obfuscateDescriptor(String descriptor) {
             StringBuilder out = new StringBuilder();
