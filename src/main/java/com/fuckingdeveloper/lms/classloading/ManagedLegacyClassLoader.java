@@ -76,11 +76,11 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
                 if (loaded == null && (parentFirst(name) || !owns(name))) {
                     loaded = getParent().loadClass(name);
                 } else if (loaded == null) {
-                    try {
-                        loaded = findClass(name);
-                    } catch (ClassNotFoundException e) {
-                        loaded = getParent().loadClass(name);
-                    }
+                    // Owned classes must never silently fall back to the parent.
+                    // A CNFE here can represent a transformation/linkage failure
+                    // wrapped by findClass; parent fallback would erase the
+                    // evidence and misreport the owned class as simply missing.
+                    loaded = findClass(name);
                 }
             }
             if (resolve) resolveClass(loaded);
@@ -99,8 +99,10 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
             return defineClass(name, bytes, 0, bytes.length);
         } catch (IOException e) {
             throw new ClassNotFoundException(name, e);
-        } catch (Exception e) {
-            throw new ClassNotFoundException("Profile transformation failed for " + name, e);
+        } catch (RuntimeException e) {
+            throw new ClassNotFoundException(
+                    "Profile transformation failed for owned class " + name
+                            + " from " + artifact + ": " + e.getMessage(), e);
         }
     }
 
