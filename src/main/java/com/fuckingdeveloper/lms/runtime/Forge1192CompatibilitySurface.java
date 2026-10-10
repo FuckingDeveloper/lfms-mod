@@ -58,6 +58,7 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.fluids.capability.IFluidHandler#getTanks()I",
             "net.minecraftforge.fluids.capability.templates.FluidTank#<init>(I)V",
             "net.minecraftforge.fluids.capability.templates.FluidTank#<init>(ILjava/util/function/Predicate;)V",
+            "net.minecraftforge.common.ForgeMod#enableMilkFluid()V",
             "net.minecraftforge.common.util.LazyOptional#empty()Lnet/minecraftforge/common/util/LazyOptional;",
             "net.minecraftforge.common.util.LazyOptional#invalidate()V",
             "net.minecraftforge.common.util.LazyOptional#isPresent()Z",
