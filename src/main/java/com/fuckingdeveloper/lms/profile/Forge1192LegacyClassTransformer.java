@@ -46,6 +46,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteSemanticAdapters(node);
+        rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyNoEscapingLegacyRegistryFacade(node);
         verifyNoUnadaptedLifecycleCalls(node);
         verifyNoEscapingLegacyNetworkFacade(node);
@@ -211,6 +212,19 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     migrated = migrateDescriptor(local.signature);
                     if (!migrated.equals(local.signature)) { local.signature = migrated; rewrites++; }
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyColorCallbackDescriptors(ClassNode node) {
+        int rewrites = 0;
+        String legacy = "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;I)I";
+        String erased = "(Lnet/minecraft/world/level/block/state/BlockState;Ljava/lang/Object;Lnet/minecraft/core/BlockPos;I)I";
+        for (var method : node.methods) {
+            if (method.name.equals("m_92566_") && method.desc.equals(legacy)) {
+                method.desc = erased;
+                rewrites++;
             }
         }
         return rewrites;
