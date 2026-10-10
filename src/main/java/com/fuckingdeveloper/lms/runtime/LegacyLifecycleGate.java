@@ -18,7 +18,8 @@ public final class LegacyLifecycleGate {
     public record Capability(String id, State state, boolean mandatory, String reason) {}
     public record Decision(boolean mayInitialize, List<Capability> capabilities) {}
 
-    public Decision evaluate(LegacyJarAnalyzer.Report report, boolean lifecyclePlanReady) {
+    public Decision evaluate(LegacyJarAnalyzer.Report report, boolean lifecyclePlanReady,
+                             boolean registrationPlanComplete, boolean compatibilitySurfaceExecutable) {
         List<Capability> capabilities = new ArrayList<>();
 
         capabilities.add(new Capability(
@@ -31,15 +32,25 @@ public final class LegacyLifecycleGate {
 
         capabilities.add(new Capability(
                 "forge-1.19.2-lifecycle",
-                lifecyclePlanReady ? State.PARTIAL : State.BLOCKED,
+                lifecyclePlanReady && compatibilitySurfaceExecutable ? State.SUPPORTED
+                        : lifecyclePlanReady ? State.PARTIAL : State.BLOCKED,
                 true,
-                lifecyclePlanReady
-                        ? "Entrypoint construction shape is verified; execution remains gated until legacy registration is adapted"
+                lifecyclePlanReady && compatibilitySurfaceExecutable
+                        ? "Entrypoint shape and constructor-reachable compatibility surface are executable"
+                        : lifecyclePlanReady
+                        ? "Entrypoint construction shape is verified; execution remains gated until compatibility surface is executable"
                         : "Entrypoint construction shape cannot be adapted safely"));
 
         capabilities.add(new Capability(
-                "legacy-registration", State.UNKNOWN, true,
-                "Legacy deferred/registry lifecycle has not been mapped to NeoForge registration boundaries"));
+                "legacy-registration",
+                registrationPlanComplete && compatibilitySurfaceExecutable ? State.SUPPORTED
+                        : registrationPlanComplete ? State.PARTIAL : State.BLOCKED,
+                true,
+                registrationPlanComplete && compatibilitySurfaceExecutable
+                        ? "Owned registration call graph is complete and all discovered boundaries are executable"
+                        : registrationPlanComplete
+                        ? "Owned registration call graph is complete but one or more API boundaries still require adapters"
+                        : "Owned registration call graph is incomplete"));
 
         if (!report.transformerHints().isEmpty()) {
             capabilities.add(new Capability(
