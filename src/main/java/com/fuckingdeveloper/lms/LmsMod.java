@@ -21,7 +21,7 @@ import com.fuckingdeveloper.lms.transform.TransformationSpecPlanner;
 import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +37,8 @@ public final class LmsMod {
     private static final Logger LOG = LoggerFactory.getLogger(LmsMod.class);
     private final java.util.List<Forge1192RuntimeSession> runtimeSessions = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-    public LmsMod() {
-        NeoForge.EVENT_BUS.addListener(this::onRegisterEvent);
+    public LmsMod(IEventBus modBus) {
+        modBus.addListener(this::onRegisterEvent);
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {
             Files.createDirectories(directory);
@@ -73,7 +73,10 @@ public final class LmsMod {
                                     mod.modId(), mod.file().getFileName(), e.getClass().getName(), e.getMessage());
                             continue;
                         }
+                        runtimeSession.bindModEventBus(modBus);
                         runtimeSessions.add(runtimeSession);
+                        LOG.info("LMS runtime-session id={} modEventBusBound=true state={}",
+                                mod.modId(), runtimeSession.state());
                         var managedTransformer = runtimeSession.transformer();
                         for (String candidate : report.modAnnotationCandidates()) {
                             try {
