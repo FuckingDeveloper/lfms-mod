@@ -18,7 +18,7 @@ public final class Forge1192DistExecutorBridge {
     private Forge1192DistExecutorBridge() {}
 
     private static boolean matches(Dist requested) {
-        return net.neoforged.fml.loading.FMLEnvironment.dist == requested;
+        return net.neoforged.fml.loading.FMLEnvironment.getDist() == requested;
     }
 
     public static void unsafeRunWhenOn(Dist dist, Supplier<? extends Runnable> toRun) {
