@@ -486,6 +486,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Authlib's legacy UUIDTypeAdapter helper is not ABI-stable across
+                // Minecraft generations. Preserve the Forge 1.19.2 executable
+                // contract behind an LMS boundary instead of linking against the
+                // target Authlib implementation by name.
+                if (call.owner.equals("com/mojang/util/UUIDTypeAdapter")
+                        && call.name.equals("fromString")
+                        && call.desc.equals("(Ljava/lang/String;)Ljava/util/UUID;")
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192UuidBridge";
+                    call.name = "fromString";
+                    call.desc = "(Ljava/lang/String;)Ljava/util/UUID;";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Removed ForgeMod RegistryObject fields are converted to
                 // explicit LMS builtin handles. Their RegistryObject operations are
                 // adapted below, so the removed Forge holder never reaches linkage.
