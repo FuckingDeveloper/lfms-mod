@@ -20,13 +20,13 @@ public final class Forge1192EventBusBridge {
      */
     public static <T extends Event> void addListener(IEventBus bus, Consumer<T> listener) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        bus.addListener(event -> invokeScoped(modId, listener, event));
+        bus.addListener((T event) -> invokeScoped(modId, listener, event));
     }
 
     public static <T extends Event> void addListener(IEventBus bus, net.neoforged.bus.api.EventPriority priority,
                                                      Consumer<T> listener) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        bus.addListener(priority, event -> invokeScoped(modId, listener, event));
+        bus.addListener(priority, (T event) -> invokeScoped(modId, listener, event));
     }
 
     private static <T extends Event> void invokeScoped(String modId, Consumer<T> listener, T event) {
