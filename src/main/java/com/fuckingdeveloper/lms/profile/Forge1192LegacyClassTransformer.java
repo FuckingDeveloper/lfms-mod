@@ -59,6 +59,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // otherwise a heuristic relocation can destroy the semantic evidence
         // required by a removed-API adapter.
         int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
+        rewrites += rewriteLegacySignItemConstruction(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -441,6 +442,43 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Normal signs no longer have a dedicated SignItem subclass. They use
+     * StandingAndWallBlockItem with a downward attachment direction and the
+     * sign-text item component. Reorder the legacy constructor operands and
+     * apply both pieces of the modern contract before namespace migration.
+     */
+    private static int rewriteLegacySignItemConstruction(ClassNode node) {
+        int rewrites = 0;
+        final String legacyOwner = "net/minecraft/world/item/SignItem";
+        final String legacyDesc = "(Lnet/minecraft/world/item/Item$Properties;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/level/block/Block;)V";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals(legacyOwner)
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals(legacyDesc)) continue;
+
+                var adaptation = new org.objectweb.asm.tree.InsnList();
+                // this, properties, standing, wall -> this, standing, wall, properties
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP2_X1));
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.POP2));
+                adaptation.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
+                        "net/minecraft/core/Direction", "DOWN", "Lnet/minecraft/core/Direction;"));
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        "net/minecraft/world/item/Item$Properties", "signText",
+                        "()Lnet/minecraft/world/item/Item$Properties;", false));
+                method.instructions.insertBefore(call, adaptation);
+                call.owner = "net/minecraft/world/item/StandingAndWallBlockItem";
+                call.desc = "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/core/Direction;Lnet/minecraft/world/item/Item$Properties;)V";
+                rewrites++;
             }
         }
         return rewrites;
@@ -1828,6 +1866,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank";
         if (value.equals("net/minecraft/world/item/ArmorItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem";
+        if (value.equals("net/minecraft/world/item/SignItem"))
+            return "net/minecraft/world/item/StandingAndWallBlockItem";
         if (value.equals("net/minecraft/world/entity/MobSpawnType"))
             return "net/minecraft/world/entity/EntitySpawnReason";
         if (value.startsWith("net/minecraftforge/client/model/data/"))
