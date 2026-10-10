@@ -61,6 +61,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacySignItemConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
+        rewrites += rewriteLegacyVillagerProfessionConstruction(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -513,6 +514,58 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 method.instructions.insertBefore(call, adaptation);
                 call.owner = "net/minecraft/world/level/block/ButtonBlock";
                 call.desc = "(Lnet/minecraft/world/level/block/state/properties/BlockSetType;I" + properties + ")V";
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * VillagerProfession changed from a six-field record with a String name to
+     * a seven-field record with a Component name and data-driven trade sets.
+     * Legacy constructors had no trade-set mapping, so preserve the visible
+     * literal name and supply an empty mapping without guessing a namespace.
+     */
+    private static int rewriteLegacyVillagerProfessionConstruction(ClassNode node) {
+        int rewrites = 0;
+        final String owner = "net/minecraft/world/entity/npc/VillagerProfession";
+        final String desc = "(Ljava/lang/String;Ljava/util/function/Predicate;Ljava/util/function/Predicate;"
+                + "Lcom/google/common/collect/ImmutableSet;Lcom/google/common/collect/ImmutableSet;"
+                + "Lnet/minecraft/sounds/SoundEvent;)V";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals(desc)) continue;
+
+                TypeInsnNode allocation = null;
+                org.objectweb.asm.tree.AbstractInsnNode duplicate = null;
+                for (var candidate = call.getPrevious(); candidate != null; candidate = candidate.getPrevious()) {
+                    if (candidate instanceof TypeInsnNode type
+                            && type.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                            && type.desc.equals(owner)) {
+                        var after = candidate.getNext();
+                        if (after != null && after.getOpcode() == org.objectweb.asm.Opcodes.DUP) {
+                            allocation = type;
+                            duplicate = after;
+                        }
+                        break;
+                    }
+                }
+                if (allocation == null) {
+                    throw new IllegalStateException("Cannot pair legacy VillagerProfession allocation with constructor: "
+                            + node.name + "#" + method.name + method.desc);
+                }
+                method.instructions.remove(allocation);
+                method.instructions.remove(duplicate);
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VillagerBridge";
+                call.name = "createProfession";
+                call.desc = desc.substring(0, desc.length() - 1)
+                        + "Lnet/minecraft/world/entity/npc/villager/VillagerProfession;";
+                call.itf = false;
                 rewrites++;
             }
         }
