@@ -58,6 +58,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyArmorConstructorDescriptors(node);
         rewrites += rewriteSemanticAdapters(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
+        verifyUnresolvedForgeModAccesses(node);
         verifyNoEscapingLegacyRegistryFacade(node);
         verifyNoUnadaptedLifecycleCalls(node);
         verifyNoEscapingLegacyNetworkFacade(node);
@@ -862,6 +863,32 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (call.owner.equals(networkContext))
                     throw new IllegalStateException("Unadapted legacy NetworkEvent.Context operation: "
                             + node.name + "#" + method.name + " -> " + call.name + call.desc);
+            }
+        }
+    }
+
+    /**
+     * ForgeMod is a built-in Forge registry holder, not a portable class alias.
+     * Report the exact static field/method contract before JVM linkage, so
+     * migration rules can be proven against the target registry rather than
+     * inventing an empty compatibility class.
+     */
+    private static void verifyUnresolvedForgeModAccesses(ClassNode node) {
+        final String legacyOwner = "net/minecraftforge/common/ForgeMod";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field && field.owner.equals(legacyOwner)) {
+                    throw new IllegalStateException("UNRESOLVED_FORGE_BUILTIN_REGISTRY_FIELD "
+                            + node.name + "#" + method.name + method.desc
+                            + " opcode=" + field.getOpcode()
+                            + " field=" + field.owner + "." + field.name + ":" + field.desc);
+                }
+                if (insn instanceof MethodInsnNode call && call.owner.equals(legacyOwner)) {
+                    throw new IllegalStateException("UNRESOLVED_FORGE_BUILTIN_REGISTRY_CALL "
+                            + node.name + "#" + method.name + method.desc
+                            + " opcode=" + call.getOpcode()
+                            + " call=" + call.owner + "." + call.name + call.desc);
+                }
             }
         }
     }
