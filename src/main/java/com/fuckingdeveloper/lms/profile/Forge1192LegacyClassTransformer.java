@@ -67,6 +67,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyForgeRegistryKeys(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyIdentifierConstruction(node);
+        rewrites += rewriteLegacyBlockEntityTypeConstruction(node);
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
         rewrites += rewriteLegacyArmorConstructorDescriptors(node);
         rewrites += rewriteSemanticAdapters(node);
@@ -774,6 +775,49 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.desc = erased;
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyBlockEntityTypeConstruction(ClassNode node) {
+        int rewrites = 0;
+        final String owner = "net/minecraft/world/level/block/entity/BlockEntityType";
+        final String legacyDesc = "(Lnet/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier;Ljava/util/Set;Lcom/mojang/datafixers/types/Type;)V";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (insn instanceof TypeInsnNode allocation
+                        && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                        && allocation.desc.equals(owner)) {
+                    var dup = allocation.getNext();
+                    MethodInsnNode init = null;
+                    int nested = 0;
+                    if (dup != null && dup.getOpcode() == org.objectweb.asm.Opcodes.DUP) {
+                        for (var cursor = dup.getNext(); cursor != null; cursor = cursor.getNext()) {
+                            if (cursor instanceof TypeInsnNode nestedType
+                                    && nestedType.getOpcode() == org.objectweb.asm.Opcodes.NEW) nested++;
+                            else if (cursor instanceof MethodInsnNode call
+                                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                                    && call.name.equals("<init>")) {
+                                if (nested > 0) nested--;
+                                else if (call.owner.equals(owner)) { init = call; break; }
+                            }
+                        }
+                    }
+                    if (init != null && init.desc.equals(legacyDesc)) {
+                        method.instructions.remove(allocation);
+                        method.instructions.remove(dup);
+                        method.instructions.set(init, new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                                "blockEntityType",
+                                "(Lnet/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier;Ljava/util/Set;Lcom/mojang/datafixers/types/Type;)Lnet/minecraft/world/level/block/entity/BlockEntityType;",
+                                false));
+                        rewrites++;
+                    }
+                }
+                insn = next;
             }
         }
         return rewrites;
