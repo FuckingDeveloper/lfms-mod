@@ -1,6 +1,8 @@
 package com.fuckingdeveloper.lms.runtime;
 
 import net.minecraft.resources.Identifier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +62,37 @@ public final class Forge1192NetworkBridge {
                 PayloadReadiness.DIRECTION_UNRESOLVED,
                 "Forge 1.19.2 registerMessage does not encode packet direction or "
                 + "connection phase; NeoForge 26.3 requires explicit payload flow and codec");
+    }
+
+    /**
+     * Adapts the legacy encoder/decoder to a typed stream codec without
+     * assuming packet direction or registering it. The old callbacks use
+     * FriendlyByteBuf-compatible buffers; the original generic signatures
+     * were erased when captured from the legacy registration.
+     */
+    public static StreamCodec<FriendlyByteBuf, Object> codec(LegacyMessage message) {
+        Objects.requireNonNull(message, "message");
+        return new StreamCodec<>() {
+            @Override
+            public Object decode(FriendlyByteBuf buffer) {
+                Object decoded = Objects.requireNonNull(
+                        message.decoder().apply(buffer),
+                        "Legacy packet decoder returned null for discriminator " + message.discriminator());
+                if (!message.messageType().isInstance(decoded))
+                    throw new IllegalStateException("Legacy packet decoder returned "
+                            + decoded.getClass().getName() + " instead of "
+                            + message.messageType().getName());
+                return decoded;
+            }
+
+            @Override
+            public void encode(FriendlyByteBuf buffer, Object value) {
+                if (!message.messageType().isInstance(value))
+                    throw new IllegalArgumentException("Legacy packet encoder expected "
+                            + message.messageType().getName());
+                message.encoder().accept(value, buffer);
+            }
+        };
     }
 
     public static void requirePayloadRegistrationReady(LegacyChannel channel) {
