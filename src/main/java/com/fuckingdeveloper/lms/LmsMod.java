@@ -194,6 +194,18 @@ public final class LmsMod {
                                 lifecycleDecision.mayInitialize()
                                         ? "all mandatory profile capabilities are supported"
                                         : "one or more mandatory profile capabilities are not supported");
+                        if (lifecycleDecision.mayInitialize()) {
+                            LOG.info("LMS lifecycle id={} state=INITIALIZING entrypointInitialization=true", mod.modId());
+                            try {
+                                runtimeSession.initialize();
+                                LOG.info("LMS lifecycle id={} state=INITIALIZED entrypointInitialization=true sessionState={}",
+                                        mod.modId(), runtimeSession.state());
+                            } catch (Throwable initializationFailure) {
+                                LOG.error("LMS lifecycle id={} state=BLOCKED entrypointInitialization=true error={} message={}",
+                                        mod.modId(), initializationFailure.getClass().getName(),
+                                        initializationFailure.getMessage(), initializationFailure);
+                            }
+                        }
                         var metadata = new LegacyMetadataAnalyzer().analyze(mod.file(), report.mixinConfigs());
                         LOG.info("LMS metadata id={} dependencies={}", mod.modId(), metadata.dependencies());
                         LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
