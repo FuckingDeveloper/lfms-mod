@@ -64,6 +64,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
         rewrites += rewriteLegacyForgeBuiltinFields(node);
+        rewrites += rewriteLegacyForgeRegistryKeys(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyIdentifierConstruction(node);
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
@@ -563,6 +564,63 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * ForgeRegistries.Keys held registry ResourceKey constants in 1.19.2.
+     * The modern vanilla keys live in Registries (mostly singular names);
+     * NeoForge-only keys live in NeoForgeRegistries.Keys. Resolve actual
+     * runtime fields instead of defining a counterfeit ForgeRegistries.Keys.
+     */
+    private static int rewriteLegacyForgeRegistryKeys(ClassNode node) {
+        int rewrites = 0;
+        String legacy = "net/minecraftforge/registries/ForgeRegistries$Keys";
+        String vanilla = "net/minecraft/core/registries/Registries";
+        String neoforge = "net/neoforged/neoforge/registries/NeoForgeRegistries$Keys";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof FieldInsnNode field) || !field.owner.equals(legacy)) continue;
+                if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.desc.equals("Lnet/minecraft/resources/ResourceKey;"))
+                    throw new IllegalStateException("Unsupported legacy registry key access: "
+                            + node.name + "#" + method.name + " " + field.name + ":" + field.desc);
+                String singular = switch (field.name) {
+                    case "BLOCKS" -> "BLOCK";
+                    case "ITEMS" -> "ITEM";
+                    case "FLUIDS" -> "FLUID";
+                    case "ENTITY_TYPES" -> "ENTITY_TYPE";
+                    case "MOB_EFFECTS" -> "MOB_EFFECT";
+                    case "POI_TYPES" -> "POINT_OF_INTEREST_TYPE";
+                    case "VILLAGER_PROFESSIONS" -> "VILLAGER_PROFESSION";
+                    case "PAINTING_VARIANTS" -> "PAINTING_VARIANT";
+                    case "FEATURES" -> "FEATURE";
+                    default -> field.name;
+                };
+                if (runtimeHasRegistryKey(vanilla, singular)) {
+                    field.owner = vanilla;
+                    field.name = singular;
+                } else if (runtimeHasRegistryKey(neoforge, field.name)) {
+                    field.owner = neoforge;
+                } else {
+                    throw new IllegalStateException("Unresolved ForgeRegistries.Keys mapping: "
+                            + node.name + "#" + method.name + " key=" + field.name
+                            + " candidate=" + singular);
+                }
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static boolean runtimeHasRegistryKey(String owner, String name) {
+        try {
+            Class<?> type = Class.forName(owner.replace('/', '.'), false,
+                    Forge1192LegacyClassTransformer.class.getClassLoader());
+            return type.getField(name).getType().getName()
+                    .equals("net.minecraft.resources.ResourceKey");
+        } catch (ClassNotFoundException | NoSuchFieldException | LinkageError ignored) {
+            return false;
+        }
     }
 
     private static int rewriteLegacyEnvironmentFieldAccess(ClassNode node) {
@@ -1310,6 +1368,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject";
         if (value.equals("net/minecraftforge/common/capabilities/ICapabilityProvider"))
             return "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider";
+        if (value.equals("net/minecraftforge/common/capabilities/RegisterCapabilitiesEvent"))
+            return "net/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent";
         if (value.equals("net/minecraftforge/common/capabilities/CapabilityToken"))
             return "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken";
         if (value.equals("net/minecraftforge/common/capabilities/CapabilityManager"))
@@ -1368,6 +1428,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")
                 .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
+                .replace("net/minecraftforge/common/capabilities/RegisterCapabilitiesEvent", "net/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent")
                 .replace("net/minecraftforge/common/capabilities/CapabilityToken", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken")
                 .replace("net/minecraftforge/common/capabilities/CapabilityManager", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityManager")
                 .replace("net/minecraftforge/common/capabilities/Capability", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapability")
