@@ -345,6 +345,19 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
 
+                // Legacy ForgeMod milk-fluid opt-in is an imperative profile
+                // request. Capture it explicitly rather than invoking a removed API.
+                if (call.owner.equals("net/neoforged/neoforge/common/ForgeMod")
+                        && call.name.equals("enableMilkFluid")
+                        && call.desc.equals("()V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192CommonBridge";
+                    call.name = "enableMilkFluid";
+                    call.desc = "()V";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Removed LazyOptional operations retain an explicit LMS
                 // invalidation token. Do not silently substitute java.util.Optional.
                 if (call.owner.equals("net/neoforged/neoforge/common/util/LazyOptional")
