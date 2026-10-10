@@ -79,7 +79,10 @@ public final class LegacyMemberPreflight {
     }
 
     private static boolean isPlatform(String owner) {
-        return owner.startsWith("java/") || owner.startsWith("javax/") || owner.startsWith("jdk/")
+        // JVM array clone is emitted with an array descriptor as the invocation
+        // owner (for example "[Lpkg/Type;"). It is a VM operation, not a target
+        // class member and must never enter API migration planning.
+        return owner.startsWith("[") || owner.startsWith("java/") || owner.startsWith("javax/") || owner.startsWith("jdk/")
                 || owner.startsWith("sun/");
     }
 }
