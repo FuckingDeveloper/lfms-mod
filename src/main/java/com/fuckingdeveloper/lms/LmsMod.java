@@ -152,14 +152,14 @@ public final class LmsMod {
                                 "member-gaps-" + mod.modId() + ".tsv");
                         Files.createDirectories(memberReportFile.getParent());
                         var memberReportLines = new java.util.ArrayList<String>();
-                        memberReportLines.add("state\\tkind\\tcaller\\ttarget\\tsameNameDescriptors");
+                        memberReportLines.add("state\tkind\tcaller\ttarget\tsameNameDescriptors");
                         for (var finding : memberMigration.findings()) {
                             if (finding.state()
                                     == com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight.State.EXACT_TARGET) continue;
                             var boundary = finding.boundary();
-                            memberReportLines.add(finding.state() + "\\t" + boundary.kind() + "\\t"
-                                    + boundary.callerClass() + "#" + boundary.callerMethod() + "\\t"
-                                    + boundary.identity() + "\\t" + finding.sameNameDescriptors());
+                            memberReportLines.add(finding.state() + "\t" + boundary.kind() + "\t"
+                                    + boundary.callerClass() + "#" + boundary.callerMethod() + "\t"
+                                    + boundary.identity() + "\t" + finding.sameNameDescriptors());
                         }
                         Files.write(memberReportFile, memberReportLines);
                         LOG.info("LMS member-migration-report id={} file={} gaps={}", mod.modId(),
