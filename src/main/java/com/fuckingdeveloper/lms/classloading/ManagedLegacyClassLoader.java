@@ -108,14 +108,17 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
     }
 
     private static String migrateLegacyFrameworkName(String value) {
+        // Binary-name form of the exact namespace rules used by the bytecode
+        // transformer. Keep these segment-aware: eventbus.api.IEventBus moved
+        // to bus.api.IEventBus, not bus.api.api.IEventBus.
         if (value.startsWith("net.minecraftforge.eventbus."))
-            return value.replace("net.minecraftforge.eventbus.", "net.neoforged.bus.");
+            return "net.neoforged.bus." + value.substring("net.minecraftforge.eventbus.".length());
         if (value.startsWith("net.minecraftforge.fml."))
-            return value.replace("net.minecraftforge.fml.", "net.neoforged.fml.");
+            return "net.neoforged.fml." + value.substring("net.minecraftforge.fml.".length());
         if (value.startsWith("net.minecraftforge.forgespi."))
-            return value.replace("net.minecraftforge.forgespi.", "net.neoforged.neoforgespi.");
+            return "net.neoforged.neoforgespi." + value.substring("net.minecraftforge.forgespi.".length());
         if (value.startsWith("net.minecraftforge."))
-            return value.replace("net.minecraftforge.", "net.neoforged.neoforge.");
+            return "net.neoforged.neoforge." + value.substring("net.minecraftforge.".length());
         return value;
     }
 
