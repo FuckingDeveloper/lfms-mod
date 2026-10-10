@@ -771,6 +771,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.name = "registerDefaultState";
                     rewrites++;
                 }
+                if (call.owner.equals("net/minecraft/world/level/block/state/BlockState")) {
+                    String inheritedName = switch (call.name) {
+                        case "m_61122_" -> "cycle";
+                        case "m_61147_" -> "getProperties";
+                        case "m_61138_" -> "hasProperty";
+                        case "m_61143_" -> "getValue";
+                        case "m_61145_" -> "getOptionalValue";
+                        case "m_61124_" -> "setValue";
+                        default -> null;
+                    };
+                    if (inheritedName != null) {
+                        call.name = inheritedName;
+                        rewrites++;
+                    }
+                }
 
                 if (call.owner.equals("net/minecraft/world/level/block/state/BlockState")
                         && call.name.equals("canSustainPlant")
