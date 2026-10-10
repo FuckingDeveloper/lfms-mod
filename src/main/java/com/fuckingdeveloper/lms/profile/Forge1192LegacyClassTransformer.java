@@ -60,6 +60,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // required by a removed-API adapter.
         int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacySignItemConstruction(node);
+        rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -478,6 +479,40 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 method.instructions.insertBefore(call, adaptation);
                 call.owner = "net/minecraft/world/item/StandingAndWallBlockItem";
                 call.desc = "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/core/Direction;Lnet/minecraft/world/item/Item$Properties;)V";
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * WoodButtonBlock was folded into ButtonBlock. The old subclass constructor
+     * is exactly the modern oak button configuration: arrow-sensitive with a
+     * thirty-tick press duration.
+     */
+    private static int rewriteLegacyWoodButtonConstruction(ClassNode node) {
+        int rewrites = 0;
+        final String legacyOwner = "net/minecraft/world/level/block/WoodButtonBlock";
+        final String properties = "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals(legacyOwner)
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals("(" + properties + ")V")) continue;
+
+                var adaptation = new org.objectweb.asm.tree.InsnList();
+                // this, properties -> this, BlockSetType.OAK, 30, properties
+                adaptation.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
+                        "net/minecraft/world/level/block/state/properties/BlockSetType", "OAK",
+                        "Lnet/minecraft/world/level/block/state/properties/BlockSetType;"));
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                adaptation.add(new org.objectweb.asm.tree.IntInsnNode(org.objectweb.asm.Opcodes.BIPUSH, 30));
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                method.instructions.insertBefore(call, adaptation);
+                call.owner = "net/minecraft/world/level/block/ButtonBlock";
+                call.desc = "(Lnet/minecraft/world/level/block/state/properties/BlockSetType;I" + properties + ")V";
                 rewrites++;
             }
         }
@@ -1884,6 +1919,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem";
         if (value.equals("net/minecraft/world/item/SignItem"))
             return "net/minecraft/world/item/StandingAndWallBlockItem";
+        if (value.equals("net/minecraft/world/level/block/WoodButtonBlock"))
+            return "net/minecraft/world/level/block/ButtonBlock";
         if (value.equals("net/minecraft/world/entity/MobSpawnType"))
             return "net/minecraft/world/entity/EntitySpawnReason";
         if (value.startsWith("net/minecraftforge/client/model/data/"))
