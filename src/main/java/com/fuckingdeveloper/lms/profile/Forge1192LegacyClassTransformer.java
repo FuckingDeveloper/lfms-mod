@@ -924,6 +924,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // operations are resolved/adapted separately rather than namespace-guessed.
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem";
+        if (value.equals("net/minecraftforge/common/capabilities/ICapabilityProvider"))
+            return "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider";
         if (value.equals("net/minecraftforge/fluids/capability/IFluidHandler"))
             return "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler";
         if (value.equals("net/minecraftforge/fluids/IFluidTank"))
@@ -972,6 +974,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
+                .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
                 .replace("net/minecraftforge/fluids/capability/IFluidHandler", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler")
                 .replace("net/minecraftforge/fluids/IFluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidTank")
                 .replace("net/minecraftforge/fluids/capability/templates/FluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank")
