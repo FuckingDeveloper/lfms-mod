@@ -59,6 +59,11 @@ public final class LmsMod {
                         LOG.info("LMS analysis id={} modAnnotationCandidates={} mixinConfigs={} nestedJars={} transformerHints={}",
                                 mod.modId(), report.modAnnotationCandidates(), report.mixinConfigs(),
                                 report.nestedJars(), report.transformerHints());
+                        var metadata = new LegacyMetadataAnalyzer().analyze(mod.file(), report.mixinConfigs());
+                        LOG.info("LMS metadata id={} dependencies={}", mod.modId(), metadata.dependencies());
+                        LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
+                                mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
+                                metadata.coremodTargetHints());
                         // First controlled-classloading milestone. Link only the statically
                         // discovered legacy @Mod candidate classes and never initialize them.
                         // This deliberately happens before lifecycle adaptation: linkage errors
@@ -238,11 +243,6 @@ public final class LmsMod {
                                         initializationFailure.getMessage(), initializationFailure);
                             }
                         }
-                        var metadata = new LegacyMetadataAnalyzer().analyze(mod.file(), report.mixinConfigs());
-                        LOG.info("LMS metadata id={} dependencies={}", mod.modId(), metadata.dependencies());
-                        LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
-                                mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
-                                metadata.coremodTargetHints());
                         var injectionReport = new LegacyInjectionAnalyzer().analyze(mod.file(), metadata);
                         LOG.info("LMS injections id={} mixins={} coremods={}",
                                 mod.modId(), injectionReport.mixins().size(), injectionReport.coremods().size());
