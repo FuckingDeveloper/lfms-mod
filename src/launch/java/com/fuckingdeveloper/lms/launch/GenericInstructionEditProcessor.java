@@ -167,6 +167,16 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 + " successor=" + describeNode(nextExecutable(anchorNode))
                 + " consumer=" + consumer.owner + "#" + consumer.name + consumer.desc);
 
+        // Resolve every legacy control-flow reference while the original anchor is
+        // still attached to the InsnList. Replacing the anchor detaches that node;
+        // relative getNext()/getPrevious() traversal from a stale binding would then
+        // resolve to null even though the target position was valid before mutation.
+        AbstractInsnNode legacyTarget = resolve(method, bindings, jump.target());
+        LabelNode continueLabel = legacyTarget instanceof LabelNode label ? label : null;
+        if (continueLabel == null) {
+            throw new IllegalStateException("semantic adaptation jump target is not a resolved label: " + jump.target());
+        }
+
         // Replace the migrated producer in-place. Its current consumer remains intact.
         anchorNode = bindings.get(anchor.variable());
         MethodInsnNode replacementNode = new MethodInsnNode(
@@ -196,11 +206,6 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         // Replacing it with "jump over RETURN" changes control flow and can leave
         // FML with bytecode that ASM's BasicVerifier accepts but whose stack-map
         // / branch semantics no longer match the original patch.
-        AbstractInsnNode legacyTarget = resolve(method, bindings, jump.target());
-        LabelNode continueLabel = legacyTarget instanceof LabelNode label ? label : null;
-        if (continueLabel == null) {
-            throw new IllegalStateException("semantic adaptation jump target is not a resolved label: " + jump.target());
-        }
         suffix.add(new JumpInsnNode(jump.opcode(), continueLabel));
         suffix.add(new InsnNode(Opcodes.RETURN));
         method.instructions.insert(consumer, suffix);
