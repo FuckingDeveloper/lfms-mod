@@ -498,7 +498,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
                     call.name = "getActiveContainer";
-                    call.desc = "(Ljava/lang/Object;)Ljava/lang/Object;";
+                    call.desc = "(Ljava/lang/Object;)Lnet/neoforged/fml/ModContainer;";
                     call.itf = false;
                     rewrites++;
                 }
