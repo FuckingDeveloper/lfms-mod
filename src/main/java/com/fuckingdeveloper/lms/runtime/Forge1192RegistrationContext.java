@@ -188,15 +188,35 @@ public final class Forge1192RegistrationContext {
     }
 
     private static void flushPending(String modId, RegisterEvent event) {
-        List<PendingRegistration> registrations;
-        synchronized (PENDING) {
-            Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
-            registrations = byRegistry == null ? null : byRegistry.remove(event.getRegistryKey());
-            if (byRegistry != null && byRegistry.isEmpty()) PENDING.remove(modId);
-        }
-        if (registrations == null) return;
-        for (PendingRegistration registration : registrations) {
+        while (true) {
+            PendingRegistration registration;
+            synchronized (PENDING) {
+                Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
+                List<PendingRegistration> registrations =
+                        byRegistry == null ? null : byRegistry.get(event.getRegistryKey());
+                if (registrations == null || registrations.isEmpty()) return;
+                registration = registrations.getFirst();
+            }
+
+            // Remove only after RegisterEvent accepted this entry. If it
+            // throws, the failing entry and every unattempted successor remain
+            // staged. Startup is currently fatal, but retaining the queue also
+            // makes diagnostics/retry semantics truthful rather than silently
+            // discarding work that never ran.
             registerOn(event, registration.name(), registration.value());
+            synchronized (PENDING) {
+                Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
+                List<PendingRegistration> registrations =
+                        byRegistry == null ? null : byRegistry.get(event.getRegistryKey());
+                if (registrations == null || registrations.isEmpty()
+                        || registrations.getFirst() != registration) {
+                    throw new IllegalStateException("Legacy pending registration queue changed during flush for "
+                            + modId + " / " + event.getRegistryKey().identifier());
+                }
+                registrations.removeFirst();
+                if (registrations.isEmpty()) byRegistry.remove(event.getRegistryKey());
+                if (byRegistry.isEmpty()) PENDING.remove(modId);
+            }
         }
     }
 
