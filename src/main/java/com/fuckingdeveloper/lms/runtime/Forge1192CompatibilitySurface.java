@@ -38,6 +38,7 @@ public final class Forge1192CompatibilitySurface {
      */
     private static final Set<String> SUPPORTED_BRIDGES = Set.of(
             "net.minecraftforge.eventbus.api.IEventBus#addListener(Ljava/util/function/Consumer;)V",
+            "net.minecraftforge.eventbus.api.IEventBus#register(Ljava/lang/Object;)V",
             "net.minecraftforge.eventbus.api.IEventBus#addListener(Lnet/minecraftforge/eventbus/api/EventPriority;Ljava/util/function/Consumer;)V",
             "net.minecraftforge.eventbus.api.IEventBus#post(Lnet/minecraftforge/eventbus/api/Event;)Z",
             "net.minecraftforge.fluids.FluidStack#isFluidEqual(Lnet/minecraftforge/fluids/FluidStack;)Z",
