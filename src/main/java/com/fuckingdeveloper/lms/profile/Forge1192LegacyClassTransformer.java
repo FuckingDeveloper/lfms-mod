@@ -68,6 +68,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
+        rewrites += rewriteLegacyNamedItemConstruction(node);
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteAllNamespaceReferences(node);
@@ -606,8 +607,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = 0;
         for (var method : node.methods) {
             if (!method.name.equals("<init>")) continue;
-            int registryNameLocal = legacyRegistryNameStringLocal(node, method);
-            if (registryNameLocal < 0) continue;
+            RegistryNameEvidence registryName = legacyRegistryNameEvidence(node, method);
+            if (registryName == null) continue;
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
@@ -616,11 +617,36 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.name.equals("<init>")
                         || !call.desc.equals("(" + properties + ")V")) continue;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
-                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
-                        org.objectweb.asm.Opcodes.ALOAD, registryNameLocal));
+                appendRegistryNameLoad(adaptation, registryName);
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
                         "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                         "withBlockId", "(" + properties + "Ljava/lang/String;)" + properties, false));
+                method.instructions.insertBefore(call, adaptation);
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Attach a bytecode-proven legacy item name before Item reads Properties.id. */
+    private static int rewriteLegacyNamedItemConstruction(ClassNode node) {
+        final String properties = "Lnet/minecraft/world/item/Item$Properties;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if (!method.name.equals("<init>")) continue;
+            RegistryNameEvidence registryName = legacyRegistryNameEvidence(node, method);
+            if (registryName == null) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals("net/minecraft/world/item/Item")
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals("(" + properties + ")V")) continue;
+                var adaptation = new org.objectweb.asm.tree.InsnList();
+                appendRegistryNameLoad(adaptation, registryName);
+                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "withItemId", "(" + properties + "Ljava/lang/String;)" + properties, false));
                 method.instructions.insertBefore(call, adaptation);
                 rewrites++;
             }
@@ -705,8 +731,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = 0;
         for (var method : node.methods) {
             if (!method.name.equals("<init>")) continue;
-            int registryNameLocal = legacyRegistryNameStringLocal(node, method);
-            if (registryNameLocal < 0) continue;
+            RegistryNameEvidence registryName = legacyRegistryNameEvidence(node, method);
+            if (registryName == null) continue;
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
@@ -716,8 +742,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 var adaptation = new org.objectweb.asm.tree.InsnList();
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
-                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
-                        org.objectweb.asm.Opcodes.ALOAD, registryNameLocal));
+                appendRegistryNameLoad(adaptation, registryName);
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
                         "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                         "withItemId",
@@ -746,8 +771,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * its registry name by passing it through Forge GameData#checkPrefix and
      * storing the resulting ResourceLocation on the constructed object.
      */
-    private static int legacyRegistryNameStringLocal(ClassNode node, org.objectweb.asm.tree.MethodNode method) {
-        int match = -1;
+    private record RegistryNameEvidence(int local, boolean lowercase) {}
+
+    private static RegistryNameEvidence legacyRegistryNameEvidence(
+            ClassNode node, org.objectweb.asm.tree.MethodNode method) {
+        RegistryNameEvidence match = null;
         for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
             if (!(insn instanceof MethodInsnNode call)
                     || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
@@ -755,8 +783,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     || !call.name.equals("checkPrefix")
                     || !call.desc.equals("(Ljava/lang/String;Z)Lnet/minecraft/resources/ResourceLocation;")) continue;
             var warn = previousExecutable(call);
-            var name = warn == null ? null : previousExecutable(warn);
+            var producer = warn == null ? null : previousExecutable(warn);
             var store = nextExecutable(call);
+            boolean lowercase = producer instanceof MethodInsnNode normalization
+                    && normalization.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                    && normalization.owner.equals("java/lang/String")
+                    && normalization.name.equals("toLowerCase")
+                    && normalization.desc.equals("()Ljava/lang/String;");
+            var name = lowercase ? previousExecutable(producer) : producer;
             if (warn == null || warn.getOpcode() != org.objectweb.asm.Opcodes.ICONST_0
                     || !(name instanceof org.objectweb.asm.tree.VarInsnNode load)
                     || load.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
@@ -765,10 +799,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     || !field.owner.equals(node.name)
                     || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")
                     || !isStringArgumentLocal(method, load.var)) continue;
-            if (match >= 0 && match != load.var) return -1;
-            match = load.var;
+            RegistryNameEvidence evidence = new RegistryNameEvidence(load.var, lowercase);
+            if (match != null && !match.equals(evidence)) return null;
+            match = evidence;
         }
         return match;
+    }
+
+    private static void appendRegistryNameLoad(org.objectweb.asm.tree.InsnList instructions,
+                                               RegistryNameEvidence evidence) {
+        instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.ALOAD, evidence.local()));
+        if (evidence.lowercase()) {
+            instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                    "java/lang/String", "toLowerCase", "()Ljava/lang/String;", false));
+        }
     }
 
     private static boolean declaresLegacyRegistryNameAccessor(ClassNode node) {
@@ -921,12 +966,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
                 // javac records the concrete receiver class for inherited
-                // calls. Resolve the SRG identity against its canonical Block
-                // declaration, then retain the verified managed receiver.
-                if ((call.owner.equals(node.name)
-                        ? isManagedSubtypeOf(node, "net/minecraft/world/level/block/Block")
-                        : isManagedSubtypeOf(call.owner, "net/minecraft/world/level/block/Block"))) {
-                    var inherited = resolveCanonicalBlockMethod(call.name, call.desc);
+                // calls. Walk the managed hierarchy to the declaring vanilla
+                // ancestor, resolve the exact SRG identity there, and retain
+                // the verified managed receiver for virtual dispatch.
+                if (!call.owner.startsWith("net/minecraft/") && call.name.startsWith("m_")) {
+                    var inherited = resolveInheritedVanillaMethod(call.owner, call.name, call.desc);
                     if (inherited != null) {
                         call.name = inherited.name();
                         call.desc = inherited.descriptor();
@@ -981,6 +1025,42 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 ? resolved : null;
     }
 
+    private Forge1192SrgRuntimeResolver.Resolution resolveInheritedVanillaMethod(
+            String receiver, String name, String desc) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        pending.add(receiver);
+        while (!pending.isEmpty()) {
+            String current = pending.removeFirst();
+            if (!seen.add(current)) continue;
+            if (current.startsWith("net/minecraft/")) {
+                var resolved = SRG_RUNTIME_RESOLVER.get().resolve(current, name, desc);
+                if (resolved.resolved()) return resolved;
+            }
+            try {
+                byte[] bytes = hierarchyBytes(current);
+                if (bytes == null) continue;
+                ClassReader reader = new ClassReader(bytes);
+                if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
+                java.util.Collections.addAll(pending, reader.getInterfaces());
+            } catch (java.io.IOException | RuntimeException ignored) {
+                // Incomplete hierarchy evidence fails closed.
+            }
+        }
+        return null;
+    }
+
+    private byte[] hierarchyBytes(String internalName) throws java.io.IOException {
+        byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(internalName);
+        if (bytes != null) return bytes;
+        if (!SafeFrameClassWriter.isParentRuntimeType(internalName)) return null;
+        try (var stream = Forge1192LegacyClassTransformer.class.getClassLoader()
+                .getResourceAsStream(internalName + ".class")) {
+            return stream == null ? null : stream.readAllBytes();
+        }
+    }
+
     private boolean isManagedSubtypeOf(String candidate, String target) {
         java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
         pending.add(candidate);
@@ -1001,17 +1081,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             String current = pending.removeFirst();
             if (!seen.add(current)) continue;
             if (current.equals(target)) return true;
-            byte[] bytes = null;
             try {
-                if (managedClassBytes != null) bytes = managedClassBytes.find(current);
-                if (bytes == null) {
-                    if (!SafeFrameClassWriter.isParentRuntimeType(current)) continue;
-                    try (var stream = Forge1192LegacyClassTransformer.class.getClassLoader()
-                            .getResourceAsStream(current + ".class")) {
-                        if (stream == null) continue;
-                        bytes = stream.readAllBytes();
-                    }
-                }
+                byte[] bytes = hierarchyBytes(current);
+                if (bytes == null) continue;
                 ClassReader reader = new ClassReader(bytes);
                 if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
                 java.util.Collections.addAll(pending, reader.getInterfaces());
