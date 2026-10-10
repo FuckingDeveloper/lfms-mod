@@ -90,6 +90,15 @@ public final class Forge1192RegistrationContext {
         return (Registry<Object>) (Registry) scope.event().getRegistry();
     }
 
+    /**
+     * Stack-compatible replacement for legacy RegisterEvent#getForgeRegistry.
+     * Consumer calls are rewritten to static LMS operations, so the concrete
+     * object never escapes as a legacy IForgeRegistry instance.
+     */
+    public static Object activeRegistryObject() {
+        return activeRegistry();
+    }
+
     public static boolean containsKey(Identifier name) {
         Objects.requireNonNull(name, "name");
         return activeRegistry().containsKey(name);
