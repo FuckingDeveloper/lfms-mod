@@ -74,7 +74,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             totalRewrites += rewrites;
         }
 
-        ClassWriter writer = new ClassWriter(0);
+        // Semantic adapters may change descriptors and local/stack types.
+        // Frames from the legacy class are therefore no longer authoritative.
+        // Recompute both frames and maxs before definition.
+        ClassWriter writer = new SafeFrameClassWriter(
+                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         node.accept(writer);
         byte[] verified = writer.toByteArray();
         return new Result(verified, rewrites > 0,
@@ -128,6 +132,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         ClassWriter writer = new ClassWriter(0);
         node.accept(writer);
         return writer.toByteArray();
+    }
+
+    /**
+     * Frame computation must not ask the application/system classloader to
+     * resolve managed legacy classes. They intentionally live behind
+     * ManagedLegacyClassLoader and may still contain pre-adaptation names.
+     *
+     * Object is always a verifier-safe common supertype for unrelated
+     * reference values. Preserve identical types and the few array cases ASM
+     * can safely reason about without class loading; otherwise merge to Object.
+     */
+    private static final class SafeFrameClassWriter extends ClassWriter {
+        private SafeFrameClassWriter(int flags) {
+            super(flags);
+        }
+
+        @Override
+        protected String getCommonSuperClass(String type1, String type2) {
+            if (type1.equals(type2)) return type1;
+
+            // Avoid reflective class loading entirely. Arrays are reference
+            // types too; Object is conservative and verifier-correct for a
+            // merge when their exact common array type is not known locally.
+            return "java/lang/Object";
+        }
     }
 
     /**
