@@ -66,6 +66,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyMetalBlockProperties(node);
         rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
+        rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -634,6 +635,32 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return 0;
+    }
+
+    /**
+     * Creative tabs are no longer an Item.Properties attribute. Preserve the
+     * properties chain while leaving tab population to the modern tab event.
+     */
+    private static int rewriteLegacyCreativeTabAssignment(ClassNode node) {
+        int rewrites = 0;
+        final String owner = "net/minecraft/world/item/Item$Properties";
+        final String desc = "(Lnet/minecraft/world/item/CreativeModeTab;)L" + owner + ";";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("m_41491_")
+                        || !call.desc.equals(desc)) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                call.name = "withoutLegacyCreativeTab";
+                call.desc = "(L" + owner + ";Lnet/minecraft/world/item/CreativeModeTab;)L" + owner + ";";
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
     }
 
     /**

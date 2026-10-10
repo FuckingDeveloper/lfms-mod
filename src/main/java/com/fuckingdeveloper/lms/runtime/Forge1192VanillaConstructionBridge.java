@@ -8,6 +8,8 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.Item;
 
 /** Exact construction adapters for vanilla constructors removed after 1.19.2. */
 public final class Forge1192VanillaConstructionBridge {
@@ -24,6 +26,12 @@ public final class Forge1192VanillaConstructionBridge {
         return properties.setId(ResourceKey.create(
                 Registries.BLOCK,
                 Forge1192RegistrationContext.checkPrefix(legacyName, false)));
+    }
+
+    /** Creative tab membership is event-driven now; retain the old fluent chain. */
+    public static Item.Properties withoutLegacyCreativeTab(
+            Item.Properties properties, CreativeModeTab ignoredTab) {
+        return properties;
     }
 
     /**
