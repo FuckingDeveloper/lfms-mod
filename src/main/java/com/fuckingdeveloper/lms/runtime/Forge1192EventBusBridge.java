@@ -24,15 +24,18 @@ public final class Forge1192EventBusBridge {
      * Current NeoForge returns the posted event. Posting still occurs on the real
      * target bus; only the legacy return contract is reconstructed.
      */
-    public static <T extends Event> void addListener(IEventBus bus, Consumer<T> listener) {
+    public static <T extends Event> void addListener(IEventBus bus, Consumer<T> listener,
+                                                     Class<T> eventType) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        bus.addListener((T event) -> invokeScoped(modId, listener, event));
+        bus.addListener(net.neoforged.bus.api.EventPriority.NORMAL, false, eventType,
+                event -> invokeScoped(modId, listener, event));
     }
 
     public static <T extends Event> void addListener(IEventBus bus, net.neoforged.bus.api.EventPriority priority,
-                                                     Consumer<T> listener) {
+                                                     Consumer<T> listener, Class<T> eventType) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        bus.addListener(priority, (T event) -> invokeScoped(modId, listener, event));
+        bus.addListener(priority, false, eventType,
+                event -> invokeScoped(modId, listener, event));
     }
 
     /**
