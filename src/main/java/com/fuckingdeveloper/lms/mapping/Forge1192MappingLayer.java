@@ -329,6 +329,26 @@ public final class Forge1192MappingLayer {
                 .toList();
     }
 
+    /** Inspect constructor descriptors of one target class without initialization. */
+    public List<String> constructorsOf(String owner) {
+        InputStream stream = openClass(owner.replace('/', '.'));
+        if (stream == null) return List.of();
+        List<String> descriptors = new ArrayList<>();
+        try (stream) {
+            new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override public MethodVisitor visitMethod(int access, String name, String descriptor,
+                                                            String signature, String[] exceptions) {
+                    if (name.equals("<init>") && (access & Opcodes.ACC_PUBLIC) != 0)
+                        descriptors.add(descriptor);
+                    return null;
+                }
+            }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        } catch (IOException ex) {
+            return List.of();
+        }
+        return List.copyOf(descriptors);
+    }
+
     public List<IndexedMethod> methodsOf(String owner) {
         String binaryOwner = owner.replace('/', '.');
         return runtimeIndex().methods().stream()
