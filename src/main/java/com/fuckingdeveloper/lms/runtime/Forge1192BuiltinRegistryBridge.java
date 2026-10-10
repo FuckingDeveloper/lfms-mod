@@ -1,4 +1,6 @@
-package com.fuckingdeveloper.lms.runtime;\n\nimport com.fuckingdeveloper.lms.runtime.registry.LegacyRegistryObject;
+package com.fuckingdeveloper.lms.runtime;
+
+import com.fuckingdeveloper.lms.runtime.registry.LegacyRegistryObject;
 
 /**
  * Compatibility boundary for Forge 1.19.2 built-in registry bootstrap requests.
@@ -9,19 +11,18 @@ package com.fuckingdeveloper.lms.runtime;\n\nimport com.fuckingdeveloper.lms.run
  * through linkage while unsupported registry materialization remains explicit.
  */
 public final class Forge1192BuiltinRegistryBridge {
-    private record BuiltinHandle(String namespace, String path) {}
     private static final ThreadLocal<Boolean> MILK_FLUID_REQUESTED =
             ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     private Forge1192BuiltinRegistryBridge() {}
 
-    public static Object milk() {
-        return new BuiltinHandle("minecraft", "milk");
+    public static LegacyRegistryObject milk() {
+        return LegacyRegistryObject.builtin("minecraft", "milk");
     }
 
-    public static Object get(Object handle) {
-        if (!(handle instanceof BuiltinHandle builtin))
-            throw new IllegalArgumentException("Unsupported legacy builtin registry handle: " + handle);
+    public static Object get(LegacyRegistryObject builtin) {
+        if (builtin == null)
+            throw new IllegalArgumentException("Unsupported null legacy builtin registry handle");
         // Resolution is intentionally deferred until the target registry identity
         // is proven for this Minecraft/NeoForge version.
         throw new IllegalStateException("UNRESOLVED_BUILTIN_REGISTRY_VALUE "
