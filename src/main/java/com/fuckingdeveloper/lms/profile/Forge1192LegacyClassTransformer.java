@@ -323,7 +323,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             org.objectweb.asm.Opcodes.INVOKESTATIC,
                             "com/fuckingdeveloper/lms/runtime/Forge1192BuiltinRegistryBridge",
                             "milk",
-                            "()Ljava/lang/Object;",
+                            "()Lcom/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject;",
                             false);
                     method.instructions.set(field, replacement);
                     rewrites++;
