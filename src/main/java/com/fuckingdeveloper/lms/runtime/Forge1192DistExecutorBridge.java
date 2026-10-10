@@ -34,9 +34,20 @@ public final class Forge1192DistExecutorBridge {
             Supplier<? extends T> dedicatedServerTarget) {
         Objects.requireNonNull(clientTarget, "clientTarget");
         Objects.requireNonNull(dedicatedServerTarget, "dedicatedServerTarget");
-        return FMLEnvironment.getDist() == Dist.CLIENT
+        Object selected = FMLEnvironment.getDist() == Dist.CLIENT
                 ? clientTarget.get()
                 : dedicatedServerTarget.get();
+        // Forge 1.19.2 unsafeRunForDist uses an outer supplier to defer
+        // linking the physical-side implementation and an inner supplier to
+        // construct/return the actual value. Preserve both lazy boundaries.
+        if (selected instanceof Supplier<?> factory) {
+            @SuppressWarnings("unchecked")
+            T value = (T) factory.get();
+            return value;
+        }
+        @SuppressWarnings("unchecked")
+        T value = (T) selected;
+        return value;
     }
 
     public static void unsafeRunWhenOn(Dist dist, Supplier<? extends Runnable> toRun) {
