@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Set;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.jar.JarFile;
 
 /**
@@ -22,18 +24,34 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     private final Path artifact;
     private final JarFile jar;
+    private final List<JarFile> dependencyJars;
     private final LegacyClassTransformer transformer;
 
     public ManagedLegacyClassLoader(Path artifact, ClassLoader targetLoader) throws IOException {
-        this(artifact, targetLoader, (name, bytes) ->
+        this(artifact, List.of(), targetLoader, (name, bytes) ->
                 LegacyClassTransformer.Result.unchanged(bytes, "identity profile transformer"));
     }
 
     public ManagedLegacyClassLoader(Path artifact, ClassLoader targetLoader,
                                     LegacyClassTransformer transformer) throws IOException {
+        this(artifact, List.of(), targetLoader, transformer);
+    }
+
+    public ManagedLegacyClassLoader(Path artifact, List<Path> dependencies, ClassLoader targetLoader,
+                                    LegacyClassTransformer transformer) throws IOException {
         super(Objects.requireNonNull(targetLoader, "targetLoader"));
         this.artifact = artifact.toAbsolutePath().normalize();
         this.jar = new JarFile(this.artifact.toFile(), false);
+        this.dependencyJars = new ArrayList<>();
+        try {
+            for (Path dependency : dependencies) {
+                this.dependencyJars.add(new JarFile(dependency.toAbsolutePath().normalize().toFile(), false));
+            }
+        } catch (IOException failure) {
+            for (JarFile dependencyJar : dependencyJars) try { dependencyJar.close(); } catch (IOException ignored) {}
+            jar.close();
+            throw failure;
+        }
         this.transformer = Objects.requireNonNull(transformer, "transformer");
     }
 
@@ -42,7 +60,10 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
     }
 
     public boolean owns(String binaryName) {
-        return jar.getJarEntry(binaryName.replace('.', '/') + ".class") != null;
+        String entry = binaryName.replace('.', '/') + ".class";
+        if (jar.getJarEntry(entry) != null) return true;
+        for (JarFile dependencyJar : dependencyJars) if (dependencyJar.getJarEntry(entry) != null) return true;
+        return false;
     }
 
     /**
@@ -90,9 +111,18 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
-        var entry = jar.getJarEntry(name.replace('.', '/') + ".class");
-        if (entry == null) throw new ClassNotFoundException(name);
-        try (InputStream in = jar.getInputStream(entry)) {
+        String entryName = name.replace('.', '/') + ".class";
+        JarFile source = jar;
+        var entry = source.getJarEntry(entryName);
+        if (entry == null) {
+            source = null;
+            for (JarFile dependencyJar : dependencyJars) {
+                var candidate = dependencyJar.getJarEntry(entryName);
+                if (candidate != null) { source = dependencyJar; entry = candidate; break; }
+            }
+        }
+        if (entry == null || source == null) throw new ClassNotFoundException(name);
+        try (InputStream in = source.getInputStream(entry)) {
             byte[] original = in.readAllBytes();
             LegacyClassTransformer.Result result = transformer.transform(name, original);
             byte[] bytes = result.bytes();
@@ -115,6 +145,9 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     @Override
     public void close() throws IOException {
-        jar.close();
+        IOException failure = null;
+        for (JarFile dependencyJar : dependencyJars) try { dependencyJar.close(); } catch (IOException e) { failure = e; }
+        try { jar.close(); } catch (IOException e) { failure = e; }
+        if (failure != null) throw failure;
     }
 }
