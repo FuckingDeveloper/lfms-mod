@@ -99,13 +99,14 @@ def prepareLaunchPlan = tasks.register('prepareLaunchPlan', JavaExec) {
     }
 }
 
+// Diagnostic runs must compile the current main LMS sources. Configure this
+// provider at top level: Gradle 9 forbids configuring another task provider
+// from inside runClient's configuration action.
+tasks.named('compileJava') {
+    outputs.upToDateWhen { false }
+}
 tasks.named('runClient') {
-    dependsOn installLaunchJar, prepareLaunchPlan
-    // Never allow a stale main LMS class tree to survive between diagnostic runs.
-    // ModDevGradle runs the main source set from classes/resources rather than the
-    // separate launch JAR, so force Java recompilation/output refresh here.
-    dependsOn tasks.named('classes')
-    tasks.named('compileJava').configure { outputs.upToDateWhen { false } }
+    dependsOn installLaunchJar, prepareLaunchPlan, tasks.named('classes')
     doFirst {
         logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())
         logger.lifecycle("LMS installed launch JARs: {}", fileTree(layout.projectDirectory.dir('run/mods')) {
