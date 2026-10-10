@@ -3,6 +3,9 @@ package com.fuckingdeveloper.lms.runtime;
 import net.minecraft.resources.Identifier;
 
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -16,6 +19,16 @@ import java.util.function.Supplier;
  */
 public final class Forge1192NetworkBridge {
     private Forge1192NetworkBridge() {}
+
+    public record LegacyMessage(
+            int discriminator,
+            Class<?> messageType,
+            BiConsumer<Object, Object> encoder,
+            Function<Object, Object> decoder,
+            BiConsumer<Object, Supplier<Object>> consumer) {}
+
+    private static final ConcurrentHashMap<LegacyChannel, ConcurrentHashMap<Integer, LegacyMessage>> MESSAGES =
+            new ConcurrentHashMap<>();
 
     public record LegacyChannel(
             String modId,
@@ -38,7 +51,9 @@ public final class Forge1192NetworkBridge {
             Predicate<String> clientAcceptedVersions,
             Predicate<String> serverAcceptedVersions) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        return new LegacyChannel(modId, name, protocolVersion, clientAcceptedVersions, serverAcceptedVersions);
+        LegacyChannel channel = new LegacyChannel(modId, name, protocolVersion, clientAcceptedVersions, serverAcceptedVersions);
+        MESSAGES.put(channel, new ConcurrentHashMap<>());
+        return channel;
     }
 
     public static LegacyChannel requireChannel(Object token) {
@@ -49,5 +64,24 @@ public final class Forge1192NetworkBridge {
             throw new IllegalStateException("Legacy SimpleChannel belongs to " + channel.modId()
                     + " but active legacy mod is " + activeMod);
         return channel;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static Object registerMessage(Object token, int discriminator, Class messageType,
+                                         BiConsumer encoder, Function decoder, BiConsumer consumer) {
+        LegacyChannel channel = requireChannel(token);
+        Objects.requireNonNull(messageType, "messageType");
+        Objects.requireNonNull(encoder, "encoder");
+        Objects.requireNonNull(decoder, "decoder");
+        Objects.requireNonNull(consumer, "consumer");
+        LegacyMessage message = new LegacyMessage(discriminator, messageType, encoder, decoder, consumer);
+        LegacyMessage previous = MESSAGES.get(channel).putIfAbsent(discriminator, message);
+        if (previous != null)
+            throw new IllegalStateException("Duplicate legacy network discriminator " + discriminator
+                    + " on channel " + channel.name());
+        // Forge returned an IndexedMessageCodec.MessageHandler. LMS deliberately
+        // returns its own opaque registration token; no packet can execute until
+        // the current NeoForge payload adapter has bound this descriptor.
+        return message;
     }
 }
