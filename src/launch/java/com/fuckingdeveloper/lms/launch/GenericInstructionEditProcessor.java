@@ -167,16 +167,6 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 + " successor=" + describeNode(nextExecutable(anchorNode))
                 + " consumer=" + consumer.owner + "#" + consumer.name + consumer.desc);
 
-        // Resolve every legacy control-flow reference while the original anchor is
-        // still attached to the InsnList. Replacing the anchor detaches that node;
-        // relative getNext()/getPrevious() traversal from a stale binding would then
-        // resolve to null even though the target position was valid before mutation.
-        AbstractInsnNode legacyTarget = resolve(method, bindings, jump.target());
-        LabelNode continueLabel = legacyTarget instanceof LabelNode label ? label : null;
-        if (continueLabel == null) {
-            throw new IllegalStateException("semantic adaptation jump target is not a resolved label: " + jump.target());
-        }
-
         // Replace the migrated producer in-place. Its current consumer remains intact.
         anchorNode = bindings.get(anchor.variable());
         MethodInsnNode replacementNode = new MethodInsnNode(
@@ -200,14 +190,17 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         InsnList suffix = build(method, values.subList(2, values.size() - 2), bindings);
         remapPayloadTemporary(suffix, load.variable(), tempSlot);
 
-        // Preserve the legacy branch destination instead of synthesizing a new
-        // fall-through label. The original coremod's JumpInsnNode encodes the
-        // semantic continuation point (often after an early-return block).
-        // Replacing it with "jump over RETURN" changes control flow and can leave
-        // FML with bytecode that ASM's BasicVerifier accepts but whose stack-map
-        // / branch semantics no longer match the original patch.
+        // The legacy branch target belonged to the old expression surrounding the
+        // removed producer. In the migrated method that expression is represented by
+        // the preserved current consumer above. Reusing the old target can therefore
+        // merge into a point whose operand stack still contains that consumer's
+        // arguments. The adapted check runs after the consumer, where the stack is
+        // balanced, so its positive branch must skip only the injected early RETURN
+        // and resume at the original post-consumer continuation.
+        LabelNode continueLabel = new LabelNode();
         suffix.add(new JumpInsnNode(jump.opcode(), continueLabel));
         suffix.add(new InsnNode(Opcodes.RETURN));
+        suffix.add(continueLabel);
         method.instructions.insert(consumer, suffix);
         System.out.println("[LMS/early] semantic-adapt id=" + spec.id()
                 + " pattern=RESULT_REWRITE_PRESERVE_CONSUMER consumer="
