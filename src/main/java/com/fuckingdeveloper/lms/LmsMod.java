@@ -92,6 +92,8 @@ public final class LmsMod {
                                 managedTransformer.totalRewrites());
                         var lifecyclePlanner = new Forge1192LifecyclePlanner();
                         boolean lifecyclePlanReady = !report.modAnnotationCandidates().isEmpty();
+                        boolean registrationPlanComplete = lifecyclePlanReady;
+                        boolean compatibilitySurfaceExecutable = lifecyclePlanReady;
                         for (String candidate : report.modAnnotationCandidates()) {
                             var lifecyclePlan = lifecyclePlanner.plan(mod.file(), candidate);
                             lifecyclePlanReady &= lifecyclePlan.status()
@@ -106,6 +108,7 @@ public final class LmsMod {
                                         mod.modId(), candidate, entrypointReport.calls().size(),
                                         entrypointReport.boundaryCalls());
                                 var registrationPlan = new Forge1192RegistrationPlanner().plan(mod.file(), candidate);
+                                registrationPlanComplete &= registrationPlan.complete();
                                 LOG.info("LMS registration-plan id={} entrypoint={} inspectedMethods={} complete={} boundaryCount={} unresolvedCount={} reason={}",
                                         mod.modId(), candidate, registrationPlan.inspectedMethods(),
                                         registrationPlan.complete(), registrationPlan.boundaries().size(),
@@ -117,6 +120,7 @@ public final class LmsMod {
                                                 Forge1192CompatibilitySurface.Requirement::adapter,
                                                 java.util.TreeMap::new,
                                                 java.util.stream.Collectors.counting()));
+                                compatibilitySurfaceExecutable &= compatibilitySurface.executable();
                                 LOG.info("LMS compatibility-surface id={} requirements={} executable={} families={}",
                                         mod.modId(), compatibilitySurface.requirements().size(),
                                         compatibilitySurface.executable(), compatibilityFamilies);
@@ -151,7 +155,8 @@ public final class LmsMod {
                                 }
                             }
                         }
-                        var lifecycleDecision = new LegacyLifecycleGate().evaluate(report, lifecyclePlanReady);
+                        var lifecycleDecision = new LegacyLifecycleGate().evaluate(
+                                report, lifecyclePlanReady, registrationPlanComplete, compatibilitySurfaceExecutable);
                         for (var capability : lifecycleDecision.capabilities()) {
                             LOG.info("LMS capability id={} artifact={} capability={} state={} mandatory={} reason={}",
                                     mod.modId(), mod.file().getFileName(), capability.id(),
