@@ -13,4 +13,12 @@ public final class Forge1192SideBridge {
     public static LogicalSide getEffectiveSide() {
         return EffectiveSide.get();
     }
+    public static boolean isClient(net.neoforged.api.distmarker.Dist dist) {
+        return dist == net.neoforged.api.distmarker.Dist.CLIENT;
+    }
+
+    public static boolean isDedicatedServer(net.neoforged.api.distmarker.Dist dist) {
+        return dist == net.neoforged.api.distmarker.Dist.DEDICATED_SERVER;
+    }
 }
+
