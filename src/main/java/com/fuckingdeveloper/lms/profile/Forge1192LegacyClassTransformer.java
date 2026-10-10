@@ -689,6 +689,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // instead of migrating it into a non-existent NeoForge class.
         if (value.equals("net/minecraftforge/fml/DistExecutor"))
             return "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge";
+        if (value.equals("net/minecraft/client/model/SkeletonModel"))
+            return "net/minecraft/client/model/monster/skeleton/SkeletonModel";
         if (value.equals("net/minecraft/client/model/PlayerModel"))
             return "net/minecraft/client/model/player/PlayerModel";
         if (value.equals("net/minecraft/client/color/block/BlockColor"))
@@ -714,6 +716,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private static String migrateDescriptor(String descriptor) {
         return descriptor
                 .replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge")
+                .replace("net/minecraft/client/model/SkeletonModel", "net/minecraft/client/model/monster/skeleton/SkeletonModel")
                 .replace("net/minecraft/client/model/PlayerModel", "net/minecraft/client/model/player/PlayerModel")
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
