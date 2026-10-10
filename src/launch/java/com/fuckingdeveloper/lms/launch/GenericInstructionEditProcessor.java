@@ -189,10 +189,20 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
 
         InsnList suffix = build(values.subList(2, values.size() - 2), bindings);
         remapPayloadTemporary(suffix, load.variable(), tempSlot);
-        LabelNode continueLabel = new LabelNode();
+
+        // Preserve the legacy branch destination instead of synthesizing a new
+        // fall-through label. The original coremod's JumpInsnNode encodes the
+        // semantic continuation point (often after an early-return block).
+        // Replacing it with "jump over RETURN" changes control flow and can leave
+        // FML with bytecode that ASM's BasicVerifier accepts but whose stack-map
+        // / branch semantics no longer match the original patch.
+        AbstractInsnNode legacyTarget = resolve(bindings, jump.target());
+        LabelNode continueLabel = legacyTarget instanceof LabelNode label ? label : null;
+        if (continueLabel == null) {
+            throw new IllegalStateException("semantic adaptation jump target is not a resolved label: " + jump.target());
+        }
         suffix.add(new JumpInsnNode(jump.opcode(), continueLabel));
         suffix.add(new InsnNode(Opcodes.RETURN));
-        suffix.add(continueLabel);
         method.instructions.insert(consumer, suffix);
         System.out.println("[LMS/early] semantic-adapt id=" + spec.id()
                 + " pattern=RESULT_REWRITE_PRESERVE_CONSUMER consumer="
