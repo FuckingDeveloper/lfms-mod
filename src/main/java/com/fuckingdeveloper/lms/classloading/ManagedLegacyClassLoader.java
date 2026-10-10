@@ -53,10 +53,30 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
             throw failure;
         }
         this.transformer = Objects.requireNonNull(transformer, "transformer");
+        this.transformer.bindManagedClassBytes(this::readOwnedClassBytes);
     }
 
     public Path artifact() {
         return artifact;
+    }
+
+    private byte[] readOwnedClassBytes(String internalName) throws IOException {
+        String entryName = internalName + ".class";
+        var entry = jar.getJarEntry(entryName);
+        if (entry != null) {
+            try (InputStream in = jar.getInputStream(entry)) {
+                return in.readAllBytes();
+            }
+        }
+        for (JarFile dependencyJar : dependencyJars) {
+            entry = dependencyJar.getJarEntry(entryName);
+            if (entry != null) {
+                try (InputStream in = dependencyJar.getInputStream(entry)) {
+                    return in.readAllBytes();
+                }
+            }
+        }
+        return null;
     }
 
     public boolean owns(String binaryName) {
