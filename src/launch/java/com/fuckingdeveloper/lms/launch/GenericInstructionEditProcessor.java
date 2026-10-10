@@ -70,10 +70,10 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                     }
                     switch (edit.kind()) {
                         case REMOVE -> method.instructions.remove(location);
-                        case INSERT_BEFORE -> method.instructions.insertBefore(location, build(edit.values(), bindings));
-                        case INSERT_AFTER -> method.instructions.insert(location, build(edit.values(), bindings));
+                        case INSERT_BEFORE -> method.instructions.insertBefore(location, build(method, edit.values(), bindings));
+                        case INSERT_AFTER -> method.instructions.insert(location, build(method, edit.values(), bindings));
                         case REPLACE -> {
-                            InsnList replacement = build(edit.values(), bindings);
+                            InsnList replacement = build(method, edit.values(), bindings);
                             method.instructions.insertBefore(location, replacement);
                             method.instructions.remove(location);
                         }
@@ -187,7 +187,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         saveResult.add(new VarInsnNode(store.opcode(), tempSlot));
         method.instructions.insert(replacementNode, saveResult);
 
-        InsnList suffix = build(values.subList(2, values.size() - 2), bindings);
+        InsnList suffix = build(method, values.subList(2, values.size() - 2), bindings);
         remapPayloadTemporary(suffix, load.variable(), tempSlot);
 
         // Preserve the legacy branch destination instead of synthesizing a new
@@ -339,7 +339,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         return materialized;
     }
 
-    private static InsnList build(List<Value> values, Map<String, AbstractInsnNode> bindings) {
+    private static InsnList build(MethodNode method, List<Value> values, Map<String, AbstractInsnNode> bindings) {
         InsnList result = new InsnList();
         for (Value value : values) {
             switch (value.kind()) {
