@@ -124,6 +124,19 @@ public final class LmsMod {
                                 LOG.info("LMS compatibility-surface id={} requirements={} executable={} families={}",
                                         mod.modId(), compatibilitySurface.requirements().size(),
                                         compatibilitySurface.executable(), compatibilityFamilies);
+                                var compatibilityStates = compatibilitySurface.requirements().stream()
+                                        .collect(java.util.stream.Collectors.groupingBy(
+                                                Forge1192CompatibilitySurface.Requirement::state,
+                                                () -> new java.util.EnumMap<>(Forge1192CompatibilitySurface.State.class),
+                                                java.util.stream.Collectors.counting()));
+                                LOG.info("LMS compatibility-states id={} states={}", mod.modId(), compatibilityStates);
+                                for (var requirement : compatibilitySurface.requirements()) {
+                                    if (requirement.state() != Forge1192CompatibilitySurface.State.SUPPORTED) {
+                                        LOG.info("LMS compatibility-gap id={} target={} callSites={} family={} state={}",
+                                                mod.modId(), requirement.target(), requirement.callSites(),
+                                                requirement.adapter(), requirement.state());
+                                    }
+                                }
                                 var apiVerification = new Forge1192NeoForgeApiVerifier()
                                         .verify(registrationPlan.boundaries(), targetLoader);
                                 var apiVerificationStates = apiVerification.stream()
