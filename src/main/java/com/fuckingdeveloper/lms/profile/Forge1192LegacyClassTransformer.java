@@ -1102,20 +1102,30 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (call.owner.equals("net/neoforged/bus/api/IEventBus")
                         && call.name.equals("addListener")
                         && call.desc.equals("(Ljava/util/function/Consumer;)V")) {
+                    Type eventType = inferLambdaEventType(call);
+                    if (eventType == null)
+                        throw new IllegalStateException("Cannot infer legacy lambda event type: "
+                                + node.name + "#" + method.name + method.desc);
+                    method.instructions.insertBefore(call, new LdcInsnNode(eventType));
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
                     call.name = "addListener";
-                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Ljava/util/function/Consumer;)V";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Ljava/util/function/Consumer;Ljava/lang/Class;)V";
                     call.itf = false;
                     rewrites++;
                 }
                 if (call.owner.equals("net/neoforged/bus/api/IEventBus")
                         && call.name.equals("addListener")
                         && call.desc.equals("(Lnet/neoforged/bus/api/EventPriority;Ljava/util/function/Consumer;)V")) {
+                    Type eventType = inferLambdaEventType(call);
+                    if (eventType == null)
+                        throw new IllegalStateException("Cannot infer prioritized legacy lambda event type: "
+                                + node.name + "#" + method.name + method.desc);
+                    method.instructions.insertBefore(call, new LdcInsnNode(eventType));
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
                     call.name = "addListener";
-                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Lnet/neoforged/bus/api/EventPriority;Ljava/util/function/Consumer;)V";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Lnet/neoforged/bus/api/EventPriority;Ljava/util/function/Consumer;Ljava/lang/Class;)V";
                     call.itf = false;
                     rewrites++;
                 }
@@ -1147,6 +1157,39 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private static Type inferLambdaEventType(MethodInsnNode addListenerCall) {
+        int realInstructions = 0;
+        for (var previous = addListenerCall.getPrevious();
+             previous != null && realInstructions < 24; previous = previous.getPrevious()) {
+            if (previous.getOpcode() >= 0) realInstructions++;
+            if (!(previous instanceof InvokeDynamicInsnNode indy)) continue;
+            if (!indy.desc.endsWith(")Ljava/util/function/Consumer;")) continue;
+
+            // LambdaMetafactory's instantiated method type is conventionally
+            // bootstrap arg #2. It preserves Consumer<ConcreteEvent> even
+            // though the runtime Consumer object itself is erased.
+            if (indy.bsmArgs.length >= 3 && indy.bsmArgs[2] instanceof Type instantiated
+                    && instantiated.getSort() == Type.METHOD) {
+                Type[] args = instantiated.getArgumentTypes();
+                if (args.length == 1 && args[0].getSort() == Type.OBJECT)
+                    return Type.getObjectType(migrateInternalName(args[0].getInternalName()));
+            }
+
+            // Method-reference/lambda fallback: use the final object argument
+            // of the implementation handle after captured arguments.
+            for (Object bootstrapArg : indy.bsmArgs) {
+                if (!(bootstrapArg instanceof Handle handle)) continue;
+                Type methodType = Type.getMethodType(handle.getDesc());
+                Type[] args = methodType.getArgumentTypes();
+                if (args.length == 0) continue;
+                Type candidate = args[args.length - 1];
+                if (candidate.getSort() == Type.OBJECT)
+                    return Type.getObjectType(migrateInternalName(candidate.getInternalName()));
+            }
+        }
+        return null;
     }
 
     private static void verifyNoEscapingLegacyNetworkFacade(ClassNode node) {
