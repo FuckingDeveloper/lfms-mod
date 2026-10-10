@@ -132,6 +132,22 @@ public final class LmsMod {
                         var migrationPreflight = new com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight()
                                 .classify(symbolPreflight, targetLoader);
                         LOG.info("LMS migration-preflight id={} states={}", mod.modId(), migrationPreflight.states());
+                        var memberPreflight = new com.fuckingdeveloper.lms.analysis.LegacyMemberPreflight()
+                                .analyze(mod.file());
+                        var memberMigration = new com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight()
+                                .classify(memberPreflight, targetLoader);
+                        LOG.info("LMS member-preflight id={} boundaries={} methods={} fields={} states={}",
+                                mod.modId(), memberPreflight.boundaries().size(),
+                                memberPreflight.methods(), memberPreflight.fields(), memberMigration.states());
+                        var memberGaps = memberMigration.findings().stream()
+                                .filter(finding -> finding.state()
+                                        != com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight.State.EXACT_TARGET)
+                                .collect(java.util.stream.Collectors.groupingBy(
+                                        com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight.Finding::state,
+                                        () -> new java.util.EnumMap<>(
+                                                com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight.State.class),
+                                        java.util.stream.Collectors.counting()));
+                        LOG.info("LMS member-migration-gaps id={} states={}", mod.modId(), memberGaps);
                         var migrationFamilies = migrationPreflight.findings().stream()
                                 .filter(finding -> finding.state()
                                         != com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.State.TARGET_AVAILABLE)
