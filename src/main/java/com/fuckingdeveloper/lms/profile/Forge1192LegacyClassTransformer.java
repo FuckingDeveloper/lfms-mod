@@ -581,6 +581,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
+                if (call.owner.equals("net/minecraft/network/FriendlyByteBuf")
+                        && call.name.equals("readRegistryIdUnsafe")
+                        && call.desc.equals("(Lnet/neoforged/neoforge/registries/IForgeRegistry;)Ljava/lang/Object;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                    call.name = "readRegistryIdUnsafe";
+                    call.desc = "(Lnet/minecraft/network/FriendlyByteBuf;Ljava/lang/Object;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Forge 1.19.2 SimpleChannel is a protocol object, not a class
                 // that can be namespace-migrated into current NeoForge. Replace
                 // construction with an LMS-owned token; message registration stays
