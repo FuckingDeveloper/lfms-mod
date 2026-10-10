@@ -86,6 +86,14 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.server.ServerLifecycleHooks#getCurrentServer()Lnet/minecraft/server/MinecraftServer;"
     );
 
+    private static final Set<String> NETWORK_ADAPTERS = Set.of(
+            "net.minecraftforge.network.NetworkEvent$Context#enqueueWork(Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;",
+            "net.minecraftforge.network.NetworkEvent$Context#getSender()Lnet/minecraft/server/level/ServerPlayer;",
+            "net.minecraftforge.network.NetworkEvent$Context#setPacketHandled(Z)V",
+            "net.minecraftforge.network.NetworkRegistry#newSimpleChannel(Lnet/minecraft/resources/ResourceLocation;Ljava/util/function/Supplier;Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Lnet/minecraftforge/network/simple/SimpleChannel;",
+            "net.minecraftforge.network.simple.SimpleChannel#registerMessage(ILjava/lang/Class;Ljava/util/function/BiConsumer;Ljava/util/function/Function;Ljava/util/function/BiConsumer;)Lnet/minecraftforge/network/simple/IndexedMessageCodec$MessageHandler;"
+    );
+
     private static final Set<String> EXPLICIT_UNSUPPORTED = Set.of(
             "net.minecraftforge.fml.ModLoadingContext#getActiveContainer()Lnet/minecraftforge/fml/ModContainer;",
             "net.minecraftforge.fml.ModLoadingContext#setActiveContainer(Lnet/minecraftforge/fml/ModContainer;)V"
@@ -100,7 +108,8 @@ public final class Forge1192CompatibilitySurface {
             String target = entry.getKey();
             State state = SUPPORTED_BRIDGES.contains(target)
                     ? State.SUPPORTED
-                    : EXPLICIT_UNSUPPORTED.contains(target) ? State.UNSUPPORTED : State.ADAPTER_REQUIRED;
+                    : EXPLICIT_UNSUPPORTED.contains(target) ? State.UNSUPPORTED
+                    : NETWORK_ADAPTERS.contains(target) ? State.ADAPTER_REQUIRED : State.ADAPTER_REQUIRED;
             requirements.add(new Requirement(target, entry.getValue(), state, family(target)));
         }
         boolean executable = requirements.stream()
