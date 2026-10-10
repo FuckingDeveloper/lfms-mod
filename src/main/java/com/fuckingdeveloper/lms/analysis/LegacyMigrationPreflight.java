@@ -11,7 +11,7 @@ import java.util.Map;
 public final class LegacyMigrationPreflight {
     public enum State {
         TARGET_AVAILABLE, AUTO_RELOCATABLE, LMS_BRIDGE, FORGE_API_MIGRATION,
-        OPTIONAL_DEPENDENCY, UNRESOLVED
+        OPTIONAL_DEPENDENCY, LIBRARY_DEPENDENCY, VANILLA_API_MIGRATION, UNRESOLVED
     }
     public record Finding(String target, LegacySymbolPreflight.Use use, State state, String reason) {}
     public record Report(List<Finding> findings, Map<State,Integer> states) {}
@@ -33,6 +33,10 @@ public final class LegacyMigrationPreflight {
                 reason = "legacy Forge API absent; operation/structure migration required";
             } else if (target.startsWith("top/theillusivec4/") || target.startsWith("mezz/jei/")) {
                 state = State.OPTIONAL_DEPENDENCY; reason = "third-party integration dependency";
+            } else if (target.startsWith("org/apache/") || target.startsWith("org/lwjgl/")) {
+                state = State.LIBRARY_DEPENDENCY; reason = "external library dependency";
+            } else if (target.startsWith("com/mojang/")) {
+                state = State.VANILLA_API_MIGRATION; reason = "Mojang/client API moved or removed";
             } else if (target.startsWith("net/minecraft/")) {
                 var relocation = mappings.resolveRelocatedClass(target);
                 if (relocation.status() == Forge1192MappingLayer.Status.VERIFIED_IDENTITY
@@ -40,7 +44,7 @@ public final class LegacyMigrationPreflight {
                     state = State.AUTO_RELOCATABLE;
                     reason = relocation.targetInternalName();
                 } else {
-                    state = State.UNRESOLVED; reason = relocation.reason();
+                    state = State.VANILLA_API_MIGRATION; reason = relocation.reason();
                 }
             } else {
                 state = State.UNRESOLVED; reason = "external class not visible in target loader";
