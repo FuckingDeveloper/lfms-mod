@@ -101,6 +101,11 @@ def prepareLaunchPlan = tasks.register('prepareLaunchPlan', JavaExec) {
 
 tasks.named('runClient') {
     dependsOn installLaunchJar, prepareLaunchPlan
+    // Never allow a stale main LMS class tree to survive between diagnostic runs.
+    // ModDevGradle runs the main source set from classes/resources rather than the
+    // separate launch JAR, so force Java recompilation/output refresh here.
+    dependsOn tasks.named('classes')
+    tasks.named('compileJava').configure { outputs.upToDateWhen { false } }
     doFirst {
         logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())
         logger.lifecycle("LMS installed launch JARs: {}", fileTree(layout.projectDirectory.dir('run/mods')) {
