@@ -99,7 +99,7 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
             return defineClass(name, bytes, 0, bytes.length);
         } catch (IOException e) {
             throw new ClassNotFoundException(name, e);
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             throw new ClassNotFoundException(
                     "Profile transformation failed for owned class " + name
                             + " from " + artifact + ": " + e.getMessage(), e);
