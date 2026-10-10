@@ -345,6 +345,29 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
 
+                // Removed LazyOptional operations retain an explicit LMS
+                // invalidation token. Do not silently substitute java.util.Optional.
+                if (call.owner.equals("net/neoforged/neoforge/common/util/LazyOptional")
+                        && call.name.equals("empty")
+                        && call.desc.equals("()Lnet/neoforged/neoforge/common/util/LazyOptional;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LazyOptionalBridge";
+                    call.name = "empty";
+                    call.desc = "()Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/neoforge/common/util/LazyOptional")
+                        && call.name.equals("invalidate")
+                        && call.desc.equals("()V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LazyOptionalBridge";
+                    call.name = "invalidate";
+                    call.desc = "(Ljava/lang/Object;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Forge 1.19.2 FluidStack#isFluidEqual compares fluid identity,
                 // not amount or data components. Keep the old contract explicit.
                 if (call.owner.equals("net/neoforged/neoforge/fluids/FluidStack")
