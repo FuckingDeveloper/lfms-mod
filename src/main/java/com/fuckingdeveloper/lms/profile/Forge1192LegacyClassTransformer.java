@@ -1501,7 +1501,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return false;
     }
 
-    private static int rewriteVerifiedSrgFieldAccesses(ClassNode node) {
+    private int rewriteVerifiedSrgFieldAccesses(ClassNode node) {
         if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
         int rewrites = 0;
         for (var method : node.methods) {
@@ -1524,6 +1524,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     continue;
                 }
                 var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(field.owner, field.name, field.desc);
+                if (!resolved.resolved() && !field.owner.startsWith("net/minecraft/")) {
+                    resolved = resolveInheritedVanillaField(field.owner, field.name, field.desc);
+                }
                 if (!resolved.resolved()) continue;
                 if (!field.owner.equals(resolved.owner()) || !field.name.equals(resolved.name())
                         || !field.desc.equals(resolved.descriptor())) {
@@ -1535,6 +1538,33 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Resolve an SRG field whose bytecode owner is a managed subclass. */
+    private Forge1192SrgRuntimeResolver.FieldResolution resolveInheritedVanillaField(
+            String receiver, String name, String desc) {
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        pending.add(receiver);
+        while (!pending.isEmpty()) {
+            String current = pending.removeFirst();
+            if (!seen.add(current)) continue;
+            if (current.startsWith("net/minecraft/")) {
+                var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(current, name, desc);
+                if (resolved.resolved()) return resolved;
+            }
+            try {
+                byte[] bytes = hierarchyBytes(current);
+                if (bytes == null) continue;
+                ClassReader reader = new ClassReader(bytes);
+                if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
+                java.util.Collections.addAll(pending, reader.getInterfaces());
+            } catch (java.io.IOException | LinkageError | RuntimeException ignored) {
+                // Incomplete hierarchy evidence fails closed.
+            }
+        }
+        return new Forge1192SrgRuntimeResolver.FieldResolution(
+                receiver, name, desc, false, "No inherited vanilla field identity resolved");
     }
 
     /** Exact 1.19.2 SRG identities for MobEffects' migration to Holder fields. */
