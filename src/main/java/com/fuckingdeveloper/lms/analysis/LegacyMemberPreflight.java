@@ -22,8 +22,15 @@ public final class LegacyMemberPreflight {
 
     public Report analyze(Path file) throws IOException {
         List<Boundary> out = new ArrayList<>();
+        Set<String> owned = new HashSet<>();
         try (ZipFile jar = new ZipFile(file.toFile())) {
             var entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                var e = entries.nextElement();
+                if (!e.isDirectory() && e.getName().endsWith(".class"))
+                    owned.add(e.getName().substring(0, e.getName().length() - 6));
+            }
+            entries = jar.entries();
             while (entries.hasMoreElements()) {
                 var e = entries.nextElement();
                 if (e.isDirectory() || !e.getName().endsWith(".class")) continue;
@@ -40,12 +47,14 @@ public final class LegacyMemberPreflight {
                             return new MethodVisitor(Opcodes.ASM9) {
                                 @Override public void visitMethodInsn(int opcode, String owner, String name,
                                                                      String desc, boolean itf) {
-                                    if (!isPlatform(owner)) out.add(new Boundary(callerClass, caller, Kind.METHOD,
-                                            opcode, owner, name, desc, itf));
+                                    if (!isPlatform(owner) && !isOwned(owned, owner))
+                                        out.add(new Boundary(callerClass, caller, Kind.METHOD,
+                                                opcode, owner, name, desc, itf));
                                 }
                                 @Override public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-                                    if (!isPlatform(owner)) out.add(new Boundary(callerClass, caller, Kind.FIELD,
-                                            opcode, owner, name, desc, false));
+                                    if (!isPlatform(owner) && !isOwned(owned, owner))
+                                        out.add(new Boundary(callerClass, caller, Kind.FIELD,
+                                                opcode, owner, name, desc, false));
                                 }
                             };
                         }
@@ -60,6 +69,13 @@ public final class LegacyMemberPreflight {
                 .toList();
         int methods = (int) unique.stream().filter(b -> b.kind() == Kind.METHOD).count();
         return new Report(unique, methods, unique.size() - methods);
+    }
+
+    private static boolean isOwned(Set<String> owned, String owner) {
+        if (owned.contains(owner)) return true;
+        if (owner.startsWith("[L") && owner.endsWith(";"))
+            return owned.contains(owner.substring(2, owner.length() - 1));
+        return false;
     }
 
     private static boolean isPlatform(String owner) {
