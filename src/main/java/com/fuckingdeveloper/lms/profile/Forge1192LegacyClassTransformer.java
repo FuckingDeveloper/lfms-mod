@@ -114,6 +114,19 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         && call.desc.equals("()Lnet/minecraft/resources/ResourceKey;")) {
                     // Exact modern API after ResourceLocation -> Identifier migration.
                 }
+                // Forge 1.19.2 exposed IForgeRegistry from RegisterEvent.
+                // NeoForge exposes the concrete Registry instead. Rewrite the
+                // producer and all known legacy consumer calls as one contract.
+                if (call.owner.equals("net/neoforged/neoforge/registries/RegisterEvent")
+                        && call.name.equals("getForgeRegistry")
+                        && call.desc.equals("()Lnet/neoforged/neoforge/registries/IForgeRegistry;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                    call.name = "activeRegistryObject";
+                    call.desc = "()Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
                 if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")) {
                     String bridgeDesc = switch (call.name) {
                         case "containsKey" -> call.desc.equals("(Lnet/minecraft/resources/Identifier;)Z")
