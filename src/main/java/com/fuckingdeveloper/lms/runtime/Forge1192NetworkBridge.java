@@ -88,6 +88,16 @@ public final class Forge1192NetworkBridge {
      * FriendlyByteBuf-compatible buffers; the original generic signatures
      * were erased when captured from the legacy registration.
      */
+    public enum FlowEvidence { EXPLICIT_SEND_TO_SERVER, EXPLICIT_SEND_TO_CLIENT, EXPLICIT_BIDIRECTIONAL }
+
+    public static Flow flowFromEvidence(FlowEvidence evidence) {
+        return switch (Objects.requireNonNull(evidence, "evidence")) {
+            case EXPLICIT_SEND_TO_SERVER -> Flow.SERVERBOUND;
+            case EXPLICIT_SEND_TO_CLIENT -> Flow.CLIENTBOUND;
+            case EXPLICIT_BIDIRECTIONAL -> Flow.BIDIRECTIONAL;
+        };
+    }
+
     public static void resolveFlow(Object token, int discriminator, Flow flow) {
         LegacyChannel channel = requireChannel(token);
         var registrations = MESSAGES.get(channel);
