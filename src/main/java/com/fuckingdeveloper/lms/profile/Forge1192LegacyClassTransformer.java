@@ -1946,6 +1946,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable";
         if (value.equals("net/minecraftforge/common/PlantType"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType";
+        if (value.equals("net/minecraftforge/energy/IEnergyStorage"))
+            return "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage";
         if (value.equals("net/minecraftforge/common/extensions/IForgeBlock"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock";
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
@@ -2019,6 +2021,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
                 .replace("net/minecraftforge/common/IPlantable", "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable")
                 .replace("net/minecraftforge/common/PlantType", "com/fuckingdeveloper/lms/runtime/block/LegacyPlantType")
+                .replace("net/minecraftforge/energy/IEnergyStorage", "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage")
                 .replace("net/minecraftforge/common/extensions/IForgeBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")

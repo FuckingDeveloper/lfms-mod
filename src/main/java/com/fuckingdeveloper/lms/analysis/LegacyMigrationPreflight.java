@@ -28,6 +28,7 @@ public final class LegacyMigrationPreflight {
             } else if (target.equals("net/minecraft/world/item/ArmorItem")
                     || target.equals("net/minecraftforge/common/IPlantable")
                     || target.equals("net/minecraftforge/common/PlantType")
+                    || target.equals("net/minecraftforge/energy/IEnergyStorage")
                     || target.equals("net/minecraftforge/common/extensions/IForgeBlock")
                     || target.equals("net/minecraftforge/common/extensions/IForgeItem")
                     || target.equals("net/minecraftforge/event/level/BlockEvent$BreakEvent")) {
