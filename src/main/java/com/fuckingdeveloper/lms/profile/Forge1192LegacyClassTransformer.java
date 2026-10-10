@@ -317,7 +317,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
                         || !field.owner.equals("net/minecraftforge/common/ForgeMod")) continue;
                 if (field.name.equals("MILK")
-                        && field.desc.equals("Lnet/minecraftforge/registries/RegistryObject;")) {
+                        && (field.desc.equals("Lnet/minecraftforge/registries/RegistryObject;")
+                        || field.desc.equals("Lcom/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject;"))) {
                     MethodInsnNode replacement = new MethodInsnNode(
                             org.objectweb.asm.Opcodes.INVOKESTATIC,
                             "com/fuckingdeveloper/lms/runtime/Forge1192BuiltinRegistryBridge",
