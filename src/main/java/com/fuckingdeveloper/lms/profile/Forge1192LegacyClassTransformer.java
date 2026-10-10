@@ -280,6 +280,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+                // Forge 1.19.2 SimpleChannel is a protocol object, not a class
+                // that can be namespace-migrated into current NeoForge. Replace
+                // construction with an LMS-owned token; message registration stays
+                // fail-closed until codec/payload semantics are adapted.
+                if (call.owner.equals("net/neoforged/neoforge/network/NetworkRegistry")
+                        && call.name.equals("newSimpleChannel")
+                        && call.desc.equals("(Lnet/minecraft/resources/Identifier;Ljava/util/function/Supplier;Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Lnet/neoforged/neoforge/network/simple/SimpleChannel;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                    call.name = "newSimpleChannel";
+                    call.desc = "(Lnet/minecraft/resources/Identifier;Ljava/util/function/Supplier;Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
                 // Forge 1.19.2 FluidStack#isFluidEqual compares fluid identity,
                 // not amount or data components. Keep the old contract explicit.
                 if (call.owner.equals("net/neoforged/neoforge/fluids/FluidStack")
