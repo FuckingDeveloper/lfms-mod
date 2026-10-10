@@ -998,7 +998,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (call.owner.equals("net/neoforged/neoforge/registries/RegisterEvent")
                         && call.name.equals("getForgeRegistry")
                         && (call.desc.equals("()Lnet/neoforged/neoforge/registries/IForgeRegistry;")
-                            || call.desc.equals("()Lnet/minecraftforge/registries/IForgeRegistry;"))) {
+                            || call.desc.equals("()Lnet/minecraftforge/registries/IForgeRegistry;")
+                            || call.desc.equals("()Lcom/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry;"))) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
                     call.name = "activeRegistryObject";
@@ -1006,7 +1007,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
-                if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")) {
+                if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
+                        || call.owner.equals("com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry")) {
                     String bridgeDesc = switch (call.name) {
                         case "containsKey" -> call.desc.equals("(Lnet/minecraft/resources/Identifier;)Z")
                                 ? "(Ljava/lang/Object;Lnet/minecraft/resources/Identifier;)Z" : null;
