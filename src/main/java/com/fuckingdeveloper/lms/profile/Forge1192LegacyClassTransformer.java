@@ -489,7 +489,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 // explicit LMS builtin handles. Their RegistryObject operations are
                 // adapted below, so the removed Forge holder never reaches linkage.
                 if ((call.owner.equals("net/minecraftforge/registries/RegistryObject")
-                        || call.owner.equals("net/neoforged/neoforge/registries/RegistryObject"))
+                        || call.owner.equals("net/neoforged/neoforge/registries/RegistryObject")\n                        || call.owner.equals("com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject"))
                         && call.name.equals("get")
                         && call.desc.equals("()Ljava/lang/Object;")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
@@ -1004,7 +1004,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // operations are resolved/adapted separately rather than namespace-guessed.
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem";
-        if (value.equals("net/minecraftforge/common/capabilities/ICapabilityProvider"))
+        if (value.equals("net/minecraftforge/registries/RegistryObject"))\n            return "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject";\n        if (value.equals("net/minecraftforge/common/capabilities/ICapabilityProvider"))
             return "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider";
         if (value.equals("net/minecraftforge/fluids/capability/IFluidHandler"))
             return "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler";
@@ -1054,7 +1054,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
-                .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
+                .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")\n                .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
                 .replace("net/minecraftforge/fluids/capability/IFluidHandler", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler")
                 .replace("net/minecraftforge/fluids/IFluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidTank")
                 .replace("net/minecraftforge/fluids/capability/templates/FluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank")
