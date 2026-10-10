@@ -310,6 +310,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
+                // Minecraft 1.19.2 exposed CreativeModeTab(String). Current
+                // Minecraft uses a builder/factory lifecycle; constructor migration
+                // requires a semantic adapter and must not be guessed here.
+                if (call.owner.equals("net/minecraft/world/item/CreativeModeTab")
+                        && call.name.equals("<init>")
+                        && call.desc.equals("(Ljava/lang/String;)V")) {
+                    throw new IllegalStateException(
+                            "Legacy CreativeModeTab(String) construction requires profile semantic migration at "
+                                    + node.name + "#" + method.name);
+                }
+
                 // Forge 1.19.2 Dist exposed convenience predicates that are
                 // absent from the current enum. Preserve physical-side semantics.
                 if (call.owner.equals("net/neoforged/api/distmarker/Dist")
