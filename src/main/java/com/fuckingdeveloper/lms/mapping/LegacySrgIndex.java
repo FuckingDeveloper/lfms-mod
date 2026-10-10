@@ -164,10 +164,19 @@ public final class LegacySrgIndex {
     }
 
     private static String normalizeSrgName(String name) {
-        if (name.startsWith("m_") && name.endsWith("_") && name.length() > 3) {
+        if ((name.startsWith("m_") || name.startsWith("f_")) && name.endsWith("_") && name.length() > 3) {
             return name.substring(2, name.length() - 1);
         }
         return name;
+    }
+
+    public List<TsrgMappingReader.FieldEntry> findFieldsBySrgName(String name) {
+        String normalized = normalizeSrgName(name);
+        return index.fields().values().stream()
+                .filter(entry -> entry.names().stream().anyMatch(candidate ->
+                        candidate.equals(name) || normalizeSrgName(candidate).equals(normalized)))
+                .distinct()
+                .toList();
     }
 
     public int methodCount() {
