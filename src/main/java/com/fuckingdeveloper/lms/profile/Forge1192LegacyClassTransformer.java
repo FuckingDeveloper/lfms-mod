@@ -42,6 +42,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteSemanticAdapters(node);
         verifyNoEscapingLegacyRegistryFacade(node);
         verifyNoUnadaptedLifecycleCalls(node);
+        verifyNoEscapingLegacyNetworkFacade(node);
         if (rewrites > 0) {
             transformedClasses++;
             totalRewrites += rewrites;
@@ -358,6 +359,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private static void verifyNoEscapingLegacyNetworkFacade(ClassNode node) {
+        String simpleChannel = "net/neoforged/neoforge/network/simple/SimpleChannel";
+        String networkContext = "net/neoforged/neoforge/network/NetworkEvent$Context";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.owner.equals("net/neoforged/neoforge/network/NetworkRegistry")
+                        && call.name.equals("newSimpleChannel"))
+                    throw new IllegalStateException("Unadapted legacy SimpleChannel construction: "
+                            + node.name + "#" + method.name + call.desc);
+                if (call.owner.equals(simpleChannel) && !call.name.equals("registerMessage"))
+                    throw new IllegalStateException("Unsupported legacy SimpleChannel operation: "
+                            + node.name + "#" + method.name + " -> " + call.name + call.desc);
+                if (call.owner.equals(networkContext))
+                    throw new IllegalStateException("Unadapted legacy NetworkEvent.Context operation: "
+                            + node.name + "#" + method.name + " -> " + call.name + call.desc);
+            }
+        }
     }
 
     private static void verifyNoUnadaptedLifecycleCalls(ClassNode node) {
