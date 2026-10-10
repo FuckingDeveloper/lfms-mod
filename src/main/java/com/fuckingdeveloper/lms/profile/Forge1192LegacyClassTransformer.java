@@ -52,7 +52,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
-        rewrites += rewriteLegacyForgeBuiltinFields(node);\n        rewrites += rewriteLegacyEnvironmentFieldAccess(node);
+        rewrites += rewriteLegacyForgeBuiltinFields(node);
+        rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyIdentifierConstruction(node);
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
         rewrites += rewriteLegacyArmorConstructorDescriptors(node);
