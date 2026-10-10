@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms.analysis;
 
 import org.objectweb.asm.*;
+import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
 import java.io.InputStream;
 import java.util.*;
 
@@ -23,11 +24,16 @@ public final class LegacyMemberMigrationPreflight {
     }
 
     private Finding classify(LegacyMemberPreflight.Boundary b, ClassLoader loader) {
-        if (b.owner().startsWith("net/minecraftforge/"))
-            return new Finding(b, State.LEGACY_FORGE_API, List.of());
-        String resource = b.owner() + ".class";
+        String projectedOwner = Forge1192LegacyClassTransformer.projectInternalName(b.owner());
+        String projectedDescriptor = Forge1192LegacyClassTransformer.projectDescriptor(b.descriptor());
+        LegacyMemberPreflight.Boundary projected = new LegacyMemberPreflight.Boundary(
+                b.callerClass(), b.callerMethod(), b.kind(), b.opcode(),
+                projectedOwner, b.name(), projectedDescriptor, b.interfaceCall());
+        if (projectedOwner.startsWith("net/minecraftforge/"))
+            return new Finding(projected, State.LEGACY_FORGE_API, List.of());
+        String resource = projectedOwner + ".class";
         InputStream raw = open(loader, resource);
-        if (raw == null) return new Finding(b, State.OWNER_MISSING, List.of());
+        if (raw == null) return new Finding(projected, State.OWNER_MISSING, List.of());
         try (InputStream in = raw) {
             List<String> sameName = new ArrayList<>();
             boolean[] exact = {false};
@@ -51,13 +57,13 @@ public final class LegacyMemberMigrationPreflight {
                     return null;
                 }
             }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-            if (exact[0]) return new Finding(b, State.EXACT_TARGET, List.copyOf(sameName));
-            if (findInherited(loader, parents, b, sameName, new HashSet<>()))
+            if (exact[0]) return new Finding(projected, State.EXACT_TARGET, List.copyOf(sameName));
+            if (findInherited(loader, parents, projected, sameName, new HashSet<>()))
                 return new Finding(b, State.EXACT_TARGET, List.copyOf(sameName));
-            return new Finding(b, sameName.isEmpty() ? State.MEMBER_MISSING : State.DESCRIPTOR_CHANGED,
+            return new Finding(projected, sameName.isEmpty() ? State.MEMBER_MISSING : State.DESCRIPTOR_CHANGED,
                     List.copyOf(sameName));
         } catch (Exception e) {
-            return new Finding(b, State.MEMBER_MISSING, List.of());
+            return new Finding(projected, State.MEMBER_MISSING, List.of());
         }
     }
 
