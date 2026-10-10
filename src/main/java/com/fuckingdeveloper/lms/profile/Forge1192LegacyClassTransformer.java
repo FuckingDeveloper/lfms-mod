@@ -63,6 +63,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
+        rewrites += rewriteLegacyMetalBlockProperties(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -551,6 +552,39 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * The gameplay Material class was removed. For the verified METAL ->
+     * Properties.of call shape, retain its surviving map-color semantics and
+     * avoid relocating it to the unrelated client sprite Material record.
+     */
+    private static int rewriteLegacyMetalBlockProperties(ClassNode node) {
+        int rewrites = 0;
+        final String material = "net/minecraft/world/level/material/Material";
+        final String properties = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                        || !call.owner.equals(properties)
+                        || !call.name.equals("m_60939_")
+                        || !call.desc.equals("(L" + material + ";)L" + properties + ";")) continue;
+                var previous = call.getPrevious();
+                if (!(previous instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals(material)
+                        || !field.name.equals("f_76279_")
+                        || !field.desc.equals("L" + material + ";")) continue;
+                method.instructions.remove(field);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                call.name = "metalBlockProperties";
+                call.desc = "()L" + properties + ";";
+                call.itf = false;
+                rewrites++;
             }
         }
         return rewrites;
