@@ -31,6 +31,22 @@ public final class Forge1192NetworkBridge {
     private static final ConcurrentHashMap<LegacyChannel, ConcurrentHashMap<Integer, LegacyMessage>> MESSAGES =
             new ConcurrentHashMap<>();
 
+    public static java.util.List<LegacyMessage> messages(LegacyChannel channel) {
+        var entries = MESSAGES.get(Objects.requireNonNull(channel, "channel"));
+        if (entries == null) throw new IllegalStateException("Unknown legacy network channel");
+        return entries.values().stream()
+                .sorted(java.util.Comparator.comparingInt(LegacyMessage::discriminator))
+                .toList();
+    }
+
+    public static void requirePayloadRegistrationReady(LegacyChannel channel) {
+        requireChannel(channel);
+        throw new UnsupportedOperationException(
+                "Forge 1.19.2 SimpleChannel " + channel.name()
+                + " cannot register payloads until legacy buffer codec, direction and "
+                + "NeoForge 26.3 payload event bindings are verified");
+    }
+
     public record LegacyChannel(
             String modId,
             Identifier name,
