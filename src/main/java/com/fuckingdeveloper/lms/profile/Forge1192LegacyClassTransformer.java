@@ -156,13 +156,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")) {
                     String bridgeDesc = switch (call.name) {
                         case "containsKey" -> call.desc.equals("(Lnet/minecraft/resources/Identifier;)Z")
-                                ? "(Lnet/minecraft/resources/Identifier;)Z" : null;
+                                ? "(Ljava/lang/Object;Lnet/minecraft/resources/Identifier;)Z" : null;
                         case "getValue" -> call.desc.equals("(Lnet/minecraft/resources/Identifier;)Ljava/lang/Object;")
-                                ? "(Lnet/minecraft/resources/Identifier;)Ljava/lang/Object;" : null;
+                                ? "(Ljava/lang/Object;Lnet/minecraft/resources/Identifier;)Ljava/lang/Object;" : null;
                         case "getKey" -> call.desc.equals("(Ljava/lang/Object;)Lnet/minecraft/resources/Identifier;")
-                                ? "(Ljava/lang/Object;)Lnet/minecraft/resources/Identifier;" : null;
+                                ? "(Ljava/lang/Object;Ljava/lang/Object;)Lnet/minecraft/resources/Identifier;" : null;
                         case "iterator" -> call.desc.equals("()Ljava/util/Iterator;")
-                                ? "()Ljava/util/Iterator;" : null;
+                                ? "(Ljava/lang/Object;)Ljava/util/Iterator;" : null;
                         default -> null;
                     };
                     if (bridgeDesc != null) {
@@ -180,7 +180,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         && call.desc.equals("(Ljava/lang/String;Ljava/lang/Object;)V")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
-                    call.desc = "(Ljava/lang/String;Ljava/lang/Object;)V";
+                    call.desc = "(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V";
                     call.itf = false;
                     rewrites++;
                 }
@@ -189,7 +189,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         && call.desc.equals("(Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)V")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
-                    call.desc = "(Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)V";
+                    call.desc = "(Ljava/lang/Object;Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)V";
                     call.itf = false;
                     rewrites++;
                 }
