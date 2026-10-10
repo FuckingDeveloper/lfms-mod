@@ -25,7 +25,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     private volatile Object entrypoint;
 
     public Forge1192RuntimeSession(String modId, Path artifact, ClassLoader parent, List<String> entrypoints)
-            throws Exception {
+            throws java.io.IOException, ClassNotFoundException {
         this.modId = Objects.requireNonNull(modId);
         this.entrypoints = List.copyOf(entrypoints);
         if (this.entrypoints.size() != 1) {
