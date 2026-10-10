@@ -897,7 +897,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // It has no target class in 26.3; references must remain on Item and its
         // operations are resolved/adapted separately rather than namespace-guessed.
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
-            return "net/minecraft/world/item/Item";
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem";
         if (value.startsWith("net/minecraftforge/client/model/data/"))
             return value.replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/");
         if (value.equals("net/minecraft/resources/ResourceLocation"))
@@ -927,7 +927,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/api/distmarker/Dist", "net/neoforged/api/distmarker/Dist")
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
-                .replace("net/minecraftforge/common/extensions/IForgeItem", "net/minecraft/world/item/Item")
+                .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/")
                 .replace("net/minecraft/resources/ResourceLocation", "net/minecraft/resources/Identifier")
                 .replace("net/minecraftforge/eventbus/", "net/neoforged/bus/")
