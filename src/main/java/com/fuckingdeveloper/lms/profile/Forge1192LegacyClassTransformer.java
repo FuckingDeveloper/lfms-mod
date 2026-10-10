@@ -669,6 +669,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        // DistExecutor was removed from current NeoForge. Keep the Forge 1.19.2
+        // physical-side execution contract behind an LMS-owned runtime boundary
+        // instead of migrating it into a non-existent NeoForge class.
+        if (value.equals("net/minecraftforge/fml/DistExecutor"))
+            return "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge";
         if (value.equals("net/minecraft/resources/ResourceLocation"))
             return "net/minecraft/resources/Identifier";
         if (value.startsWith("net/minecraftforge/eventbus/"))
@@ -685,6 +690,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private static String migrateDescriptor(String descriptor) {
         return descriptor
+                .replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge")
                 .replace("net/minecraft/resources/ResourceLocation", "net/minecraft/resources/Identifier")
                 .replace("net/minecraftforge/eventbus/", "net/neoforged/bus/")
                 .replace("net/minecraftforge/fml/", "net/neoforged/fml/")
