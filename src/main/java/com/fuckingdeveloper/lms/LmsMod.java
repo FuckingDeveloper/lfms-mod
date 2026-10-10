@@ -36,6 +36,7 @@ import java.util.List;
 public final class LmsMod {
     public static final String MOD_ID = "lms";
     private static final Logger LOG = LoggerFactory.getLogger(LmsMod.class);
+    private static final String MEMBER_PLANNER_FINGERPRINT = "2026-10-10-member-v2";
     private final java.util.List<Forge1192RuntimeSession> runtimeSessions = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public LmsMod(IEventBus modBus) {
@@ -132,6 +133,10 @@ public final class LmsMod {
                         var migrationPreflight = new com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight()
                                 .classify(symbolPreflight, targetLoader);
                         LOG.info("LMS migration-preflight id={} states={}", mod.modId(), migrationPreflight.states());
+                        LOG.info("LMS member-planner fingerprint={} source={}",
+                                MEMBER_PLANNER_FINGERPRINT,
+                                LmsMod.class.getProtectionDomain().getCodeSource() == null ? "UNKNOWN"
+                                        : LmsMod.class.getProtectionDomain().getCodeSource().getLocation());
                         var memberPreflight = new com.fuckingdeveloper.lms.analysis.LegacyMemberPreflight()
                                 .analyze(mod.file());
                         var memberMigration = new com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight()
