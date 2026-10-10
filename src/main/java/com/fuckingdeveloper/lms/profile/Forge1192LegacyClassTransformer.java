@@ -391,13 +391,23 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             + node.name + "#" + method.name);
                 }
                 MethodInsnNode init = null;
+                int nestedAllocations = 0;
                 for (var cursor = dup.getNext(); cursor != null; cursor = cursor.getNext()) {
                     if (cursor instanceof TypeInsnNode nested
-                            && nested.getOpcode() == org.objectweb.asm.Opcodes.NEW) break;
+                            && nested.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                        nestedAllocations++;
+                        continue;
+                    }
                     if (cursor instanceof MethodInsnNode candidate
                             && candidate.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
-                            && candidate.owner.equals(legacy) && candidate.name.equals("<init>")) {
-                        init = candidate;
+                            && candidate.name.equals("<init>")) {
+                        if (nestedAllocations > 0) {
+                            nestedAllocations--;
+                            continue;
+                        }
+                        if (candidate.owner.equals(legacy)) {
+                            init = candidate;
+                        }
                         break;
                     }
                 }
