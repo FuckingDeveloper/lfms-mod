@@ -199,7 +199,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
                 // EffectiveSide is a logical-side query. Keep it distinct from
                 // physical Dist and route through a profile-owned semantic boundary.
-                if (call.owner.equals("net/neoforged/neoforge/common/util/LogicalSidedProvider")
+                if (call.owner.equals("net/neoforged/fml/util/thread/EffectiveSide")
                         && call.name.equals("get")
                         && call.desc.equals("()Lnet/neoforged/fml/LogicalSide;")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
