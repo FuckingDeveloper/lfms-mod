@@ -23,8 +23,14 @@ public final class Forge1192LifecycleBridge {
 
     public static AutoCloseable enter(String modId, IEventBus modEventBus) {
         if (CURRENT.get() != null) throw new IllegalStateException("Nested legacy lifecycle scopes are not supported");
-        CURRENT.set(new Context(modId, modEventBus));
-        return () -> CURRENT.remove();
+        Context context = new Context(modId, modEventBus);
+        Thread owner = Thread.currentThread();
+        CURRENT.set(context);
+        return () -> {
+            if (Thread.currentThread() != owner || CURRENT.get() != context)
+                throw new IllegalStateException("Legacy lifecycle scope closed out of order or on another thread");
+            CURRENT.remove();
+        };
     }
 
     public static Context requireActive() {
