@@ -8,6 +8,10 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.function.Supplier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -21,6 +25,11 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.component.Consumable;
+import net.minecraft.world.item.component.Consumables;
+import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect;
 
 /** Exact construction adapters for vanilla constructors removed after 1.19.2. */
 public final class Forge1192VanillaConstructionBridge {
@@ -31,6 +40,16 @@ public final class Forge1192VanillaConstructionBridge {
     private static final Map<net.minecraft.resources.Identifier, CreativeModeTab> LEGACY_TABS_BY_ITEM_ID =
             new ConcurrentHashMap<>();
     private static final AtomicBoolean CREATIVE_TAB_GAP_REPORTED = new AtomicBoolean();
+    private static final Map<FoodProperties.Builder, LegacyFoodIntent> LEGACY_FOOD_BUILDERS =
+            Collections.synchronizedMap(new IdentityHashMap<>());
+    private static final Map<FoodProperties, LegacyFoodIntent> LEGACY_FOODS =
+            Collections.synchronizedMap(new IdentityHashMap<>());
+
+    private record LegacyFoodEffect(Supplier<MobEffectInstance> effect, float probability) {}
+    private static final class LegacyFoodIntent {
+        private boolean fast;
+        private final List<LegacyFoodEffect> effects = new ArrayList<>();
+    }
 
     private Forge1192VanillaConstructionBridge() {}
 
@@ -100,6 +119,37 @@ public final class Forge1192VanillaConstructionBridge {
     /** Resolve a legacy raw built-in effect to its canonical modern holder. */
     public static Holder<MobEffect> mobEffectHolder(MobEffect effect) {
         return BuiltInRegistries.MOB_EFFECT.wrapAsHolder(effect);
+    }
+
+    public static FoodProperties.Builder fastFood(FoodProperties.Builder builder) {
+        LEGACY_FOOD_BUILDERS.computeIfAbsent(builder, ignored -> new LegacyFoodIntent()).fast = true;
+        return builder;
+    }
+
+    public static FoodProperties.Builder foodEffect(
+            FoodProperties.Builder builder, Supplier<MobEffectInstance> effect, float probability) {
+        LEGACY_FOOD_BUILDERS.computeIfAbsent(builder, ignored -> new LegacyFoodIntent())
+                .effects.add(new LegacyFoodEffect(effect, probability));
+        return builder;
+    }
+
+    public static FoodProperties buildFood(FoodProperties.Builder builder) {
+        FoodProperties food = builder.build();
+        LegacyFoodIntent intent = LEGACY_FOOD_BUILDERS.remove(builder);
+        if (intent != null) LEGACY_FOODS.put(food, intent);
+        return food;
+    }
+
+    public static Item.Properties food(Item.Properties properties, FoodProperties food) {
+        LegacyFoodIntent intent = LEGACY_FOODS.get(food);
+        if (intent == null) return properties.food(food);
+        Consumable.Builder consumable = Consumables.defaultFood();
+        if (intent.fast) consumable.consumeSeconds(0.8F);
+        for (LegacyFoodEffect effect : intent.effects) {
+            consumable.onConsume(new ApplyStatusEffectsConsumeEffect(
+                    effect.effect().get(), effect.probability()));
+        }
+        return properties.food(food, consumable.build());
     }
 
     /** Retained intent for the eventual modern creative-tab population bridge. */

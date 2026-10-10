@@ -73,6 +73,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
+        rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
         rewrites += rewriteLegacyMobEffectInstanceConstruction(node);
@@ -1043,6 +1044,56 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
+                if (call.owner.equals("net/minecraft/world/food/FoodProperties$Builder")) {
+                    String bridgeName = null;
+                    String bridgeDesc = null;
+                    if (call.name.equals("m_38766_")
+                            && call.desc.equals("()Lnet/minecraft/world/food/FoodProperties$Builder;")) {
+                        bridgeName = "fastFood";
+                        bridgeDesc = "(Lnet/minecraft/world/food/FoodProperties$Builder;)"
+                                + "Lnet/minecraft/world/food/FoodProperties$Builder;";
+                    } else if (call.name.equals("m_38765_")
+                            && call.desc.equals("()Lnet/minecraft/world/food/FoodProperties$Builder;")) {
+                        call.name = "alwaysEdible";
+                        rewrites++;
+                    } else if (call.name.equals("m_38758_")
+                            && call.desc.equals("(F)Lnet/minecraft/world/food/FoodProperties$Builder;")) {
+                        call.name = "saturationModifier";
+                        rewrites++;
+                    } else if (call.name.equals("effect")
+                            && call.desc.equals("(Ljava/util/function/Supplier;F)"
+                                    + "Lnet/minecraft/world/food/FoodProperties$Builder;")) {
+                        bridgeName = "foodEffect";
+                        bridgeDesc = "(Lnet/minecraft/world/food/FoodProperties$Builder;"
+                                + "Ljava/util/function/Supplier;F)Lnet/minecraft/world/food/FoodProperties$Builder;";
+                    } else if (call.name.equals("m_38767_")
+                            && call.desc.equals("()Lnet/minecraft/world/food/FoodProperties;")) {
+                        bridgeName = "buildFood";
+                        bridgeDesc = "(Lnet/minecraft/world/food/FoodProperties$Builder;)"
+                                + "Lnet/minecraft/world/food/FoodProperties;";
+                    }
+                    if (bridgeName != null) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                        call.name = bridgeName;
+                        call.desc = bridgeDesc;
+                        call.itf = false;
+                        rewrites++;
+                    }
+                }
+
+                if (call.owner.equals("net/minecraft/world/item/Item$Properties")
+                        && call.name.equals("food")
+                        && call.desc.equals("(Lnet/minecraft/world/food/FoodProperties;)"
+                                + "Lnet/minecraft/world/item/Item$Properties;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                    call.desc = "(Lnet/minecraft/world/item/Item$Properties;Lnet/minecraft/world/food/FoodProperties;)"
+                            + "Lnet/minecraft/world/item/Item$Properties;";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Builder#build migrated from an untyped legacy DFU name to
                 // the corresponding EntityType ResourceKey. Match the exact
                 // 1.19.2 SRG member, not merely its descriptor.
@@ -1106,6 +1157,82 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * The modern emissive predicate receives only BlockState. Adapt a legacy
+     * three-argument StatePredicate only when its implementation bytecode
+     * proves that BlockGetter and BlockPos are unused.
+     */
+    private static int rewriteLegacyStateOnlyEmissivePredicates(ClassNode node) {
+        final String legacyPredicate = "(Lnet/minecraft/world/level/block/state/BlockState;"
+                + "Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z";
+        final String oldCall = "(Lnet/minecraft/world/level/block/state/BlockBehaviour$StatePredicate;)"
+                + "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+        int rewrites = 0;
+        java.util.List<org.objectweb.asm.tree.MethodNode> adapters = new java.util.ArrayList<>();
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals("net/minecraft/world/level/block/state/BlockBehaviour$Properties")
+                        || !call.name.equals("m_60991_") || !call.desc.equals(oldCall)) continue;
+                var producer = previousExecutable(call);
+                if (!(producer instanceof InvokeDynamicInsnNode indy)
+                        || !indy.desc.equals("()Lnet/minecraft/world/level/block/state/BlockBehaviour$StatePredicate;")
+                        || indy.bsmArgs.length < 3
+                        || !(indy.bsmArgs[1] instanceof Handle implementation)
+                        || implementation.getTag() != org.objectweb.asm.Opcodes.H_INVOKESTATIC
+                        || !implementation.getOwner().equals(node.name)
+                        || !implementation.getDesc().equals(legacyPredicate)) continue;
+                var target = node.methods.stream()
+                        .filter(candidate -> candidate.name.equals(implementation.getName())
+                                && candidate.desc.equals(legacyPredicate)
+                                && (candidate.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0)
+                        .findFirst().orElse(null);
+                if (target == null || usesPredicateContextArguments(target)) continue;
+
+                String adapterName = "$lms$emissivePredicate$" + adapters.size();
+                var adapter = new org.objectweb.asm.tree.MethodNode(
+                        org.objectweb.asm.Opcodes.ACC_PRIVATE | org.objectweb.asm.Opcodes.ACC_STATIC
+                                | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                        adapterName, "(Lnet/minecraft/world/level/block/state/BlockState;)Z", null, null);
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, 0));
+                adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ACONST_NULL));
+                adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ACONST_NULL));
+                adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        node.name, implementation.getName(), legacyPredicate, false));
+                adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));
+                adapter.maxStack = 3;
+                adapter.maxLocals = 1;
+                adapters.add(adapter);
+
+                indy.desc = "()Ljava/util/function/Predicate;";
+                indy.bsmArgs[0] = Type.getMethodType("(Ljava/lang/Object;)Z");
+                indy.bsmArgs[1] = new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                        node.name, adapterName,
+                        "(Lnet/minecraft/world/level/block/state/BlockState;)Z", false);
+                indy.bsmArgs[2] = Type.getMethodType(
+                        "(Lnet/minecraft/world/level/block/state/BlockState;)Z");
+                call.name = "emissiveRendering";
+                call.desc = "(Ljava/util/function/Predicate;)"
+                        + "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+                rewrites++;
+            }
+        }
+        node.methods.addAll(adapters);
+        return rewrites;
+    }
+
+    private static boolean usesPredicateContextArguments(org.objectweb.asm.tree.MethodNode method) {
+        for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof org.objectweb.asm.tree.VarInsnNode variable
+                    && (variable.var == 1 || variable.var == 2)) return true;
+            if (insn instanceof org.objectweb.asm.tree.IincInsnNode increment
+                    && (increment.var == 1 || increment.var == 2)) return true;
+        }
+        return false;
     }
 
     private Forge1192SrgRuntimeResolver.Resolution resolveCanonicalBlockMethod(String name, String desc) {
