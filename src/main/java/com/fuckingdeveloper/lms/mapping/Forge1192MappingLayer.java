@@ -3,6 +3,7 @@ package com.fuckingdeveloper.lms.mapping;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Handle;
 
@@ -48,7 +49,8 @@ public final class Forge1192MappingLayer {
     private volatile RuntimeIndex runtimeIndex;
 
     public record IndexedMethod(String owner, String name, String descriptor, int access) {}
-    public record RuntimeIndex(List<String> classes, List<IndexedMethod> methods, String provenance) {}
+    public record IndexedField(String owner, String name, String descriptor, int access) {}
+    public record RuntimeIndex(List<String> classes, List<IndexedMethod> methods, List<IndexedField> fields, String provenance) {}
     public record ClassRelocation(String legacyInternalName, String targetInternalName,
                                   Status status, String reason) {}
 
@@ -191,6 +193,7 @@ public final class Forge1192MappingLayer {
         synchronized (this) {
             if (runtimeIndex != null) return runtimeIndex;
             List<IndexedMethod> methods = new ArrayList<>();
+            List<IndexedField> fields = new ArrayList<>();
             Set<String> visited = new HashSet<>();
             List<String> sources = new ArrayList<>();
 
@@ -198,10 +201,10 @@ public final class Forge1192MappingLayer {
             // been defined by the application loader, so getDefinedPackages() can be
             // empty even though openClass() works. Anchor enumeration at a stable
             // Minecraft class resource and enumerate its backing artifact instead.
-            indexMinecraftArtifact("net/minecraft/SharedConstants.class", methods, visited, sources);
+            indexMinecraftArtifact("net/minecraft/SharedConstants.class", methods, fields, visited, sources);
             if (visited.isEmpty()) {
                 indexMinecraftArtifact("net/minecraft/world/entity/player/Player.class",
-                        methods, visited, sources);
+                        methods, fields, visited, sources);
             }
 
             // Retain package-resource enumeration as a secondary source for exploded
@@ -216,9 +219,9 @@ public final class Forge1192MappingLayer {
                         var url = urls.nextElement();
                         if ("file".equals(url.getProtocol())) {
                             Path dir = Path.of(url.toURI());
-                            indexDirectory(dir, resource, methods, visited);
+                            indexDirectory(dir, resource, methods, fields, visited);
                         } else if ("jar".equals(url.getProtocol())) {
-                            indexJarUrl(url, methods, visited);
+                            indexJarUrl(url, methods, fields, visited);
                         }
                     }
                 } catch (Exception ignored) {
@@ -230,7 +233,7 @@ public final class Forge1192MappingLayer {
                     .map(name -> name.substring(0, name.length() - ".class".length()))
                     .sorted()
                     .toList();
-            runtimeIndex = new RuntimeIndex(classes, List.copyOf(methods),
+            runtimeIndex = new RuntimeIndex(classes, List.copyOf(methods), List.copyOf(fields),
                     "sources=" + sources + ", classes=" + visited.size()
                             + ", methods=" + methods.size());
             return runtimeIndex;
@@ -238,12 +241,12 @@ public final class Forge1192MappingLayer {
     }
 
     private void indexMinecraftArtifact(String classResource, List<IndexedMethod> methods,
-                                        Set<String> visited, List<String> sources) {
+                                        List<IndexedField> fields, Set<String> visited, List<String> sources) {
         try {
             var url = runtimeLoader.getResource(classResource);
             if (url == null) return;
             if ("jar".equals(url.getProtocol())) {
-                indexJarUrl(url, methods, visited);
+                indexJarUrl(url, methods, fields, visited);
                 sources.add(url.toString().split("!/", 2)[0]);
                 return;
             }
@@ -253,7 +256,7 @@ public final class Forge1192MappingLayer {
                 for (String ignored : classResource.split("/")) root = root.getParent();
                 if (root != null && Files.isDirectory(root)) {
                     Path minecraft = root.resolve("net/minecraft");
-                    indexDirectory(minecraft, "net/minecraft", methods, visited);
+                    indexDirectory(minecraft, "net/minecraft", methods, fields, visited);
                     sources.add(root.toString());
                 }
             }
@@ -263,7 +266,7 @@ public final class Forge1192MappingLayer {
     }
 
     private void indexJarUrl(java.net.URL url, List<IndexedMethod> methods,
-                             Set<String> visited) throws IOException {
+                             List<IndexedField> fields, Set<String> visited) throws IOException {
         var connection = (java.net.JarURLConnection) url.openConnection();
         connection.setUseCaches(false);
         try (var jar = connection.getJarFile()) {
@@ -274,14 +277,14 @@ public final class Forge1192MappingLayer {
                 if (!entryName.startsWith("net/minecraft/") || !entryName.endsWith(".class")
                         || !visited.add(entryName)) continue;
                 try (InputStream in = jar.getInputStream(entry)) {
-                    indexClass(in, methods);
+                    indexClass(in, methods, fields);
                 }
             }
         }
     }
 
     private void indexDirectory(Path packageDir, String resourcePrefix,
-                                List<IndexedMethod> methods, Set<String> visited) {
+                                List<IndexedMethod> methods, List<IndexedField> fields, Set<String> visited) {
         if (!Files.isDirectory(packageDir)) return;
         try (var walk = Files.walk(packageDir)) {
             walk.filter(path -> path.toString().endsWith(".class")).forEach(path -> {
@@ -289,18 +292,23 @@ public final class Forge1192MappingLayer {
                 String entry = resourcePrefix + "/" + relative.toString().replace('\\', '/');
                 if (!visited.add(entry)) return;
                 try (InputStream in = Files.newInputStream(path)) {
-                    indexClass(in, methods);
+                    indexClass(in, methods, fields);
                 } catch (Exception ignored) {}
             });
         } catch (Exception ignored) {}
     }
 
-    private void indexClass(InputStream in, List<IndexedMethod> methods) throws IOException {
+    private void indexClass(InputStream in, List<IndexedMethod> methods, List<IndexedField> fields) throws IOException {
         new ClassReader(in).accept(new ClassVisitor(Opcodes.ASM9) {
             private String owner;
             @Override public void visit(int version, int access, String name, String signature,
                                         String superName, String[] interfaces) {
                 owner = name.replace('/', '.');
+            }
+            @Override public FieldVisitor visitField(int access, String name, String desc,
+                                                     String signature, Object value) {
+                fields.add(new IndexedField(owner, name, desc, access));
+                return null;
             }
             @Override public MethodVisitor visitMethod(int access, String name, String desc,
                                                        String signature, String[] exceptions) {
@@ -310,6 +318,15 @@ public final class Forge1192MappingLayer {
                 return null;
             }
         }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+    }
+
+    public List<IndexedField> searchExactField(String owner, String name, String descriptor) {
+        String binaryOwner = owner.replace('/', '.');
+        return runtimeIndex().fields().stream()
+                .filter(field -> field.owner().equals(binaryOwner))
+                .filter(field -> field.name().equals(name))
+                .filter(field -> field.descriptor().equals(descriptor))
+                .toList();
     }
 
     public MethodSemantics semantics(String symbol) {
