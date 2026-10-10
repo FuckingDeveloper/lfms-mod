@@ -64,7 +64,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                     methodApplied = spec.edits().size();
                 }
                 for (Edit edit : executableEdits) {
-                    AbstractInsnNode location = resolve(bindings, edit.location());
+                    AbstractInsnNode location = resolve(method, bindings, edit.location());
                     if (location == null || method.instructions.indexOf(location) < 0) {
                         throw new IllegalStateException("edit location is no longer in method: " + edit.location());
                     }
@@ -196,7 +196,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         // Replacing it with "jump over RETURN" changes control flow and can leave
         // FML with bytecode that ASM's BasicVerifier accepts but whose stack-map
         // / branch semantics no longer match the original patch.
-        AbstractInsnNode legacyTarget = resolve(bindings, jump.target());
+        AbstractInsnNode legacyTarget = resolve(method, bindings, jump.target());
         LabelNode continueLabel = legacyTarget instanceof LabelNode label ? label : null;
         if (continueLabel == null) {
             throw new IllegalStateException("semantic adaptation jump target is not a resolved label: " + jump.target());
@@ -302,7 +302,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         return List.copyOf(calls);
     }
 
-    private static AbstractInsnNode resolve(Map<String, AbstractInsnNode> bindings, Reference reference) {
+    private static AbstractInsnNode resolve(MethodNode method, Map<String, AbstractInsnNode> bindings, Reference reference) {
         AbstractInsnNode node = bindings.get(reference.variable());
         if (node == null) return null;
         int offset = reference.relativeOffset();
@@ -325,18 +325,18 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
             if (cursor.getOpcode() >= 0) break;
         }
 
-        // A legacy ASM coremod's getLabel() is also commonly invoked on a
-        // JumpInsnNode reached by a relative getNext() chain. When mappings or
-        // target bytecode evolution move metadata nodes, the literal relative
-        // node can land on metadata immediately before that jump. Look forward
-        // only across metadata and reuse that jump's existing destination.
-        // Never cross an executable instruction: that would invent control flow.
-        for (AbstractInsnNode cursor = node.getNext(); cursor != null; cursor = cursor.getNext()) {
-            if (cursor instanceof LabelNode label) return label;
-            if (cursor instanceof JumpInsnNode jump) return jump.label;
-            if (cursor.getOpcode() >= 0) break;
-        }
-        return null;
+        // Legacy JavaScript coremods can construct
+        // new LabelNode(reference.getLabel()) from a concrete instruction node.
+        // That label denotes the exact referenced bytecode position; it does not
+        // imply that a LabelNode already exists next to it in the tree. Preserve
+        // that identity by materializing a label immediately before the referenced
+        // node. This is local and deterministic: no search crosses an executable
+        // instruction and no unrelated branch target is guessed.
+        AbstractInsnNode previous = node.getPrevious();
+        if (previous instanceof LabelNode label) return label;
+        LabelNode materialized = new LabelNode();
+        method.instructions.insertBefore(node, materialized);
+        return materialized;
     }
 
     private static InsnList build(List<Value> values, Map<String, AbstractInsnNode> bindings) {
@@ -350,7 +350,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                 case SIMPLE_OPCODE -> result.add(new InsnNode(value.opcode()));
                 case VARIABLE -> result.add(new VarInsnNode(value.opcode(), value.variable()));
                 case JUMP -> {
-                    AbstractInsnNode target = resolve(bindings, value.target());
+                    AbstractInsnNode target = resolve(method, bindings, value.target());
                     LabelNode label = target instanceof LabelNode l ? l : null;
                     if (label == null) throw new IllegalStateException("LMS jump target is not a LabelNode: " + value.target());
                     result.add(new JumpInsnNode(value.opcode(), label));
