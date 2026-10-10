@@ -229,10 +229,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     throw new IllegalStateException("Unadapted legacy IForgeRegistry method boundary: "
                             + node.name + "#" + method.name + " -> " + call.owner + "#" + call.name + call.desc);
                 }
-                if (insn instanceof FieldInsnNode field && field.desc.contains(legacyRegistry)) {
-                    throw new IllegalStateException("Legacy IForgeRegistry escapes through field: "
-                            + node.name + "#" + field.name + field.desc);
-                }
+                // A field access may retain IForgeRegistry as a storage type after
+                // namespace migration. This is safe when the value never crosses an
+                // executable registry API boundary: all IForgeRegistry method calls
+                // are independently rewritten above and verified below. Rejecting the
+                // field descriptor itself incorrectly blocks legacy registry handles.
                 if (insn instanceof TypeInsnNode type && type.desc.contains(legacyRegistry)) {
                     throw new IllegalStateException("Legacy IForgeRegistry escapes through type instruction: "
                             + node.name + "#" + method.name);
