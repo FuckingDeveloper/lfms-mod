@@ -63,7 +63,15 @@ public final class LegacyDependencyGate {
 
         if (ownerArtifact != null) {
             try {
-                artifacts.addAll(extractNestedLibraries(ownerArtifact));
+                // Expand the whole managed dependency closure, not just the root
+                // mod. Example: mod A -> mod B -> B's JarJar implementation
+                // library. The implementation library is part of A's executable
+                // class path even though A never declares it in mods.toml.
+                ArrayList<Path> roots = new ArrayList<>(artifacts);
+                roots.add(normalized(ownerArtifact));
+                for (Path rootArtifact : roots) {
+                    artifacts.addAll(extractNestedLibraries(rootArtifact));
+                }
             } catch (IOException e) {
                 return new Decision(false,
                         append(missing, new Missing("<nested-library>", "",
