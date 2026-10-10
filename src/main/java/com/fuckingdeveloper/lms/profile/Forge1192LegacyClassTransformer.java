@@ -48,35 +48,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     "Class identity mismatch: requested=" + expected + " bytecode=" + node.name);
         }
 
-        // ArmorItem was removed rather than relocated: armor semantics moved
-        // into Item data components. Never silently substitute Item as a superclass.
-        if ("net/minecraft/world/item/ArmorItem".equals(node.superName)) {
-            var constructors = node.methods.stream()
-                    .filter(method -> method.name.equals("<init>"))
-                    .map(method -> method.desc)
-                    .toList();
-            var superCalls = node.methods.stream()
-                    .flatMap(method -> {
-                        var calls = new java.util.ArrayList<String>();
-                        for (var instruction = method.instructions.getFirst();
-                             instruction != null; instruction = instruction.getNext()) {
-                            if (instruction instanceof MethodInsnNode call
-                                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
-                                    && call.owner.equals("net/minecraft/world/item/ArmorItem")
-                                    && call.name.equals("<init>")) {
-                                calls.add(method.name + method.desc + " -> " + call.owner
-                                        + "#<init>" + call.desc);
-                            }
-                        }
-                        return calls.stream();
-                    }).toList();
-            throw new IllegalStateException("ARMOR_COMPONENT_MIGRATION_REQUIRED ownedClass="
-                    + node.name + " legacySuper=" + node.superName
-                    + " constructors=" + constructors + " superCalls=" + superCalls
-                    + " reason=ArmorItem was removed; material/slot/properties must be migrated "
-                    + "to verified current item components before superclass substitution");
-        }
-
         int rewrites = rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -927,6 +898,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // operations are resolved/adapted separately rather than namespace-guessed.
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem";
+        if (value.equals("net/minecraft/world/item/ArmorItem"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem";
         if (value.startsWith("net/minecraftforge/client/model/data/"))
             return value.replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/");
         if (value.equals("net/minecraft/resources/ResourceLocation"))
@@ -957,6 +930,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
+                .replace("net/minecraft/world/item/ArmorItem", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem")
                 .replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/")
                 .replace("net/minecraft/resources/ResourceLocation", "net/minecraft/resources/Identifier")
                 .replace("net/minecraftforge/eventbus/", "net/neoforged/bus/")
