@@ -48,7 +48,37 @@ public final class Forge1192MappingLayer {
     private volatile RuntimeIndex runtimeIndex;
 
     public record IndexedMethod(String owner, String name, String descriptor, int access) {}
-    public record RuntimeIndex(List<IndexedMethod> methods, String provenance) {}
+    public record RuntimeIndex(List<String> classes, List<IndexedMethod> methods, String provenance) {}
+    public record ClassRelocation(String legacyInternalName, String targetInternalName,
+                                  Status status, String reason) {}
+
+    /**
+     * Resolve a moved vanilla class from the actual target-runtime artifact.
+     * Exact identity wins. Otherwise only a unique class with the same binary
+     * simple name is accepted; zero or multiple candidates remain unresolved.
+     */
+    public ClassRelocation resolveRelocatedClass(String legacyInternalName) {
+        if (!legacyInternalName.startsWith("net/minecraft/")) {
+            return new ClassRelocation(legacyInternalName, legacyInternalName, Status.UNRESOLVED,
+                    "Only vanilla Minecraft classes are eligible for runtime relocation");
+        }
+        String binary = legacyInternalName.replace('/', '.');
+        if (openClass(binary) != null) {
+            return new ClassRelocation(legacyInternalName, legacyInternalName, Status.VERIFIED_IDENTITY,
+                    "Exact class exists in target runtime");
+        }
+        String simple = legacyInternalName.substring(legacyInternalName.lastIndexOf('/') + 1);
+        var candidates = runtimeIndex().classes().stream()
+                .filter(name -> name.substring(name.lastIndexOf('/') + 1).equals(simple))
+                .toList();
+        if (candidates.size() == 1) {
+            return new ClassRelocation(legacyInternalName, candidates.getFirst(), Status.VERIFIED_IDENTITY,
+                    "Unique same-binary-name class in target runtime");
+        }
+        return new ClassRelocation(legacyInternalName, "", candidates.isEmpty() ? Status.OWNER_MISSING : Status.AMBIGUOUS,
+                candidates.isEmpty() ? "No same-binary-name class in target runtime"
+                        : "Multiple same-binary-name classes in target runtime: " + candidates);
+    }
 
     public Forge1192MappingLayer() {
         ClassLoader context = Thread.currentThread().getContextClassLoader();
@@ -195,7 +225,12 @@ public final class Forge1192MappingLayer {
                     // Partial coverage is evidence, never proof of absence.
                 }
             }
-            runtimeIndex = new RuntimeIndex(List.copyOf(methods),
+            List<String> classes = visited.stream()
+                    .filter(name -> name.startsWith("net/minecraft/") && name.endsWith(".class"))
+                    .map(name -> name.substring(0, name.length() - ".class".length()))
+                    .sorted()
+                    .toList();
+            runtimeIndex = new RuntimeIndex(classes, List.copyOf(methods),
                     "sources=" + sources + ", classes=" + visited.size()
                             + ", methods=" + methods.size());
             return runtimeIndex;
