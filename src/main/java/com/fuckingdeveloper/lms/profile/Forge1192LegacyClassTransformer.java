@@ -305,6 +305,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
+                if (call.owner.equals("net/neoforged/bus/api/IEventBus")
+                        && call.name.equals("register")
+                        && call.desc.equals("(Ljava/lang/Object;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                    call.name = "register";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Ljava/lang/Object;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Forge 1.19.2 IEventBus#post returned cancellation state.
                 // NeoForge's EventBus returns the posted Event. Preserve the
                 // legacy boolean contract through an LMS runtime adapter.
