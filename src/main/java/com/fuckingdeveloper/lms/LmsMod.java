@@ -1,0 +1,429 @@
+package com.fuckingdeveloper.lms;
+
+import com.fuckingdeveloper.lms.analysis.LegacyJarAnalyzer;
+import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
+import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
+import com.fuckingdeveloper.lms.analysis.LegacyRuntimeBytecodeInspector;
+import com.fuckingdeveloper.lms.analysis.Forge1192NetworkFlowAnalyzer;
+import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
+import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
+import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
+import com.fuckingdeveloper.lms.runtime.Forge1192LifecyclePlanner;
+import com.fuckingdeveloper.lms.runtime.Forge1192EntrypointInspector;
+import com.fuckingdeveloper.lms.runtime.Forge1192RegistrationPlanner;
+import com.fuckingdeveloper.lms.runtime.Forge1192RuntimeSession;
+import com.fuckingdeveloper.lms.runtime.Forge1192CompatibilitySurface;
+import com.fuckingdeveloper.lms.runtime.Forge1192NeoForgeApiVerifier;
+import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
+import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
+import com.fuckingdeveloper.lms.profile.Forge1192Profile;
+import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.transform.TransformationSpecPlanner;
+import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
+import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+@Mod(LmsMod.MOD_ID)
+public final class LmsMod {
+    public static final String MOD_ID = "lms";
+    private static final Logger LOG = LoggerFactory.getLogger(LmsMod.class);
+    private static final String MEMBER_PLANNER_FINGERPRINT = "2026-10-10-member-v2";
+    private final java.util.List<Forge1192RuntimeSession> runtimeSessions = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public LmsMod(IEventBus modBus) {
+        modBus.addListener(this::onPayloadRegistration);
+        Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
+        try {
+            Files.createDirectories(directory);
+            List<LegacyModDescriptor> mods = new LegacyJarScanner().scan(directory);
+            java.util.Map<String, Path> legacyArtifacts = mods.stream()
+                    .filter(candidate -> candidate.modId() != null && !candidate.modId().isBlank())
+                    .collect(java.util.stream.Collectors.toMap(
+                            LegacyModDescriptor::modId, LegacyModDescriptor::file,
+                            (first, duplicate) -> first));
+            LOG.info("LMS discovery: {} candidate(s) in {}", mods.size(), directory.toAbsolutePath());
+            Forge1192Profile profile = new Forge1192Profile();
+            for (LegacyModDescriptor mod : mods) {
+                LOG.info("LMS candidate={} id={} loader={} minecraft={} profile={}",
+                        mod.file().getFileName(), mod.modId(), mod.loader(), mod.minecraftVersion(),
+                        profile.supports(mod) ? profile.id() : "UNRESOLVED");
+                if (profile.supports(mod)) {
+                    try {
+                        var report = new LegacyJarAnalyzer().analyze(mod.file());
+                        LOG.info("LMS analysis id={} classes={} forgeRefClasses={} minecraftRefClasses={} unreadable={}",
+                                mod.modId(), report.classes(), report.forgeReferenceClasses(),
+                                report.minecraftReferenceClasses(), report.unreadableClasses());
+                        LOG.info("LMS analysis id={} modAnnotationCandidates={} mixinConfigs={} nestedJars={} transformerHints={}",
+                                mod.modId(), report.modAnnotationCandidates(), report.mixinConfigs(),
+                                report.nestedJars(), report.transformerHints());
+                        var metadata = new LegacyMetadataAnalyzer().analyze(mod.file(), report.mixinConfigs());
+                        LOG.info("LMS metadata id={} dependencies={}", mod.modId(), metadata.dependencies());
+                        LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
+                                mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
+                                metadata.coremodTargetHints());
+                        var dependencyDecision = new com.fuckingdeveloper.lms.runtime.LegacyDependencyGate()
+                                .evaluate(metadata.dependencies(), legacyArtifacts, mod.file());
+                        if (!dependencyDecision.satisfied()) {
+                            LOG.error("LMS dependency-gate id={} state=BLOCKED reason=MISSING_MANDATORY_DEPENDENCY missing={}",
+                                    mod.modId(), dependencyDecision.missing());
+                            continue;
+                        }
+                        LOG.info("LMS dependency-gate id={} state=READY mandatoryDependenciesSatisfied=true managedArtifacts={}",
+                                mod.modId(), dependencyDecision.artifacts().stream()
+                                        .map(path -> path.getFileName().toString()).toList());
+                        var dependencyPreflight = new com.fuckingdeveloper.lms.analysis.LegacyDependencyPreflight()
+                                .evaluate(mod.modId(), metadata, mods);
+                        LOG.info("LMS dependency-preflight id={} missingMandatory={} missingOptional={} mayInitialize={}",
+                                mod.modId(), dependencyPreflight.missingMandatory(),
+                                dependencyPreflight.missingOptional(), dependencyPreflight.mayInitialize());
+                        if (!dependencyPreflight.mayInitialize()) {
+                            LOG.error("LMS lifecycle id={} state=BLOCKED entrypointInitialization=false reason=missing-mandatory-dependencies dependencies={}",
+                                    mod.modId(), dependencyPreflight.missingMandatory());
+                            continue;
+                        }
+                        // First controlled-classloading milestone. Link only the statically
+                        // discovered legacy @Mod candidate classes and never initialize them.
+                        // This deliberately happens before lifecycle adaptation: linkage errors
+                        // become attributable compatibility evidence rather than accidental execution.
+                        ClassLoader targetLoader = Thread.currentThread().getContextClassLoader();
+                        if (targetLoader == null) targetLoader = LmsMod.class.getClassLoader();
+                        Forge1192RuntimeSession runtimeSession;
+                        try {
+                            runtimeSession = new Forge1192RuntimeSession(
+                                    mod.modId(), mod.file(), dependencyDecision.artifacts(),
+                                    targetLoader, report.modAnnotationCandidates());
+                        } catch (ClassNotFoundException e) {
+                            LOG.warn("LMS runtime session blocked id={} artifact={} reason=entrypoint-linkage error={} message={}",
+                                    mod.modId(), mod.file().getFileName(), e.getClass().getName(), e.getMessage());
+                            continue;
+                        }
+                        runtimeSession.bindModEventBus(modBus);
+                        runtimeSessions.add(runtimeSession);
+                        LOG.info("LMS runtime-session id={} modEventBusBound=true state={}",
+                                mod.modId(), runtimeSession.state());
+                        var managedTransformer = runtimeSession.transformer();
+                        for (String candidate : report.modAnnotationCandidates()) {
+                            try {
+                                LOG.info("LMS classlink id={} class={} status=LINKED initialized=false loader=ManagedLegacyClassLoader",
+                                        mod.modId(), candidate);
+                            } catch (RuntimeException e) {
+                                LOG.info("LMS classlink id={} class={} status=BLOCKED initialized=false error={} message={}",
+                                        mod.modId(), candidate, e.getClass().getName(), e.getMessage());
+                            }
+                        }
+                        var symbolPreflight = new com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight()
+                                .analyze(mod.file());
+                        LOG.info("LMS symbol-preflight id={} ownedClasses={} externalTypes={} uses={}",
+                                mod.modId(), symbolPreflight.ownedClasses(),
+                                symbolPreflight.externalTypes(), symbolPreflight.counts());
+                        var structural = symbolPreflight.references().stream()
+                                .filter(ref -> ref.use() == com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight.Use.SUPER
+                                        || ref.use() == com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight.Use.INTERFACE
+                                        || ref.use() == com.fuckingdeveloper.lms.analysis.LegacySymbolPreflight.Use.NEW)
+                                .toList();
+                        LOG.info("LMS symbol-preflight id={} structuralReferences={}", mod.modId(), structural.size());
+                        var migrationPreflight = new com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight()
+                                .classify(symbolPreflight, targetLoader);
+                        LOG.info("LMS migration-preflight id={} states={}", mod.modId(), migrationPreflight.states());
+                        LOG.info("LMS member-planner fingerprint={} source={}",
+                                MEMBER_PLANNER_FINGERPRINT,
+                                LmsMod.class.getProtectionDomain().getCodeSource() == null ? "UNKNOWN"
+                                        : LmsMod.class.getProtectionDomain().getCodeSource().getLocation());
+                        var memberPreflight = new com.fuckingdeveloper.lms.analysis.LegacyMemberPreflight()
+                                .analyze(mod.file());
+                        var memberMigration = new com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight()
+                                .classify(memberPreflight, targetLoader);
+                        LOG.info("LMS member-preflight id={} boundaries={} methods={} fields={} states={}",
+                                mod.modId(), memberPreflight.boundaries().size(),
+                                memberPreflight.methods(), memberPreflight.fields(), memberMigration.states());
+                        var memberGaps = memberMigration.findings().stream()
+                                .filter(finding -> finding.state()
+                                        != com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight.State.EXACT_TARGET)
+                                .collect(java.util.stream.Collectors.groupingBy(
+                                        com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight.Finding::state,
+                                        () -> new java.util.EnumMap<>(
+                                                com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight.State.class),
+                                        java.util.stream.Collectors.counting()));
+                        LOG.info("LMS member-migration-gaps id={} states={}", mod.modId(), memberGaps);
+                        Path memberReportFile = Path.of(System.getProperty("user.dir"), "lms",
+                                "member-gaps-" + mod.modId() + ".tsv");
+                        Files.createDirectories(memberReportFile.getParent());
+                        var memberReportLines = new java.util.ArrayList<String>();
+                        memberReportLines.add("# planner=" + MEMBER_PLANNER_FINGERPRINT);
+                        memberReportLines.add("state\tkind\tcaller\ttarget\tsameNameDescriptors");
+                        for (var finding : memberMigration.findings()) {
+                            if (finding.state()
+                                    == com.fuckingdeveloper.lms.analysis.LegacyMemberMigrationPreflight.State.EXACT_TARGET) continue;
+                            var boundary = finding.boundary();
+                            memberReportLines.add(finding.state() + "\t" + boundary.kind() + "\t"
+                                    + boundary.callerClass() + "#" + boundary.callerMethod() + "\t"
+                                    + boundary.identity() + "\t" + finding.sameNameDescriptors());
+                        }
+                        Path memberReportTemp = memberReportFile.resolveSibling(memberReportFile.getFileName() + ".tmp");
+                        Files.write(memberReportTemp, memberReportLines);
+                        try {
+                            Files.move(memberReportTemp, memberReportFile,
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+                        } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
+                            Files.move(memberReportTemp, memberReportFile,
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        }
+                        LOG.info("LMS member-migration-report id={} planner={} file={} gaps={}", mod.modId(),
+                                MEMBER_PLANNER_FINGERPRINT, memberReportFile.toAbsolutePath(),
+                                memberReportLines.size() - 2);
+                        var migrationFamilies = migrationPreflight.findings().stream()
+                                .filter(finding -> finding.state()
+                                        != com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.State.TARGET_AVAILABLE)
+                                .collect(java.util.stream.Collectors.groupingBy(
+                                        com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.Finding::state,
+                                        () -> new java.util.EnumMap<>(
+                                                com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.State.class),
+                                        java.util.stream.Collectors.mapping(
+                                                com.fuckingdeveloper.lms.analysis.LegacyMigrationPreflight.Finding::target,
+                                                java.util.stream.Collectors.toCollection(java.util.TreeSet::new))));
+                        for (var family : migrationFamilies.entrySet()) {
+                            LOG.info("LMS migration-family id={} state={} targets={}",
+                                    mod.modId(), family.getKey(), family.getValue());
+                        }
+                        for (var ref : structural) {
+                            LOG.info("LMS structural-reference id={} owner={} use={} target={}",
+                                    mod.modId(), ref.owner(), ref.use(), ref.target());
+                        }
+                        LOG.info("LMS managed-transform id={} transformedClasses={} namespaceRewrites={}",
+                                mod.modId(), managedTransformer.transformedClasses(),
+                                managedTransformer.totalRewrites());
+                        var lifecyclePlanner = new Forge1192LifecyclePlanner();
+                        boolean lifecyclePlanReady = !report.modAnnotationCandidates().isEmpty();
+                        boolean registrationPlanComplete = lifecyclePlanReady;
+                        boolean compatibilitySurfaceExecutable = lifecyclePlanReady;
+                        for (String candidate : report.modAnnotationCandidates()) {
+                            var lifecyclePlan = lifecyclePlanner.plan(mod.file(), candidate);
+                            lifecyclePlanReady &= lifecyclePlan.status()
+                                    == Forge1192LifecyclePlanner.Status.READY;
+                            LOG.info("LMS lifecycle-plan id={} entrypoint={} status={} constructors={} interfaces={} forgeRefs={} reason={}",
+                                    mod.modId(), candidate, lifecyclePlan.status(),
+                                    lifecyclePlan.constructors(), lifecyclePlan.interfaces(),
+                                    lifecyclePlan.forgeReferences(), lifecyclePlan.reason());
+                            if (lifecyclePlan.status() == Forge1192LifecyclePlanner.Status.READY) {
+                                var entrypointReport = new Forge1192EntrypointInspector().inspect(mod.file(), candidate);
+                                LOG.info("LMS entrypoint-calls id={} entrypoint={} total={} boundaryCalls={}",
+                                        mod.modId(), candidate, entrypointReport.calls().size(),
+                                        entrypointReport.boundaryCalls());
+                                var registrationPlan = new Forge1192RegistrationPlanner().plan(mod.file(), candidate);
+                                registrationPlanComplete &= registrationPlan.complete();
+                                LOG.info("LMS registration-plan id={} entrypoint={} inspectedMethods={} complete={} boundaryCount={} unresolvedCount={} reason={}",
+                                        mod.modId(), candidate, registrationPlan.inspectedMethods(),
+                                        registrationPlan.complete(), registrationPlan.boundaries().size(),
+                                        registrationPlan.unresolved().size(), registrationPlan.reason());
+                                var compatibilitySurface = new Forge1192CompatibilitySurface()
+                                        .assess(registrationPlan.boundaries());
+                                var compatibilityFamilies = compatibilitySurface.requirements().stream()
+                                        .collect(java.util.stream.Collectors.groupingBy(
+                                                Forge1192CompatibilitySurface.Requirement::adapter,
+                                                java.util.TreeMap::new,
+                                                java.util.stream.Collectors.counting()));
+                                compatibilitySurfaceExecutable &= compatibilitySurface.executable();
+                                LOG.info("LMS compatibility-surface id={} requirements={} executable={} families={}",
+                                        mod.modId(), compatibilitySurface.requirements().size(),
+                                        compatibilitySurface.executable(), compatibilityFamilies);
+                                var compatibilityStates = compatibilitySurface.requirements().stream()
+                                        .collect(java.util.stream.Collectors.groupingBy(
+                                                Forge1192CompatibilitySurface.Requirement::state,
+                                                () -> new java.util.EnumMap<>(Forge1192CompatibilitySurface.State.class),
+                                                java.util.stream.Collectors.counting()));
+                                LOG.info("LMS compatibility-states id={} states={}", mod.modId(), compatibilityStates);
+                                for (var requirement : compatibilitySurface.requirements()) {
+                                    if (requirement.state() != Forge1192CompatibilitySurface.State.SUPPORTED) {
+                                        LOG.info("LMS compatibility-gap id={} target={} callSites={} family={} state={}",
+                                                mod.modId(), requirement.target(), requirement.callSites(),
+                                                requirement.adapter(), requirement.state());
+                                    }
+                                }
+                                var apiVerification = new Forge1192NeoForgeApiVerifier()
+                                        .verify(registrationPlan.boundaries(), targetLoader);
+                                var apiVerificationStates = apiVerification.stream()
+                                        .collect(java.util.stream.Collectors.groupingBy(
+                                                Forge1192NeoForgeApiVerifier.Verification::state,
+                                                () -> new java.util.EnumMap<>(Forge1192NeoForgeApiVerifier.State.class),
+                                                java.util.stream.Collectors.counting()));
+                                LOG.info("LMS neoforge-api-verification id={} total={} states={}",
+                                        mod.modId(), apiVerification.size(), apiVerificationStates);
+                                for (var verification : apiVerification) {
+                                    if (verification.state() != Forge1192NeoForgeApiVerifier.State.EXACT_TARGET) {
+                                        LOG.info("LMS neoforge-api-gap id={} legacy={} targetOwner={} targetDescriptor={} state={} sameNameCandidates={}",
+                                                mod.modId(), verification.legacyTarget(), verification.targetOwner(),
+                                                verification.targetDescriptor(), verification.state(),
+                                                verification.sameNameCandidates());
+                                    }
+                                }
+                                var boundaryGroups = registrationPlan.boundaries().stream()
+                                        .collect(java.util.stream.Collectors.groupingBy(
+                                                boundary -> boundary.owner() + "#" + boundary.name() + boundary.descriptor(),
+                                                java.util.TreeMap::new,
+                                                java.util.stream.Collectors.counting()));
+                                for (var boundary : boundaryGroups.entrySet()) {
+                                    LOG.info("LMS registration-api id={} target={} callSites={}",
+                                            mod.modId(), boundary.getKey(), boundary.getValue());
+                                }
+                                for (var unresolved : registrationPlan.unresolved()) {
+                                    LOG.info("LMS registration-unresolved id={} detail={}", mod.modId(), unresolved);
+                                }
+                            }
+                        }
+                        var networkFlow = new Forge1192NetworkFlowAnalyzer().analyze(mod.file());
+                        var networkFlowStates = networkFlow.stream().collect(java.util.stream.Collectors.groupingBy(
+                                Forge1192NetworkFlowAnalyzer.SendSite::direction,
+                                () -> new java.util.EnumMap<>(Forge1192NetworkFlowAnalyzer.Direction.class),
+                                java.util.stream.Collectors.counting()));
+                        LOG.info("LMS network-flow id={} sendSites={} directions={}",
+                                mod.modId(), networkFlow.size(), networkFlowStates);
+                        for (var sendSite : networkFlow) {
+                            LOG.info("LMS network-send id={} caller={}#{} operation={} direction={} messageTypeHint={}",
+                                    mod.modId(), sendSite.callerClass(), sendSite.callerMethod(),
+                                    sendSite.operation(), sendSite.direction(), sendSite.messageTypeHint() + " evidence=" + sendSite.evidence());
+                        }
+                        var lifecycleDecision = new LegacyLifecycleGate().evaluate(
+                                report, lifecyclePlanReady, registrationPlanComplete, compatibilitySurfaceExecutable);
+                        for (var capability : lifecycleDecision.capabilities()) {
+                            LOG.info("LMS capability id={} artifact={} capability={} state={} mandatory={} reason={}",
+                                    mod.modId(), mod.file().getFileName(), capability.id(),
+                                    capability.state(), capability.mandatory(), capability.reason());
+                        }
+                        LOG.info("LMS lifecycle id={} state={} entrypointInitialization=false reason={}",
+                                mod.modId(),
+                                lifecycleDecision.mayInitialize() ? "READY" : "BLOCKED",
+                                lifecycleDecision.mayInitialize()
+                                        ? "all mandatory profile capabilities are supported"
+                                        : "one or more mandatory profile capabilities are not supported");
+                        if (lifecycleDecision.mayInitialize()) {
+                            LOG.info("LMS lifecycle id={} state=INITIALIZING entrypointInitialization=true", mod.modId());
+                            try {
+                                runtimeSession.initialize();
+                                LOG.info("LMS lifecycle id={} state=INITIALIZED entrypointInitialization=true sessionState={}",
+                                        mod.modId(), runtimeSession.state());
+                            } catch (Throwable initializationFailure) {
+                                LOG.error("LMS lifecycle id={} state=BLOCKED entrypointInitialization=true error={} message={}",
+                                        mod.modId(), initializationFailure.getClass().getName(),
+                                        initializationFailure.getMessage(), initializationFailure);
+                            }
+                        }
+                        var injectionReport = new LegacyInjectionAnalyzer().analyze(mod.file(), metadata);
+                        LOG.info("LMS injections id={} mixins={} coremods={}",
+                                mod.modId(), injectionReport.mixins().size(), injectionReport.coremods().size());
+                        for (var mixin : injectionReport.mixins()) {
+                            LOG.info("LMS mixin source={} targets={} mechanisms={} injections={} error={}",
+                                    mixin.source(), mixin.targets(), mixin.mechanisms(),
+                                    mixin.injections(), mixin.error());
+                        }
+                        Path srgFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "joined.tsrg");
+                        var srgIndex = LegacySrgIndex.load(srgFile);
+                        Path mojmapFile = Path.of(System.getProperty("user.dir"), "legacy-mappings", "1.19.2", "client.txt");
+                        var mojmap = new com.fuckingdeveloper.lms.mapping.MappingFileLoader().load(mojmapFile);
+                        // Optional evidence from a user-provided, named 1.19.2 runtime JAR.
+                        // This does not load classes or execute legacy coremods.
+                        Path runtimeJar = Path.of(System.getProperty("user.dir"), "legacy-runtime", "1.19.2", "client.jar");
+                        LegacyRuntimeBytecodeInspector legacyRuntime = null;
+                        if (Files.isRegularFile(runtimeJar)) {
+                            try {
+                                legacyRuntime = LegacyRuntimeBytecodeInspector.read(runtimeJar);
+                                var runtime = legacyRuntime;
+                                LOG.info("LMS legacy runtime bytecode file={} classes={}",
+                                        runtimeJar.toAbsolutePath(), runtime.classCount());
+                                LOG.info("LMS legacy runtime probe={}", runtime.find(
+                                        "net.minecraft.world.entity.player.Player", "getDamageAfterArmorAbsorb",
+                                        "(Lnet/minecraft/world/damagesource/DamageSource;F)F"));
+                                LOG.info("LMS legacy runtime probe={}", runtime.find(
+                                        "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+                                        "skipRendering",
+                                        "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z"));
+                                LOG.info("LMS legacy runtime probe={}", runtime.find(
+                                        "net.minecraft.world.entity.player.Player", "getStepHeight", "()F"));
+                            } catch (IOException | RuntimeException e) {
+                                LOG.warn("LMS optional legacy runtime inspection failed for {}", runtimeJar, e);
+                            }
+                        }
+                        var compatibility = new LegacyCompatibilityPlanner().plan(
+                                metadata, injectionReport, srgIndex.orElse(null),
+                                mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::index).orElse(null),
+                                legacyRuntime);
+                        LOG.info("LMS compatibility id={} minecraftTargets={} forgeTargets={} accessMixins={} overwrites={} injections={} coremodTransforms={} requiredDependencies={}",
+                                mod.modId(), compatibility.minecraftTargets(), compatibility.forgeTargets(),
+                                compatibility.accessMixins(), compatibility.overwrites(), compatibility.injections(),
+                                compatibility.coremodTransforms(), compatibility.requiredDependencies());
+                        for (var requirement : compatibility.requirements()) {
+                            LOG.info("LMS requirement kind={} source={} target={} detail={}",
+                                    requirement.kind(), requirement.source(), requirement.target(), requirement.detail());
+                        }
+                        LOG.info("LMS SRG mappings file={} loaded={} methods={} namespaces={} mojmapFile={} mojmapLoaded={}",
+                                srgFile.toAbsolutePath(), srgIndex.isPresent(),
+                                srgIndex.map(LegacySrgIndex::methodCount).orElse(0),
+                                srgIndex.map(LegacySrgIndex::namespaces).orElse(List.of()),
+                                mojmapFile.toAbsolutePath(), mojmap.isPresent());
+                        LOG.info("LMS Mojang mappings recognized={} classes={} methods={} preview={}",
+                                mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::recognized).orElse(false),
+                                mojmap.map(result -> result.index().namedToObfuscatedClasses().size()).orElse(0),
+                                mojmap.map(result -> result.index().namedMethods().size()).orElse(0),
+                                mojmap.map(com.fuckingdeveloper.lms.mapping.MappingFileLoader.LoadResult::preview).orElse(List.of()));
+                        for (var plan : compatibility.coremodPlans()) {
+                            LOG.info("LMS coremod plan source={} target={} canonicalLegacyTarget={} legacyTargetResolution={} anchors={} anchorResolutions={} hooks={} mutations={} mapping={} current={}",
+                                    plan.source(), plan.target(), plan.canonicalLegacyTarget(), plan.legacyTargetResolution(), plan.anchors(),
+                                    plan.anchorResolutions(), plan.hooks(), plan.mutationKinds(),
+                                    plan.mappingStatus(), plan.currentTarget());
+                        }
+                        var transformationSpecs = new TransformationSpecPlanner().plan(compatibility);
+                        Path launchPlan = Path.of(System.getProperty("user.dir"), "lms", "launch-plan.tsv");
+                        LaunchPlanWriter.write(launchPlan, transformationSpecs);
+                        LOG.info("LMS launch plan written file={}", launchPlan.toAbsolutePath());
+                                                for (var spec : transformationSpecs) {
+                            LOG.info("LMS transformation spec id={} kind={} readiness={} target={} anchor={} replacement={} edits={} reason={}",
+                                    spec.id(), spec.kind(), spec.readiness(), spec.target(),
+                                    spec.anchor(), spec.replacement(), spec.edits(), spec.reason());
+                        }
+                        for (var coremod : injectionReport.coremods()) {
+                            LOG.info("LMS coremod path={} targets={} referencedClasses={} asmApiCalls={}",
+                                    coremod.path(), coremod.declaredTargets(),
+                                    coremod.referencedClasses(), coremod.asmApiCalls());
+                            LOG.info("LMS coremod operations path={} transformKinds={} mappedMethods={} builtMethodCalls={}",
+                                    coremod.path(), coremod.transformKinds(),
+                                    coremod.mappedMethods(), coremod.builtMethodCalls());
+                            LOG.info("LMS coremod methodTargets path={} targets={}",
+                                    coremod.path(), coremod.methodTargets());
+                            LOG.info("LMS coremod hookCalls path={} calls={}",
+                                    coremod.path(), coremod.hookCalls());
+                            LOG.info("LMS coremod transforms path={} transforms={}",
+                                    coremod.path(), coremod.transforms());
+                            for (var transform : coremod.transforms()) {
+                                LOG.info("LMS coremod values path={} transform={} values={}",
+                                        coremod.path(), transform.name(), transform.values());
+                            }
+                        }
+                    } catch (IOException e) {
+                        LOG.warn("LMS static analysis failed for {}", mod.file(), e);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            LOG.error("LMS legacy discovery failed for {}", directory, e);
+        }
+    }
+
+
+
+    private void onPayloadRegistration(RegisterPayloadHandlersEvent event) {
+        // NeoForge 26.3 requires explicit payload type, codec, flow and phase.
+        // The old indexed-message descriptor alone does not prove these.
+        // Do not register an invented bidirectional protocol.
+        LOG.info("LMS network-payload-registration state=BLOCKED reason=legacy-direction-and-codec-unverified");
+    }
+
+}

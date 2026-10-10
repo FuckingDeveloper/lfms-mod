@@ -1,0 +1,38 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="${mod_license}"
+issueTrackerURL="https://github.com/FuckingDeveloper/lfms-mod/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="FuckingDeveloper"
+displayURL="https://www.fuckingdeveloper.com"
+iconFile="lms_logo.png"
+description='''
+Old mods. New Minecraft.
+
+LMS (Legacy Mod Support) is an experimental compatibility project
+exploring how legacy Forge mods can be discovered and adapted for
+modern NeoForge environments.
+
+Current status: early development. Legacy mod execution is not yet supported.
+
+Created by FuckingDeveloper | 2026
+Website: www.fuckingdeveloper.com
+'''
+
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[${neo_version},)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="[${minecraft_version}]"
+ordering="NONE"
+side="BOTH"
