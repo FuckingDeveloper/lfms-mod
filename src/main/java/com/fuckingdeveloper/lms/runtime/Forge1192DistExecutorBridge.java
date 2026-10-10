@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms.runtime;
 
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.FMLEnvironment;
 
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -19,6 +20,23 @@ public final class Forge1192DistExecutorBridge {
 
     private static boolean matches(Dist requested) {
         return net.neoforged.fml.loading.FMLEnvironment.getDist() == requested;
+    }
+
+    /**
+     * Forge 1.19.2 branch selector. Only the supplier for the active physical
+     * distribution is evaluated; the opposite-side branch remains unlinked.
+     *
+     * The erased descriptor intentionally remains
+     * (Supplier,Supplier)Object to match legacy bytecode.
+     */
+    public static <T> T unsafeRunForDist(
+            Supplier<? extends T> clientTarget,
+            Supplier<? extends T> dedicatedServerTarget) {
+        Objects.requireNonNull(clientTarget, "clientTarget");
+        Objects.requireNonNull(dedicatedServerTarget, "dedicatedServerTarget");
+        return FMLEnvironment.getDist() == Dist.CLIENT
+                ? clientTarget.get()
+                : dedicatedServerTarget.get();
     }
 
     public static void unsafeRunWhenOn(Dist dist, Supplier<? extends Runnable> toRun) {
