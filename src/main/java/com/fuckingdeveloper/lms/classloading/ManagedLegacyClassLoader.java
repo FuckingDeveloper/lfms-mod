@@ -20,7 +20,7 @@ import java.util.jar.JarFile;
 public final class ManagedLegacyClassLoader extends ClassLoader implements AutoCloseable {
     private static final Set<String> PARENT_FIRST = Set.of(
             "java.", "javax.", "jdk.", "sun.", "net.minecraft.",
-            "net.neoforged.", "org.slf4j.", "org.objectweb.asm.");
+            "net.neoforged.", "com.fuckingdeveloper.lms.", "org.slf4j.", "org.objectweb.asm.");
 
     private final Path artifact;
     private final JarFile jar;
