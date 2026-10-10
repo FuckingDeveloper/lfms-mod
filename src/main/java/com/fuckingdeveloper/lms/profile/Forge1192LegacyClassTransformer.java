@@ -1842,6 +1842,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // Forge1192RegistrationContext by semantic adapters below.
         if (value.equals("net/minecraftforge/registries/IForgeRegistry"))
             return "com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry";
+        if (value.equals("net/minecraftforge/common/extensions/IForgeBlock"))
+            return "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock";
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem";
         if (value.equals("net/minecraftforge/registries/RegistryObject"))
@@ -1909,6 +1911,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/api/distmarker/Dist", "net/neoforged/api/distmarker/Dist")
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor")
                 .replace("net/minecraft/client/color/item/ItemColor", "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor")
+                .replace("net/minecraftforge/common/extensions/IForgeBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")
                 .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
