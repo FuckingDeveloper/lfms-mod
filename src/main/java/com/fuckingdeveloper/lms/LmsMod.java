@@ -22,7 +22,6 @@ import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.RegisterEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +37,6 @@ public final class LmsMod {
     private final java.util.List<Forge1192RuntimeSession> runtimeSessions = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public LmsMod(IEventBus modBus) {
-        modBus.addListener(this::onRegisterEvent);
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {
             Files.createDirectories(directory);
@@ -286,15 +284,6 @@ public final class LmsMod {
         }
     }
 
-    private void onRegisterEvent(RegisterEvent event) {
-        for (var session : runtimeSessions) {
-            try {
-                session.onRegister(event);
-            } catch (Exception e) {
-                LOG.error("LMS registration dispatch failed id={} registry={}", session.modId(), event.getRegistryKey(), e);
-            }
-        }
-    }
 
 
 }
