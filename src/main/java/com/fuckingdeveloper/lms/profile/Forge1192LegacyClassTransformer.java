@@ -48,7 +48,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     "Class identity mismatch: requested=" + expected + " bytecode=" + node.name);
         }
 
-        int rewrites = rewriteAllNamespaceReferences(node);
+        // Removed Forge APIs must be adapted while their original identity
+        // is still available. Namespace projection is intentionally second:
+        // otherwise a heuristic relocation can destroy the semantic evidence
+        // required by a removed-API adapter.
+        int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
+        rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
@@ -58,8 +63,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
         rewrites += rewriteLegacyArmorConstructorDescriptors(node);
         rewrites += rewriteSemanticAdapters(node);
-        rewrites += rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
+        verifyNoRemovedForgeClientTypes(node);
         verifyUnresolvedForgeModAccesses(node);
         verifyNoEscapingLegacyRegistryFacade(node);
         verifyNoUnadaptedLifecycleCalls(node);
@@ -285,6 +290,28 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private static void verifyNoRemovedForgeClientTypes(ClassNode node) {
+        final String removed = "net/minecraftforge/client/gui/ModListScreen";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof TypeInsnNode type && type.desc.equals(removed)) {
+                    throw new IllegalStateException("Removed Forge client type escaped adaptation: "
+                            + node.name + "#" + method.name + method.desc + " -> " + removed);
+                }
+                if (insn instanceof MethodInsnNode call && call.owner.equals(removed)) {
+                    throw new IllegalStateException("Removed Forge client call escaped adaptation: "
+                            + node.name + "#" + method.name + method.desc + " -> "
+                            + call.owner + "#" + call.name + call.desc);
+                }
+                if (insn instanceof FieldInsnNode field && field.owner.equals(removed)) {
+                    throw new IllegalStateException("Removed Forge client field escaped adaptation: "
+                            + node.name + "#" + method.name + method.desc + " -> "
+                            + field.owner + "#" + field.name);
+                }
+            }
+        }
     }
 
     private static int rewriteLegacyColorCallbackDescriptors(ClassNode node) {
