@@ -329,6 +329,13 @@ public final class Forge1192MappingLayer {
                 .toList();
     }
 
+    public List<IndexedMethod> methodsOf(String owner) {
+        String binaryOwner = owner.replace('/', '.');
+        return runtimeIndex().methods().stream()
+                .filter(method -> method.owner().equals(binaryOwner))
+                .toList();
+    }
+
     public MethodSemantics semantics(String symbol) {
         int hash = symbol.indexOf('#');
         int paren = symbol.indexOf('(', hash + 1);
