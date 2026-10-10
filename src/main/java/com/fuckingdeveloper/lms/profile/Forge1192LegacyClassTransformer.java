@@ -2318,6 +2318,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/item/LegacyShovelItem";
         if (value.equals("net/minecraft/world/item/SwordItem"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacySwordItem";
+        if (value.equals("net/minecraft/world/item/DyeableLeatherItem"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyDyeableLeatherItem";
         if (value.equals("net/minecraftforge/common/extensions/IForgeBlock"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock";
         if (value.equals("net/minecraftforge/common/extensions/IForgeItem"))
@@ -2405,6 +2407,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraft/world/item/PickaxeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyPickaxeItem")
                 .replace("net/minecraft/world/item/ShovelItem", "com/fuckingdeveloper/lms/runtime/item/LegacyShovelItem")
                 .replace("net/minecraft/world/item/SwordItem", "com/fuckingdeveloper/lms/runtime/item/LegacySwordItem")
+                .replace("net/minecraft/world/item/DyeableLeatherItem", "com/fuckingdeveloper/lms/runtime/item/LegacyDyeableLeatherItem")
                 .replace("net/minecraftforge/common/extensions/IForgeBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")

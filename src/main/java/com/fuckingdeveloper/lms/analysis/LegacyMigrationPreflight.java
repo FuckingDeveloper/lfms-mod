@@ -33,6 +33,7 @@ public final class LegacyMigrationPreflight {
                     || target.equals("net/minecraft/world/item/PickaxeItem")
                     || target.equals("net/minecraft/world/item/ShovelItem")
                     || target.equals("net/minecraft/world/item/SwordItem")
+                    || target.equals("net/minecraft/world/item/DyeableLeatherItem")
                     || target.equals("net/minecraftforge/common/IPlantable")
                     || target.equals("net/minecraftforge/common/PlantType")
                     || target.equals("net/minecraftforge/energy/IEnergyStorage")
