@@ -26,13 +26,18 @@ public final class LegacyMemberMigrationPreflight {
         if (b.owner().startsWith("net/minecraftforge/"))
             return new Finding(b, State.LEGACY_FORGE_API, List.of());
         String resource = b.owner() + ".class";
-        InputStream raw = loader.getResourceAsStream(resource);
-        if (raw == null) raw = LegacyMemberMigrationPreflight.class.getClassLoader().getResourceAsStream(resource);
+        InputStream raw = open(loader, resource);
         if (raw == null) return new Finding(b, State.OWNER_MISSING, List.of());
         try (InputStream in = raw) {
             List<String> sameName = new ArrayList<>();
             boolean[] exact = {false};
+            List<String> parents = new ArrayList<>();
             new ClassReader(in).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override public void visit(int version, int access, String name, String signature,
+                                            String superName, String[] interfaces) {
+                    if (superName != null) parents.add(superName);
+                    if (interfaces != null) parents.addAll(Arrays.asList(interfaces));
+                }
                 @Override public MethodVisitor visitMethod(int access, String name, String desc, String sig, String[] ex) {
                     if (b.kind() == LegacyMemberPreflight.Kind.METHOD && name.equals(b.name())) {
                         sameName.add(desc); if (desc.equals(b.descriptor())) exact[0] = true;
@@ -47,10 +52,51 @@ public final class LegacyMemberMigrationPreflight {
                 }
             }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
             if (exact[0]) return new Finding(b, State.EXACT_TARGET, List.copyOf(sameName));
+            if (findInherited(loader, parents, b, sameName, new HashSet<>()))
+                return new Finding(b, State.EXACT_TARGET, List.copyOf(sameName));
             return new Finding(b, sameName.isEmpty() ? State.MEMBER_MISSING : State.DESCRIPTOR_CHANGED,
                     List.copyOf(sameName));
         } catch (Exception e) {
             return new Finding(b, State.MEMBER_MISSING, List.of());
         }
+    }
+
+    private static boolean findInherited(ClassLoader loader, List<String> owners,
+                                         LegacyMemberPreflight.Boundary b, List<String> sameName,
+                                         Set<String> visited) {
+        for (String owner : owners) {
+            if (owner == null || !visited.add(owner)) continue;
+            try (InputStream in = open(loader, owner + ".class")) {
+                if (in == null) continue;
+                boolean[] exact = {false};
+                List<String> parents = new ArrayList<>();
+                new ClassReader(in).accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override public void visit(int version, int access, String name, String signature,
+                                                String superName, String[] interfaces) {
+                        if (superName != null) parents.add(superName);
+                        if (interfaces != null) parents.addAll(Arrays.asList(interfaces));
+                    }
+                    @Override public MethodVisitor visitMethod(int access, String name, String desc, String sig, String[] ex) {
+                        if (b.kind() == LegacyMemberPreflight.Kind.METHOD && name.equals(b.name())) {
+                            sameName.add(desc); if (desc.equals(b.descriptor())) exact[0] = true;
+                        }
+                        return null;
+                    }
+                    @Override public FieldVisitor visitField(int access, String name, String desc, String sig, Object value) {
+                        if (b.kind() == LegacyMemberPreflight.Kind.FIELD && name.equals(b.name())) {
+                            sameName.add(desc); if (desc.equals(b.descriptor())) exact[0] = true;
+                        }
+                        return null;
+                    }
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                if (exact[0] || findInherited(loader, parents, b, sameName, visited)) return true;
+            } catch (Exception ignored) {}
+        }
+        return false;
+    }
+
+    private static InputStream open(ClassLoader loader, String resource) {
+        InputStream in = loader.getResourceAsStream(resource);
+        return in != null ? in : LegacyMemberMigrationPreflight.class.getClassLoader().getResourceAsStream(resource);
     }
 }
