@@ -11,6 +11,8 @@ import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.ConstantDynamic;
+import org.objectweb.asm.commons.Remapper;
+import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.Type;
 
 /**
@@ -41,7 +43,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     "Class identity mismatch: requested=" + expected + " bytecode=" + node.name);
         }
 
-        int rewrites = rewriteExactNamespaceMigrations(node);
+        int rewrites = rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteSemanticAdapters(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -58,6 +60,56 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return new Result(verified, rewrites > 0,
                 "forge-1.19.2 exact namespace migrations=" + rewrites);
     }
+    /**
+     * ASM's ClassRemapper covers the complete class-file surface: descriptors,
+     * signatures, annotations/type annotations, frames, handles, indy/condy,
+     * record components, nest/inner metadata and instruction operands.
+     * Semantic adapters still run afterwards on the migrated tree.
+     */
+    private static int rewriteAllNamespaceReferences(ClassNode node) {
+        ClassNode migrated = new ClassNode();
+        Remapper remapper = new Remapper() {
+            @Override public String map(String internalName) {
+                return migrateInternalName(internalName);
+            }
+        };
+        node.accept(new ClassRemapper(migrated, remapper));
+        // Keep a simple deterministic signal for diagnostics. Detailed rewrite
+        // counts are not semantic evidence; transformation coverage is.
+        int changed = java.util.Arrays.equals(writeNode(node), writeNode(migrated)) ? 0 : 1;
+        node.version = migrated.version;
+        node.access = migrated.access;
+        node.name = migrated.name;
+        node.signature = migrated.signature;
+        node.superName = migrated.superName;
+        node.interfaces = migrated.interfaces;
+        node.sourceFile = migrated.sourceFile;
+        node.sourceDebug = migrated.sourceDebug;
+        node.module = migrated.module;
+        node.outerClass = migrated.outerClass;
+        node.outerMethod = migrated.outerMethod;
+        node.outerMethodDesc = migrated.outerMethodDesc;
+        node.visibleAnnotations = migrated.visibleAnnotations;
+        node.invisibleAnnotations = migrated.invisibleAnnotations;
+        node.visibleTypeAnnotations = migrated.visibleTypeAnnotations;
+        node.invisibleTypeAnnotations = migrated.invisibleTypeAnnotations;
+        node.attrs = migrated.attrs;
+        node.innerClasses = migrated.innerClasses;
+        node.nestHostClass = migrated.nestHostClass;
+        node.nestMembers = migrated.nestMembers;
+        node.permittedSubclasses = migrated.permittedSubclasses;
+        node.recordComponents = migrated.recordComponents;
+        node.fields = migrated.fields;
+        node.methods = migrated.methods;
+        return changed;
+    }
+
+    private static byte[] writeNode(ClassNode node) {
+        ClassWriter writer = new ClassWriter(0);
+        node.accept(writer);
+        return writer.toByteArray();
+    }
+
     /**
      * Conservative first migration pass. Only namespaces whose classes are
      * supplied by current NeoForge are rewritten here. Removed APIs are left
