@@ -34,6 +34,20 @@ public final class Forge1192VanillaConstructionBridge {
         return properties;
     }
 
+    /** Use the legacy block's explicit registry name for its paired block item. */
+    public static Item.Properties withBlockItemId(Block block, Item.Properties properties) {
+        try {
+            Object value = block.getClass().getMethod("getRegistryName").invoke(block);
+            if (!(value instanceof net.minecraft.resources.Identifier id)) {
+                throw new IllegalStateException("Legacy block registry name is not an Identifier: " + value);
+            }
+            return properties.setId(ResourceKey.create(Registries.ITEM, id));
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Legacy block does not expose getRegistryName(): "
+                    + block.getClass().getName(), e);
+        }
+    }
+
     /**
      * 1.19.2 exposed BlockEntityType(supplier, validBlocks, dataFixerType).
      * The public builder is the surviving construction contract. The legacy

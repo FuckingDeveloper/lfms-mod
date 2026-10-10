@@ -67,6 +67,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
+        rewrites += rewriteLegacyBlockItemConstruction(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -657,6 +658,36 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 call.name = "withoutLegacyCreativeTab";
                 call.desc = "(L" + owner + ";Lnet/minecraft/world/item/CreativeModeTab;)L" + owner + ";";
                 call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Supply IC2 block-item ids before the modern Item constructor requires them. */
+    private static int rewriteLegacyBlockItemConstruction(ClassNode node) {
+        if (!node.name.equals("ic2/core/item/base/IC2BlockItem")) return 0;
+        final String desc = "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item$Properties;)V";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if (!method.name.equals("<init>")) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals("net/minecraft/world/item/BlockItem")
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals(desc)) continue;
+                int propertiesLocal = method.maxLocals++;
+                var adaptation = new org.objectweb.asm.tree.InsnList();
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "withBlockItemId",
+                        "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item$Properties;)"
+                                + "Lnet/minecraft/world/item/Item$Properties;", false));
+                method.instructions.insertBefore(call, adaptation);
                 rewrites++;
             }
         }
