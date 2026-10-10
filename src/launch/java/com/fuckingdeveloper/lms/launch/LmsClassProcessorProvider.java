@@ -20,7 +20,17 @@ public final class LmsClassProcessorProvider implements ClassProcessorProvider {
         try {
             var launchPlan = LaunchPlanReader.read(plan);
             for (var spec : launchPlan.redirects()) collector.add(new GenericMethodCallRedirectProcessor(spec));
-            for (var spec : launchPlan.edits()) collector.add(new GenericInstructionEditProcessor(spec));
+            // Diagnostic isolation switch: keep the launch plan intact while
+            // excluding early instruction edits from FML class processing.
+            // This tests whether a generated edit causes startup to abort before
+            // regular mod construction, without changing legacy mod artifacts.
+            boolean disableEdits = Boolean.getBoolean("lms.early.disableInstructionEdits");
+            if (disableEdits) {
+                LOG.warn("[LMS/early] instruction edits DISABLED by diagnostic flag; skipped={} (redirects remain enabled)",
+                        launchPlan.edits().size());
+            } else {
+                for (var spec : launchPlan.edits()) collector.add(new GenericInstructionEditProcessor(spec));
+            }
             LOG.info("[LMS/early] launch plan={} redirects={} instructionEdits={}",
                     plan.toAbsolutePath(), launchPlan.redirects().size(), launchPlan.edits().size());
         } catch (Exception e) {
