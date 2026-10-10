@@ -96,6 +96,10 @@ def prepareLaunchPlan = tasks.register('prepareLaunchPlan', JavaExec) {
     workingDir = layout.projectDirectory.dir('run')
     doFirst {
         delete layout.projectDirectory.file('run/lms/launch-plan.tsv')
+        delete fileTree(layout.projectDirectory.dir('run/lms')) {
+            include 'member-gaps-*.tsv'
+            include 'member-gaps-*.tsv.tmp'
+        }
     }
 }
 
