@@ -813,12 +813,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     if (init != null && init.desc.equals(legacyDesc)) {
                         method.instructions.remove(allocation);
                         method.instructions.remove(dup);
-                        method.instructions.set(init, new MethodInsnNode(
+                        MethodInsnNode factory = new MethodInsnNode(
                                 org.objectweb.asm.Opcodes.INVOKESTATIC,
                                 "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                                 "blockEntityType",
                                 "(Lnet/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier;Ljava/util/Set;Lcom/mojang/datafixers/types/Type;)Lnet/minecraft/world/level/block/entity/BlockEntityType;",
-                                false));
+                                false);
+                        method.instructions.set(init, factory);
+                        next = factory.getNext();
                         rewrites++;
                     }
                 }
