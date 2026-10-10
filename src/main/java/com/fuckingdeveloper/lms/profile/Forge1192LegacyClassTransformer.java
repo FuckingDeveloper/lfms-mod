@@ -989,6 +989,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return value;
     }
 
+    /** Static namespace projection used by non-executing migration planning. */
+    public static String projectInternalName(String value) {
+        return migrateInternalName(value);
+    }
+
+    /** Descriptor projection must use the exact same namespace contract as runtime transformation. */
+    public static String projectDescriptor(String descriptor) {
+        return migrateDescriptor(descriptor);
+    }
+
     private static String migrateInternalName(String value) {
         // DistExecutor was removed from current NeoForge. Keep the Forge 1.19.2
         // physical-side execution contract behind an LMS-owned runtime boundary
