@@ -2,7 +2,6 @@ package com.fuckingdeveloper.lms.runtime;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
 import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import net.neoforged.neoforge.registries.RegisterEvent;
 import net.neoforged.bus.api.IEventBus;
 
 import java.lang.reflect.Constructor;
@@ -65,14 +64,6 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
         }
     }
 
-    public void onRegister(RegisterEvent event) throws Exception {
-        if (state != State.INITIALIZED) return;
-        try (var mod = Forge1192RegistrationContext.enterMod(modId);
-             var registration = Forge1192RegistrationContext.enterRegistration(event)) {
-            // Registration callbacks registered by transformed legacy code run
-            // synchronously on NeoForge's bus while this scope is active.
-        }
-    }
 
     @Override public synchronized void close() throws Exception {
         if (state == State.CLOSED) return;
