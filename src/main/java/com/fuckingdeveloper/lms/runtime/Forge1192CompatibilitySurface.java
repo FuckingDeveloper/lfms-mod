@@ -50,7 +50,17 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext#get()Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext;",
             "net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext#getModEventBus()Lnet/minecraftforge/eventbus/api/IEventBus;",
             "net.minecraftforge.fml.ModLoadingContext#get()Lnet/minecraftforge/fml/ModLoadingContext;",
-            "net.minecraftforge.fml.ModLoadingContext#getActiveNamespace()Ljava/lang/String;"
+            "net.minecraftforge.fml.ModLoadingContext#getActiveNamespace()Ljava/lang/String;",
+            "net.minecraftforge.fml.ModList#get()Lnet/minecraftforge/fml/ModList;",
+            "net.minecraftforge.fml.ModList#getAllScanData()Ljava/util/List;",
+            "net.minecraftforge.fml.ModList#getModContainerById(Ljava/lang/String;)Ljava/util/Optional;",
+            "net.minecraftforge.fml.ModList#isLoaded(Ljava/lang/String;)Z",
+            "net.minecraftforge.fml.loading.FMLPaths#get()Ljava/nio/file/Path;",
+            "net.minecraftforge.forgespi.language.ModFileScanData#getAnnotations()Ljava/util/Set;",
+            "net.minecraftforge.forgespi.language.ModFileScanData$AnnotationData#annotationType()Lorg/objectweb/asm/Type;",
+            "net.minecraftforge.forgespi.language.ModFileScanData$AnnotationData#memberName()Ljava/lang/String;",
+            "net.minecraftforge.registries.RegisterEvent#getRegistryKey()Lnet/minecraft/resources/ResourceKey;",
+            "net.minecraftforge.server.ServerLifecycleHooks#getCurrentServer()Lnet/minecraft/server/MinecraftServer;"
     );
 
     public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries) {
