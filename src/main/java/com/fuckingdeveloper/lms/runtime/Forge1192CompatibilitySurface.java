@@ -86,6 +86,11 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.server.ServerLifecycleHooks#getCurrentServer()Lnet/minecraft/server/MinecraftServer;"
     );
 
+    private static final Set<String> EXPLICIT_UNSUPPORTED = Set.of(
+            "net.minecraftforge.fml.ModLoadingContext#getActiveContainer()Lnet/minecraftforge/fml/ModContainer;",
+            "net.minecraftforge.fml.ModLoadingContext#setActiveContainer(Lnet/minecraftforge/fml/ModContainer;)V"
+    );
+
     public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries) {
         var grouped = boundaries.stream().collect(java.util.stream.Collectors.groupingBy(
                 boundary -> boundary.owner() + "#" + boundary.name() + boundary.descriptor(),
@@ -94,7 +99,8 @@ public final class Forge1192CompatibilitySurface {
         for (var entry : grouped.entrySet()) {
             String target = entry.getKey();
             State state = SUPPORTED_BRIDGES.contains(target)
-                    ? State.SUPPORTED : State.ADAPTER_REQUIRED;
+                    ? State.SUPPORTED
+                    : EXPLICIT_UNSUPPORTED.contains(target) ? State.UNSUPPORTED : State.ADAPTER_REQUIRED;
             requirements.add(new Requirement(target, entry.getValue(), state, family(target)));
         }
         boolean executable = requirements.stream()
