@@ -342,3 +342,20 @@ When pausing/stopping, report:
 - known semantic gaps.
 
 Never claim a test was run if it was not.
+
+## 24. Compatibility Runtime vision
+
+Read `openspec/specs/compatibility-runtime-vision/spec.md` before introducing broad new compatibility abstractions.
+
+Treat Minecraft-generation compatibility and loader-generation compatibility as separable concerns when evidence supports reuse.
+
+Do NOT:
+
+- translate future Fabric support through fake Forge merely for convenience;
+- build a speculative giant LMS IR before proven operations exist;
+- claim multi-generation coexistence because managed classloading exists;
+- expand current implementation scope to Fabric while the Forge 1.19.2 MVP remains incomplete.
+
+When repeated adapters expose a stable semantic operation, prefer extracting a typed target-independent contract over adding another direct source-to-target special case.
+
+The current priority remains the complete Forge 1.19.2 -> Minecraft 26.3 / NeoForge 26.3 vertical slice.
