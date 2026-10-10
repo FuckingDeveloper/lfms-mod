@@ -9,6 +9,10 @@
 - [x] Define compatibility verification specification.
 - [x] Add repository-wide AGENTS.md.
 - [x] Add OpenSpec-specific agent rules.
+- [x] Define long-term Legacy Minecraft Mod Compatibility Runtime vision.
+- [x] Document separation of Minecraft ABI compatibility from loader ABI compatibility.
+- [x] Document future Fabric source/target possibility without expanding current MVP scope.
+- [x] Define evidence-driven semantic IR growth rules and compatibility-domain research scope.
 - [x] Update README architecture/status guidance.
 
 ## Incremental implementation follow-up
