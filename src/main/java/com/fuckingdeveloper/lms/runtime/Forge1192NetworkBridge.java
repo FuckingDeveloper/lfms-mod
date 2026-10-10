@@ -39,6 +39,29 @@ public final class Forge1192NetworkBridge {
                 .toList();
     }
 
+    /**
+     * Preflight for the NeoForge 26.3 payload registration event. A legacy
+     * SimpleChannel registration has no direction or connection phase, so
+     * neither may be inferred from registerMessage alone.
+     */
+    public enum PayloadReadiness {
+        EMPTY_CHANNEL, DIRECTION_UNRESOLVED, CODEC_UNVERIFIED
+    }
+
+    public record PayloadPreflight(String modId, Identifier channel, int messageCount,
+                                   PayloadReadiness readiness, String reason) {}
+
+    public static PayloadPreflight preflight(LegacyChannel channel) {
+        var registered = messages(channel);
+        if (registered.isEmpty())
+            return new PayloadPreflight(channel.modId(), channel.name(), 0,
+                    PayloadReadiness.EMPTY_CHANNEL, "No legacy messages registered");
+        return new PayloadPreflight(channel.modId(), channel.name(), registered.size(),
+                PayloadReadiness.DIRECTION_UNRESOLVED,
+                "Forge 1.19.2 registerMessage does not encode packet direction or "
+                + "connection phase; NeoForge 26.3 requires explicit payload flow and codec");
+    }
+
     public static void requirePayloadRegistrationReady(LegacyChannel channel) {
         requireChannel(channel);
         throw new UnsupportedOperationException(
