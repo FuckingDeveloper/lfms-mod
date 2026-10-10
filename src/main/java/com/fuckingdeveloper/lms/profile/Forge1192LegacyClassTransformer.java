@@ -1924,6 +1924,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "net/neoforged/neoforge/event/entity/living/LivingIncomingDamageEvent";
         if (value.equals("net/minecraftforge/event/entity/living/ShieldBlockEvent"))
             return "net/neoforged/neoforge/event/entity/living/LivingShieldBlockEvent";
+        if (value.equals("net/minecraftforge/event/level/BlockEvent$BreakEvent"))
+            return "com/fuckingdeveloper/lms/runtime/event/LegacyBreakBlockEvent";
         // Common Forge living/player gameplay events retained their semantic
         // event identity under NeoForge. Map only when the exact target class
         // exists; removed/split event families remain explicit migration boundaries.

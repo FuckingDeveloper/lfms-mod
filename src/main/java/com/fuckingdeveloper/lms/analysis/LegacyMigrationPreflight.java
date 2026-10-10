@@ -29,7 +29,8 @@ public final class LegacyMigrationPreflight {
                     || target.equals("net/minecraftforge/common/IPlantable")
                     || target.equals("net/minecraftforge/common/PlantType")
                     || target.equals("net/minecraftforge/common/extensions/IForgeBlock")
-                    || target.equals("net/minecraftforge/common/extensions/IForgeItem")) {
+                    || target.equals("net/minecraftforge/common/extensions/IForgeItem")
+                    || target.equals("net/minecraftforge/event/level/BlockEvent$BreakEvent")) {
                 state = State.LMS_BRIDGE; reason = "explicit structural LMS compatibility contract";
             } else if (target.startsWith("net/minecraftforge/")) {
                 state = State.FORGE_API_MIGRATION;
