@@ -295,6 +295,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+                if (call.owner.equals("net/neoforged/neoforge/network/simple/SimpleChannel")
+                        && call.name.equals("registerMessage")
+                        && call.desc.equals("(ILjava/lang/Class;Ljava/util/function/BiConsumer;Ljava/util/function/Function;Ljava/util/function/BiConsumer;)Lnet/neoforged/neoforge/network/simple/IndexedMessageCodec$MessageHandler;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                    call.name = "registerMessage";
+                    call.desc = "(Ljava/lang/Object;ILjava/lang/Class;Ljava/util/function/BiConsumer;Ljava/util/function/Function;Ljava/util/function/BiConsumer;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // Forge 1.19.2 FluidStack#isFluidEqual compares fluid identity,
                 // not amount or data components. Keep the old contract explicit.
                 if (call.owner.equals("net/neoforged/neoforge/fluids/FluidStack")
