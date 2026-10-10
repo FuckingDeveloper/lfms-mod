@@ -706,14 +706,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             && init.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
                             && init.owner.equals("net/minecraft/resources/Identifier")
                             && init.name.equals("<init>")
-                            && init.desc.equals("(Ljava/lang/String;Ljava/lang/String;)V")) {
+                            && (init.desc.equals("(Ljava/lang/String;Ljava/lang/String;)V")
+                                || init.desc.equals("(Ljava/lang/String;)V"))) {
+                        String factoryDesc = init.desc.equals("(Ljava/lang/String;)V")
+                                ? "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
+                                : "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;";
                         method.instructions.remove(allocation);
                         method.instructions.remove(dup);
                         MethodInsnNode factory = new MethodInsnNode(
                                 org.objectweb.asm.Opcodes.INVOKESTATIC,
                                 "com/fuckingdeveloper/lms/runtime/Forge1192IdentifierBridge",
                                 "create",
-                                "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;",
+                                factoryDesc,
                                 false);
                         method.instructions.set(init, factory);
                         rewrites++;
