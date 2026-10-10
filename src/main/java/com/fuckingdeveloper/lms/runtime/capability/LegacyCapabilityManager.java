@@ -16,6 +16,17 @@ public final class LegacyCapabilityManager {
 
     private LegacyCapabilityManager() {}
 
+    /**
+     * Exact Forge 1.19.2 executable ABI:
+     * CapabilityManager.get(CapabilityToken) -> Capability.
+     *
+     * Namespace projection rewrites both verifier-visible types to LMS facades
+     * but deliberately preserves the method name and arity.
+     */
+    public static <T> LegacyCapability<T> get(LegacyCapabilityToken<T> token) {
+        return get(token, false);
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> LegacyCapability<T> get(LegacyCapabilityToken<T> token, boolean registering) {
         if (token == null) throw new NullPointerException("token");
