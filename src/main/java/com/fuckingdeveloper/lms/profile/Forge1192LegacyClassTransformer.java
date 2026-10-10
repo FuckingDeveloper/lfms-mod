@@ -306,6 +306,24 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
+                if (call.owner.equals("net/neoforged/neoforge/network/NetworkEvent$Context")) {
+                    String bridgeDesc = switch (call.name + call.desc) {
+                        case "enqueueWork(Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;" ->
+                                "(Ljava/lang/Object;Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;";
+                        case "getSender()Lnet/minecraft/server/level/ServerPlayer;" ->
+                                "(Ljava/lang/Object;)Lnet/minecraft/server/level/ServerPlayer;";
+                        case "setPacketHandled(Z)V" -> "(Ljava/lang/Object;Z)V";
+                        default -> null;
+                    };
+                    if (bridgeDesc != null) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                        call.desc = bridgeDesc;
+                        call.itf = false;
+                        rewrites++;
+                    }
+                }
+
                 // Forge 1.19.2 FluidStack#isFluidEqual compares fluid identity,
                 // not amount or data components. Keep the old contract explicit.
                 if (call.owner.equals("net/neoforged/neoforge/fluids/FluidStack")
