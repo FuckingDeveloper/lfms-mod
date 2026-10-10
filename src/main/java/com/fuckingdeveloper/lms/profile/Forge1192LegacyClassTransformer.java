@@ -756,6 +756,22 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // javac records the concrete receiver class for inherited
+                // calls. The runtime resolver cannot walk managed IC2 class
+                // hierarchies, but these SRG ids uniquely identify Block's
+                // unchanged default-state operations.
+                if (call.owner.startsWith("ic2/")
+                        && call.name.equals("m_49966_")
+                        && call.desc.equals("()Lnet/minecraft/world/level/block/state/BlockState;")) {
+                    call.name = "defaultBlockState";
+                    rewrites++;
+                } else if (call.owner.startsWith("ic2/")
+                        && call.name.equals("m_49959_")
+                        && call.desc.equals("(Lnet/minecraft/world/level/block/state/BlockState;)V")) {
+                    call.name = "registerDefaultState";
+                    rewrites++;
+                }
+
                 if (call.owner.equals("net/minecraft/world/level/block/state/BlockState")
                         && call.name.equals("canSustainPlant")
                         && call.desc.equals("(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;Lcom/fuckingdeveloper/lms/runtime/block/LegacyIPlantable;)Z")) {
