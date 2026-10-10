@@ -13,19 +13,20 @@ import java.util.Objects;
 public final class Forge1192LifecycleBridge {
     private static final ThreadLocal<Context> CURRENT = new ThreadLocal<>();
 
-    public record Context(String modId, IEventBus modEventBus, LegacyContainer container) {
+    public record Context(String modId, IEventBus modEventBus, ModContainer hostContainer, LegacyContainer container) {
         public Context {
             Objects.requireNonNull(modId, "modId");
             Objects.requireNonNull(modEventBus, "modEventBus");
+            Objects.requireNonNull(hostContainer, "hostContainer");
             Objects.requireNonNull(container, "container");
         }
     }
 
     private Forge1192LifecycleBridge() {}
 
-    public static AutoCloseable enter(String modId, IEventBus modEventBus) {
+    public static AutoCloseable enter(String modId, IEventBus modEventBus, ModContainer hostContainer) {
         if (CURRENT.get() != null) throw new IllegalStateException("Nested legacy lifecycle scopes are not supported");
-        Context context = new Context(modId, modEventBus, new LegacyContainer(modId));
+        Context context = new Context(modId, modEventBus, hostContainer, new LegacyContainer(modId));
         Thread owner = Thread.currentThread();
         CURRENT.set(context);
         return () -> {
@@ -59,10 +60,10 @@ public final class Forge1192LifecycleBridge {
         Context context = requireActive();
         if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
         Object active = context.container().active();
-        if (active == null) return null;
-        if (!(active instanceof ModContainer container))
-            throw new IllegalStateException("Legacy active container is not a target ModContainer: " + active.getClass().getName());
-        return container;
+        if (active == null || active == context.container()) return context.hostContainer();
+        if (active instanceof ModContainer container) return container;
+        throw new IllegalStateException("Unsupported legacy active container override: "
+                + active.getClass().getName());
     }
 
     public static void setActiveContainer(Object token, Object container) {
@@ -76,7 +77,7 @@ public final class Forge1192LifecycleBridge {
         if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");
         return context.modId();
     }
-    /** Per-artifact legacy active-container slot; never exposes LMS's own container. */
+    /** Per-artifact legacy active-container slot; host container is returned for target API compatibility. */
     public static final class LegacyContainer {
         private final String modId;
         private Object active;
