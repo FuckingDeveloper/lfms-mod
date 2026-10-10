@@ -55,11 +55,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     .filter(method -> method.name.equals("<init>"))
                     .map(method -> method.desc)
                     .toList();
+            var superCalls = node.methods.stream()
+                    .flatMap(method -> {
+                        var calls = new java.util.ArrayList<String>();
+                        for (var instruction = method.instructions.getFirst();
+                             instruction != null; instruction = instruction.getNext()) {
+                            if (instruction instanceof MethodInsnNode call
+                                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                                    && call.owner.equals("net/minecraft/world/item/ArmorItem")
+                                    && call.name.equals("<init>")) {
+                                calls.add(method.name + method.desc + " -> " + call.owner
+                                        + "#<init>" + call.desc);
+                            }
+                        }
+                        return calls.stream();
+                    }).toList();
             throw new IllegalStateException("ARMOR_COMPONENT_MIGRATION_REQUIRED ownedClass="
                     + node.name + " legacySuper=" + node.superName
-                    + " constructors=" + constructors
-                    + " reason=ArmorItem was removed; replacing superclass with Item "
-                    + "would discard armor material, slot and equipment semantics");
+                    + " constructors=" + constructors + " superCalls=" + superCalls
+                    + " reason=ArmorItem was removed; material/slot/properties must be migrated "
+                    + "to verified current item components before superclass substitution");
         }
 
         int rewrites = rewriteAllNamespaceReferences(node);
