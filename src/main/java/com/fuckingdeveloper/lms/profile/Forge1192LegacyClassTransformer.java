@@ -1437,6 +1437,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // NeoForge; the target event family dispatches Pre/Post subclasses.
         if (value.equals("net/minecraftforge/event/TickEvent$PlayerTickEvent"))
             return "net/neoforged/neoforge/event/tick/PlayerTickEvent";
+        // Common Forge living/player gameplay events retained their semantic
+        // event identity under NeoForge. Map only when the exact target class
+        // exists; removed/split event families remain explicit migration boundaries.
+        if (value.startsWith("net/minecraftforge/event/entity/living/")
+                || value.startsWith("net/minecraftforge/event/entity/player/")) {
+            String candidate = value.replace("net/minecraftforge/", "net/neoforged/neoforge/");
+            if (Forge1192LegacyClassTransformer.class.getClassLoader()
+                    .getResource(candidate + ".class") != null) {
+                return candidate;
+            }
+        }
         // IForgeRegistry was removed. Keep only a verifier-visible LMS facade;
         // all executable registry operations are redirected to
         // Forge1192RegistrationContext by semantic adapters below.
