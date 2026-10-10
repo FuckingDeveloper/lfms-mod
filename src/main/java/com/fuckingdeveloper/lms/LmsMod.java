@@ -71,14 +71,15 @@ public final class LmsMod {
                                 mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
                                 metadata.coremodTargetHints());
                         var dependencyDecision = new com.fuckingdeveloper.lms.runtime.LegacyDependencyGate()
-                                .evaluate(metadata.dependencies(), legacyArtifacts);
+                                .evaluate(metadata.dependencies(), legacyArtifacts, mod.file());
                         if (!dependencyDecision.satisfied()) {
                             LOG.error("LMS dependency-gate id={} state=BLOCKED reason=MISSING_MANDATORY_DEPENDENCY missing={}",
                                     mod.modId(), dependencyDecision.missing());
                             continue;
                         }
-                        LOG.info("LMS dependency-gate id={} state=READY mandatoryDependenciesSatisfied=true",
-                                mod.modId());
+                        LOG.info("LMS dependency-gate id={} state=READY mandatoryDependenciesSatisfied=true managedArtifacts={}",
+                                mod.modId(), dependencyDecision.artifacts().stream()
+                                        .map(path -> path.getFileName().toString()).toList());
                         var dependencyPreflight = new com.fuckingdeveloper.lms.analysis.LegacyDependencyPreflight()
                                 .evaluate(mod.modId(), metadata, mods);
                         LOG.info("LMS dependency-preflight id={} missingMandatory={} missingOptional={} mayInitialize={}",
