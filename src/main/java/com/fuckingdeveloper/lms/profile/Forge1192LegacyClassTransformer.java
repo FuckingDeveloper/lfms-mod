@@ -58,6 +58,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
         rewrites += rewriteLegacyArmorConstructorDescriptors(node);
         rewrites += rewriteSemanticAdapters(node);
+        rewrites += rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyUnresolvedForgeModAccesses(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -225,6 +226,62 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     migrated = migrateDescriptor(local.signature);
                     if (!migrated.equals(local.signature)) { local.signature = migrated; rewrites++; }
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 exposed a built-in mod list screen that no longer exists
+     * in the target runtime. An old GUI may only use it as an optional
+     * navigation destination. In that case the original parent Screen is a
+     * safe fallback, while manufacturing a fake screen class is not.
+     *
+     * <p>Recognize only the proven constructor stack pattern:
+     * NEW ModListScreen; DUP; [code producing parent Screen];
+     * INVOKESPECIAL ModListScreen(Screen). Replace it with the already
+     * evaluated parent Screen. This deliberately does not touch any other
+     * constructor or any other use of the removed type.</p>
+     */
+    private static int rewriteRemovedOptionalClientScreenConstructors(ClassNode node) {
+        final String removed = "net/minecraftforge/client/gui/ModListScreen";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals(removed)
+                        && call.name.equals("<init>")
+                        && call.desc.equals("(Lnet/minecraft/client/gui/screens/Screen;)V")) {
+                    // The NEW and DUP must be adjacent real instructions. Do
+                    // not rewrite arbitrary constructors with unknown stack
+                    // shape, and never suppress a required gameplay class.
+                    TypeInsnNode allocation = null;
+                    org.objectweb.asm.tree.AbstractInsnNode duplicate = null;
+                    int steps = 0;
+                    for (var previous = call.getPrevious(); previous != null && steps++ < 12;
+                         previous = previous.getPrevious()) {
+                        if (previous instanceof TypeInsnNode type
+                                && type.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                                && type.desc.equals(removed)) {
+                            var after = type.getNext();
+                            while (after != null && after.getOpcode() < 0) after = after.getNext();
+                            if (after != null && after.getOpcode() == org.objectweb.asm.Opcodes.DUP) {
+                                allocation = type;
+                                duplicate = after;
+                            }
+                            break;
+                        }
+                    }
+                    if (allocation != null) {
+                        method.instructions.remove(call);
+                        method.instructions.remove(duplicate);
+                        method.instructions.remove(allocation);
+                        rewrites++;
+                    }
+                }
+                insn = next;
             }
         }
         return rewrites;
