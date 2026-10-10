@@ -689,6 +689,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // instead of migrating it into a non-existent NeoForge class.
         if (value.equals("net/minecraftforge/fml/DistExecutor"))
             return "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge";
+        if (value.equals("net/minecraft/client/model/ZombieModel"))
+            return "net/minecraft/client/model/monster/zombie/ZombieModel";
         if (value.equals("net/minecraft/client/model/GiantZombieModel"))
             return "net/minecraft/client/model/monster/zombie/GiantZombieModel";
         if (value.equals("net/minecraft/client/model/ArmorStandArmorModel"))
@@ -720,6 +722,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private static String migrateDescriptor(String descriptor) {
         return descriptor
                 .replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge")
+                .replace("net/minecraft/client/model/ZombieModel", "net/minecraft/client/model/monster/zombie/ZombieModel")
                 .replace("net/minecraft/client/model/GiantZombieModel", "net/minecraft/client/model/monster/zombie/GiantZombieModel")
                 .replace("net/minecraft/client/model/ArmorStandArmorModel", "net/minecraft/client/model/object/armorstand/ArmorStandArmorModel")
                 .replace("net/minecraft/client/model/SkeletonModel", "net/minecraft/client/model/monster/skeleton/SkeletonModel")
