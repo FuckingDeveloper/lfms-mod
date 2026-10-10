@@ -64,6 +64,16 @@ public final class LmsMod {
                         LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
                                 mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
                                 metadata.coremodTargetHints());
+                        var dependencyPreflight = new com.fuckingdeveloper.lms.analysis.LegacyDependencyPreflight()
+                                .evaluate(mod.modId(), metadata, mods);
+                        LOG.info("LMS dependency-preflight id={} missingMandatory={} missingOptional={} mayInitialize={}",
+                                mod.modId(), dependencyPreflight.missingMandatory(),
+                                dependencyPreflight.missingOptional(), dependencyPreflight.mayInitialize());
+                        if (!dependencyPreflight.mayInitialize()) {
+                            LOG.error("LMS lifecycle id={} state=BLOCKED entrypointInitialization=false reason=missing-mandatory-dependencies dependencies={}",
+                                    mod.modId(), dependencyPreflight.missingMandatory());
+                            continue;
+                        }
                         // First controlled-classloading milestone. Link only the statically
                         // discovered legacy @Mod candidate classes and never initialize them.
                         // This deliberately happens before lifecycle adaptation: linkage errors
