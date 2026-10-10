@@ -75,6 +75,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
+        rewrites += rewriteLegacyMobEffectInstanceConstruction(node);
         rewrites += rewriteLegacyVanillaRegistryFields(node);
         rewrites += rewriteLegacyForgeBuiltinFields(node);
         rewrites += rewriteLegacyForgeRegistries(node);
@@ -1022,14 +1023,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (call.owner.equals("net/minecraft/resources/Identifier")
                         && call.name.equals("m_135827_")
                         && call.desc.equals("()Ljava/lang/String;")) {
-                    call.name = "getPath";
+                    call.name = "getNamespace";
                     rewrites++;
                 }
 
                 if (call.owner.equals("net/minecraft/resources/Identifier")
                         && call.name.equals("m_135815_")
                         && call.desc.equals("()Ljava/lang/String;")) {
-                    call.name = "getNamespace";
+                    call.name = "getPath";
                     rewrites++;
                 }
 
@@ -1191,6 +1192,22 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof FieldInsnNode field)) continue;
+                String mobEffect = field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/world/effect/MobEffects")
+                        && field.desc.equals("Lnet/minecraft/world/effect/MobEffect;")
+                        ? modernMobEffectField(field.name) : null;
+                if (mobEffect != null) {
+                    field.name = mobEffect;
+                    field.desc = "Lnet/minecraft/core/Holder;";
+                    var unwrap = new org.objectweb.asm.tree.InsnList();
+                    unwrap.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEINTERFACE,
+                            "net/minecraft/core/Holder", "value", "()Ljava/lang/Object;", true));
+                    unwrap.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,
+                            "net/minecraft/world/effect/MobEffect"));
+                    method.instructions.insert(field, unwrap);
+                    rewrites++;
+                    continue;
+                }
                 var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(field.owner, field.name, field.desc);
                 if (!resolved.resolved()) continue;
                 if (!field.owner.equals(resolved.owner()) || !field.name.equals(resolved.name())
@@ -1200,6 +1217,88 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     field.desc = resolved.descriptor();
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /** Exact 1.19.2 SRG identities for MobEffects' migration to Holder fields. */
+    private static String modernMobEffectField(String srgName) {
+        return switch (srgName) {
+            case "f_19596_" -> "SPEED";
+            case "f_19597_" -> "SLOWNESS";
+            case "f_19598_" -> "HASTE";
+            case "f_19599_" -> "MINING_FATIGUE";
+            case "f_19600_" -> "STRENGTH";
+            case "f_19601_" -> "INSTANT_HEALTH";
+            case "f_19602_" -> "INSTANT_DAMAGE";
+            case "f_19603_" -> "JUMP_BOOST";
+            case "f_19604_" -> "NAUSEA";
+            case "f_19605_" -> "REGENERATION";
+            case "f_19606_" -> "RESISTANCE";
+            case "f_19607_" -> "FIRE_RESISTANCE";
+            case "f_19608_" -> "WATER_BREATHING";
+            case "f_19609_" -> "INVISIBILITY";
+            case "f_19610_" -> "BLINDNESS";
+            case "f_19611_" -> "NIGHT_VISION";
+            case "f_19612_" -> "HUNGER";
+            case "f_19613_" -> "WEAKNESS";
+            case "f_19614_" -> "POISON";
+            case "f_19615_" -> "WITHER";
+            case "f_19616_" -> "HEALTH_BOOST";
+            case "f_19617_" -> "ABSORPTION";
+            case "f_19618_" -> "SATURATION";
+            case "f_19619_" -> "GLOWING";
+            case "f_19620_" -> "LEVITATION";
+            case "f_19621_" -> "LUCK";
+            case "f_19590_" -> "UNLUCK";
+            case "f_19591_" -> "SLOW_FALLING";
+            case "f_19592_" -> "CONDUIT_POWER";
+            case "f_19593_" -> "DOLPHINS_GRACE";
+            case "f_19594_" -> "BAD_OMEN";
+            case "f_19595_" -> "HERO_OF_THE_VILLAGE";
+            case "f_216964_" -> "DARKNESS";
+            default -> null;
+        };
+    }
+
+    /**
+     * MobEffectInstance constructors now accept Holder<MobEffect>. Preserve
+     * legacy raw-effect construction through the built-in registry holder.
+     */
+    private static int rewriteLegacyMobEffectInstanceConstruction(ClassNode node) {
+        int rewrites = 0;
+        String owner = "net/minecraft/world/effect/MobEffectInstance";
+        String legacyPrefix = "(Lnet/minecraft/world/effect/MobEffect;";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("<init>")
+                        || !call.desc.startsWith(legacyPrefix)) continue;
+                Type[] arguments = Type.getArgumentTypes(call.desc);
+                int[] locals = new int[arguments.length];
+                var adaptation = new org.objectweb.asm.tree.InsnList();
+                for (int i = arguments.length - 1; i >= 1; i--) {
+                    locals[i] = method.maxLocals;
+                    method.maxLocals += arguments[i].getSize();
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                            arguments[i].getOpcode(org.objectweb.asm.Opcodes.ISTORE), locals[i]));
+                }
+                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "mobEffectHolder",
+                        "(Lnet/minecraft/world/effect/MobEffect;)Lnet/minecraft/core/Holder;", false));
+                for (int i = 1; i < arguments.length; i++) {
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                            arguments[i].getOpcode(org.objectweb.asm.Opcodes.ILOAD), locals[i]));
+                }
+                method.instructions.insertBefore(call, adaptation);
+                Type[] modern = arguments.clone();
+                modern[0] = Type.getObjectType("net/minecraft/core/Holder");
+                call.desc = Type.getMethodDescriptor(Type.VOID_TYPE, modern);
+                rewrites++;
             }
         }
         return rewrites;

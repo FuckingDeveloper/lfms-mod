@@ -18,6 +18,9 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.effect.MobEffect;
 
 /** Exact construction adapters for vanilla constructors removed after 1.19.2. */
 public final class Forge1192VanillaConstructionBridge {
@@ -92,6 +95,11 @@ public final class Forge1192VanillaConstructionBridge {
         return builder.build(ResourceKey.create(
                 Registries.ENTITY_TYPE,
                 Forge1192RegistrationContext.checkPrefix(legacyName, false)));
+    }
+
+    /** Resolve a legacy raw built-in effect to its canonical modern holder. */
+    public static Holder<MobEffect> mobEffectHolder(MobEffect effect) {
+        return BuiltInRegistries.MOB_EFFECT.wrapAsHolder(effect);
     }
 
     /** Retained intent for the eventual modern creative-tab population bridge. */
