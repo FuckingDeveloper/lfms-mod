@@ -196,6 +196,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
+                // EffectiveSide is a logical-side query. Keep it distinct from
+                // physical Dist and route through a profile-owned semantic boundary.
+                if (call.owner.equals("net/neoforged/neoforge/common/util/LogicalSidedProvider")
+                        && call.name.equals("get")
+                        && call.desc.equals("()Lnet/neoforged/fml/LogicalSide;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192SideBridge";
+                    call.name = "getEffectiveSide";
+                    call.desc = "()Lnet/neoforged/fml/LogicalSide;";
+                    call.itf = false;
+                    rewrites++;
+                }
                 // RegisterEvent no longer exposes Forge 1.19.2's
                 // IForgeRegistry facade. Preserve the registry key directly;
                 // mutable registry operations are handled by scoped adapters.
