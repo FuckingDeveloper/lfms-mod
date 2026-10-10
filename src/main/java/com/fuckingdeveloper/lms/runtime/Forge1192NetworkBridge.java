@@ -105,7 +105,12 @@ public final class Forge1192NetworkBridge {
         if (message == null)
             throw new IllegalArgumentException("Unknown legacy network discriminator " + discriminator
                     + " on channel " + channel.name());
-        registrations.put(discriminator, message.withFlow(flow));
+        Flow proven = Objects.requireNonNull(flow, "flow");
+        if (message.flow() != null && message.flow() != proven)
+            throw new IllegalStateException("Conflicting legacy packet flow evidence for discriminator "
+                    + discriminator + " on channel " + channel.name() + ": "
+                    + message.flow() + " vs " + proven);
+        registrations.put(discriminator, message.withFlow(proven));
     }
 
     public static StreamCodec<FriendlyByteBuf, Object> codec(LegacyMessage message) {
