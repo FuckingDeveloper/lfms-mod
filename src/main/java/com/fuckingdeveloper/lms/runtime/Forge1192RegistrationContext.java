@@ -84,6 +84,7 @@ public final class Forge1192RegistrationContext {
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static void register(Object ignoredRegistry, Identifier name, Object value) {
+        requireActiveRegistryToken(ignoredRegistry);
         Scope scope = requireActive();
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(value, "value");
@@ -113,26 +114,41 @@ public final class Forge1192RegistrationContext {
      * Consumer calls are rewritten to static LMS operations, so the concrete
      * object never escapes as a legacy IForgeRegistry instance.
      */
-    public static Object activeRegistryObject() {
+    public static Object activeRegistryObject(RegisterEvent event) {
+        Scope scope = requireActive();
+        if (scope.event() != event) {
+            throw new IllegalStateException("Legacy registry facade requested for a non-active RegisterEvent");
+        }
         return activeRegistry();
     }
 
+    private static void requireActiveRegistryToken(Object token) {
+        Objects.requireNonNull(token, "legacy registry receiver");
+        if (token != activeRegistry()) {
+            throw new IllegalStateException("Legacy registry receiver does not match the active RegisterEvent registry");
+        }
+    }
+
     public static boolean containsKey(Object ignoredRegistry, Identifier name) {
+        requireActiveRegistryToken(ignoredRegistry);
         Objects.requireNonNull(name, "name");
         return activeRegistry().containsKey(name);
     }
 
     public static Object getValue(Object ignoredRegistry, Identifier name) {
+        requireActiveRegistryToken(ignoredRegistry);
         Objects.requireNonNull(name, "name");
         return activeRegistry().getValue(name);
     }
 
     public static Identifier getKey(Object ignoredRegistry, Object value) {
+        requireActiveRegistryToken(ignoredRegistry);
         Objects.requireNonNull(value, "value");
         return activeRegistry().getKey(value);
     }
 
     public static Iterator<Object> iterator(Object ignoredRegistry) {
+        requireActiveRegistryToken(ignoredRegistry);
         return activeRegistry().iterator();
     }
 }
