@@ -1770,6 +1770,23 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof FieldInsnNode field)) continue;
+                LegacyColorCollectionField colored = legacyColorCollectionField(field);
+                if (colored != null) {
+                    field.name = colored.collection();
+                    field.desc = "Lnet/minecraft/world/level/block/ColorCollection;";
+                    var select = new org.objectweb.asm.tree.InsnList();
+                    select.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
+                            "net/minecraft/world/item/DyeColor", colored.color(),
+                            "Lnet/minecraft/world/item/DyeColor;"));
+                    select.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                            "net/minecraft/world/level/block/ColorCollection", "pick",
+                            "(Lnet/minecraft/world/item/DyeColor;)Ljava/lang/Object;", false));
+                    select.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,
+                            "net/minecraft/world/level/block/Block"));
+                    method.instructions.insert(field, select);
+                    rewrites++;
+                    continue;
+                }
                 if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
                         && field.owner.equals("net/minecraft/sounds/SoundEvents")
                         && field.desc.equals("Lnet/minecraft/sounds/SoundEvent;")) {
@@ -1821,6 +1838,46 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private record LegacyColorCollectionField(String collection, String color) {}
+
+    /** Minecraft 26.3 consolidated exact color-specific block fields. */
+    private LegacyColorCollectionField legacyColorCollectionField(FieldInsnNode field) {
+        if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                || !field.owner.equals("net/minecraft/world/level/block/Blocks")
+                || !field.desc.equals("Lnet/minecraft/world/level/block/Block;")
+                || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String canonical = SRG_RUNTIME_RESOLVER.get()
+                .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+        if (canonical == null) return null;
+        String color = null;
+        String suffix = null;
+        for (String candidate : java.util.List.of(
+                "LIGHT_BLUE", "LIGHT_GRAY", "WHITE", "ORANGE", "MAGENTA", "YELLOW",
+                "LIME", "PINK", "GRAY", "CYAN", "PURPLE", "BLUE", "BROWN",
+                "GREEN", "RED", "BLACK")) {
+            if (!canonical.startsWith(candidate + "_")) continue;
+            color = candidate;
+            suffix = canonical.substring(candidate.length() + 1);
+            break;
+        }
+        if (color == null) return null;
+        String collection = switch (suffix) {
+            case "BED", "WOOL", "STAINED_GLASS", "STAINED_GLASS_PANE", "CARPET",
+                    "BANNER", "WALL_BANNER", "GLAZED_TERRACOTTA", "CONCRETE",
+                    "CONCRETE_POWDER" -> suffix;
+            case "TERRACOTTA" -> "DYED_TERRACOTTA";
+            case "SHULKER_BOX" -> "DYED_SHULKER_BOX";
+            case "CANDLE" -> "DYED_CANDLE";
+            case "CANDLE_CAKE" -> "DYED_CANDLE_CAKE";
+            default -> null;
+        };
+        if (collection == null) return null;
+        var target = VANILLA_RELOCATIONS.searchExactField(
+                "net.minecraft.world.level.block.Blocks", collection,
+                "Lnet/minecraft/world/level/block/ColorCollection;");
+        return target.size() == 1 ? new LegacyColorCollectionField(collection, color) : null;
     }
 
     /** Resolve an SRG field whose bytecode owner is a managed subclass. */

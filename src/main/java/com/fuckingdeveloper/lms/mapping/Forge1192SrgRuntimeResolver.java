@@ -107,6 +107,25 @@ public final class Forge1192SrgRuntimeResolver {
                 "Verified SRG -> Mojang named -> target runtime field identity");
     }
 
+    /** Resolve only the exact 1.19.2 Mojang field identity, without assuming it survives. */
+    public Optional<String> canonicalFieldName(
+            String internalOwner, String srgName, String descriptor) {
+        if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("f_"))
+            return Optional.empty();
+        var obfuscatedOwner = mojmap.obfuscatedClass(internalOwner.replace('/', '.'));
+        if (obfuscatedOwner.isEmpty()) return Optional.empty();
+        var srgFields = srg.findFieldsBySrgName(srgName).stream()
+                .filter(field -> !field.owners().isEmpty()
+                        && field.owners().getFirst().equals(obfuscatedOwner.get()))
+                .toList();
+        if (srgFields.size() != 1 || srgFields.getFirst().names().isEmpty())
+            return Optional.empty();
+        var namedFields = mojmap.findFieldByObfuscated(
+                obfuscatedOwner.get(), srgFields.getFirst().names().getFirst());
+        if (namedFields.size() != 1) return Optional.empty();
+        return Optional.of(namedFields.getFirst().namedName());
+    }
+
     /**
      * Resolve a source SRG field by Mojang identity when the containing class
      * has an explicit, independently verified target replacement. This keeps
