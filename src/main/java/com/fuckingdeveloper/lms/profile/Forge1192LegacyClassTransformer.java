@@ -146,6 +146,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyEarlyClientInitialization(node);
+        rewrites += rewriteLegacyEarlyClientPlayerReads(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyCreativeTabLookup(node);
@@ -2920,6 +2921,48 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             rewrites++;
         }
         node.methods.addAll(helpers);
+        return rewrites;
+    }
+
+    /**
+     * Before the target client singleton exists, the source-era equivalent of
+     * {@code Minecraft.getInstance().player} is simply no active player. Adapt
+     * only the proven ALOAD-0 / own Minecraft field / SRG player-field chain.
+     */
+    private static int rewriteLegacyEarlyClientPlayerReads(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof org.objectweb.asm.tree.VarInsnNode load
+                        && load.getOpcode() == org.objectweb.asm.Opcodes.ALOAD
+                        && load.var == 0) {
+                    var ownFieldInsn = nextExecutable(load);
+                    var playerFieldInsn = ownFieldInsn == null ? null : nextExecutable(ownFieldInsn);
+                    if (ownFieldInsn instanceof FieldInsnNode ownField
+                            && ownField.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                            && ownField.owner.equals(node.name)
+                            && ownField.desc.equals("Lnet/minecraft/client/Minecraft;")
+                            && playerFieldInsn instanceof FieldInsnNode playerField
+                            && playerField.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                            && playerField.owner.equals("net/minecraft/client/Minecraft")
+                            && playerField.name.equals("f_91074_")
+                            && playerField.desc.equals("Lnet/minecraft/client/player/LocalPlayer;")) {
+                        method.instructions.insertBefore(load, new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "com/fuckingdeveloper/lms/runtime/Forge1192ClientLifecycleBridge",
+                                "currentPlayer",
+                                "()Lnet/minecraft/client/player/LocalPlayer;",
+                                false));
+                        method.instructions.remove(load);
+                        method.instructions.remove(ownField);
+                        method.instructions.remove(playerField);
+                        rewrites++;
+                    }
+                }
+                insn = next;
+            }
+        }
         return rewrites;
     }
 

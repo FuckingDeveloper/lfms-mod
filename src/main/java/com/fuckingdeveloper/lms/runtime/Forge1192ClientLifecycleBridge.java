@@ -58,6 +58,12 @@ public final class Forge1192ClientLifecycleBridge {
         return minecraft != null && minecraft.getWindow() != null && minecraft.options != null;
     }
 
+    /** Returns the active client player, or null while client construction is incomplete. */
+    public static net.minecraft.client.player.LocalPlayer currentPlayer() {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft == null ? null : minecraft.player;
+    }
+
     private static void invokeScoped(String modId, Object receiver, String helperName) {
         synchronized (PENDING) {
             Set<String> methods = PENDING.get(receiver);
