@@ -129,6 +129,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // required by a removed-API adapter.
         int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
+        rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
         // superclass constructor is still visible. Later construction-shape
         // adapters may replace that owner and descriptor.
@@ -2498,6 +2499,70 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    /**
+     * Capture the removed Forge 1.19.2 SimpleChannel protocol surface while
+     * its authoritative source identities are still present. Message
+     * registration is retained as metadata; sends remain explicitly
+     * fail-closed until a modern payload binding has been proven.
+     */
+    private static int rewriteLegacyNetworkFacade(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraftforge/network/NetworkRegistry")
+                        && call.name.equals("newSimpleChannel")
+                        && call.desc.equals("(Lnet/minecraft/resources/ResourceLocation;Ljava/util/function/Supplier;Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Lnet/minecraftforge/network/simple/SimpleChannel;")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                    call.desc = "(Lnet/minecraft/resources/ResourceLocation;Ljava/util/function/Supplier;Ljava/util/function/Predicate;Ljava/util/function/Predicate;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraftforge/network/simple/SimpleChannel")
+                        && call.name.equals("registerMessage")
+                        && call.desc.equals("(ILjava/lang/Class;Ljava/util/function/BiConsumer;Ljava/util/function/Function;Ljava/util/function/BiConsumer;)Lnet/minecraftforge/network/simple/IndexedMessageCodec$MessageHandler;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                    call.desc = "(Ljava/lang/Object;ILjava/lang/Class;Ljava/util/function/BiConsumer;Ljava/util/function/Function;Ljava/util/function/BiConsumer;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraftforge/network/simple/SimpleChannel")
+                        && call.name.equals("send")
+                        && call.desc.equals("(Lnet/minecraftforge/network/PacketDistributor$PacketTarget;Ljava/lang/Object;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                    call.desc = "(Ljava/lang/Object;Lnet/minecraftforge/network/PacketDistributor$PacketTarget;Ljava/lang/Object;)V";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (!call.owner.equals("net/minecraftforge/network/NetworkEvent$Context")) continue;
+                String bridgeDesc = switch (call.name + call.desc) {
+                    case "enqueueWork(Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;" ->
+                            "(Ljava/lang/Object;Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;";
+                    case "getSender()Lnet/minecraft/server/level/ServerPlayer;" ->
+                            "(Ljava/lang/Object;)Lnet/minecraft/server/level/ServerPlayer;";
+                    case "setPacketHandled(Z)V" -> "(Ljava/lang/Object;Z)V";
+                    default -> null;
+                };
+                if (bridgeDesc != null) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+                    call.desc = bridgeDesc;
+                    call.itf = false;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
     private static int rewriteLegacyTickEventFields(ClassNode node) {
         int rewrites = 0;
         for (var method : node.methods) {
@@ -3660,6 +3725,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge";
         if (value.equals("net/minecraftforge/api/distmarker/Dist"))
             return "net/neoforged/api/distmarker/Dist";
+        if (value.equals("net/minecraftforge/network/NetworkRegistry"))
+            return "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge";
+        if (value.equals("net/minecraftforge/network/simple/SimpleChannel")
+                || value.equals("net/minecraftforge/network/simple/IndexedMessageCodec$MessageHandler")
+                || value.equals("net/minecraftforge/network/NetworkEvent$Context"))
+            return "java/lang/Object";
+        if (value.equals("net/minecraftforge/network/PacketDistributor"))
+            return "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge$LegacyPacketDistributor";
+        if (value.equals("net/minecraftforge/network/PacketDistributor$PacketTarget"))
+            return "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge$LegacyPacketTarget";
+        if (value.equals("net/minecraftforge/network/PacketDistributor$TargetPoint"))
+            return "com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge$LegacyTargetPoint";
         if (value.equals("net/minecraft/client/color/block/BlockColor"))
             return "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor";
         if (value.equals("net/minecraft/client/color/item/ItemColor"))

@@ -23,6 +23,51 @@ import java.util.function.Supplier;
 public final class Forge1192NetworkBridge {
     private Forge1192NetworkBridge() {}
 
+    public enum TargetKind {
+        SERVER, PLAYER, ALL, DIMENSION, TRACKING_CHUNK, TRACKING_ENTITY_AND_SELF, NEAR
+    }
+
+    public record LegacyPacketTarget(TargetKind kind, Object argument) {
+        public LegacyPacketTarget {
+            Objects.requireNonNull(kind, "kind");
+        }
+    }
+
+    public record LegacyTargetPoint(
+            double x, double y, double z, double radius,
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension) {
+        public LegacyTargetPoint {
+            Objects.requireNonNull(dimension, "dimension");
+        }
+    }
+
+    /** Source-shaped targeting tokens retained without claiming a modern send binding. */
+    public static final class LegacyPacketDistributor {
+        public static final LegacyPacketDistributor SERVER = new LegacyPacketDistributor(TargetKind.SERVER);
+        public static final LegacyPacketDistributor PLAYER = new LegacyPacketDistributor(TargetKind.PLAYER);
+        public static final LegacyPacketDistributor ALL = new LegacyPacketDistributor(TargetKind.ALL);
+        public static final LegacyPacketDistributor DIMENSION = new LegacyPacketDistributor(TargetKind.DIMENSION);
+        public static final LegacyPacketDistributor TRACKING_CHUNK =
+                new LegacyPacketDistributor(TargetKind.TRACKING_CHUNK);
+        public static final LegacyPacketDistributor TRACKING_ENTITY_AND_SELF =
+                new LegacyPacketDistributor(TargetKind.TRACKING_ENTITY_AND_SELF);
+        public static final LegacyPacketDistributor NEAR = new LegacyPacketDistributor(TargetKind.NEAR);
+
+        private final TargetKind kind;
+
+        private LegacyPacketDistributor(TargetKind kind) {
+            this.kind = Objects.requireNonNull(kind, "kind");
+        }
+
+        public LegacyPacketTarget noArg() {
+            return new LegacyPacketTarget(kind, null);
+        }
+
+        public LegacyPacketTarget with(Supplier<?> argument) {
+            return new LegacyPacketTarget(kind, Objects.requireNonNull(argument, "argument").get());
+        }
+    }
+
     /**
      * Forge 1.19.2 FriendlyByteBuf#writeRegistryIdUnsafe serialized the raw
      * numeric id from the supplied registry. LMS registry facade tokens are
@@ -241,6 +286,16 @@ public final class Forge1192NetworkBridge {
         // returns its own opaque registration token; no packet can execute until
         // the current NeoForge payload adapter has bound this descriptor.
         return message;
+    }
+
+    public static void send(Object token, LegacyPacketTarget target, Object message) {
+        LegacyChannel channel = requireChannel(token);
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(message, "message");
+        throw new UnsupportedOperationException(
+                "Forge 1.19.2 SimpleChannel send is not bound to the NeoForge 26.3 payload lifecycle: channel="
+                        + channel.name() + " target=" + target.kind()
+                        + " message=" + message.getClass().getName());
     }
     /**
      * LMS-owned replacement for the old Forge NetworkEvent.Context. The actual
