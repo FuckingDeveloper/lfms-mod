@@ -9,6 +9,7 @@ import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -124,10 +125,11 @@ public final class Forge1192EventBusBridge {
     }
 
     /**
-     * Forge 1.19.2 represented tick phase as data on one concrete event class.
-     * NeoForge represents the same two dispatch points as Pre/Post subclasses
-     * and rejects listeners registered on the abstract base. Fan out the one
-     * legacy listener so it still observes both phases exactly once.
+     * Forge 1.19.2 represented several lifecycle stages as data on one concrete
+     * event class. NeoForge represents those dispatch points as subclasses and
+     * rejects listeners registered on the abstract base. Fan out a legacy base
+     * listener to every concrete target stage; member-level stage adaptation is
+     * deliberately separate from this registration-shape bridge.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static <T extends Event> void registerListener(
@@ -294,6 +296,17 @@ public final class Forge1192EventBusBridge {
             return List.of(PlayerTickEvent.Pre.class, PlayerTickEvent.Post.class);
         if (eventType == ClientTickEvent.class)
             return List.of(ClientTickEvent.Pre.class, ClientTickEvent.Post.class);
+        if (eventType == RenderLevelStageEvent.class)
+            return List.of(
+                    RenderLevelStageEvent.AfterSky.class,
+                    RenderLevelStageEvent.AfterOpaqueBlocks.class,
+                    RenderLevelStageEvent.AfterOpaqueFeatures.class,
+                    RenderLevelStageEvent.AfterTranslucentFeatures.class,
+                    RenderLevelStageEvent.AfterTranslucentBlocks.class,
+                    RenderLevelStageEvent.AfterTranslucentParticles.class,
+                    RenderLevelStageEvent.AfterWeather.class,
+                    RenderLevelStageEvent.OitTranslucent.class,
+                    RenderLevelStageEvent.AfterLevel.class);
         return List.of(eventType);
     }
 
