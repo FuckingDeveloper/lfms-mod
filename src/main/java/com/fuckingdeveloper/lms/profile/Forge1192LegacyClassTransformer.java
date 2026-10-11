@@ -1443,6 +1443,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // BlockBehaviour#m_60590_ was the exact 1.19.2 SRG identity
+                // for the receiver's default material/map color. The target
+                // retains that no-context semantic on the same inheritance
+                // chain as BlockBehaviour#defaultMapColor.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/level/block/Block")
+                        && call.name.equals("m_60590_")
+                        && call.desc.equals("()Lnet/minecraft/world/level/material/MapColor;")) {
+                    call.name = "defaultMapColor";
+                    rewrites++;
+                }
+
                 // Mojang corrected the historical noCollission spelling while
                 // retaining its behavior and fluent descriptor.
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
