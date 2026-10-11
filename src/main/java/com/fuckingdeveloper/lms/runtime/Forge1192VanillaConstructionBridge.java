@@ -154,13 +154,24 @@ public final class Forge1192VanillaConstructionBridge {
     /** Use the legacy block's explicit registry name for its paired block item. */
     public static Item.Properties withBlockItemId(Block block, Item.Properties properties) {
         try {
-            Object value = block.getClass().getMethod("getRegistryName").invoke(block);
+            Class<?> lookupType = block.getClass();
+            while (lookupType != null && !java.lang.reflect.Modifier.isPublic(lookupType.getModifiers())) {
+                lookupType = lookupType.getSuperclass();
+            }
+            if (lookupType == null) {
+                throw new IllegalAccessException("No public block type exposes the legacy accessor");
+            }
+            Object value = java.lang.invoke.MethodHandles.publicLookup().findVirtual(
+                    lookupType, "getRegistryName",
+                    java.lang.invoke.MethodType.methodType(net.minecraft.resources.Identifier.class))
+                    .invoke(block);
             if (!(value instanceof net.minecraft.resources.Identifier id)) {
                 throw new IllegalStateException("Legacy block registry name is not an Identifier: " + value);
             }
             rememberCreativeTab(properties, id);
             return properties.setId(ResourceKey.create(Registries.ITEM, id));
-        } catch (ReflectiveOperationException e) {
+        } catch (Throwable e) {
+            if (e instanceof Error error) throw error;
             throw new IllegalStateException("Legacy block does not expose getRegistryName(): "
                     + block.getClass().getName(), e);
         }
