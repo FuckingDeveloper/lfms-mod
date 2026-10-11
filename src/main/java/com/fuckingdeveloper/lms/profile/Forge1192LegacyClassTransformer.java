@@ -857,14 +857,37 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.owner.equals(node.superName)
                         || !call.name.equals("<init>")
                         || Type.getReturnType(call.desc).getSort() != Type.VOID
-                        || Type.getArgumentTypes(call.desc).length == 0
-                        || !Type.getArgumentTypes(call.desc)[Type.getArgumentTypes(call.desc).length - 1]
-                                .equals(Type.getType(properties))) continue;
+                        || Type.getArgumentTypes(call.desc).length == 0) continue;
+                Type[] arguments = Type.getArgumentTypes(call.desc);
+                int propertiesIndex = -1;
+                for (int i = 0; i < arguments.length; i++) {
+                    if (!arguments[i].equals(Type.getType(properties))) continue;
+                    if (propertiesIndex >= 0) {
+                        propertiesIndex = -2;
+                        break;
+                    }
+                    propertiesIndex = i;
+                }
+                if (propertiesIndex < 0) continue;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
+                int[] trailingLocals = new int[arguments.length];
+                for (int i = arguments.length - 1; i > propertiesIndex; i--) {
+                    Type argument = arguments[i];
+                    int local = method.maxLocals;
+                    method.maxLocals += argument.getSize();
+                    trailingLocals[i] = local;
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                            argument.getOpcode(org.objectweb.asm.Opcodes.ISTORE), local));
+                }
                 appendRegistryNameLoad(adaptation, registryName);
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
                         "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                         "withBlockId", "(" + properties + "Ljava/lang/String;)" + properties, false));
+                for (int i = propertiesIndex + 1; i < arguments.length; i++) {
+                    Type argument = arguments[i];
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                            argument.getOpcode(org.objectweb.asm.Opcodes.ILOAD), trailingLocals[i]));
+                }
                 method.instructions.insertBefore(call, adaptation);
                 rewrites++;
             }
