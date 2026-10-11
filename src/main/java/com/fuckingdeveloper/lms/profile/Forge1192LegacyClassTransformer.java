@@ -54,6 +54,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Boat", "net/minecraft/world/entity/vehicle/boat/Boat"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Minecart", "net/minecraft/world/entity/vehicle/minecart/Minecart"),
             java.util.Map.entry("net/minecraftforge/client/event/RenderHighlightEvent$Block", "com/fuckingdeveloper/lms/runtime/event/LegacyRenderHighlightBlockEvent"),
+            java.util.Map.entry("net/minecraftforge/event/AddReloadListenerEvent", "net/neoforged/neoforge/event/AddServerReloadListenersEvent"),
             java.util.Map.entry("net/minecraftforge/event/village/VillagerTradesEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyVillagerTradesEvent"),
             java.util.Map.entry("net/minecraftforge/event/village/WandererTradesEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyWandererTradesEvent"),
             java.util.Map.entry("net/minecraft/util/LazyLoadedValue", "com/fuckingdeveloper/lms/runtime/LegacyLazyLoadedValue"),
@@ -116,6 +117,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
+        rewrites += rewriteLegacyReloadListenerRegistration(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -1293,6 +1295,29 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyReloadListenerRegistration(ClassNode node) {
+        final String legacyEvent = "net/minecraftforge/event/AddReloadListenerEvent";
+        final String listener = "Lnet/minecraft/server/packs/resources/PreparableReloadListener;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals(legacyEvent)
+                        || !call.name.equals("addListener")
+                        || !call.desc.equals("(" + listener + ")V")) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                call.name = "addReloadListener";
+                call.desc = "(Lnet/neoforged/neoforge/event/AddServerReloadListenersEvent;"
+                        + listener + ")V";
+                call.itf = false;
+                rewrites++;
             }
         }
         return rewrites;

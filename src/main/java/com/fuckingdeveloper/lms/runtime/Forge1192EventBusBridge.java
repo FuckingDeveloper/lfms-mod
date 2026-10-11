@@ -13,6 +13,8 @@ import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CookingFuel;
 import net.minecraft.world.level.storage.loot.providers.number.floats.ResolvableFloat;
@@ -35,6 +37,25 @@ import com.fuckingdeveloper.lms.runtime.event.LegacyWandererTradesEvent;
  */
 public final class Forge1192EventBusBridge {
     private Forge1192EventBusBridge() {}
+
+    /**
+     * Forge 1.19.2 listeners were unnamed. The target sorts listeners by an
+     * explicit key, so derive a stable mod-scoped base and disambiguate only
+     * against listeners already present in this concrete reload event.
+     */
+    public static void addReloadListener(
+            net.neoforged.neoforge.event.AddServerReloadListenersEvent event,
+            PreparableReloadListener listener) {
+        String modId = Forge1192LifecycleBridge.requireActive().modId();
+        String hash = Integer.toUnsignedString(listener.getClass().getName().hashCode(), 16);
+        String base = "legacy_reload/" + hash;
+        Identifier key = Identifier.fromNamespaceAndPath(modId, base);
+        int suffix = 1;
+        while (event.getRegistry().containsKey(key)) {
+            key = Identifier.fromNamespaceAndPath(modId, base + "_" + suffix++);
+        }
+        event.addListener(key, listener);
+    }
 
     /**
      * Forge 1.19.2 IEventBus#post(Event) returned whether the event was cancelled.
