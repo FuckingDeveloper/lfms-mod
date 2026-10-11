@@ -40,6 +40,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/model/ZombieModel", "net/minecraft/client/model/monster/zombie/ZombieModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieVillagerModel", "net/minecraft/client/model/monster/zombie/ZombieVillagerModel"),
             java.util.Map.entry("net/minecraft/Util", "net/minecraft/util/Util"),
+            java.util.Map.entry("com/mojang/blaze3d/vertex/BufferVertexConsumer", "com/fuckingdeveloper/lms/runtime/render/LegacyBufferVertexConsumer"),
             java.util.Map.entry("net/minecraft/client/resources/model/Material", "com/fuckingdeveloper/lms/runtime/render/LegacyMaterial"),
             java.util.Map.entry("net/minecraft/client/resources/model/ModelState", "net/minecraft/client/renderer/block/dispatch/ModelState"),
             java.util.Map.entry("net/minecraft/client/resources/model/BlockModelRotation", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockModelRotation"),
