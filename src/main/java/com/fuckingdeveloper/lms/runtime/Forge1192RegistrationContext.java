@@ -10,6 +10,7 @@ import java.util.Set;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import java.util.Iterator;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
@@ -138,17 +139,21 @@ public final class Forge1192RegistrationContext {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static void register(Object registryToken, Identifier name, Object value) {
         Registry<Object> target = requireRegistryToken(registryToken);
-        Scope scope = requireActive();
+        String modId = requireModId();
+        RegisterEvent event = CURRENT_EVENT.get();
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(value, "value");
 
         ResourceKey<? extends Registry<?>> targetKey = target.key();
-        if (!targetKey.equals(scope.event().getRegistryKey())) {
-            stage(scope.modId(), targetKey, name, value);
+        if (event == null || !targetKey.equals(event.getRegistryKey())) {
+            // Forge 1.19.2 permitted direct registration during mod
+            // construction. Preserve that intent as queued work only; the
+            // target registry is still mutated exclusively by its RegisterEvent.
+            stage(modId, targetKey, name, value);
             return;
         }
 
-        registerOn(scope.event(), name, value);
+        registerOn(event, name, value);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -159,7 +164,17 @@ public final class Forge1192RegistrationContext {
         // legacy call site, so contain the unavoidable erasure at this bridge.
         ResourceKey<? extends Registry<Object>> key =
                 (ResourceKey<? extends Registry<Object>>) (ResourceKey) event.getRegistryKey();
-        event.register(key, name, () -> value);
+        Object adapted = adaptRegistrationValue(event, name, value);
+        event.register(key, name, () -> adapted);
+    }
+
+    private static Object adaptRegistrationValue(RegisterEvent event, Identifier name, Object value) {
+        if (event.getRegistryKey().equals(Registries.RECIPE_SERIALIZER)
+                && value instanceof com.fuckingdeveloper.lms.runtime.recipe.LegacyRecipeSerializer serializer) {
+            return com.fuckingdeveloper.lms.runtime.recipe.Forge1192RecipeSerializerBridge.adapt(
+                    name, serializer);
+        }
+        return value;
     }
 
     public static void register(Object ignoredRegistry, String name, Object value) {
