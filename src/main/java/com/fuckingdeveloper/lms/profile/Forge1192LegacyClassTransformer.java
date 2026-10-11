@@ -54,6 +54,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Boat", "net/minecraft/world/entity/vehicle/boat/Boat"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Minecart", "net/minecraft/world/entity/vehicle/minecart/Minecart"),
             java.util.Map.entry("net/minecraftforge/client/event/RenderHighlightEvent$Block", "com/fuckingdeveloper/lms/runtime/event/LegacyRenderHighlightBlockEvent"),
+            java.util.Map.entry("net/minecraftforge/event/village/VillagerTradesEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyVillagerTradesEvent"),
+            java.util.Map.entry("net/minecraftforge/event/village/WandererTradesEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyWandererTradesEvent"),
             java.util.Map.entry("net/minecraft/util/LazyLoadedValue", "com/fuckingdeveloper/lms/runtime/LegacyLazyLoadedValue"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterial"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterials"),

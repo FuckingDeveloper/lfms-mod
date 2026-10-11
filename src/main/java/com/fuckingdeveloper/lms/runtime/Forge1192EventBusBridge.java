@@ -10,7 +10,9 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
+import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CookingFuel;
 import net.minecraft.world.level.storage.loot.providers.number.floats.ResolvableFloat;
@@ -25,6 +27,8 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.fuckingdeveloper.lms.runtime.event.LegacyRenderHighlightBlockEvent;
+import com.fuckingdeveloper.lms.runtime.event.LegacyVillagerTradesEvent;
+import com.fuckingdeveloper.lms.runtime.event.LegacyWandererTradesEvent;
 
 /**
  * Semantic adapters for Forge 1.19.2 event-bus contracts that changed in NeoForge.
@@ -106,6 +110,16 @@ public final class Forge1192EventBusBridge {
                     event -> registerLegacyBlockHighlightRenderer(event, (Consumer) listener));
             return;
         }
+        if (eventType == LegacyVillagerTradesEvent.class) {
+            bus.addListener(priority, false, ServerAboutToStartEvent.class,
+                    event -> dispatchLegacyVillagerTrades(event, (Consumer) listener));
+            return;
+        }
+        if (eventType == LegacyWandererTradesEvent.class) {
+            bus.addListener(priority, false, ServerAboutToStartEvent.class,
+                    event -> dispatchLegacyWandererTrades((Consumer) listener));
+            return;
+        }
         for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
             bus.addListener(priority, false, (Class) concreteType, (Consumer) listener);
         }
@@ -122,6 +136,25 @@ public final class Forge1192EventBusBridge {
             legacy.flushGeometry();
             return legacy.isCanceled();
         });
+    }
+
+    private static void dispatchLegacyVillagerTrades(
+            ServerAboutToStartEvent event,
+            Consumer<LegacyVillagerTradesEvent> listener) {
+        event.getServer().registryAccess().lookupOrThrow(Registries.VILLAGER_PROFESSION)
+                .listElements()
+                .forEach(profession -> {
+                    var legacy = new LegacyVillagerTradesEvent(profession.value());
+                    listener.accept(legacy);
+                    legacy.requireMaterialized();
+                });
+    }
+
+    private static void dispatchLegacyWandererTrades(
+            Consumer<LegacyWandererTradesEvent> listener) {
+        var legacy = new LegacyWandererTradesEvent();
+        listener.accept(legacy);
+        legacy.requireMaterialized();
     }
 
     private static void registerLegacyFuelComponents(
