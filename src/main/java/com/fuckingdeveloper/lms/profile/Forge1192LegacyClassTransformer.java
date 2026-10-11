@@ -143,6 +143,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyViewBlockingPredicate(node);
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyKeyMappingConstruction(node);
+        rewrites += rewriteLegacyEarlyClientInitialization(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyCreativeTabLookup(node);
@@ -2762,6 +2763,162 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
         return constructorDesc.substring(0, constructorDesc.length() - suffix.length())
                 + "Lnet/minecraft/client/KeyMapping$Category;)V";
+    }
+
+    /**
+     * Forge 1.19.2 client entrypoints could observe the Minecraft singleton
+     * during mod construction; the target constructs it later. Split only a
+     * verifier-proven linear void method at an empty-stack getInstance/store
+     * boundary, retaining its early prefix and scheduling the client-dependent
+     * suffix for the target client-setup phase.
+     */
+    private static int rewriteLegacyEarlyClientInitialization(ClassNode node) {
+        java.util.ArrayList<org.objectweb.asm.tree.MethodNode> helpers = new java.util.ArrayList<>();
+        int rewrites = 0;
+        for (var method : java.util.List.copyOf(node.methods)) {
+            if (method.name.equals("<init>")) {
+                rewrites += deferLegacyMinecraftFieldInitialization(node, method);
+                continue;
+            }
+            if (method.name.startsWith("<")) continue;
+            if (!method.desc.equals("()V")
+                    || (method.access & (org.objectweb.asm.Opcodes.ACC_STATIC
+                        | org.objectweb.asm.Opcodes.ACC_ABSTRACT
+                        | org.objectweb.asm.Opcodes.ACC_NATIVE)) != 0
+                    || !method.tryCatchBlocks.isEmpty()) continue;
+
+            MethodInsnNode singletonCall = null;
+            org.objectweb.asm.tree.AbstractInsnNode split = null;
+            boolean unsupportedFlow = false;
+            int returns = 0;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof org.objectweb.asm.tree.JumpInsnNode
+                        || insn instanceof org.objectweb.asm.tree.TableSwitchInsnNode
+                        || insn instanceof org.objectweb.asm.tree.LookupSwitchInsnNode) {
+                    unsupportedFlow = true;
+                }
+                if (insn.getOpcode() >= org.objectweb.asm.Opcodes.IRETURN
+                        && insn.getOpcode() <= org.objectweb.asm.Opcodes.RETURN) returns++;
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                        || !call.owner.equals("net/minecraft/client/Minecraft")
+                        || !(call.name.equals("m_91087_") || call.name.equals("getInstance"))
+                        || !call.desc.equals("()Lnet/minecraft/client/Minecraft;")) continue;
+                var receiver = previousExecutable(call);
+                var store = nextExecutable(call);
+                if (singletonCall != null
+                        || !(receiver instanceof org.objectweb.asm.tree.VarInsnNode load)
+                        || load.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
+                        || load.var != 0
+                        || !(store instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.PUTFIELD
+                        || !field.owner.equals(node.name)
+                        || !field.desc.equals("Lnet/minecraft/client/Minecraft;")) {
+                    unsupportedFlow = true;
+                    continue;
+                }
+                singletonCall = call;
+                split = receiver;
+            }
+            if (unsupportedFlow || singletonCall == null || split == null || returns != 1
+                    || lastExecutable(method).getOpcode()
+                        != org.objectweb.asm.Opcodes.RETURN
+                    || !emptyStackAt(node.name, method, split)) continue;
+
+            String helperName = uniqueHelperName(node, "$lms$clientReady$" + method.name);
+            var helper = new org.objectweb.asm.tree.MethodNode(
+                    org.objectweb.asm.Opcodes.ACC_PRIVATE | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                    helperName, "()V", null, null);
+            for (var cursor = split; cursor != null; ) {
+                var next = cursor.getNext();
+                method.instructions.remove(cursor);
+                helper.instructions.add(cursor);
+                cursor = next;
+            }
+            helper.maxLocals = method.maxLocals;
+            helper.maxStack = method.maxStack;
+            helper.localVariables = null;
+            method.localVariables = null;
+            method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                    org.objectweb.asm.Opcodes.ALOAD, 0));
+            method.instructions.add(new LdcInsnNode(helperName));
+            method.instructions.add(new MethodInsnNode(
+                    org.objectweb.asm.Opcodes.INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/runtime/Forge1192ClientLifecycleBridge",
+                    "runWhenReady", "(Ljava/lang/Object;Ljava/lang/String;)V", false));
+            method.instructions.add(new org.objectweb.asm.tree.InsnNode(
+                    org.objectweb.asm.Opcodes.RETURN));
+            helpers.add(helper);
+            rewrites++;
+        }
+        node.methods.addAll(helpers);
+        return rewrites;
+    }
+
+    private static int deferLegacyMinecraftFieldInitialization(
+            ClassNode node, org.objectweb.asm.tree.MethodNode constructor) {
+        int rewrites = 0;
+        for (var insn = constructor.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (!(insn instanceof MethodInsnNode call)
+                    || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                    || !call.owner.equals("net/minecraft/client/Minecraft")
+                    || !(call.name.equals("m_91087_") || call.name.equals("getInstance"))
+                    || !call.desc.equals("()Lnet/minecraft/client/Minecraft;")) continue;
+            var receiver = previousExecutable(call);
+            var store = nextExecutable(call);
+            if (!(receiver instanceof org.objectweb.asm.tree.VarInsnNode load)
+                    || load.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
+                    || load.var != 0
+                    || !(store instanceof FieldInsnNode field)
+                    || field.getOpcode() != org.objectweb.asm.Opcodes.PUTFIELD
+                    || !field.owner.equals(node.name)
+                    || !field.desc.equals("Lnet/minecraft/client/Minecraft;")) continue;
+            var deferred = new org.objectweb.asm.tree.InsnList();
+            deferred.add(new org.objectweb.asm.tree.VarInsnNode(
+                    org.objectweb.asm.Opcodes.ALOAD, 0));
+            deferred.add(new LdcInsnNode(field.name));
+            deferred.add(new MethodInsnNode(
+                    org.objectweb.asm.Opcodes.INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/runtime/Forge1192ClientLifecycleBridge",
+                    "populateMinecraftFieldWhenReady",
+                    "(Ljava/lang/Object;Ljava/lang/String;)V", false));
+            constructor.instructions.insert(store, deferred);
+            rewrites++;
+        }
+        return rewrites;
+    }
+
+    private static org.objectweb.asm.tree.AbstractInsnNode lastExecutable(
+            org.objectweb.asm.tree.MethodNode method) {
+        var cursor = method.instructions.getLast();
+        while (cursor != null && cursor.getOpcode() < 0) cursor = cursor.getPrevious();
+        return cursor;
+    }
+
+    private static boolean emptyStackAt(
+            String owner, org.objectweb.asm.tree.MethodNode method,
+            org.objectweb.asm.tree.AbstractInsnNode instruction) {
+        try {
+            var analyzer = new org.objectweb.asm.tree.analysis.Analyzer<
+                    org.objectweb.asm.tree.analysis.BasicValue>(
+                    new org.objectweb.asm.tree.analysis.BasicInterpreter());
+            var frames = analyzer.analyze(owner, method);
+            var frame = frames[method.instructions.indexOf(instruction)];
+            return frame != null && frame.getStackSize() == 0;
+        } catch (org.objectweb.asm.tree.analysis.AnalyzerException e) {
+            return false;
+        }
+    }
+
+    private static String uniqueHelperName(ClassNode node, String base) {
+        String candidate = base;
+        int suffix = 1;
+        while (true) {
+            String current = candidate;
+            if (node.methods.stream().noneMatch(method ->
+                    method.name.equals(current) && method.desc.equals("()V"))) return candidate;
+            candidate = base + "$" + suffix++;
+        }
     }
 
     /**
