@@ -39,6 +39,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/model/VillagerModel", "net/minecraft/client/model/npc/VillagerModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieModel", "net/minecraft/client/model/monster/zombie/ZombieModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieVillagerModel", "net/minecraft/client/model/monster/zombie/ZombieVillagerModel"),
+            java.util.Map.entry("net/minecraft/client/resources/model/Material", "com/fuckingdeveloper/lms/runtime/render/LegacyMaterial"),
             java.util.Map.entry("net/minecraft/client/gui/screens/SoundOptionsScreen", "net/minecraft/client/gui/screens/options/SoundOptionsScreen"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType", "net/minecraft/client/renderer/rendertype/RenderType"),
             java.util.Map.entry("net/minecraft/world/level/BlockAndTintGetter", "net/minecraft/client/renderer/block/BlockAndTintGetter"),
