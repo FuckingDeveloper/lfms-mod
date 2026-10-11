@@ -7,6 +7,7 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -32,6 +33,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.fuckingdeveloper.lms.runtime.event.LegacyRenderHighlightBlockEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyTextureStitchEvent;
+import com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyVillagerTradesEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyWandererTradesEvent;
 
@@ -148,6 +150,18 @@ public final class Forge1192EventBusBridge {
             registerLegacyTextureStitchListener(priority, (Consumer) listener, false);
             return;
         }
+        if (eventType == LegacyRegisterColorHandlersEvent.class) {
+            registerLegacyColorListeners(priority, (Consumer) listener, true, true);
+            return;
+        }
+        if (eventType == LegacyRegisterColorHandlersEvent.Block.class) {
+            registerLegacyColorListeners(priority, (Consumer) listener, true, false);
+            return;
+        }
+        if (eventType == LegacyRegisterColorHandlersEvent.Item.class) {
+            registerLegacyColorListeners(priority, (Consumer) listener, false, true);
+            return;
+        }
         if (eventType == LegacyVillagerTradesEvent.class) {
             bus.addListener(priority, false, ServerAboutToStartEvent.class,
                     event -> dispatchLegacyVillagerTrades(event, (Consumer) listener));
@@ -160,6 +174,21 @@ public final class Forge1192EventBusBridge {
         }
         for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
             bus.addListener(priority, false, (Class) concreteType, (Consumer) listener);
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void registerLegacyColorListeners(
+            net.neoforged.bus.api.EventPriority priority, Consumer listener,
+            boolean block, boolean item) {
+        IEventBus modBus = Forge1192LifecycleBridge.requireActive().modEventBus();
+        if (block) {
+            modBus.addListener(priority, false, RegisterColorHandlersEvent.BlockTintSources.class,
+                    event -> listener.accept(new LegacyRegisterColorHandlersEvent.Block(event.getBlockColors())));
+        }
+        if (item) {
+            modBus.addListener(priority, false, RegisterColorHandlersEvent.ItemTintSources.class,
+                    event -> listener.accept(new LegacyRegisterColorHandlersEvent.Item()));
         }
     }
 
