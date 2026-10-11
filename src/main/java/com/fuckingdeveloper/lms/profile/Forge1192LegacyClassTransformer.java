@@ -90,6 +90,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // otherwise a heuristic relocation can destroy the semantic evidence
         // required by a removed-API adapter.
         int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
+        // Preserve the authoritative legacy identity while the direct source
+        // superclass constructor is still visible. Later construction-shape
+        // adapters may replace that owner and descriptor.
+        rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacySignItemConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
@@ -98,7 +102,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyMaterialColorProperties(node);
         rewrites += rewriteLegacyBlockPropertiesCopy(node);
         rewrites += rewriteLegacyViewBlockingPredicate(node);
-        rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
@@ -1544,7 +1547,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
             try {
                 byte[] bytes = hierarchyBytes(current);
-                if (bytes == null) continue;
+                if (bytes == null) {
+                    // An explicitly declared structural relocation is valid
+                    // hierarchy evidence even when the removed source class
+                    // itself is absent from the target runtime.
+                    String migrated = migrateInternalName(current);
+                    if (!migrated.equals(current)) pending.addLast(migrated);
+                    continue;
+                }
                 ClassReader reader = new ClassReader(bytes);
                 if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
                 java.util.Collections.addAll(pending, reader.getInterfaces());
@@ -1587,7 +1597,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if (current.equals(target)) return true;
             try {
                 byte[] bytes = hierarchyBytes(current);
-                if (bytes == null) continue;
+                if (bytes == null) {
+                    // Follow only explicit source-profile relocations. This
+                    // lets semantic subtype checks cross removed vanilla
+                    // classes without reviving name-based heuristics.
+                    String migrated = migrateInternalName(current);
+                    if (!migrated.equals(current)) pending.addLast(migrated);
+                    continue;
+                }
                 ClassReader reader = new ClassReader(bytes);
                 if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
                 java.util.Collections.addAll(pending, reader.getInterfaces());
