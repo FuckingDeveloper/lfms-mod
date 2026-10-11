@@ -1825,6 +1825,23 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof FieldInsnNode field)) continue;
+                String copperCollection = legacyCopperCollectionField(field);
+                if (copperCollection != null) {
+                    field.name = copperCollection;
+                    field.desc = "Lnet/minecraft/world/level/block/WeatheringCopperCollection;";
+                    var select = new org.objectweb.asm.tree.InsnList();
+                    select.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                            "net/minecraft/world/level/block/WeatheringCopperCollection", "weathering",
+                            "()Lnet/minecraft/world/level/block/WeatheringCopperCollection$ByState;", false));
+                    select.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                            "net/minecraft/world/level/block/WeatheringCopperCollection$ByState", "unaffected",
+                            "()Ljava/lang/Object;", false));
+                    select.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,
+                            "net/minecraft/world/level/block/Block"));
+                    method.instructions.insert(field, select);
+                    rewrites++;
+                    continue;
+                }
                 LegacyColorCollectionField colored = legacyColorCollectionField(field);
                 if (colored != null) {
                     field.name = colored.collection();
@@ -1896,6 +1913,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private record LegacyColorCollectionField(String collection, String color) {}
+
+    /** Minecraft 26.3 consolidated the base members of copper block families. */
+    private String legacyCopperCollectionField(FieldInsnNode field) {
+        if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                || !field.owner.equals("net/minecraft/world/level/block/Blocks")
+                || !field.desc.equals("Lnet/minecraft/world/level/block/Block;")
+                || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String canonical = SRG_RUNTIME_RESOLVER.get()
+                .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+        if (canonical == null) return null;
+        var target = VANILLA_RELOCATIONS.searchExactField(
+                "net.minecraft.world.level.block.Blocks", canonical,
+                "Lnet/minecraft/world/level/block/WeatheringCopperCollection;");
+        return target.size() == 1 ? canonical : null;
+    }
 
     /** Minecraft 26.3 consolidated exact color-specific block fields. */
     private LegacyColorCollectionField legacyColorCollectionField(FieldInsnNode field) {
