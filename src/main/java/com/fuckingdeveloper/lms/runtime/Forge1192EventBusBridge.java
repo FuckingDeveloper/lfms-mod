@@ -8,6 +8,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -34,6 +35,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import com.fuckingdeveloper.lms.runtime.event.LegacyRenderHighlightBlockEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyTextureStitchEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent;
+import com.fuckingdeveloper.lms.runtime.event.LegacyRegisterGuiOverlaysEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyVillagerTradesEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyWandererTradesEvent;
 
@@ -160,6 +162,12 @@ public final class Forge1192EventBusBridge {
         }
         if (eventType == LegacyRegisterColorHandlersEvent.Item.class) {
             registerLegacyColorListeners(priority, (Consumer) listener, false, true);
+            return;
+        }
+        if (eventType == LegacyRegisterGuiOverlaysEvent.class) {
+            Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
+                    priority, false, RegisterGuiLayersEvent.class,
+                    event -> ((Consumer) listener).accept(new LegacyRegisterGuiOverlaysEvent(event)));
             return;
         }
         if (eventType == LegacyVillagerTradesEvent.class) {
