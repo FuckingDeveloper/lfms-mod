@@ -135,6 +135,37 @@ public final class Forge1192VanillaConstructionBridge {
                 (state, level, pos, bounds) -> legacyPredicate.test(state, level, pos));
     }
 
+    /** Preserve source Material evidence across the old partial Properties.copy operation. */
+    public static BlockBehaviour.Properties legacyBlockPropertiesCopy(BlockBehaviour source) {
+        BlockBehaviour.Properties copied = BlockBehaviour.Properties.ofLegacyCopy(source);
+        LegacyMaterial material = LEGACY_MATERIALS_BY_PROPERTIES.get(source.properties());
+        if (material != null) LEGACY_MATERIALS_BY_PROPERTIES.put(copied, material);
+        return copied;
+    }
+
+    /**
+     * Rebuild the pressure-plate portion of BlockSetType from the two
+     * independent 1.19.2 inputs: Material and Sensitivity.
+     */
+    public static BlockSetType legacyPressurePlateType(
+            BlockBehaviour.Properties properties,
+            BlockSetType.PressurePlateSensitivity sensitivity) {
+        LegacyMaterial material = LEGACY_MATERIALS_BY_PROPERTIES.get(properties);
+        if (material == null) {
+            throw new IllegalStateException(
+                    "Legacy pressure plate has no preserved Material semantics");
+        }
+        BlockSetType base = material == LegacyMaterial.WOOD ? BlockSetType.OAK : BlockSetType.STONE;
+        if (base.pressurePlateSensitivity() == sensitivity) return base;
+        return new BlockSetType(
+                "lms_legacy_pressure_plate_" + base.name() + "_" + sensitivity.name().toLowerCase(java.util.Locale.ROOT),
+                base.canOpenByHand(), base.canOpenByWindCharge(),
+                base.canButtonBeActivatedByArrows(), sensitivity, base.soundType(),
+                base.doorClose(), base.doorOpen(), base.trapdoorClose(), base.trapdoorOpen(),
+                base.pressurePlateClickOff(), base.pressurePlateClickOn(),
+                base.buttonClickOff(), base.buttonClickOn());
+    }
+
     /** Attach the legacy block name before the modern Block constructor reads it. */
     public static BlockBehaviour.Properties withBlockId(
             BlockBehaviour.Properties properties, String legacyName) {

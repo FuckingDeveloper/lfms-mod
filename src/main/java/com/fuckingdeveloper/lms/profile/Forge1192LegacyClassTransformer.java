@@ -797,7 +797,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.owner.equals(owner)
                         || !call.name.equals("m_60926_")
                         || !call.desc.equals(descriptor)) continue;
-                call.name = "ofLegacyCopy";
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                call.name = "legacyBlockPropertiesCopy";
                 rewrites++;
             }
         }
@@ -3144,6 +3145,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/block/LegacyLeavesBlock";
         if (value.equals("net/minecraft/world/level/block/FenceGateBlock"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyFenceGateBlock";
+        if (value.equals("net/minecraft/world/level/block/PressurePlateBlock$Sensitivity"))
+            return "net/minecraft/world/level/block/state/properties/BlockSetType$PressurePlateSensitivity";
+        if (value.equals("net/minecraft/world/level/block/PressurePlateBlock"))
+            return "com/fuckingdeveloper/lms/runtime/block/LegacyPressurePlateBlock";
         if (value.equals("net/minecraft/world/item/SignItem"))
             return "net/minecraft/world/item/StandingAndWallBlockItem";
         if (value.equals("net/minecraft/world/level/block/WoodButtonBlock"))
@@ -3223,6 +3228,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraft/world/item/ArmorItem", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem")
                 .replace("net/minecraft/world/level/block/LeavesBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyLeavesBlock")
                 .replace("net/minecraft/world/level/block/FenceGateBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyFenceGateBlock")
+                .replace("net/minecraft/world/level/block/PressurePlateBlock$Sensitivity", "net/minecraft/world/level/block/state/properties/BlockSetType$PressurePlateSensitivity")
+                .replace("net/minecraft/world/level/block/PressurePlateBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyPressurePlateBlock")
                 .replace("net/minecraft/world/level/block/state/properties/DirectionProperty", "net/minecraft/world/level/block/state/properties/EnumProperty")
                 .replace("net/minecraft/client/resources/model/BakedModel", "com/fuckingdeveloper/lms/runtime/render/LegacyBakedModel")
                 .replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/")
