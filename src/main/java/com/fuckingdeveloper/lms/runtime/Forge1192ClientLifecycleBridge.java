@@ -70,7 +70,8 @@ public final class Forge1192ClientLifecycleBridge {
             if (methods == null || !methods.remove(helperName)) return;
             if (methods.isEmpty()) PENDING.remove(receiver);
         }
-        try (var ignored = Forge1192RegistrationContext.enterMod(modId)) {
+        try (var lifecycle = Forge1192LifecycleBridge.enterRecorded(modId);
+             var ignored = Forge1192RegistrationContext.enterMod(modId)) {
             if (!clientReady()) {
                 throw new IllegalStateException(
                         "Target client state is unavailable during FMLClientSetupEvent");
@@ -89,7 +90,8 @@ public final class Forge1192ClientLifecycleBridge {
             if (fields == null || !fields.remove(fieldName)) return;
             if (fields.isEmpty()) PENDING_FIELDS.remove(receiver);
         }
-        try (var ignored = Forge1192RegistrationContext.enterMod(modId)) {
+        try (var lifecycle = Forge1192LifecycleBridge.enterRecorded(modId);
+             var ignored = Forge1192RegistrationContext.enterMod(modId)) {
             if (!clientReady()) {
                 throw new IllegalStateException(
                         "Target client state is unavailable during FMLClientSetupEvent");

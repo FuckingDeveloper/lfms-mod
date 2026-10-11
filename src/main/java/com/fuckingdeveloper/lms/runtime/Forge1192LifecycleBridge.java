@@ -12,6 +12,10 @@ import java.util.Objects;
  */
 public final class Forge1192LifecycleBridge {
     private static final ThreadLocal<Context> CURRENT = new ThreadLocal<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, Binding> BINDINGS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record Binding(IEventBus modEventBus, ModContainer hostContainer) {}
 
     public record Context(String modId, IEventBus modEventBus, ModContainer hostContainer, LegacyContainer container) {
         public Context {
@@ -25,8 +29,30 @@ public final class Forge1192LifecycleBridge {
     private Forge1192LifecycleBridge() {}
 
     public static AutoCloseable enter(String modId, IEventBus modEventBus, ModContainer hostContainer) {
+        Objects.requireNonNull(modId, "modId");
+        Binding binding = new Binding(
+                Objects.requireNonNull(modEventBus, "modEventBus"),
+                Objects.requireNonNull(hostContainer, "hostContainer"));
+        Binding previous = BINDINGS.putIfAbsent(modId, binding);
+        if (previous != null
+                && (previous.modEventBus() != modEventBus || previous.hostContainer() != hostContainer)) {
+            throw new IllegalStateException("Conflicting lifecycle binding for legacy mod " + modId);
+        }
+        return activate(new Context(modId, modEventBus, hostContainer, new LegacyContainer(modId)));
+    }
+
+    /** Reconstruct the source-era FML thread context for a deferred callback. */
+    public static AutoCloseable enterRecorded(String modId) {
+        Binding binding = BINDINGS.get(Objects.requireNonNull(modId, "modId"));
+        if (binding == null) {
+            throw new IllegalStateException("No lifecycle binding recorded for legacy mod " + modId);
+        }
+        return activate(new Context(modId, binding.modEventBus(), binding.hostContainer(),
+                new LegacyContainer(modId)));
+    }
+
+    private static AutoCloseable activate(Context context) {
         if (CURRENT.get() != null) throw new IllegalStateException("Nested legacy lifecycle scopes are not supported");
-        Context context = new Context(modId, modEventBus, hostContainer, new LegacyContainer(modId));
         Thread owner = Thread.currentThread();
         CURRENT.set(context);
         return () -> {
@@ -40,6 +66,12 @@ public final class Forge1192LifecycleBridge {
         Context context = CURRENT.get();
         if (context == null) throw new IllegalStateException("Legacy FML lifecycle access outside LMS lifecycle scope");
         return context;
+    }
+
+    public static IEventBus modEventBus(String modId) {
+        Binding binding = BINDINGS.get(Objects.requireNonNull(modId, "modId"));
+        if (binding == null) throw new IllegalStateException("No lifecycle event bus recorded for legacy mod " + modId);
+        return binding.modEventBus();
     }
 
     public static Object getJavaModLoadingContext() {

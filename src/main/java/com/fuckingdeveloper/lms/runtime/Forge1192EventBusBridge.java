@@ -332,7 +332,8 @@ public final class Forge1192EventBusBridge {
     }
 
     private static <T extends Event> void invokeScoped(String modId, Consumer<T> listener, T event) {
-        try (var mod = Forge1192RegistrationContext.enterMod(modId)) {
+        try (var lifecycle = Forge1192LifecycleBridge.enterRecorded(modId);
+             var mod = Forge1192RegistrationContext.enterMod(modId)) {
             if (event instanceof RegisterEvent registration) {
                 try (var registry = Forge1192RegistrationContext.enterRegistration(registration)) {
                     listener.accept(event);
