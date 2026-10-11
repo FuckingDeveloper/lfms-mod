@@ -1264,6 +1264,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Mojang corrected the historical noCollission spelling while
+                // retaining its behavior and fluent descriptor.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/level/block/state/BlockBehaviour$Properties")
+                        && call.name.equals("m_60910_")
+                        && call.desc.equals("()Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;")) {
+                    call.name = "noCollision";
+                    rewrites++;
+                }
+
                 // 1.19.2 custom WoodType creation supplied only its semantic
                 // name. The target's one-argument BlockSetType constructor is
                 // the canonical generic-wood default for the newly required
