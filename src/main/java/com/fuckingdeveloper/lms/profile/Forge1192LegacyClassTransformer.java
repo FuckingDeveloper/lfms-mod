@@ -58,6 +58,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraftforge/event/village/VillagerTradesEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyVillagerTradesEvent"),
             java.util.Map.entry("net/minecraftforge/event/village/WandererTradesEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyWandererTradesEvent"),
             java.util.Map.entry("net/minecraftforge/common/crafting/IShapedRecipe", "com/fuckingdeveloper/lms/runtime/recipe/LegacyIShapedRecipe"),
+            java.util.Map.entry("net/minecraft/client/renderer/MultiBufferSource", "com/fuckingdeveloper/lms/runtime/render/LegacyMultiBufferSource"),
+            java.util.Map.entry("net/minecraft/client/renderer/MultiBufferSource$BufferSource", "com/fuckingdeveloper/lms/runtime/render/LegacyBufferSource"),
             java.util.Map.entry("net/minecraft/util/LazyLoadedValue", "com/fuckingdeveloper/lms/runtime/LegacyLazyLoadedValue"),
             java.util.Map.entry("net/minecraft/world/item/crafting/RecipeSerializer", "com/fuckingdeveloper/lms/runtime/recipe/LegacyRecipeSerializer"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterial"),
@@ -119,6 +121,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
+        rewrites += rewriteLegacyMultiBufferSource(node);
         rewrites += rewriteLegacyReloadListenerRegistration(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
@@ -1320,6 +1323,37 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         + listener + ")V";
                 call.itf = false;
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyMultiBufferSource(ClassNode node) {
+        final String legacy = "net/minecraft/client/renderer/MultiBufferSource";
+        final String adapted =
+                "com/fuckingdeveloper/lms/runtime/render/LegacyMultiBufferSource";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call) || !call.owner.equals(legacy)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                        && call.name.equals("m_6299_")
+                        && call.desc.equals("(Lnet/minecraft/client/renderer/RenderType;)"
+                                + "Lcom/mojang/blaze3d/vertex/VertexConsumer;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL);
+                    call.owner = adapted;
+                    call.itf = false;
+                    rewrites++;
+                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.name.equals("m_109898_")
+                        && call.desc.equals("(Lcom/mojang/blaze3d/vertex/BufferBuilder;)"
+                                + "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;")) {
+                    call.owner = adapted;
+                    call.desc = "(Lcom/mojang/blaze3d/vertex/BufferBuilder;)"
+                            + "Lcom/fuckingdeveloper/lms/runtime/render/LegacyBufferSource;";
+                    call.itf = false;
+                    rewrites++;
+                }
             }
         }
         return rewrites;

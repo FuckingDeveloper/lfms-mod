@@ -16,11 +16,16 @@ import java.util.function.Consumer;
  * Records Forge 1.19.2 immediate buffer writes and submits them through the
  * target's deferred custom-geometry pipeline.
  */
-public final class LegacyMultiBufferSource {
+public class LegacyMultiBufferSource {
     private final SubmitNodeCollector submitter;
     private final PoseStack poseStack;
     private final Map<RenderType, RecordingVertexConsumer> batches = new LinkedHashMap<>();
     private boolean flushed;
+
+    protected LegacyMultiBufferSource() {
+        this.submitter = null;
+        this.poseStack = null;
+    }
 
     public LegacyMultiBufferSource(SubmitNodeCollector submitter, PoseStack poseStack) {
         this.submitter = Objects.requireNonNull(submitter, "submitter");
@@ -33,12 +38,20 @@ public final class LegacyMultiBufferSource {
     }
 
     public VertexConsumer getBuffer(RenderType renderType) {
+        if (submitter == null) {
+            throw new UnsupportedOperationException(
+                    "Forge 1.19.2 immediate MultiBufferSource rendering has no direct Minecraft 26.3 target");
+        }
         if (flushed) throw new IllegalStateException("Legacy render buffer already flushed");
         return batches.computeIfAbsent(Objects.requireNonNull(renderType, "renderType"),
                 ignored -> new RecordingVertexConsumer());
     }
 
     public void flush() {
+        if (submitter == null) {
+            throw new UnsupportedOperationException(
+                    "Forge 1.19.2 immediate MultiBufferSource rendering has no direct Minecraft 26.3 target");
+        }
         if (flushed) throw new IllegalStateException("Legacy render buffer already flushed");
         flushed = true;
         batches.forEach((renderType, recorder) -> {
@@ -48,6 +61,11 @@ public final class LegacyMultiBufferSource {
                         (pose, target) -> operations.forEach(operation -> operation.accept(target)));
             }
         });
+    }
+
+    public static LegacyBufferSource m_109898_(
+            com.mojang.blaze3d.vertex.BufferBuilder ignoredBuilder) {
+        return new LegacyBufferSource();
     }
 
     private static final class RecordingVertexConsumer implements VertexConsumer {
