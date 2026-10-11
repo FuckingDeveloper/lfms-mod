@@ -148,6 +148,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEarlyClientInitialization(node);
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
+        rewrites += rewriteLegacyStringRepresentableOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyCreativeTabLookup(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
@@ -3013,6 +3014,41 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Rename an exact SRG implementation of StringRepresentable's surviving interface method. */
+    private int rewriteLegacyStringRepresentableOverride(ClassNode node) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()
+                || !isManagedSubtypeOf(node, "net/minecraft/util/StringRepresentable")) return 0;
+        String descriptor = "()Ljava/lang/String;";
+        java.util.HashMap<String, String> renamed = new java.util.HashMap<>();
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if (!method.name.startsWith("m_") || !method.desc.equals(descriptor)
+                    || (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0) continue;
+            var resolved = SRG_RUNTIME_RESOLVER.get().resolve(
+                    "net/minecraft/util/StringRepresentable", method.name, descriptor);
+            if (!resolved.resolved()
+                    || !resolved.owner().equals("net/minecraft/util/StringRepresentable")
+                    || !resolved.name().equals("getSerializedName")
+                    || !resolved.descriptor().equals(descriptor)) continue;
+            renamed.put(method.name, resolved.name());
+            method.name = resolved.name();
+            rewrites++;
+        }
+        if (renamed.isEmpty()) return rewrites;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.owner.equals(node.name)
+                        && call.desc.equals(descriptor)
+                        && renamed.containsKey(call.name)) {
+                    call.name = renamed.get(call.name);
+                    rewrites++;
+                }
             }
         }
         return rewrites;
