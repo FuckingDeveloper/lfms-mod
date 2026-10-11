@@ -6,6 +6,7 @@ import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
+import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
@@ -307,6 +308,13 @@ public final class Forge1192EventBusBridge {
                     RenderLevelStageEvent.AfterWeather.class,
                     RenderLevelStageEvent.OitTranslucent.class,
                     RenderLevelStageEvent.AfterLevel.class);
+        if (eventType == InputEvent.class)
+            return List.of(
+                    InputEvent.Key.class,
+                    InputEvent.MouseButton.Pre.class,
+                    InputEvent.MouseButton.Post.class,
+                    InputEvent.MouseScrollingEvent.class,
+                    InputEvent.InteractionKeyMappingTriggered.class);
         return List.of(eventType);
     }
 
