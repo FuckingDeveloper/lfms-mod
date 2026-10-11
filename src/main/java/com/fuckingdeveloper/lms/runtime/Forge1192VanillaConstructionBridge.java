@@ -226,6 +226,16 @@ public final class Forge1192VanillaConstructionBridge {
         }
     }
 
+    /** Use a legacy constructor's bytecode-proven block registry lookup. */
+    public static Item.Properties withBlockItemId(
+            net.minecraft.resources.Identifier id, Item.Properties properties) {
+        if (id == null) {
+            throw new IllegalStateException("Legacy block-item registry lookup returned null");
+        }
+        rememberCreativeTab(properties, id);
+        return properties.setId(ResourceKey.create(Registries.ITEM, id));
+    }
+
     /** Preserve Block#asItem during staged legacy registration. */
     public static void associateBlockItem(Block block, Item item) {
         Forge1192RegistrationContext.requireActive();

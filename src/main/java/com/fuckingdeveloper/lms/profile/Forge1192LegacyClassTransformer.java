@@ -1036,6 +1036,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = 0;
         for (var method : node.methods) {
             if (!method.name.equals("<init>")) continue;
+            BlockItemRegistryLookupEvidence registryLookup = legacyBlockItemRegistryLookupEvidence(node, method);
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
@@ -1049,12 +1050,25 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, blockLocal));
                 adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
-                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
-                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
-                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
-                        "withBlockItemId",
-                        "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item$Properties;)"
-                                + "Lnet/minecraft/world/item/Item$Properties;", false));
+                if (registryLookup != null) {
+                    adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            registryLookup.owner(), registryLookup.name(), registryLookup.desc(), false));
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                            org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                    adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                            "withBlockItemId",
+                            "(Lnet/minecraft/resources/ResourceLocation;Lnet/minecraft/world/item/Item$Properties;)"
+                                    + "Lnet/minecraft/world/item/Item$Properties;", false));
+                } else {
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                            org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                    adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                            "withBlockItemId",
+                            "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item$Properties;)"
+                                    + "Lnet/minecraft/world/item/Item$Properties;", false));
+                }
                 method.instructions.insertBefore(call, adaptation);
                 var association = new org.objectweb.asm.tree.InsnList();
                 association.add(new org.objectweb.asm.tree.VarInsnNode(
@@ -1070,6 +1084,59 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * Prove that a legacy BlockItem derives its registry name from the block
+     * argument after the superclass call. The lookup can then be evaluated
+     * before super without touching uninitialized {@code this}.
+     */
+    private record BlockItemRegistryLookupEvidence(String owner, String name, String desc) {}
+
+    private static BlockItemRegistryLookupEvidence legacyBlockItemRegistryLookupEvidence(
+            ClassNode node, org.objectweb.asm.tree.MethodNode constructor) {
+        String registryField = null;
+        for (var method : node.methods) {
+            if (!method.name.equals("getRegistryName")
+                    || !method.desc.equals("()Lnet/minecraft/resources/ResourceLocation;")) continue;
+            var code = executableInstructions(method);
+            if (code.size() != 3
+                    || code.get(0).getOpcode() != org.objectweb.asm.Opcodes.ALOAD
+                    || ((org.objectweb.asm.tree.VarInsnNode) code.get(0)).var != 0
+                    || !(code.get(1) instanceof FieldInsnNode field)
+                    || field.getOpcode() != org.objectweb.asm.Opcodes.GETFIELD
+                    || !field.owner.equals(node.name)
+                    || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")
+                    || code.get(2).getOpcode() != org.objectweb.asm.Opcodes.ARETURN) continue;
+            registryField = field.name;
+        }
+        if (registryField == null) return null;
+
+        BlockItemRegistryLookupEvidence match = null;
+        for (var insn = constructor.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (!(insn instanceof MethodInsnNode lookup)
+                    || lookup.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                    || !lookup.desc.equals("(Lnet/minecraft/world/level/block/Block;)"
+                            + "Lnet/minecraft/resources/ResourceLocation;")) continue;
+            var blockLoad = previousExecutable(lookup);
+            var receiverLoad = blockLoad == null ? null : previousExecutable(blockLoad);
+            var store = nextExecutable(lookup);
+            if (!(blockLoad instanceof org.objectweb.asm.tree.VarInsnNode block)
+                    || block.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
+                    || block.var != 1
+                    || !(receiverLoad instanceof org.objectweb.asm.tree.VarInsnNode receiver)
+                    || receiver.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
+                    || receiver.var != 0
+                    || !(store instanceof FieldInsnNode field)
+                    || field.getOpcode() != org.objectweb.asm.Opcodes.PUTFIELD
+                    || !field.owner.equals(node.name)
+                    || !field.name.equals(registryField)
+                    || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")) continue;
+            var evidence = new BlockItemRegistryLookupEvidence(lookup.owner, lookup.name, lookup.desc);
+            if (match != null && !match.equals(evidence)) return null;
+            match = evidence;
+        }
+        return match;
     }
 
     /** Attach an explicit legacy registry name before a removed tool superclass runs. */
@@ -1108,6 +1175,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             case "net/minecraft/world/item/HoeItem", "net/minecraft/world/item/PickaxeItem",
                  "net/minecraft/world/item/SwordItem" ->
                     desc.equals("(Lnet/minecraft/world/item/Tier;IFLnet/minecraft/world/item/Item$Properties;)V");
+            case "net/minecraft/world/item/ArmorItem" ->
+                    desc.equals("(Lnet/minecraft/world/item/ArmorMaterial;"
+                            + "Lnet/minecraft/world/entity/EquipmentSlot;"
+                            + "Lnet/minecraft/world/item/Item$Properties;)V");
             default -> false;
         };
     }
@@ -1209,6 +1280,15 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             cursor += argument.getSize();
         }
         return false;
+    }
+
+    private static java.util.List<org.objectweb.asm.tree.AbstractInsnNode> executableInstructions(
+            org.objectweb.asm.tree.MethodNode method) {
+        java.util.ArrayList<org.objectweb.asm.tree.AbstractInsnNode> code = new java.util.ArrayList<>();
+        for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn.getOpcode() >= 0) code.add(insn);
+        }
+        return code;
     }
 
     private static org.objectweb.asm.tree.AbstractInsnNode previousExecutable(
