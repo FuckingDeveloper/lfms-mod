@@ -70,6 +70,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/entity/vehicle/AbstractMinecart", "net/minecraft/world/entity/vehicle/minecart/AbstractMinecart"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Boat", "net/minecraft/world/entity/vehicle/boat/Boat"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Minecart", "net/minecraft/world/entity/vehicle/minecart/Minecart"),
+            java.util.Map.entry("net/minecraft/world/item/Tiers", "com/fuckingdeveloper/lms/runtime/item/LegacyTiers"),
             java.util.Map.entry("net/minecraft/ResourceLocationException", "net/minecraft/IdentifierException"),
             java.util.Map.entry("net/minecraftforge/client/event/TextureStitchEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyTextureStitchEvent"),
             java.util.Map.entry("net/minecraftforge/client/event/TextureStitchEvent$Pre", "com/fuckingdeveloper/lms/runtime/event/LegacyTextureStitchEvent$Pre"),
@@ -1150,7 +1151,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
                         || !call.name.equals("<init>")
-                        || !isLegacyToolConstructor(call.owner, call.desc)) continue;
+                        || !isLegacyNamedItemConstructor(call.owner, call.desc)) continue;
                 int propertiesLocal = method.maxLocals++;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
@@ -1168,7 +1169,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    private static boolean isLegacyToolConstructor(String owner, String desc) {
+    private static boolean isLegacyNamedItemConstructor(String owner, String desc) {
         return switch (owner) {
             case "net/minecraft/world/item/AxeItem", "net/minecraft/world/item/ShovelItem" ->
                     desc.equals("(Lnet/minecraft/world/item/Tier;FFLnet/minecraft/world/item/Item$Properties;)V");
@@ -1179,14 +1180,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     desc.equals("(Lnet/minecraft/world/item/ArmorMaterial;"
                             + "Lnet/minecraft/world/entity/EquipmentSlot;"
                             + "Lnet/minecraft/world/item/Item$Properties;)V");
+            case "net/minecraft/world/item/ShieldItem" ->
+                    desc.equals("(Lnet/minecraft/world/item/Item$Properties;)V");
             default -> false;
         };
     }
 
     /**
-     * Locate a String parameter that the legacy constructor itself proves is
-     * its registry name by passing it through Forge GameData#checkPrefix and
-     * storing the resulting ResourceLocation on the constructed object.
+     * Locate a String parameter or literal that the legacy constructor itself
+     * proves is its registry name by passing it through Forge
+     * GameData#checkPrefix and storing the resulting ResourceLocation on the
+     * constructed object.
      */
     private record RegistryNameEvidence(int local, boolean lowercase, String literal) {}
 
@@ -1209,14 +1213,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     && normalization.desc.equals("()Ljava/lang/String;");
             var name = lowercase ? previousExecutable(producer) : producer;
             if (warn == null || warn.getOpcode() != org.objectweb.asm.Opcodes.ICONST_0
-                    || !(name instanceof org.objectweb.asm.tree.VarInsnNode load)
-                    || load.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
                     || !(store instanceof FieldInsnNode field)
                     || store.getOpcode() != org.objectweb.asm.Opcodes.PUTFIELD
                     || !field.owner.equals(node.name)
-                    || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")
-                    || !isStringArgumentLocal(method, load.var)) continue;
-            RegistryNameEvidence evidence = new RegistryNameEvidence(load.var, lowercase, null);
+                    || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")) continue;
+            RegistryNameEvidence evidence;
+            if (name instanceof org.objectweb.asm.tree.VarInsnNode load
+                    && load.getOpcode() == org.objectweb.asm.Opcodes.ALOAD
+                    && isStringArgumentLocal(method, load.var)) {
+                evidence = new RegistryNameEvidence(load.var, lowercase, null);
+            } else if (name instanceof LdcInsnNode constant && constant.cst instanceof String literal) {
+                evidence = new RegistryNameEvidence(-1, lowercase, literal);
+            } else {
+                continue;
+            }
             if (match != null && !match.equals(evidence)) return null;
             match = evidence;
         }
@@ -1257,10 +1267,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                                                RegistryNameEvidence evidence) {
         if (evidence.literal() != null) {
             instructions.add(new LdcInsnNode(evidence.literal()));
-            return;
+        } else {
+            instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                    org.objectweb.asm.Opcodes.ALOAD, evidence.local()));
         }
-        instructions.add(new org.objectweb.asm.tree.VarInsnNode(
-                org.objectweb.asm.Opcodes.ALOAD, evidence.local()));
         if (evidence.lowercase()) {
             instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
                     "java/lang/String", "toLowerCase", "()Ljava/lang/String;", false));
@@ -1535,6 +1545,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
+
+                // Registry is an interface in the target runtime. Its static
+                // register method therefore requires an InterfaceMethodref,
+                // even though the invocation opcode remains INVOKESTATIC.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/core/Registry")
+                        && call.name.equals("m_122965_")
+                        && call.desc.equals("(Lnet/minecraft/core/Registry;"
+                                + "Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)"
+                                + "Ljava/lang/Object;")) {
+                    call.name = "register";
+                    call.itf = true;
+                    rewrites++;
+                    continue;
+                }
 
                 // BlockBehaviour#m_60590_ was the exact 1.19.2 SRG identity
                 // for the receiver's default material/map color. The target
@@ -1973,8 +1998,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
         int rewrites = 0;
         for (var method : node.methods) {
-            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (!(insn instanceof FieldInsnNode field)) continue;
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var current = insn;
+                insn = insn.getNext();
+                if (!(current instanceof FieldInsnNode field)) continue;
                 String copperCollection = legacyCopperCollectionField(field);
                 if (copperCollection != null) {
                     field.name = copperCollection;
@@ -2052,6 +2079,25 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                     continue;
                 }
+                String cauldronInteractions = legacyCauldronInteractions(field);
+                if (cauldronInteractions != null) {
+                    method.instructions.set(field, new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192CauldronBridge",
+                            cauldronInteractions, "()Ljava/util/Map;", false));
+                    rewrites++;
+                    continue;
+                }
+                String cauldronInteraction = legacyCauldronInteraction(field);
+                if (cauldronInteraction != null) {
+                    method.instructions.set(field, new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192CauldronBridge",
+                            cauldronInteraction,
+                            "()Lnet/minecraft/core/cauldron/CauldronInteraction;", false));
+                    rewrites++;
+                    continue;
+                }
                 var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(field.owner, field.name, field.desc);
                 if (!resolved.resolved() && !field.owner.startsWith("net/minecraft/")) {
                     resolved = resolveInheritedVanillaField(field.owner, field.name, field.desc);
@@ -2114,6 +2160,69 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return null;
+    }
+
+    private static String legacyCauldronInteractions(FieldInsnNode field) {
+        if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                || !field.owner.equals("net/minecraft/core/cauldron/CauldronInteraction")
+                || !field.desc.equals("Ljava/util/Map;")
+                || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String canonical = SRG_RUNTIME_RESOLVER.get()
+                .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+        if (canonical == null) {
+            canonical = switch (field.name) {
+                case "f_175606_" -> "EMPTY";
+                case "f_175607_" -> "WATER";
+                case "f_175608_" -> "LAVA";
+                case "f_175609_" -> "POWDER_SNOW";
+                default -> null;
+            };
+        }
+        String bridgeMethod = switch (canonical == null ? "" : canonical) {
+            case "EMPTY" -> "emptyInteractions";
+            case "WATER" -> "waterInteractions";
+            case "LAVA" -> "lavaInteractions";
+            case "POWDER_SNOW" -> "powderSnowInteractions";
+            default -> null;
+        };
+        if (bridgeMethod == null) return null;
+        return VANILLA_RELOCATIONS.searchExactField(
+                "net.minecraft.core.cauldron.CauldronInteractions", canonical,
+                "Lnet/minecraft/core/cauldron/CauldronInteraction$Dispatcher;").size() == 1
+                ? bridgeMethod : null;
+    }
+
+    /**
+     * The six 1.19.2 singleton interactions became named static methods in
+     * 26.3. Preserve their stable object-valued field contract through the
+     * bridge, keyed by exact owner, descriptor, and SRG/Mojang identity.
+     */
+    private static String legacyCauldronInteraction(FieldInsnNode field) {
+        if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                || !field.owner.equals("net/minecraft/core/cauldron/CauldronInteraction")
+                || !field.desc.equals("Lnet/minecraft/core/cauldron/CauldronInteraction;")) return null;
+        String canonical = SRG_RUNTIME_RESOLVER.isEmpty() ? null : SRG_RUNTIME_RESOLVER.get()
+                .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+        if (canonical == null) {
+            canonical = switch (field.name) {
+                case "f_175610_" -> "FILL_WATER";
+                case "f_175611_" -> "FILL_LAVA";
+                case "f_175612_" -> "FILL_POWDER_SNOW";
+                case "f_175613_" -> "SHULKER_BOX";
+                case "f_175614_" -> "BANNER";
+                case "f_175615_" -> "DYED_ITEM";
+                default -> null;
+            };
+        }
+        return switch (canonical == null ? "" : canonical) {
+            case "FILL_WATER" -> "fillWater";
+            case "FILL_LAVA" -> "fillLava";
+            case "FILL_POWDER_SNOW" -> "fillPowderSnow";
+            case "SHULKER_BOX" -> "shulkerBox";
+            case "BANNER" -> "banner";
+            case "DYED_ITEM" -> "dyedItem";
+            default -> null;
+        };
     }
 
     /** Minecraft 26.3 consolidated the base members of copper block families. */
@@ -3524,13 +3633,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.owner = "com/mojang/serialization/MapCodec";
                     call.name = "unitCodec";
                     call.itf = false;
-                    rewrites++;
-                }
-                if (call.owner.equals("net/minecraft/core/Registry")
-                        && call.name.equals("m_122965_")
-                        && call.desc.equals("(Lnet/minecraft/core/Registry;Lnet/minecraft/resources/Identifier;Ljava/lang/Object;)Ljava/lang/Object;")) {
-                    call.name = "register";
-                    call.itf = true;
                     rewrites++;
                 }
                 // RegisterEvent no longer exposes Forge 1.19.2's
