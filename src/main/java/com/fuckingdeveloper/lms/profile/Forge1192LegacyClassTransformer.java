@@ -142,6 +142,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockPropertiesCopy(node);
         rewrites += rewriteLegacyViewBlockingPredicate(node);
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
+        rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyCreativeTabLookup(node);
@@ -2650,6 +2651,117 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * KeyMapping categories changed from translation-key strings to registered
+     * Category values. Replace ordinary allocations with bridge factories so
+     * no adapter call is made with an uninitialized object on the operand
+     * stack. Direct subclass super calls only convert their final String
+     * argument and never expose uninitialized {@code this} to the bridge.
+     */
+    private static int rewriteLegacyKeyMappingConstruction(ClassNode node) {
+        final String owner = "net/minecraft/client/KeyMapping";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (!(insn instanceof TypeInsnNode allocation)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !allocation.desc.equals(owner)) {
+                    insn = next;
+                    continue;
+                }
+                var dup = allocation.getNext();
+                if (dup == null || dup.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                    throw new IllegalStateException("Unsupported legacy KeyMapping allocation pattern: "
+                            + node.name + "#" + method.name);
+                }
+                MethodInsnNode init = matchingConstructor(dup, owner);
+                if (init == null) {
+                    throw new IllegalStateException("Cannot pair legacy KeyMapping allocation with constructor: "
+                            + node.name + "#" + method.name);
+                }
+                String factoryDesc = legacyKeyMappingFactoryDescriptor(init.desc);
+                if (factoryDesc != null) {
+                    method.instructions.remove(allocation);
+                    method.instructions.remove(dup);
+                    MethodInsnNode factory = new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192KeyMappingBridge",
+                            "create", factoryDesc, false);
+                    method.instructions.set(init, factory);
+                    next = factory.getNext();
+                    rewrites++;
+                }
+                insn = next;
+            }
+
+            // A managed subclass may invoke the legacy KeyMapping constructor
+            // directly. The category String is the last argument in every
+            // supported source overload, so it can be converted in place.
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("<init>")) continue;
+                String factoryDesc = legacyKeyMappingFactoryDescriptor(call.desc);
+                if (factoryDesc == null) continue;
+                method.instructions.insertBefore(call, new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192KeyMappingBridge",
+                        "category",
+                        "(Ljava/lang/String;)Lnet/minecraft/client/KeyMapping$Category;", false));
+                call.desc = legacyKeyMappingTargetConstructorDescriptor(call.desc);
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static MethodInsnNode matchingConstructor(
+            org.objectweb.asm.tree.AbstractInsnNode dup, String owner) {
+        int nestedAllocations = 0;
+        for (var cursor = dup.getNext(); cursor != null; cursor = cursor.getNext()) {
+            if (cursor instanceof TypeInsnNode nested
+                    && nested.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                nestedAllocations++;
+            } else if (cursor instanceof MethodInsnNode call
+                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                    && call.name.equals("<init>")) {
+                if (nestedAllocations > 0) {
+                    nestedAllocations--;
+                } else if (call.owner.equals(owner)) {
+                    return call;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String legacyKeyMappingFactoryDescriptor(String constructorDesc) {
+        boolean supported = switch (constructorDesc) {
+            case "(Ljava/lang/String;ILjava/lang/String;)V",
+                 "(Ljava/lang/String;Lcom/mojang/blaze3d/platform/InputConstants$Type;ILjava/lang/String;)V",
+                 "(Ljava/lang/String;Lnet/minecraftforge/client/settings/IKeyConflictContext;Lcom/mojang/blaze3d/platform/InputConstants$Type;ILjava/lang/String;)V",
+                 "(Ljava/lang/String;Lnet/minecraftforge/client/settings/IKeyConflictContext;Lcom/mojang/blaze3d/platform/InputConstants$Key;Ljava/lang/String;)V",
+                 "(Ljava/lang/String;Lnet/minecraftforge/client/settings/IKeyConflictContext;Lnet/minecraftforge/client/settings/KeyModifier;Lcom/mojang/blaze3d/platform/InputConstants$Type;ILjava/lang/String;)V",
+                 "(Ljava/lang/String;Lnet/minecraftforge/client/settings/IKeyConflictContext;Lnet/minecraftforge/client/settings/KeyModifier;Lcom/mojang/blaze3d/platform/InputConstants$Key;Ljava/lang/String;)V" -> true;
+            default -> false;
+        };
+        return supported
+                ? constructorDesc.substring(0, constructorDesc.length() - 1)
+                        + "Lnet/minecraft/client/KeyMapping;"
+                : null;
+    }
+
+    private static String legacyKeyMappingTargetConstructorDescriptor(String constructorDesc) {
+        final String suffix = "Ljava/lang/String;)V";
+        if (!constructorDesc.endsWith(suffix)) {
+            throw new IllegalArgumentException("Not a legacy KeyMapping constructor: " + constructorDesc);
+        }
+        return constructorDesc.substring(0, constructorDesc.length() - suffix.length())
+                + "Lnet/minecraft/client/KeyMapping$Category;)V";
     }
 
     /**
