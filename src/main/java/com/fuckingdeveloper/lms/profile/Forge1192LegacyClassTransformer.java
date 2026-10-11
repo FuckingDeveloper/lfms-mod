@@ -96,6 +96,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // adapters may replace that owner and descriptor.
         rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacySignItemConstruction(node);
+        rewrites += rewriteLegacySignBlockConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
@@ -555,6 +556,35 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 method.instructions.insertBefore(call, adaptation);
                 call.owner = "net/minecraft/world/item/StandingAndWallBlockItem";
                 call.desc = "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/core/Direction;Lnet/minecraft/world/item/Item$Properties;)V";
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Sign block construction retained both source values but reversed their
+     * order. Both are category-1 references, so a SWAP immediately before the
+     * exact super-constructor invocation leaves uninitialized {@code this}
+     * untouched at the bottom of the operand stack.
+     */
+    private static int rewriteLegacySignBlockConstruction(ClassNode node) {
+        final String legacy = "(Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;"
+                + "Lnet/minecraft/world/level/block/state/properties/WoodType;)V";
+        final String modern = "(Lnet/minecraft/world/level/block/state/properties/WoodType;"
+                + "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;)V";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals(legacy)
+                        || !(call.owner.equals("net/minecraft/world/level/block/StandingSignBlock")
+                        || call.owner.equals("net/minecraft/world/level/block/WallSignBlock"))) continue;
+                method.instructions.insertBefore(call,
+                        new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                call.desc = modern;
                 rewrites++;
             }
         }
