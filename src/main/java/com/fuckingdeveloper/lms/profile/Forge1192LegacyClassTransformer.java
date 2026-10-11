@@ -53,6 +53,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/entity/vehicle/AbstractMinecart", "net/minecraft/world/entity/vehicle/minecart/AbstractMinecart"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Boat", "net/minecraft/world/entity/vehicle/boat/Boat"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Minecart", "net/minecraft/world/entity/vehicle/minecart/Minecart"),
+            java.util.Map.entry("net/minecraft/ResourceLocationException", "net/minecraft/IdentifierException"),
             java.util.Map.entry("net/minecraftforge/client/event/RenderHighlightEvent$Block", "com/fuckingdeveloper/lms/runtime/event/LegacyRenderHighlightBlockEvent"),
             java.util.Map.entry("net/minecraftforge/event/AddReloadListenerEvent", "net/neoforged/neoforge/event/AddServerReloadListenersEvent"),
             java.util.Map.entry("net/minecraftforge/event/village/VillagerTradesEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyVillagerTradesEvent"),
