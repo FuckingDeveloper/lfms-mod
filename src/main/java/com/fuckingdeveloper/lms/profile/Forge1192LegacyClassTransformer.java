@@ -97,6 +97,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyMaterialBlockProperties(node);
         rewrites += rewriteLegacyMaterialColorProperties(node);
         rewrites += rewriteLegacyBlockPropertiesCopy(node);
+        rewrites += rewriteLegacyViewBlockingPredicate(node);
         rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
@@ -1404,6 +1405,39 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.desc = resolved.descriptor();
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Minecraft 26.3 supplies the queried AABB to view-blocking predicates.
+     * A 1.19.2 StatePredicate could not observe that additional context, so
+     * preserve its exact behavior through the runtime adapter.
+     */
+    private static int rewriteLegacyViewBlockingPredicate(ClassNode node) {
+        final String owner =
+                "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
+        final String oldDesc =
+                "(Lnet/minecraft/world/level/block/state/BlockBehaviour$StatePredicate;)"
+                        + "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+        final String bridgeDesc = "(L" + owner + ";"
+                + "Lnet/minecraft/world/level/block/state/BlockBehaviour$StatePredicate;)"
+                + "Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("m_60971_")
+                        || !call.desc.equals(oldDesc)) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                call.name = "isViewBlocking";
+                call.desc = bridgeDesc;
+                call.itf = false;
+                rewrites++;
             }
         }
         return rewrites;

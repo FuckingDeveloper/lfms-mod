@@ -127,6 +127,14 @@ public final class Forge1192VanillaConstructionBridge {
         throw new IllegalStateException("Legacy door-like block has no supported Material semantics");
     }
 
+    /** Preserve the 1.19.2 view-blocking callback when the target adds AABB context. */
+    public static BlockBehaviour.Properties isViewBlocking(
+            BlockBehaviour.Properties properties,
+            BlockBehaviour.StatePredicate legacyPredicate) {
+        return properties.isViewBlocking(
+                (state, level, pos, bounds) -> legacyPredicate.test(state, level, pos));
+    }
+
     /** Attach the legacy block name before the modern Block constructor reads it. */
     public static BlockBehaviour.Properties withBlockId(
             BlockBehaviour.Properties properties, String legacyName) {
