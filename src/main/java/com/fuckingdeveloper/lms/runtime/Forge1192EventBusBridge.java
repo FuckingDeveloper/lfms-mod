@@ -6,6 +6,7 @@ import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
+import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -27,8 +28,10 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.fuckingdeveloper.lms.runtime.event.LegacyRenderHighlightBlockEvent;
+import com.fuckingdeveloper.lms.runtime.event.LegacyTextureStitchEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyVillagerTradesEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyWandererTradesEvent;
 
@@ -36,6 +39,12 @@ import com.fuckingdeveloper.lms.runtime.event.LegacyWandererTradesEvent;
  * Semantic adapters for Forge 1.19.2 event-bus contracts that changed in NeoForge.
  */
 public final class Forge1192EventBusBridge {
+    private static final List<PrioritizedListener<LegacyTextureStitchEvent.Pre>> TEXTURE_STITCH_PRE =
+            new CopyOnWriteArrayList<>();
+    private static final List<PrioritizedListener<LegacyTextureStitchEvent.Post>> TEXTURE_STITCH_POST =
+            new CopyOnWriteArrayList<>();
+    private static boolean textureStitchDispatcherRegistered;
+
     private Forge1192EventBusBridge() {}
 
     /**
@@ -131,6 +140,14 @@ public final class Forge1192EventBusBridge {
                     event -> registerLegacyBlockHighlightRenderer(event, (Consumer) listener));
             return;
         }
+        if (eventType == LegacyTextureStitchEvent.Pre.class) {
+            registerLegacyTextureStitchListener(priority, (Consumer) listener, true);
+            return;
+        }
+        if (eventType == LegacyTextureStitchEvent.Post.class) {
+            registerLegacyTextureStitchListener(priority, (Consumer) listener, false);
+            return;
+        }
         if (eventType == LegacyVillagerTradesEvent.class) {
             bus.addListener(priority, false, ServerAboutToStartEvent.class,
                     event -> dispatchLegacyVillagerTrades(event, (Consumer) listener));
@@ -145,6 +162,41 @@ public final class Forge1192EventBusBridge {
             bus.addListener(priority, false, (Class) concreteType, (Consumer) listener);
         }
     }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static synchronized void registerLegacyTextureStitchListener(
+            net.neoforged.bus.api.EventPriority priority, Consumer listener, boolean pre) {
+        if (pre) {
+            TEXTURE_STITCH_PRE.add(new PrioritizedListener<>(priority, listener));
+        } else {
+            TEXTURE_STITCH_POST.add(new PrioritizedListener<>(priority, listener));
+        }
+        if (textureStitchDispatcherRegistered) return;
+
+        Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
+                net.neoforged.bus.api.EventPriority.HIGHEST, false,
+                TextureAtlasStitchedEvent.class, Forge1192EventBusBridge::dispatchLegacyTextureStitch);
+        textureStitchDispatcherRegistered = true;
+    }
+
+    private static void dispatchLegacyTextureStitch(TextureAtlasStitchedEvent target) {
+        var pre = new LegacyTextureStitchEvent.Pre(target.getAtlas());
+        ordered(TEXTURE_STITCH_PRE).forEach(listener -> listener.consumer().accept(pre));
+        pre.requireMaterialized();
+
+        var post = new LegacyTextureStitchEvent.Post(target.getAtlas());
+        ordered(TEXTURE_STITCH_POST).forEach(listener -> listener.consumer().accept(post));
+    }
+
+    private static <T extends Event> List<PrioritizedListener<T>> ordered(
+            List<PrioritizedListener<T>> listeners) {
+        return listeners.stream()
+                .sorted(Comparator.comparingInt(listener -> listener.priority().ordinal()))
+                .toList();
+    }
+
+    private record PrioritizedListener<T extends Event>(
+            net.neoforged.bus.api.EventPriority priority, Consumer<T> consumer) {}
 
     private static void registerLegacyBlockHighlightRenderer(
             ExtractBlockOutlineRenderStateEvent event,
