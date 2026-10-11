@@ -39,6 +39,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/model/VillagerModel", "net/minecraft/client/model/npc/VillagerModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieModel", "net/minecraft/client/model/monster/zombie/ZombieModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieVillagerModel", "net/minecraft/client/model/monster/zombie/ZombieVillagerModel"),
+            java.util.Map.entry("net/minecraft/Util", "net/minecraft/util/Util"),
             java.util.Map.entry("net/minecraft/client/resources/model/Material", "com/fuckingdeveloper/lms/runtime/render/LegacyMaterial"),
             java.util.Map.entry("net/minecraft/client/resources/model/ModelState", "net/minecraft/client/renderer/block/dispatch/ModelState"),
             java.util.Map.entry("net/minecraft/client/resources/model/BlockModelRotation", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockModelRotation"),
@@ -1616,7 +1617,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = true;
                     rewrites++;
                 }
-                var resolved = SRG_RUNTIME_RESOLVER.get().resolve(call.owner, call.name, call.desc);
+                var resolved = resolveRelocatedVanillaMethod(call.owner, call.name, call.desc);
+                if (resolved == null) {
+                    resolved = SRG_RUNTIME_RESOLVER.get().resolve(call.owner, call.name, call.desc);
+                }
                 if (!resolved.resolved()) continue;
                 if (!call.owner.equals(resolved.owner()) || !call.name.equals(resolved.name())
                         || !call.desc.equals(resolved.descriptor())) {
@@ -1628,6 +1632,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private static Forge1192SrgRuntimeResolver.Resolution resolveRelocatedVanillaMethod(
+            String targetOwner, String name, String targetDescriptor) {
+        if (!name.startsWith("m_") || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        var sources = EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet().stream()
+                .filter(relocation -> relocation.getValue().equals(targetOwner))
+                .toList();
+        if (sources.size() != 1) return null;
+        String sourceOwner = sources.getFirst().getKey();
+        String sourceDescriptor = reverseExplicitVanillaRelocations(targetDescriptor);
+        return SRG_RUNTIME_RESOLVER.get().resolveRelocatedMethod(
+                sourceOwner, name, sourceDescriptor, targetOwner, targetDescriptor);
+    }
+
+    private static String reverseExplicitVanillaRelocations(String descriptor) {
+        String source = descriptor;
+        for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
+            source = source.replace(relocation.getValue(), relocation.getKey());
+        }
+        return source;
     }
 
     /**

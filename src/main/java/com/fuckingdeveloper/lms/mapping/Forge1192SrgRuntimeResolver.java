@@ -76,6 +76,59 @@ public final class Forge1192SrgRuntimeResolver {
                 "Verified SRG -> Mojang named -> target runtime identity");
     }
 
+    /**
+     * Resolve a source SRG method by Mojang identity when the declaring class
+     * has an explicit, independently verified target replacement. Both source
+     * and target descriptors are supplied because class relocation may also
+     * migrate parameter or return types.
+     */
+    public Resolution resolveRelocatedMethod(
+            String sourceOwner, String srgName, String sourceDescriptor,
+            String targetOwner, String targetDescriptor) {
+        if (!sourceOwner.startsWith("net/minecraft/") || !srgName.startsWith("m_")) {
+            return unresolved(sourceOwner, srgName, sourceDescriptor,
+                    "Not a vanilla SRG method call");
+        }
+        var legacy = srg.resolveWithNamedOwner(
+                sourceOwner.replace('/', '.'), srgName, sourceDescriptor, mojmap);
+        if (legacy.status() != LegacySrgIndex.ResolutionStatus.RESOLVED
+                || legacy.matches().size() != 1) {
+            return unresolved(sourceOwner, srgName, sourceDescriptor,
+                    "Legacy mapping unresolved: " + legacy.reason());
+        }
+        var match = legacy.matches().getFirst();
+        if (match.owners().isEmpty()) {
+            return unresolved(sourceOwner, srgName, sourceDescriptor,
+                    "Legacy mapping has no declaring owner");
+        }
+        List<ProguardMappingReader.MethodMapping> named = mojmap
+                .findByObfuscated(match.owners().getFirst(), match.sourceName()).stream()
+                .filter(candidate -> parametersMatch(candidate.parameters(), sourceDescriptor))
+                .toList();
+        if (named.size() != 1) {
+            return unresolved(sourceOwner, srgName, sourceDescriptor,
+                    "Mojang named identity is " + (named.isEmpty() ? "missing" : "ambiguous"));
+        }
+        String canonicalName = named.getFirst().namedName();
+        var current = target.classifyMethod(
+                targetOwner.replace('/', '.'), canonicalName, targetDescriptor);
+        if (current.status() != Forge1192MappingLayer.Status.VERIFIED_IDENTITY) {
+            return unresolved(sourceOwner, srgName, sourceDescriptor,
+                    "Canonical relocated method does not survive target runtime exactly: "
+                            + current.reason());
+        }
+        String symbol = current.currentSymbol();
+        int hash = symbol.indexOf('#');
+        int paren = symbol.indexOf('(', hash + 1);
+        if (hash < 0 || paren < 0) {
+            return unresolved(sourceOwner, srgName, sourceDescriptor,
+                    "Malformed target symbol");
+        }
+        return new Resolution(symbol.substring(0, hash).replace('.', '/'),
+                symbol.substring(hash + 1, paren), symbol.substring(paren), true,
+                "Verified SRG -> Mojang named -> explicit relocated target method identity");
+    }
+
     public FieldResolution resolveField(String internalOwner, String srgName, String descriptor) {
         if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("f_")) {
             return new FieldResolution(internalOwner, srgName, descriptor, false, "Not a vanilla SRG field");
