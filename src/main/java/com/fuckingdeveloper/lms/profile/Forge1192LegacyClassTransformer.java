@@ -42,6 +42,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/resources/model/Material", "com/fuckingdeveloper/lms/runtime/render/LegacyMaterial"),
             java.util.Map.entry("net/minecraft/client/resources/model/ModelState", "net/minecraft/client/renderer/block/dispatch/ModelState"),
             java.util.Map.entry("net/minecraft/client/resources/model/BlockModelRotation", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockModelRotation"),
+            java.util.Map.entry("net/minecraft/client/resources/model/ModelResourceLocation", "com/fuckingdeveloper/lms/runtime/render/LegacyModelResourceLocation"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransform", "net/minecraft/client/resources/model/cuboid/ItemTransform"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransforms", "net/minecraft/client/resources/model/cuboid/ItemTransforms"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransforms$TransformType", "net/minecraft/world/item/ItemDisplayContext"),
