@@ -1947,6 +1947,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                     continue;
                 }
+                String wallSide = legacyWallSidePropertyField(field);
+                if (wallSide != null) {
+                    field.owner = "net/minecraft/world/level/block/WallBlock";
+                    field.name = wallSide;
+                    rewrites++;
+                    continue;
+                }
                 var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(field.owner, field.name, field.desc);
                 if (!resolved.resolved() && !field.owner.startsWith("net/minecraft/")) {
                     resolved = resolveInheritedVanillaField(field.owner, field.name, field.desc);
@@ -1965,6 +1972,51 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private record LegacyColorCollectionField(String collection, String color) {}
+
+    /**
+     * WallBlock's four directional EnumProperty fields kept their semantic
+     * identity but dropped the _WALL suffix after 1.19.2. Accept inherited
+     * fieldrefs only after proving the managed owner reaches the exact vanilla
+     * declaration and the renamed target field exists with the same descriptor.
+     */
+    private String legacyWallSidePropertyField(FieldInsnNode field) {
+        if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                || !field.name.startsWith("f_")
+                || !field.desc.equals("Lnet/minecraft/world/level/block/state/properties/EnumProperty;")
+                || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        pending.add(field.owner);
+        while (!pending.isEmpty()) {
+            String current = pending.removeFirst();
+            if (!seen.add(current)) continue;
+            if (current.equals("net/minecraft/world/level/block/WallBlock")) {
+                String canonical = SRG_RUNTIME_RESOLVER.get()
+                        .canonicalFieldName(current, field.name, field.desc).orElse(null);
+                String modern = switch (canonical == null ? "" : canonical) {
+                    case "EAST_WALL" -> "EAST";
+                    case "NORTH_WALL" -> "NORTH";
+                    case "SOUTH_WALL" -> "SOUTH";
+                    case "WEST_WALL" -> "WEST";
+                    default -> null;
+                };
+                if (modern == null) return null;
+                var target = VANILLA_RELOCATIONS.searchExactField(
+                        "net.minecraft.world.level.block.WallBlock", modern, field.desc);
+                return target.size() == 1 ? modern : null;
+            }
+            try {
+                byte[] bytes = hierarchyBytes(current);
+                if (bytes == null) continue;
+                ClassReader reader = new ClassReader(bytes);
+                if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
+                java.util.Collections.addAll(pending, reader.getInterfaces());
+            } catch (java.io.IOException | LinkageError | RuntimeException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
 
     /** Minecraft 26.3 consolidated the base members of copper block families. */
     private String legacyCopperCollectionField(FieldInsnNode field) {
