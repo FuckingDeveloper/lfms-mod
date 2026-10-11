@@ -65,6 +65,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraftforge/client/event/TextureStitchEvent$Pre", "com/fuckingdeveloper/lms/runtime/event/LegacyTextureStitchEvent$Pre"),
             java.util.Map.entry("net/minecraftforge/client/event/TextureStitchEvent$Post", "com/fuckingdeveloper/lms/runtime/event/LegacyTextureStitchEvent$Post"),
             java.util.Map.entry("net/minecraftforge/client/model/SimpleModelState", "com/fuckingdeveloper/lms/runtime/render/LegacySimpleModelState"),
+            java.util.Map.entry("net/minecraftforge/client/ChunkRenderTypeSet", "com/fuckingdeveloper/lms/runtime/render/LegacyChunkRenderTypeSet"),
             java.util.Map.entry("net/minecraftforge/client/event/RenderHighlightEvent$Block", "com/fuckingdeveloper/lms/runtime/event/LegacyRenderHighlightBlockEvent"),
             java.util.Map.entry("net/minecraftforge/event/AddReloadListenerEvent", "net/neoforged/neoforge/event/AddServerReloadListenersEvent"),
             java.util.Map.entry("net/minecraftforge/event/village/VillagerTradesEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyVillagerTradesEvent"),
