@@ -1599,6 +1599,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
 
+                // ResourceKey#location became ResourceKey#identifier together
+                // with ResourceLocation -> Identifier. Keep the exact 1.19.2
+                // SRG identity and require the exact target member.
+                if (call.owner.equals("net/minecraft/resources/ResourceKey")
+                        && call.name.equals("m_135782_")
+                        && call.desc.equals("()Lnet/minecraft/resources/Identifier;")
+                        && VANILLA_RELOCATIONS.classifyMethod(
+                                "net.minecraft.resources.ResourceKey", "identifier",
+                                "()Lnet/minecraft/resources/Identifier;").status()
+                                == Forge1192MappingLayer.Status.VERIFIED_IDENTITY) {
+                    call.name = "identifier";
+                    rewrites++;
+                }
+
                 // The legacy flag disabled anvil combination repair. That
                 // surviving semantic is named setNoCombineRepair in 26.3.
                 if (call.owner.equals("net/minecraft/world/item/Item$Properties")
@@ -1736,9 +1750,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         var sources = EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet().stream()
                 .filter(relocation -> relocation.getValue().equals(targetOwner))
                 .toList();
-        if (sources.size() != 1) return null;
-        String sourceOwner = sources.getFirst().getKey();
+        if (sources.size() > 1) return null;
+        String sourceOwner = sources.isEmpty() ? targetOwner : sources.getFirst().getKey();
         String sourceDescriptor = reverseExplicitVanillaRelocations(targetDescriptor);
+        if (sourceOwner.equals(targetOwner) && sourceDescriptor.equals(targetDescriptor)) return null;
         return SRG_RUNTIME_RESOLVER.get().resolveRelocatedMethod(
                 sourceOwner, name, sourceDescriptor, targetOwner, targetDescriptor);
     }
@@ -1748,7 +1763,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             source = source.replace(relocation.getValue(), relocation.getKey());
         }
-        return source;
+        return source.replace(
+                "net/minecraft/resources/Identifier",
+                "net/minecraft/resources/ResourceLocation");
     }
 
     /**
