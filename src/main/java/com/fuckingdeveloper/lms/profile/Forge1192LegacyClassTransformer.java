@@ -1264,6 +1264,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // 1.19.2 custom WoodType creation supplied only its semantic
+                // name. The target's one-argument BlockSetType constructor is
+                // the canonical generic-wood default for the newly required
+                // behavior record; preserve the source name through that path.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/world/level/block/state/properties/WoodType")
+                        && call.name.equals("create")
+                        && call.desc.equals("(Ljava/lang/String;)"
+                                + "Lnet/minecraft/world/level/block/state/properties/WoodType;")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                    call.name = "legacyWoodType";
+                    call.itf = false;
+                    rewrites++;
+                }
+
                 // The 1.19.2 record accessor's SRG name is field-shaped and
                 // therefore outside the normal m_* resolver. Its exact owner
                 // and return type identify TagKey#location unambiguously.

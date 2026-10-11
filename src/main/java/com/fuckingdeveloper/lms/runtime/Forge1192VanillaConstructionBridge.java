@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import net.minecraft.world.level.block.state.properties.BlockSetType;
+import net.minecraft.world.level.block.state.properties.WoodType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
@@ -164,6 +165,15 @@ public final class Forge1192VanillaConstructionBridge {
                 base.doorClose(), base.doorOpen(), base.trapdoorClose(), base.trapdoorOpen(),
                 base.pressurePlateClickOff(), base.pressurePlateClickOn(),
                 base.buttonClickOff(), base.buttonClickOn());
+    }
+
+    /**
+     * Adapt the 1.19.2 name-only custom wood contract to the target's added
+     * block-set contract using its explicit generic-wood defaults.
+     */
+    public static WoodType legacyWoodType(String name) {
+        BlockSetType setType = BlockSetType.register(new BlockSetType(name));
+        return new WoodType(name, setType);
     }
 
     /** Attach the legacy block name before the modern Block constructor reads it. */
