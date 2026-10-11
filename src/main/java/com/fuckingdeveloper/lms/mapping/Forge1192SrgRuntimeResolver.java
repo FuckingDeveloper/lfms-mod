@@ -129,6 +129,77 @@ public final class Forge1192SrgRuntimeResolver {
                 "Verified SRG -> Mojang named -> explicit relocated target method identity");
     }
 
+    /**
+     * Resolve an exact SRG/Mojang method identity whose target declaration
+     * narrows only its reference return type. Parameters must remain exact and
+     * the target return must be JVM-assignable to the legacy return contract.
+     */
+    public Resolution resolveCovariantReturn(
+            String internalOwner, String srgName, String descriptor) {
+        if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("m_")) {
+            return unresolved(internalOwner, srgName, descriptor,
+                    "Not a vanilla SRG method call");
+        }
+        var legacy = srg.resolveWithNamedOwner(
+                internalOwner.replace('/', '.'), srgName, descriptor, mojmap);
+        if (legacy.status() != LegacySrgIndex.ResolutionStatus.RESOLVED
+                || legacy.matches().size() != 1
+                || legacy.matches().getFirst().owners().isEmpty()) {
+            return unresolved(internalOwner, srgName, descriptor,
+                    "Legacy mapping missing or ambiguous");
+        }
+        var match = legacy.matches().getFirst();
+        List<ProguardMappingReader.MethodMapping> named = mojmap
+                .findByObfuscated(match.owners().getFirst(), match.sourceName()).stream()
+                .filter(candidate -> parametersMatch(candidate.parameters(), descriptor))
+                .toList();
+        if (named.size() != 1) {
+            return unresolved(internalOwner, srgName, descriptor,
+                    "Mojang named identity is missing or ambiguous");
+        }
+
+        String canonicalName = named.getFirst().namedName();
+        Type[] sourceArguments = Type.getArgumentTypes(descriptor);
+        Type sourceReturn = Type.getReturnType(descriptor);
+        var candidates = target.searchNamedMethods(
+                        internalOwner.replace('/', '.'), canonicalName).candidates().stream()
+                .filter(candidate -> java.util.Arrays.equals(
+                        sourceArguments, Type.getArgumentTypes(candidate.descriptor())))
+                .filter(candidate -> isAssignableReturn(
+                        sourceReturn, Type.getReturnType(candidate.descriptor())))
+                .toList();
+        if (candidates.size() != 1) {
+            return unresolved(internalOwner, srgName, descriptor,
+                    "Canonical target with covariant return is "
+                            + (candidates.isEmpty() ? "missing" : "ambiguous"));
+        }
+        String symbol = candidates.getFirst().symbol();
+        int hash = symbol.indexOf('#');
+        int paren = symbol.indexOf('(', hash + 1);
+        if (hash < 0 || paren < 0) {
+            return unresolved(internalOwner, srgName, descriptor,
+                    "Malformed target symbol");
+        }
+        return new Resolution(symbol.substring(0, hash).replace('.', '/'),
+                symbol.substring(hash + 1, paren), symbol.substring(paren), true,
+                "Verified SRG -> Mojang named -> covariant target return identity");
+    }
+
+    private static boolean isAssignableReturn(Type source, Type target) {
+        if (source.equals(target)) return true;
+        if ((source.getSort() != Type.OBJECT && source.getSort() != Type.ARRAY)
+                || (target.getSort() != Type.OBJECT && target.getSort() != Type.ARRAY)) return false;
+        try {
+            ClassLoader loader = Thread.currentThread().getContextClassLoader();
+            if (loader == null) loader = Forge1192SrgRuntimeResolver.class.getClassLoader();
+            Class<?> sourceClass = Class.forName(source.getClassName(), false, loader);
+            Class<?> targetClass = Class.forName(target.getClassName(), false, loader);
+            return sourceClass.isAssignableFrom(targetClass);
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
+        }
+    }
+
     public FieldResolution resolveField(String internalOwner, String srgName, String descriptor) {
         if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("f_")) {
             return new FieldResolution(internalOwner, srgName, descriptor, false, "Not a vanilla SRG field");

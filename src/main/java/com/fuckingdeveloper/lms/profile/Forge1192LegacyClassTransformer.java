@@ -1621,6 +1621,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (resolved == null) {
                     resolved = SRG_RUNTIME_RESOLVER.get().resolve(call.owner, call.name, call.desc);
                 }
+                if (!resolved.resolved()) {
+                    resolved = SRG_RUNTIME_RESOLVER.get().resolveCovariantReturn(
+                            call.owner, call.name, call.desc);
+                }
                 if (!resolved.resolved()) continue;
                 if (!call.owner.equals(resolved.owner()) || !call.name.equals(resolved.name())
                         || !call.desc.equals(resolved.descriptor())) {
