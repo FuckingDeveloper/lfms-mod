@@ -96,10 +96,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
         rewrites += rewriteLegacyMaterialColorProperties(node);
+        rewrites += rewriteLegacyBlockPropertiesCopy(node);
         rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
+        rewrites += rewriteLegacyCreativeTabLookup(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
         rewrites += rewriteLegacyNamedItemConstruction(node);
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
@@ -779,6 +781,29 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     /**
+     * The target preserves the old partial Properties.copy contract under the
+     * explicit name ofLegacyCopy; ofFullCopy additionally copies behaviors the
+     * 1.19.2 method did not copy.
+     */
+    private static int rewriteLegacyBlockPropertiesCopy(ClassNode node) {
+        int rewrites = 0;
+        final String owner = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
+        final String descriptor = "(Lnet/minecraft/world/level/block/state/BlockBehaviour;)L" + owner + ";";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("m_60926_")
+                        || !call.desc.equals(descriptor)) continue;
+                call.name = "ofLegacyCopy";
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
      * Modern blocks require their registry key in Properties before the Block
      * superclass constructor runs. Adapt only constructors whose own bytecode
      * proves which String parameter becomes the legacy registry name.
@@ -796,7 +821,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
                         || !call.owner.equals(node.superName)
                         || !call.name.equals("<init>")
-                        || !call.desc.equals("(" + properties + ")V")) continue;
+                        || Type.getReturnType(call.desc).getSort() != Type.VOID
+                        || Type.getArgumentTypes(call.desc).length == 0
+                        || !Type.getArgumentTypes(call.desc)[Type.getArgumentTypes(call.desc).length - 1]
+                                .equals(Type.getType(properties))) continue;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
                 appendRegistryNameLoad(adaptation, registryName);
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
@@ -877,6 +905,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    /** Preserve legacy tab-intent propagation between items without claiming population support. */
+    private static int rewriteLegacyCreativeTabLookup(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals("net/minecraft/world/item/Item")
+                        || !call.name.equals("m_41471_")
+                        || !call.desc.equals("()Lnet/minecraft/world/item/CreativeModeTab;")) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                call.name = "legacyCreativeTab";
+                call.desc = "(Lnet/minecraft/world/item/Item;)Lnet/minecraft/world/item/CreativeModeTab;";
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
     /** Supply paired block-item ids before the modern Item constructor requires them. */
     private static int rewriteLegacyBlockItemConstruction(ClassNode node) {
         if (!declaresLegacyRegistryNameAccessor(node)) return 0;
@@ -891,8 +940,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.name.equals("<init>")
                         || !call.desc.equals(desc)) continue;
                 int propertiesLocal = method.maxLocals++;
+                int blockLocal = method.maxLocals++;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
+                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, blockLocal));
                 adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
@@ -901,6 +953,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item$Properties;)"
                                 + "Lnet/minecraft/world/item/Item$Properties;", false));
                 method.instructions.insertBefore(call, adaptation);
+                var association = new org.objectweb.asm.tree.InsnList();
+                association.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, blockLocal));
+                association.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, 0));
+                association.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "associateBlockItem",
+                        "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item;)V", false));
+                method.instructions.insert(call, association);
                 rewrites++;
             }
         }

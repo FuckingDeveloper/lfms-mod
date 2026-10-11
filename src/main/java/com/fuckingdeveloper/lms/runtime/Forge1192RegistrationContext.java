@@ -95,6 +95,27 @@ public final class Forge1192RegistrationContext {
         return modId;
     }
 
+    /** Find the authoritative staged identifier for a legacy-owned object by identity. */
+    public static java.util.Optional<Identifier> stagedIdentifier(Object value) {
+        Objects.requireNonNull(value, "value");
+        String modId = requireModId();
+        synchronized (PENDING) {
+            Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
+            if (byRegistry == null) return java.util.Optional.empty();
+            Identifier match = null;
+            for (List<PendingRegistration> registrations : byRegistry.values()) {
+                for (PendingRegistration registration : registrations) {
+                    if (registration.value() != value) continue;
+                    if (match != null && !match.equals(registration.name())) {
+                        throw new IllegalStateException("Legacy object is staged under multiple registry names");
+                    }
+                    match = registration.name();
+                }
+            }
+            return java.util.Optional.ofNullable(match);
+        }
+    }
+
     /**
      * Resolve an unqualified legacy registry name within the active mod's
      * namespace. Qualified names are kept qualified.

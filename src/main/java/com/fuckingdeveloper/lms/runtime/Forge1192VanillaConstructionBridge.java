@@ -166,6 +166,12 @@ public final class Forge1192VanillaConstructionBridge {
         }
     }
 
+    /** Preserve Block#asItem during staged legacy registration. */
+    public static void associateBlockItem(Block block, Item item) {
+        Forge1192RegistrationContext.requireActive();
+        Item.BY_BLOCK.put(block, item);
+    }
+
     /** Attach an explicitly named legacy item's modern registry key. */
     public static Item.Properties withItemId(Item.Properties properties, String legacyName) {
         net.minecraft.resources.Identifier id =
@@ -225,6 +231,22 @@ public final class Forge1192VanillaConstructionBridge {
     public static Optional<CreativeModeTab> legacyCreativeTabIntent(
             net.minecraft.resources.Identifier itemId) {
         return Optional.ofNullable(LEGACY_TABS_BY_ITEM_ID.get(itemId));
+    }
+
+    /**
+     * Recover a legacy item's recorded tab solely to propagate its construction
+     * intent to another item. This does not populate a modern creative tab.
+     */
+    public static CreativeModeTab legacyCreativeTab(Item item) {
+        net.minecraft.resources.Identifier id = Forge1192RegistrationContext.stagedIdentifier(item)
+                .or(() -> BuiltInRegistries.ITEM.getResourceKey(item).map(ResourceKey::identifier))
+                .orElseThrow(() -> new IllegalStateException(
+                        "Legacy creative-tab lookup has no authoritative item identifier"));
+        CreativeModeTab tab = LEGACY_TABS_BY_ITEM_ID.get(id);
+        if (tab == null) {
+            throw new IllegalStateException("No preserved legacy creative-tab intent for " + id);
+        }
+        return tab;
     }
 
     private static void rememberCreativeTab(Item.Properties properties,
