@@ -128,6 +128,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // otherwise a heuristic relocation can destroy the semantic evidence
         // required by a removed-API adapter.
         int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
+        rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         // Preserve the authoritative legacy identity while the direct source
         // superclass constructor is still visible. Later construction-shape
         // adapters may replace that owner and descriptor.
@@ -164,7 +165,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyForgeBuiltinFields(node);
         rewrites += rewriteLegacyForgeRegistries(node);
         rewrites += rewriteLegacyForgeRegistryKeys(node);
-        rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyTickEventFields(node);
         rewrites += rewriteLegacySpawnCheckSemantics(node);
         rewrites += rewriteLegacyIdentifierConstruction(node);
@@ -2470,26 +2470,29 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private static int rewriteLegacyEnvironmentFieldAccess(ClassNode node) {
         int rewrites = 0;
         for (var method : node.methods) {
-            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (!(insn instanceof FieldInsnNode field)) continue;
-                // Forge 1.19.2 exposed the physical distribution as the static
-                // FMLEnvironment.dist field. Current FML exposes it through
-                // getDist(); preserve the legacy read contract without inventing
-                // mutable field state.
-                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
-                        && field.owner.equals("net/neoforged/fml/loading/FMLEnvironment")
-                        && field.name.equals("dist")
-                        && (field.desc.equals("Lnet/neoforged/api/distmarker/Dist;")
-                            || field.desc.equals("Lnet/neoforged/neoforge/api/distmarker/Dist;"))) {
-                    MethodInsnNode getter = new MethodInsnNode(
-                            org.objectweb.asm.Opcodes.INVOKESTATIC,
-                            "net/neoforged/fml/loading/FMLEnvironment",
-                            "getDist",
-                            "()Lnet/neoforged/api/distmarker/Dist;",
-                            false);
-                    method.instructions.set(field, getter);
-                    rewrites++;
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof FieldInsnNode field) {
+                    // Match the exact source-era field before namespace projection:
+                    // Forge 1.19.2 exposed the physical distribution as the static
+                    // FMLEnvironment.dist field. Current FML exposes it through
+                    // getDist(); preserve the legacy read contract without inventing
+                    // mutable field state.
+                    if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                            && field.owner.equals("net/minecraftforge/fml/loading/FMLEnvironment")
+                            && field.name.equals("dist")
+                            && field.desc.equals("Lnet/minecraftforge/api/distmarker/Dist;")) {
+                        MethodInsnNode getter = new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "net/neoforged/fml/loading/FMLEnvironment",
+                                "getDist",
+                                "()Lnet/neoforged/api/distmarker/Dist;",
+                                false);
+                        method.instructions.set(field, getter);
+                        rewrites++;
+                    }
                 }
+                insn = next;
             }
         }
         return rewrites;
