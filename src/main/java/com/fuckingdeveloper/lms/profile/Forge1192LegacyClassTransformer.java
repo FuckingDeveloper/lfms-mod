@@ -53,6 +53,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/entity/vehicle/AbstractMinecart", "net/minecraft/world/entity/vehicle/minecart/AbstractMinecart"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Boat", "net/minecraft/world/entity/vehicle/boat/Boat"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Minecart", "net/minecraft/world/entity/vehicle/minecart/Minecart"),
+            java.util.Map.entry("net/minecraftforge/client/event/RenderHighlightEvent$Block", "com/fuckingdeveloper/lms/runtime/event/LegacyRenderHighlightBlockEvent"),
             java.util.Map.entry("net/minecraft/util/LazyLoadedValue", "com/fuckingdeveloper/lms/runtime/LegacyLazyLoadedValue"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterial"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterials"),
@@ -112,6 +113,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyNamedItemConstruction(node);
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
+        rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -1252,6 +1254,46 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
             }
         }
+    }
+
+    /**
+     * Forge 1.19.2 exposed immediate render buffers from its block-highlight
+     * event. Restrict the deferred-buffer adapter to methods whose exact ABI
+     * identifies them as block-highlight handlers; MultiBufferSource is used
+     * elsewhere and must not be globally relocated.
+     */
+    private static int rewriteLegacyBlockHighlightEvent(ClassNode node) {
+        final String legacyEvent = "net/minecraftforge/client/event/RenderHighlightEvent$Block";
+        final String legacyBuffers = "net/minecraft/client/renderer/MultiBufferSource";
+        final String adaptedEvent =
+                "com/fuckingdeveloper/lms/runtime/event/LegacyRenderHighlightBlockEvent";
+        final String adaptedBuffers =
+                "com/fuckingdeveloper/lms/runtime/render/LegacyMultiBufferSource";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if (!method.desc.contains("L" + legacyEvent + ";")) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.owner.equals(legacyEvent)
+                        && call.name.equals("getMultiBufferSource")
+                        && call.desc.equals("()L" + legacyBuffers + ";")) {
+                    call.owner = adaptedEvent;
+                    call.desc = "()L" + adaptedBuffers + ";";
+                    rewrites++;
+                    continue;
+                }
+                if (call.owner.equals(legacyBuffers)
+                        && call.name.equals("m_6299_")
+                        && call.desc.equals("(Lnet/minecraft/client/renderer/RenderType;)"
+                                + "Lcom/mojang/blaze3d/vertex/VertexConsumer;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL);
+                    call.owner = adaptedBuffers;
+                    call.itf = false;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
     }
 
     private static int rewriteLegacyColorCallbackDescriptors(ClassNode node) {

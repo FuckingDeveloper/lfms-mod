@@ -5,6 +5,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -22,6 +23,8 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
+import com.fuckingdeveloper.lms.runtime.event.LegacyRenderHighlightBlockEvent;
 
 /**
  * Semantic adapters for Forge 1.19.2 event-bus contracts that changed in NeoForge.
@@ -98,9 +101,27 @@ public final class Forge1192EventBusBridge {
                     event -> registerLegacyFuelComponents(event, (Consumer) listener));
             return;
         }
+        if (eventType == LegacyRenderHighlightBlockEvent.class) {
+            bus.addListener(priority, false, ExtractBlockOutlineRenderStateEvent.class,
+                    event -> registerLegacyBlockHighlightRenderer(event, (Consumer) listener));
+            return;
+        }
         for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
             bus.addListener(priority, false, (Class) concreteType, (Consumer) listener);
         }
+    }
+
+    private static void registerLegacyBlockHighlightRenderer(
+            ExtractBlockOutlineRenderStateEvent event,
+            Consumer<LegacyRenderHighlightBlockEvent> listener) {
+        var target = event.getHitResult();
+        var camera = event.getCamera();
+        event.addCustomRenderer((renderState, submitter, poseStack, levelRenderState) -> {
+            var legacy = new LegacyRenderHighlightBlockEvent(target, camera, poseStack, submitter);
+            listener.accept(legacy);
+            legacy.flushGeometry();
+            return legacy.isCanceled();
+        });
     }
 
     private static void registerLegacyFuelComponents(
