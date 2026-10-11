@@ -3142,6 +3142,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem";
         if (value.equals("net/minecraft/world/level/block/LeavesBlock"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyLeavesBlock";
+        if (value.equals("net/minecraft/world/level/block/FenceGateBlock"))
+            return "com/fuckingdeveloper/lms/runtime/block/LegacyFenceGateBlock";
         if (value.equals("net/minecraft/world/item/SignItem"))
             return "net/minecraft/world/item/StandingAndWallBlockItem";
         if (value.equals("net/minecraft/world/level/block/WoodButtonBlock"))
@@ -3220,6 +3222,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/fluids/capability/templates/FluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank")
                 .replace("net/minecraft/world/item/ArmorItem", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem")
                 .replace("net/minecraft/world/level/block/LeavesBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyLeavesBlock")
+                .replace("net/minecraft/world/level/block/FenceGateBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyFenceGateBlock")
                 .replace("net/minecraft/world/level/block/state/properties/DirectionProperty", "net/minecraft/world/level/block/state/properties/EnumProperty")
                 .replace("net/minecraft/client/resources/model/BakedModel", "com/fuckingdeveloper/lms/runtime/render/LegacyBakedModel")
                 .replace("net/minecraftforge/client/model/data/", "net/neoforged/neoforge/model/data/")
