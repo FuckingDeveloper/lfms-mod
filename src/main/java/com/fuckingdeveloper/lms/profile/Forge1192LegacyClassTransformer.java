@@ -1620,6 +1620,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof FieldInsnNode field)) continue;
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/sounds/SoundEvents")
+                        && field.desc.equals("Lnet/minecraft/sounds/SoundEvent;")) {
+                    var resolved = SRG_RUNTIME_RESOLVER.get().resolveRelocatedField(
+                            field.owner, field.name, field.desc, field.owner,
+                            "Lnet/minecraft/core/Holder;");
+                    if (resolved.resolved()) {
+                        field.owner = resolved.owner();
+                        field.name = resolved.name();
+                        field.desc = resolved.descriptor();
+                        var unwrap = new org.objectweb.asm.tree.InsnList();
+                        unwrap.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEINTERFACE,
+                                "net/minecraft/core/Holder", "value", "()Ljava/lang/Object;", true));
+                        unwrap.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,
+                                "net/minecraft/sounds/SoundEvent"));
+                        method.instructions.insert(field, unwrap);
+                        rewrites++;
+                        continue;
+                    }
+                }
                 String mobEffect = field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
                         && field.owner.equals("net/minecraft/world/effect/MobEffects")
                         && field.desc.equals("Lnet/minecraft/world/effect/MobEffect;")
