@@ -53,8 +53,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/entity/vehicle/AbstractMinecart", "net/minecraft/world/entity/vehicle/minecart/AbstractMinecart"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Boat", "net/minecraft/world/entity/vehicle/boat/Boat"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Minecart", "net/minecraft/world/entity/vehicle/minecart/Minecart"),
-            java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "net/minecraft/world/item/equipment/ArmorMaterial"),
-            java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "net/minecraft/world/item/equipment/ArmorMaterials"),
+            java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterial"),
+            java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterials"),
             java.util.Map.entry("net/minecraft/world/level/GameRules", "net/minecraft/world/level/gamerules/GameRules"),
             java.util.Map.entry("net/minecraft/world/level/chunk/ChunkStatus", "net/minecraft/world/level/chunk/status/ChunkStatus"),
             java.util.Map.entry("net/minecraft/world/level/material/MaterialColor", "net/minecraft/world/level/material/MapColor"),
@@ -126,7 +126,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyIdentifierConstruction(node);
         rewrites += rewriteLegacyBlockEntityTypeConstruction(node);
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
-        rewrites += rewriteLegacyArmorConstructorDescriptors(node);
         rewrites += rewriteSemanticAdapters(node);
         rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyNoRemovedForgeClientTypes(node);
@@ -2296,31 +2295,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * TransientCraftingContainer is its vanilla concrete successor. Only migrate
      * construction when the target runtime proves an identical public constructor.
      */
-    /**
-     * ArmorMaterial no longer exists in the target runtime. After ArmorItem is
-     * structurally redirected to LegacyArmorItem, erase only that constructor
-     * parameter to Object. The runtime value remains an opaque legacy token.
-     */
-    private static int rewriteLegacyArmorConstructorDescriptors(ClassNode node) {
-        final String owner = "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem";
-        final String legacy = "(Lnet/minecraft/world/item/ArmorMaterial;Lnet/minecraft/world/entity/EquipmentSlot;Lnet/minecraft/world/item/Item$Properties;)V";
-        final String erased = "(Ljava/lang/Object;Lnet/minecraft/world/entity/EquipmentSlot;Lnet/minecraft/world/item/Item$Properties;)V";
-        int rewrites = 0;
-        for (var method : node.methods) {
-            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (insn instanceof MethodInsnNode call
-                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
-                        && call.owner.equals(owner)
-                        && call.name.equals("<init>")
-                        && call.desc.equals(legacy)) {
-                    call.desc = erased;
-                    rewrites++;
-                }
-            }
-        }
-        return rewrites;
-    }
-
     private static int rewriteLegacyBlockEntityTypeConstruction(ClassNode node) {
         int rewrites = 0;
         final String owner = "net/minecraft/world/level/block/entity/BlockEntityType";

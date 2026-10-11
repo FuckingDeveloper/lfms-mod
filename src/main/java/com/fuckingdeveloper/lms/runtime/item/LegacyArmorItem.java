@@ -12,16 +12,16 @@ import net.minecraft.world.item.Item;
  * guessing.</p>
  */
 public class LegacyArmorItem extends Item {
-    private final Object legacyMaterial;
+    private final LegacyArmorMaterial legacyMaterial;
     private final EquipmentSlot legacySlot;
 
-    public LegacyArmorItem(Object material, EquipmentSlot slot, Item.Properties properties) {
+    public LegacyArmorItem(LegacyArmorMaterial material, EquipmentSlot slot, Item.Properties properties) {
         super(properties);
         this.legacyMaterial = material;
         this.legacySlot = slot;
     }
 
-    protected final Object lmsLegacyObject() {
+    protected final LegacyArmorMaterial lmsLegacyMaterial() {
         return legacyMaterial;
     }
 
