@@ -5,6 +5,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
@@ -20,6 +21,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
+import net.minecraft.server.packs.resources.ReloadableResourceManager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CookingFuel;
 import net.minecraft.world.level.storage.loot.providers.number.floats.ResolvableFloat;
@@ -64,6 +66,30 @@ public final class Forge1192EventBusBridge {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
         String hash = Integer.toUnsignedString(listener.getClass().getName().hashCode(), 16);
         String base = "legacy_reload/" + hash;
+        Identifier key = Identifier.fromNamespaceAndPath(modId, base);
+        int suffix = 1;
+        while (event.getRegistry().containsKey(key)) {
+            key = Identifier.fromNamespaceAndPath(modId, base + "_" + suffix++);
+        }
+        event.addListener(key, listener);
+    }
+
+    /** Stage a source-era direct client reload-listener mutation into the target event. */
+    public static void addClientReloadListener(
+            ReloadableResourceManager ignored, PreparableReloadListener listener) {
+        String modId = Forge1192LifecycleBridge.requireActive().modId();
+        Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
+                net.neoforged.bus.api.EventPriority.NORMAL, false,
+                AddClientReloadListenersEvent.class,
+                event -> addNamedClientReloadListener(event, listener, modId));
+    }
+
+    private static void addNamedClientReloadListener(
+            AddClientReloadListenersEvent event,
+            PreparableReloadListener listener,
+            String modId) {
+        String hash = Integer.toUnsignedString(listener.getClass().getName().hashCode(), 16);
+        String base = "legacy_client_reload/" + hash;
         Identifier key = Identifier.fromNamespaceAndPath(modId, base);
         int suffix = 1;
         while (event.getRegistry().containsKey(key)) {

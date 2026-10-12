@@ -162,6 +162,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
         rewrites += rewriteLegacyBlockRenderLayerRegistration(node);
+        rewrites += rewriteLegacyDirectClientReloadRegistration(node);
         rewrites += rewriteLegacyReloadListenerRegistration(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
@@ -1449,6 +1450,34 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 call.name = "addReloadListener";
                 call.desc = "(Lnet/neoforged/neoforge/event/AddServerReloadListenersEvent;"
                         + listener + ")V";
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 permitted direct client resource-manager mutation during
+     * client setup. NeoForge 26.3 requires named listeners to be contributed
+     * through AddClientReloadListenersEvent before it snapshots the manager.
+     */
+    private static int rewriteLegacyDirectClientReloadRegistration(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals("net/minecraft/server/packs/resources/ReloadableResourceManager")
+                        || !call.name.equals("m_7217_")
+                        || !call.desc.equals("(Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V")) {
+                    continue;
+                }
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                call.name = "addClientReloadListener";
+                call.desc = "(Lnet/minecraft/server/packs/resources/ReloadableResourceManager;"
+                        + "Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V";
                 call.itf = false;
                 rewrites++;
             }
