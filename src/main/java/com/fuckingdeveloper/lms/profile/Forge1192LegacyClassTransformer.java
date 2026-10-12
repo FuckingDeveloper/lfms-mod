@@ -152,6 +152,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
+        rewrites += rewriteLegacyComposterRegistrations(node);
         rewrites += rewriteLegacyMixinPropertyAccessors(node);
         rewrites += rewriteLegacyRecipesUpdatedHandlers(node);
         rewrites += rewriteLegacyEarlyClientInitialization(node);
@@ -1743,6 +1744,44 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
             }
             rewrites++;
+        }
+        return rewrites;
+    }
+
+    /**
+     * Minecraft 1.19.2 exposed compostability through ComposterBlock's mutable
+     * item-to-chance map.  Minecraft 26.3 stores the equivalent intent in the
+     * item's default COMPOSTABLE component.  Adapt only the proven statement
+     * shape whose map-put return value is discarded; reads and value-dependent
+     * mutations remain fail-closed.
+     */
+    private static int rewriteLegacyComposterRegistrations(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode put)
+                        || put.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                        || !put.owner.equals("it/unimi/dsi/fastutil/objects/Object2FloatMap")
+                        || !put.name.equals("put")
+                        || !put.desc.equals("(Ljava/lang/Object;F)F")
+                        || nextExecutable(put) == null
+                        || nextExecutable(put).getOpcode() != org.objectweb.asm.Opcodes.POP) continue;
+                var chance = previousExecutable(put);
+                var item = chance == null ? null : previousExecutable(chance);
+                var map = item == null ? null : previousExecutable(item);
+                if (!(map instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals("net/minecraft/world/level/block/ComposterBlock")
+                        || !field.name.equals("f_51914_")
+                        || !field.desc.equals("Lit/unimi/dsi/fastutil/objects/Object2FloatMap;")) continue;
+                method.instructions.remove(field);
+                put.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                put.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ComposterBridge";
+                put.name = "registerCompostable";
+                put.desc = "(Ljava/lang/Object;F)F";
+                put.itf = false;
+                rewrites++;
+            }
         }
         return rewrites;
     }
