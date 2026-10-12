@@ -106,6 +106,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private volatile LegacyClassTransformer.ClassBytesLookup managedClassBytes;
     private final java.util.Map<String, Boolean> configuredFeatureInitializers =
             new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, Boolean> itemComponentInitializers =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     public void bindManagedClassBytes(LegacyClassTransformer.ClassBytesLookup lookup) {
@@ -161,6 +163,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockItemConstruction(node);
         rewrites += rewriteLegacyNamedItemConstruction(node);
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
+        rewrites += rewriteEarlyItemStackConsumers(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
@@ -3620,6 +3623,220 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             // Missing/corrupt target ABI evidence must fail closed.
         }
         return false;
+    }
+
+    /**
+     * Item components are bound only after the target item registry phase.
+     * Preserve exact linear {@code consumer(new ItemStack(itemLike), id)}
+     * statements by deferring the consumer, never by manufacturing a stack
+     * with an incomplete component prototype.
+     */
+    private int rewriteEarlyItemStackConsumers(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (!(insn instanceof MethodInsnNode constructor)
+                        || constructor.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !constructor.owner.equals("net/minecraft/world/item/ItemStack")
+                        || !constructor.name.equals("<init>")
+                        || !constructor.desc.equals("(Lnet/minecraft/world/level/ItemLike;)V")) {
+                    insn = next;
+                    continue;
+                }
+                var itemProducer = previousExecutable(constructor);
+                var duplicate = itemProducer == null ? null : previousExecutable(itemProducer);
+                var allocation = duplicate == null ? null : previousExecutable(duplicate);
+                if (!(itemProducer instanceof FieldInsnNode itemField)
+                        || itemField.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !(duplicate instanceof org.objectweb.asm.tree.InsnNode)
+                        || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP
+                        || !(allocation instanceof TypeInsnNode type)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !type.desc.equals("net/minecraft/world/item/ItemStack")) {
+                    insn = next;
+                    continue;
+                }
+                MethodInsnNode identifierConstructor = null;
+                MethodInsnNode consumer = null;
+                int executable = 0;
+                for (var cursor = nextExecutable(constructor);
+                     cursor != null && executable++ < 10; cursor = nextExecutable(cursor)) {
+                    if (cursor instanceof org.objectweb.asm.tree.JumpInsnNode
+                            || cursor instanceof org.objectweb.asm.tree.TableSwitchInsnNode
+                            || cursor instanceof org.objectweb.asm.tree.LookupSwitchInsnNode) break;
+                    if (cursor instanceof MethodInsnNode call
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && call.owner.equals("net/minecraft/resources/ResourceLocation")
+                            && call.name.equals("<init>")) {
+                        identifierConstructor = call;
+                        continue;
+                    }
+                    if (identifierConstructor != null && cursor instanceof MethodInsnNode call
+                            && (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                                || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE)
+                            && call.desc.equals("(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/resources/ResourceLocation;)V")) {
+                        consumer = call;
+                    }
+                    if (consumer != null) break;
+                }
+                if (consumer == null || !registrationFreeConsumer(node, consumer)) {
+                    insn = next;
+                    continue;
+                }
+                method.instructions.remove(allocation);
+                method.instructions.remove(duplicate);
+                method.instructions.remove(constructor);
+                method.instructions.insertBefore(consumer, new LdcInsnNode(consumer.name));
+                consumer.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                consumer.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                consumer.name = "deferItemStackConsumer";
+                consumer.desc = "(Ljava/lang/Object;Lnet/minecraft/world/level/ItemLike;"
+                        + "Lnet/minecraft/resources/ResourceLocation;Ljava/lang/String;)V";
+                consumer.itf = false;
+                rewrites++;
+                insn = next;
+            }
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                        || !call.desc.equals("(Lnet/minecraft/world/item/Item;)V")
+                        || !managedStaticItemStackConsumer(call)) continue;
+                var metadata = new org.objectweb.asm.tree.InsnList();
+                metadata.add(new LdcInsnNode(Type.getObjectType(call.owner)));
+                metadata.add(new LdcInsnNode(call.name));
+                method.instructions.insertBefore(call, metadata);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                call.name = "deferStaticItemStackConsumer";
+                call.desc = "(Lnet/minecraft/world/item/Item;Ljava/lang/Class;Ljava/lang/String;)V";
+                call.itf = false;
+                rewrites++;
+            }
+            if (!method.desc.equals(
+                    "(Lnet/minecraftforge/fml/event/lifecycle/FMLCommonSetupEvent;)V")) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE)
+                        || !call.desc.equals("()V")
+                        || !usesItemStackDefaults(call.owner, call.name, call.desc)) continue;
+                var metadata = new org.objectweb.asm.tree.InsnList();
+                metadata.add(new LdcInsnNode(Type.getObjectType(call.owner)));
+                metadata.add(new LdcInsnNode(call.name));
+                method.instructions.insertBefore(call, metadata);
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                call.name = "deferItemComponentInitializer";
+                call.desc = "(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;)V";
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private boolean usesItemStackDefaults(String owner, String name, String descriptor) {
+        if (owner.startsWith("net/minecraft/") || owner.startsWith("net/minecraftforge/")) return false;
+        String key = owner + '#' + name + descriptor;
+        return itemComponentInitializers.computeIfAbsent(key,
+                ignored -> usesItemStackDefaults(owner, name, descriptor,
+                        new java.util.HashSet<>(), 0));
+    }
+
+    private boolean usesItemStackDefaults(
+            String owner, String name, String descriptor, java.util.Set<String> visiting, int depth) {
+        if (depth > 12 || owner.startsWith("java/") || owner.startsWith("net/minecraft/")) return false;
+        String key = owner + '#' + name + descriptor;
+        if (!visiting.add(key)) return false;
+        try {
+            byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(owner);
+            if (bytes == null) return false;
+            ClassNode candidate = new ClassNode();
+            new ClassReader(bytes).accept(candidate, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            var methods = candidate.methods.stream()
+                    .filter(method -> method.name.equals(name) && method.desc.equals(descriptor))
+                    .toList();
+            if (methods.size() != 1) return false;
+            for (var insn = methods.getFirst().instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.owner.equals("net/minecraft/world/item/ItemStack")
+                        && call.name.equals("<init>")) return true;
+                Type returnType = Type.getReturnType(call.desc);
+                if ((returnType.getSort() == Type.OBJECT
+                        && returnType.getInternalName().equals("net/minecraft/world/item/ItemStack"))
+                        || (returnType.getSort() == Type.ARRAY
+                            && returnType.getElementType().getSort() == Type.OBJECT
+                            && returnType.getElementType().getInternalName().equals(
+                            "net/minecraft/world/item/ItemStack"))) return true;
+                if (usesItemStackDefaults(call.owner, call.name, call.desc, visiting, depth + 1)) return true;
+            }
+            return false;
+        } catch (java.io.IOException | RuntimeException ignored) {
+            return false;
+        } finally {
+            visiting.remove(key);
+        }
+    }
+
+    private boolean managedStaticItemStackConsumer(MethodInsnNode call) {
+        try {
+            byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(call.owner);
+            if (bytes == null) return false;
+            ClassNode owner = new ClassNode();
+            new ClassReader(bytes).accept(owner, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            var targets = owner.methods.stream()
+                    .filter(method -> method.name.equals(call.name) && method.desc.equals(call.desc)
+                            && (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0)
+                    .toList();
+            if (targets.size() != 1) return false;
+            var target = targets.getFirst();
+            boolean consumesParameterAsStack = false;
+            for (var insn = target.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode constructor)
+                        || constructor.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !constructor.owner.equals("net/minecraft/world/item/ItemStack")
+                        || !constructor.name.equals("<init>")
+                        || !constructor.desc.equals("(Lnet/minecraft/world/level/ItemLike;)V")) continue;
+                var item = previousExecutable(constructor);
+                if (item instanceof org.objectweb.asm.tree.VarInsnNode load
+                        && load.getOpcode() == org.objectweb.asm.Opcodes.ALOAD && load.var == 0) {
+                    consumesParameterAsStack = true;
+                }
+            }
+            if (!consumesParameterAsStack) return false;
+            for (var insn = target.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode nested && nested.name.equals("register")) return false;
+            }
+            return true;
+        } catch (java.io.IOException | RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    private boolean registrationFreeConsumer(ClassNode current, MethodInsnNode call) {
+        try {
+            ClassNode owner = current;
+            if (!call.owner.equals(current.name)) {
+                byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(call.owner);
+                if (bytes == null) return false;
+                owner = new ClassNode();
+                new ClassReader(bytes).accept(owner, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            }
+            var target = owner.methods.stream()
+                    .filter(method -> method.name.equals(call.name) && method.desc.equals(call.desc))
+                    .toList();
+            if (target.size() != 1) return false;
+            for (var insn = target.getFirst().instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode nested
+                        && (nested.name.equals("register")
+                            || nested.owner.equals("com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext"))) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (java.io.IOException | RuntimeException ignored) {
+            return false;
+        }
     }
 
     private static int deferLegacyMinecraftFieldInitialization(

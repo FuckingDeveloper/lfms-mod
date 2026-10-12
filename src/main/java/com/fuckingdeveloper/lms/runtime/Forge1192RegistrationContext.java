@@ -13,6 +13,11 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import java.util.Iterator;
 import net.neoforged.neoforge.registries.RegisterEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.DefaultDataComponentsBoundEvent;
+import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Scoped bridge between a legacy registration callback and NeoForge's
@@ -24,8 +29,18 @@ public final class Forge1192RegistrationContext {
     private static final Map<String, Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>>> PENDING =
             new HashMap<>();
     private static final Map<String, Set<ResourceKey<? extends Registry<?>>>> COMPLETED = new HashMap<>();
+    private static final Map<String, List<PendingItemStackAction>> PENDING_ITEM_STACK_CONSUMERS =
+            new HashMap<>();
+    private static final Set<String> ITEM_STACK_FLUSH_REGISTERED = new HashSet<>();
 
     private record PendingRegistration(Identifier name, Object value) {}
+    private interface PendingItemStackAction {}
+    private record PendingItemStackConsumer(
+            Object receiver, ItemLike item, Identifier id, String method) implements PendingItemStackAction {}
+    private record PendingStaticItemStackConsumer(
+            Item item, Class<?> owner, String method) implements PendingItemStackAction {}
+    private record PendingItemComponentInitializer(
+            Object receiver, Class<?> owner, String method) implements PendingItemStackAction {}
 
     private Forge1192RegistrationContext() {}
 
@@ -253,6 +268,175 @@ public final class Forge1192RegistrationContext {
                 if (registrations.isEmpty()) byRegistry.remove(event.getRegistryKey());
                 if (byRegistry.isEmpty()) PENDING.remove(modId);
             }
+        }
+    }
+
+    /**
+     * Delay an ItemStack-consuming side effect until target item components
+     * are bound. The item itself remains registered in the proper item phase.
+     */
+    public static void deferItemStackConsumer(
+            Object receiver, ItemLike item, Identifier id, String method) {
+        Objects.requireNonNull(receiver, "receiver");
+        Objects.requireNonNull(item, "item");
+        Objects.requireNonNull(id, "id");
+        Objects.requireNonNull(method, "method");
+        String modId = requireModId();
+        RegisterEvent event = CURRENT_EVENT.get();
+        if (event == null || !event.getRegistryKey().equals(Registries.ITEM)) {
+            invokeItemStackConsumer(new PendingItemStackConsumer(receiver, item, id, method));
+            return;
+        }
+        enqueueItemStackAction(modId, new PendingItemStackConsumer(receiver, item, id, method));
+    }
+
+    /** Delay a proven static ItemStack consumer until item components are bound. */
+    public static void deferStaticItemStackConsumer(Item item, Class<?> owner, String method) {
+        Objects.requireNonNull(item, "item");
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(method, "method");
+        String modId = requireModId();
+        var action = new PendingStaticItemStackConsumer(item, owner, method);
+        RegisterEvent event = CURRENT_EVENT.get();
+        if (event == null || !event.getRegistryKey().equals(Registries.ITEM)) {
+            invokeItemStackAction(action);
+            return;
+        }
+        enqueueItemStackAction(modId, action);
+    }
+
+    /**
+     * Delay a proven no-arg initializer whose owned call graph consumes
+     * ItemStack defaults. Minecraft 26.3 binds those defaults during data
+     * loading, not during CommonSetup as legacy Forge code assumed.
+     */
+    public static void deferItemComponentInitializer(
+            Object receiver, Class<?> owner, String method) {
+        Objects.requireNonNull(receiver, "receiver");
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(method, "method");
+        String modId = requireModId();
+        var action = new PendingItemComponentInitializer(receiver, owner, method);
+        if (net.minecraft.world.item.Items.AIR.builtInRegistryHolder().areComponentsBound()) {
+            invokeItemStackAction(action);
+            return;
+        }
+        enqueueItemStackAction(modId, action);
+    }
+
+    private static void enqueueItemStackAction(String modId, PendingItemStackAction action) {
+        synchronized (PENDING) {
+            PENDING_ITEM_STACK_CONSUMERS.computeIfAbsent(modId, ignored -> new ArrayList<>())
+                    .add(action);
+            if (ITEM_STACK_FLUSH_REGISTERED.add(modId)) {
+                NeoForge.EVENT_BUS.addListener((DefaultDataComponentsBoundEvent event) -> {
+                    if (event.shouldUpdateStaticData()) flushItemStackConsumersScoped(modId);
+                });
+            }
+        }
+    }
+
+    private static void flushItemStackConsumersScoped(String modId) {
+        try (var lifecycle = Forge1192LifecycleBridge.enterRecorded(modId);
+             var ignored = enterMod(modId)) {
+            flushItemStackConsumers(modId);
+        } catch (RuntimeException | Error e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to close deferred ItemStack consumer scope", e);
+        }
+    }
+
+    private static void flushItemStackConsumers(String modId) {
+        while (true) {
+            PendingItemStackAction pending;
+            synchronized (PENDING) {
+                List<PendingItemStackAction> consumers = PENDING_ITEM_STACK_CONSUMERS.get(modId);
+                if (consumers == null || consumers.isEmpty()) return;
+                pending = consumers.getFirst();
+            }
+            invokeItemStackAction(pending);
+            synchronized (PENDING) {
+                List<PendingItemStackAction> consumers = PENDING_ITEM_STACK_CONSUMERS.get(modId);
+                if (consumers == null || consumers.isEmpty() || consumers.getFirst() != pending) {
+                    throw new IllegalStateException("Legacy deferred ItemStack queue changed during flush for "
+                            + modId);
+                }
+                consumers.removeFirst();
+                if (consumers.isEmpty()) PENDING_ITEM_STACK_CONSUMERS.remove(modId);
+            }
+        }
+    }
+
+    private static void invokeItemStackAction(PendingItemStackAction pending) {
+        if (pending instanceof PendingItemStackConsumer consumer) {
+            invokeItemStackConsumer(consumer);
+        } else if (pending instanceof PendingStaticItemStackConsumer consumer) {
+            invokeStaticItemStackConsumer(consumer);
+        } else if (pending instanceof PendingItemComponentInitializer initializer) {
+            invokeItemComponentInitializer(initializer);
+        } else {
+            throw new IllegalStateException("Unknown deferred ItemStack action: " + pending.getClass().getName());
+        }
+    }
+
+    private static void invokeItemStackConsumer(PendingItemStackConsumer pending) {
+        Class<?> type = pending.receiver().getClass();
+        java.lang.reflect.Method target = null;
+        for (Class<?> current = type; current != null && target == null; current = current.getSuperclass()) {
+            try {
+                target = current.getDeclaredMethod(
+                        pending.method(), ItemStack.class, Identifier.class);
+            } catch (NoSuchMethodException ignored) {
+                // Continue through the proven receiver hierarchy.
+            }
+        }
+        if (target == null) {
+            throw new IllegalStateException("Deferred ItemStack consumer not found: "
+                    + type.getName() + "#" + pending.method());
+        }
+        try {
+            target.setAccessible(true);
+            target.invoke(pending.receiver(), new ItemStack(pending.item()), pending.id());
+        } catch (ReflectiveOperationException e) {
+            Throwable cause = e instanceof java.lang.reflect.InvocationTargetException invocation
+                    && invocation.getCause() != null ? invocation.getCause() : e;
+            throw new IllegalStateException("Deferred ItemStack consumer failed: "
+                    + type.getName() + "#" + pending.method(), cause);
+        }
+    }
+
+    private static void invokeStaticItemStackConsumer(PendingStaticItemStackConsumer pending) {
+        try {
+            java.lang.reflect.Method target = pending.owner().getDeclaredMethod(pending.method(), Item.class);
+            if (!java.lang.reflect.Modifier.isStatic(target.getModifiers()) || target.getReturnType() != void.class) {
+                throw new IllegalStateException("Deferred ItemStack consumer has changed shape: " + target);
+            }
+            target.setAccessible(true);
+            target.invoke(null, pending.item());
+        } catch (ReflectiveOperationException e) {
+            Throwable cause = e instanceof java.lang.reflect.InvocationTargetException invocation
+                    && invocation.getCause() != null ? invocation.getCause() : e;
+            throw new IllegalStateException("Deferred static ItemStack consumer failed: "
+                    + pending.owner().getName() + "#" + pending.method(), cause);
+        }
+    }
+
+    private static void invokeItemComponentInitializer(PendingItemComponentInitializer pending) {
+        try {
+            java.lang.reflect.Method target = pending.owner().getDeclaredMethod(pending.method());
+            if (java.lang.reflect.Modifier.isStatic(target.getModifiers())
+                    || target.getReturnType() != void.class) {
+                throw new IllegalStateException("Deferred item-component initializer has changed shape: "
+                        + target);
+            }
+            target.setAccessible(true);
+            target.invoke(pending.receiver());
+        } catch (ReflectiveOperationException e) {
+            Throwable cause = e instanceof java.lang.reflect.InvocationTargetException invocation
+                    && invocation.getCause() != null ? invocation.getCause() : e;
+            throw new IllegalStateException("Deferred item-component initializer failed: "
+                    + pending.owner().getName() + "#" + pending.method(), cause);
         }
     }
 
