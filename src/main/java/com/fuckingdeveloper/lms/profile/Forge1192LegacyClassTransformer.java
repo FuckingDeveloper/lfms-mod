@@ -67,6 +67,23 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemOverrides", "com/fuckingdeveloper/lms/runtime/render/LegacyItemOverrides"),
             java.util.Map.entry("net/minecraft/client/gui/screens/SoundOptionsScreen", "net/minecraft/client/gui/screens/options/SoundOptionsScreen"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderType"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderType$CompositeRenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyCompositeRenderType"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderType$CompositeState", "com/fuckingdeveloper/lms/runtime/render/LegacyCompositeState"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderType$CompositeState$CompositeStateBuilder", "com/fuckingdeveloper/lms/runtime/render/LegacyCompositeState$Builder"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$CullStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$CullStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$DepthTestStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$DepthTestStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$EmptyTextureStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$EmptyTextureStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$LayeringStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$LayeringStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$LightmapStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$LightmapStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$LineStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$LineStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$OutputStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$OutputStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$OverlayStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$OverlayStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$ShaderStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$ShaderStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$TextureStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$TextureStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$TexturingStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$TexturingStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$TransparencyStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$TransparencyStateShard"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$WriteMaskStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$WriteMaskStateShard"),
             java.util.Map.entry("com/mojang/math/Vector3f", "org/joml/Vector3f"),
             java.util.Map.entry("com/mojang/math/Quaternion", "org/joml/Quaternionf"),
             java.util.Map.entry("net/minecraft/world/level/BlockAndTintGetter", "net/minecraft/client/renderer/block/BlockAndTintGetter"),
@@ -194,6 +211,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
         rewrites += rewriteEarlyItemStackConsumers(node);
         rewrites += rewriteLegacyItemStackConstruction(node);
+        rewrites += rewriteLegacyItemStackComparison(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
@@ -5676,6 +5694,28 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 method.instructions.set(init, factory);
                 rewrites++;
                 insn = factory.getNext();
+            }
+        }
+        return rewrites;
+    }
+
+    /** Source instance sameItem became the target static item-identity test. */
+    private static int rewriteLegacyItemStackComparison(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;
+                    insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals("net/minecraft/world/item/ItemStack")
+                        || !call.name.equals("m_41656_")
+                        || !call.desc.equals("(Lnet/minecraft/world/item/ItemStack;)Z")) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.name = "isSameItem";
+                call.desc = "(Lnet/minecraft/world/item/ItemStack;"
+                        + "Lnet/minecraft/world/item/ItemStack;)Z";
+                call.itf = false;
+                rewrites++;
             }
         }
         return rewrites;

@@ -8,12 +8,12 @@ import java.util.List;
 import java.util.Objects;
 
 /** Source-shaped identity for Minecraft 1.19.2 render types. */
-public final class LegacyRenderType {
+public class LegacyRenderType extends LegacyRenderStateShard {
     public enum Kind {
         SOLID, CUTOUT_MIPPED, CUTOUT, TRANSLUCENT, TRIPWIRE,
         ENTITY_CUTOUT, ENTITY_TRANSLUCENT_CULL, ENTITY_TRANSLUCENT,
         EYES, OUTLINE, CRUMBLING, TEXT, TEXT_SEE_THROUGH,
-        LEASH, WATER_MASK, LIGHTNING, LINES
+        LEASH, WATER_MASK, LIGHTNING, LINES, CUSTOM
     }
 
     private static final LegacyRenderType SOLID = new LegacyRenderType(Kind.SOLID, null);
@@ -30,16 +30,53 @@ public final class LegacyRenderType {
 
     private final Kind kind;
     private final Identifier texture;
+    private final String customName;
+    private final int bufferSize;
+    private final LegacyCompositeState compositeState;
 
     private LegacyRenderType(Kind kind, Identifier texture) {
         this.kind = Objects.requireNonNull(kind, "kind");
         this.texture = texture;
+        this.customName = null;
+        this.bufferSize = 0;
+        this.compositeState = null;
+    }
+
+    /** Source constructor retained for legacy subclasses which fail closed themselves. */
+    protected LegacyRenderType(String name, LegacyVertexFormat format,
+            LegacyVertexFormatMode mode, int bufferSize, boolean affectsCrumbling,
+            boolean sortOnUpload, Runnable setup, Runnable clear) {
+        this.kind = Kind.CUSTOM;
+        this.texture = null;
+        this.customName = Objects.requireNonNull(name, "name");
+        this.bufferSize = bufferSize;
+        this.compositeState = null;
     }
 
     public Kind kind() { return kind; }
     public Identifier texture() { return texture; }
     public boolean isTranslucentChunkLayer() {
         return kind == Kind.TRANSLUCENT || kind == Kind.TRIPWIRE;
+    }
+
+    public int m_110507_() { return bufferSize; }
+
+    public static LegacyCompositeRenderType m_173215_(String name, LegacyVertexFormat format,
+            LegacyVertexFormatMode mode, int bufferSize, boolean affectsCrumbling,
+            boolean sortOnUpload, LegacyCompositeState state) {
+        return new LegacyCompositeRenderType(name, format, mode, bufferSize,
+                sortOnUpload, state);
+    }
+
+    protected LegacyRenderType(String name, LegacyVertexFormat format,
+            LegacyVertexFormatMode mode, int bufferSize, LegacyCompositeState state) {
+        this.kind = Kind.CUSTOM;
+        this.texture = null;
+        this.customName = Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(format, "format");
+        Objects.requireNonNull(mode, "mode");
+        this.bufferSize = bufferSize;
+        this.compositeState = Objects.requireNonNull(state, "state");
     }
 
     /** Exact Minecraft 1.19.2 SRG factory ABI. */
@@ -82,13 +119,15 @@ public final class LegacyRenderType {
             case LIGHTNING -> RenderTypes.lightning();
             case LINES -> RenderTypes.lines();
             default -> throw new UnsupportedOperationException(
-                    "Forge 1.19.2 chunk render layer " + kind
+                    "Forge 1.19.2 render type "
+                            + (customName == null ? kind : customName)
                             + " has no standalone Minecraft 26.3 RenderType");
         };
     }
 
     @Override
     public String toString() {
+        if (customName != null) return "LegacyRenderType[CUSTOM, " + customName + "]";
         return texture == null ? "LegacyRenderType[" + kind + "]"
                 : "LegacyRenderType[" + kind + ", " + texture + "]";
     }
