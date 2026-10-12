@@ -1,5 +1,7 @@
 package com.fuckingdeveloper.lms.runtime.event;
 
+import com.fuckingdeveloper.lms.runtime.villager.Forge1192VillagerTradeBridge;
+import net.minecraft.server.MinecraftServer;
 import net.neoforged.bus.api.Event;
 
 import java.util.ArrayList;
@@ -18,11 +20,7 @@ public final class LegacyWandererTradesEvent extends Event {
         return rareTrades;
     }
 
-    public void requireMaterialized() {
-        if (!genericTrades.isEmpty() || !rareTrades.isEmpty()) {
-            throw new UnsupportedOperationException(
-                    "Forge 1.19.2 runtime wandering-trader trades were supplied, but Minecraft 26.3 "
-                            + "requires data-driven VillagerTrade/TradeSet registration");
-        }
+    public void preserveForTargetConsumption(MinecraftServer server) {
+        Forge1192VillagerTradeBridge.captureWandering(server, genericTrades, rareTrades);
     }
 }

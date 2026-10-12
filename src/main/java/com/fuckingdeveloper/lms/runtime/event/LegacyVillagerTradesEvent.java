@@ -3,7 +3,10 @@ package com.fuckingdeveloper.lms.runtime.event;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.server.MinecraftServer;
 import net.neoforged.bus.api.Event;
+
+import com.fuckingdeveloper.lms.runtime.villager.Forge1192VillagerTradeBridge;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,11 +28,7 @@ public final class LegacyVillagerTradesEvent extends Event {
         return trades;
     }
 
-    public void requireMaterialized() {
-        if (!trades.isEmpty()) {
-            throw new UnsupportedOperationException(
-                    "Forge 1.19.2 runtime villager trades were supplied, but Minecraft 26.3 "
-                            + "requires data-driven VillagerTrade/TradeSet registration");
-        }
+    public void preserveForTargetConsumption(MinecraftServer server) {
+        Forge1192VillagerTradeBridge.capture(server, type, trades);
     }
 }

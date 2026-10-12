@@ -94,6 +94,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/entity/npc/Villager", "net/minecraft/world/entity/npc/villager/Villager"),
             java.util.Map.entry("net/minecraft/world/entity/npc/VillagerData", "net/minecraft/world/entity/npc/villager/VillagerData"),
             java.util.Map.entry("net/minecraft/world/entity/npc/VillagerProfession", "net/minecraft/world/entity/npc/villager/VillagerProfession"),
+            java.util.Map.entry("net/minecraft/world/entity/npc/VillagerTrades$ItemListing", "com/fuckingdeveloper/lms/runtime/villager/LegacyVillagerItemListing"),
             java.util.Map.entry("net/minecraft/world/entity/npc/VillagerType", "net/minecraft/world/entity/npc/villager/VillagerType"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/AbstractMinecart", "net/minecraft/world/entity/vehicle/minecart/AbstractMinecart"),
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Boat", "net/minecraft/world/entity/vehicle/boat/Boat"),
@@ -185,6 +186,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacySignBlockConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
+        rewrites += rewriteLegacyVillagerProfessionConstants(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
         rewrites += rewriteLegacyMaterialColorProperties(node);
@@ -2108,6 +2110,61 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         + "Lnet/minecraft/world/entity/npc/villager/VillagerProfession;";
                 call.itf = false;
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * 1.19.2 exposed the built-in profession values as static fields. 26.3
+     * exposes ResourceKeys instead, so resolve the exact mapped key through
+     * the active target registry rather than treating the key as the value.
+     */
+    private static int rewriteLegacyVillagerProfessionConstants(ClassNode node) {
+        final String legacy = "net/minecraft/world/entity/npc/VillagerProfession";
+        final String legacyDescriptor = "L" + legacy + ";";
+        final java.util.Map<String, String> keys = java.util.Map.ofEntries(
+                java.util.Map.entry("f_35585_", "NONE"),
+                java.util.Map.entry("f_35586_", "ARMORER"),
+                java.util.Map.entry("f_35587_", "BUTCHER"),
+                java.util.Map.entry("f_35588_", "CARTOGRAPHER"),
+                java.util.Map.entry("f_35589_", "CLERIC"),
+                java.util.Map.entry("f_35590_", "FARMER"),
+                java.util.Map.entry("f_35591_", "FISHERMAN"),
+                java.util.Map.entry("f_35592_", "FLETCHER"),
+                java.util.Map.entry("f_35593_", "LEATHERWORKER"),
+                java.util.Map.entry("f_35594_", "LIBRARIAN"),
+                java.util.Map.entry("f_35595_", "MASON"),
+                java.util.Map.entry("f_35596_", "NITWIT"),
+                java.util.Map.entry("f_35597_", "SHEPHERD"),
+                java.util.Map.entry("f_35598_", "TOOLSMITH"),
+                java.util.Map.entry("f_35599_", "WEAPONSMITH"));
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals(legacy)
+                        && field.desc.equals(legacyDescriptor)) {
+                    String targetName = keys.get(field.name);
+                    if (targetName != null) {
+                        var replacement = new org.objectweb.asm.tree.InsnList();
+                        replacement.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
+                                "net/minecraft/world/entity/npc/villager/VillagerProfession",
+                                targetName, "Lnet/minecraft/resources/ResourceKey;"));
+                        replacement.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "com/fuckingdeveloper/lms/runtime/Forge1192VillagerBridge",
+                                "resolveProfession",
+                                "(Lnet/minecraft/resources/ResourceKey;)"
+                                        + "Lnet/minecraft/world/entity/npc/villager/VillagerProfession;",
+                                false));
+                        method.instructions.insertBefore(field, replacement);
+                        method.instructions.remove(field);
+                        rewrites++;
+                    }
+                }
+                insn = next;
             }
         }
         return rewrites;

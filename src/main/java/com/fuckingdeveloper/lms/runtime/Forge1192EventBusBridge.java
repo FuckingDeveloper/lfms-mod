@@ -232,7 +232,7 @@ public final class Forge1192EventBusBridge {
         }
         if (eventType == LegacyWandererTradesEvent.class) {
             bus.addListener(priority, false, ServerAboutToStartEvent.class,
-                    event -> dispatchLegacyWandererTrades((Consumer) listener));
+                    event -> dispatchLegacyWandererTrades(event, (Consumer) listener));
             return;
         }
         for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
@@ -387,15 +387,16 @@ public final class Forge1192EventBusBridge {
                 .forEach(profession -> {
                     var legacy = new LegacyVillagerTradesEvent(profession.value());
                     listener.accept(legacy);
-                    legacy.requireMaterialized();
+                    legacy.preserveForTargetConsumption(event.getServer());
                 });
     }
 
     private static void dispatchLegacyWandererTrades(
+            ServerAboutToStartEvent event,
             Consumer<LegacyWandererTradesEvent> listener) {
         var legacy = new LegacyWandererTradesEvent();
         listener.accept(legacy);
-        legacy.requireMaterialized();
+        legacy.preserveForTargetConsumption(event.getServer());
     }
 
     private static void registerLegacyFuelComponents(

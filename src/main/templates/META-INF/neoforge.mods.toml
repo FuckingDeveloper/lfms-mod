@@ -26,6 +26,9 @@ Website: www.fuckingdeveloper.com
 [[accessTransformers]]
 file="META-INF/accesstransformer.cfg"
 
+[[mixins]]
+config="lms.mixins.json"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"

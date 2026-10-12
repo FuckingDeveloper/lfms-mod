@@ -81,6 +81,13 @@ Semantic operations MUST preserve meaningful source behavior. They MUST NOT exis
 
 An operation whose semantics cannot be represented safely MUST remain an explicit compatibility gap.
 
+When a source lifecycle registers behavior that the target consumes lazily,
+LMS MAY preserve the complete source intent and defer an unsupported-operation
+failure until the first matching target consumption. Such deferral MUST retain
+the source objects and selection scope, MUST remain explicitly diagnosed as a
+functional gap, and MUST fail closed when consumed; it MUST NOT discard the
+registration merely to let startup continue.
+
 ## Target adapters
 
 A target adapter owns behavior specific to a tested modern Minecraft/NeoForge generation.
