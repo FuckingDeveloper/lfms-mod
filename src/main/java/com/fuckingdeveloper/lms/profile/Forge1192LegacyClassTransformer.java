@@ -177,6 +177,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // required by a removed-API adapter.
         int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
+        rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
         rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
         // superclass constructor is still visible. Later construction-shape
@@ -5564,6 +5565,36 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge/Minecraft 1.19.2 exposed {@code Level.isClientSide} as a public
+     * final field. The target keeps the same boolean property behind the
+     * public {@code Level#isClientSide()} accessor.
+     */
+    private static int rewriteLegacyLevelClientSideFieldAccess(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var current = insn;
+                insn = insn.getNext();
+                if (!(current instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETFIELD
+                        || !field.owner.equals("net/minecraft/world/level/Level")
+                        || !(field.name.equals("f_46443_") || field.name.equals("isClientSide"))
+                        || !field.desc.equals("Z")) {
+                    continue;
+                }
+                method.instructions.set(field, new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        "net/minecraft/world/level/Level",
+                        "isClientSide",
+                        "()Z",
+                        false));
+                rewrites++;
             }
         }
         return rewrites;
