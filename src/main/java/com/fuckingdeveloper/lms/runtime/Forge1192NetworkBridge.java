@@ -2,7 +2,18 @@ package com.fuckingdeveloper.lms.runtime;
 
 import net.minecraft.resources.Identifier;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -135,6 +146,21 @@ public final class Forge1192NetworkBridge {
     private static final ConcurrentHashMap<LegacyChannel, ConcurrentHashMap<Integer, LegacyMessage>> MESSAGES =
             new ConcurrentHashMap<>();
 
+    public record LegacyPayload(
+            LegacyChannel channel, LegacyMessage registration, Object message)
+            implements CustomPacketPayload {
+        public LegacyPayload {
+            Objects.requireNonNull(channel, "channel");
+            Objects.requireNonNull(registration, "registration");
+            Objects.requireNonNull(message, "message");
+        }
+
+        @Override
+        public Type<LegacyPayload> type() {
+            return channel.payloadType();
+        }
+    }
+
     public static java.util.List<LegacyMessage> messages(LegacyChannel channel) {
         var entries = MESSAGES.get(Objects.requireNonNull(channel, "channel"));
         if (entries == null) throw new IllegalStateException("Unknown legacy network channel");
@@ -238,13 +264,15 @@ public final class Forge1192NetworkBridge {
             Identifier name,
             Supplier<String> protocolVersion,
             Predicate<String> clientAcceptedVersions,
-            Predicate<String> serverAcceptedVersions) {
+            Predicate<String> serverAcceptedVersions,
+            CustomPacketPayload.Type<LegacyPayload> payloadType) {
         public LegacyChannel {
             Objects.requireNonNull(modId, "modId");
             Objects.requireNonNull(name, "name");
             Objects.requireNonNull(protocolVersion, "protocolVersion");
             Objects.requireNonNull(clientAcceptedVersions, "clientAcceptedVersions");
             Objects.requireNonNull(serverAcceptedVersions, "serverAcceptedVersions");
+            Objects.requireNonNull(payloadType, "payloadType");
         }
     }
 
@@ -254,7 +282,9 @@ public final class Forge1192NetworkBridge {
             Predicate<String> clientAcceptedVersions,
             Predicate<String> serverAcceptedVersions) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        LegacyChannel channel = new LegacyChannel(modId, name, protocolVersion, clientAcceptedVersions, serverAcceptedVersions);
+        LegacyChannel channel = new LegacyChannel(modId, name, protocolVersion,
+                clientAcceptedVersions, serverAcceptedVersions,
+                new CustomPacketPayload.Type<>(name));
         MESSAGES.put(channel, new ConcurrentHashMap<>());
         return channel;
     }
@@ -292,10 +322,131 @@ public final class Forge1192NetworkBridge {
         LegacyChannel channel = requireChannel(token);
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(message, "message");
-        throw new UnsupportedOperationException(
-                "Forge 1.19.2 SimpleChannel send is not bound to the NeoForge 26.3 payload lifecycle: channel="
-                        + channel.name() + " target=" + target.kind()
-                        + " message=" + message.getClass().getName());
+        LegacyMessage registration = messages(channel).stream()
+                .filter(candidate -> candidate.messageType() == message.getClass())
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Invalid legacy message "
+                        + message.getClass().getName() + " on channel " + channel.name()));
+        LegacyPayload payload = new LegacyPayload(channel, registration, message);
+        switch (target.kind()) {
+            case SERVER -> Target263ClientNetworkBridge.sendToServer(payload);
+            case PLAYER -> PacketDistributor.sendToPlayer(
+                    requireArgument(target, ServerPlayer.class), payload);
+            case ALL -> PacketDistributor.sendToAllPlayers(payload);
+            case DIMENSION -> {
+                @SuppressWarnings("unchecked")
+                var dimension = (net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>)
+                        requireArgument(target, net.minecraft.resources.ResourceKey.class);
+                var server = Objects.requireNonNull(ServerLifecycleHooks.getCurrentServer(),
+                        "Cannot send a dimension payload without an active server");
+                ServerLevel level = Objects.requireNonNull(server.getLevel(dimension),
+                        "Unknown target dimension " + dimension.identifier());
+                PacketDistributor.sendToPlayersInDimension(level, payload);
+            }
+            case TRACKING_CHUNK -> {
+                LevelChunk chunk = requireArgument(target, LevelChunk.class);
+                if (!(chunk.getLevel() instanceof ServerLevel level)) {
+                    throw new IllegalStateException("Cannot send a tracking-chunk payload from a client level");
+                }
+                PacketDistributor.sendToPlayersTrackingChunk(level, chunk.getPos(), payload);
+            }
+            case TRACKING_ENTITY_AND_SELF -> PacketDistributor.sendToPlayersTrackingEntityAndSelf(
+                    requireArgument(target, Entity.class), payload);
+            case NEAR -> {
+                LegacyTargetPoint point = requireArgument(target, LegacyTargetPoint.class);
+                var server = Objects.requireNonNull(ServerLifecycleHooks.getCurrentServer(),
+                        "Cannot send a nearby payload without an active server");
+                ServerLevel level = Objects.requireNonNull(server.getLevel(point.dimension()),
+                        "Unknown target dimension " + point.dimension().identifier());
+                PacketDistributor.sendToPlayersNear(level, null, point.x(), point.y(), point.z(),
+                        point.radius(), payload);
+            }
+        }
+    }
+
+    public static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        Objects.requireNonNull(event, "event");
+        MESSAGES.keySet().stream()
+                .sorted(java.util.Comparator.comparing(channel -> channel.name().toString()))
+                .forEach(channel -> {
+                    String version = Objects.requireNonNull(channel.protocolVersion().get(),
+                            "Legacy network protocol version");
+                    if (version.isBlank()) {
+                        throw new IllegalStateException("Blank legacy network protocol version for "
+                                + channel.name());
+                    }
+                    if (!channel.clientAcceptedVersions().test(version)
+                            || !channel.serverAcceptedVersions().test(version)) {
+                        throw new IllegalStateException("Legacy channel rejects its own protocol version: "
+                                + channel.name() + " version=" + version);
+                    }
+                    var registrar = event.registrar(version);
+                    String absent = "ABSENT \uD83E\uDD14";
+                    if (channel.clientAcceptedVersions().test(absent)
+                            && channel.serverAcceptedVersions().test(absent)) {
+                        registrar = registrar.optional();
+                    }
+                    registrar.playBidirectional(channel.payloadType(), payloadCodec(channel),
+                            Forge1192NetworkBridge::handlePayload,
+                            Forge1192NetworkBridge::handlePayload);
+                });
+    }
+
+    private static StreamCodec<RegistryFriendlyByteBuf, LegacyPayload> payloadCodec(
+            LegacyChannel channel) {
+        return new StreamCodec<>() {
+            @Override
+            public LegacyPayload decode(RegistryFriendlyByteBuf buffer) {
+                int discriminator = buffer.readUnsignedByte();
+                LegacyMessage registration = MESSAGES.get(channel).get(discriminator);
+                if (registration == null) {
+                    throw new IllegalArgumentException("Invalid legacy discriminator "
+                            + discriminator + " on channel " + channel.name());
+                }
+                Object message = Objects.requireNonNull(registration.decoder().apply(buffer),
+                        "Legacy packet decoder returned null for discriminator " + discriminator);
+                if (!registration.messageType().isInstance(message)) {
+                    throw new IllegalStateException("Legacy packet decoder returned "
+                            + message.getClass().getName() + " instead of "
+                            + registration.messageType().getName());
+                }
+                return new LegacyPayload(channel, registration, message);
+            }
+
+            @Override
+            public void encode(RegistryFriendlyByteBuf buffer, LegacyPayload payload) {
+                if (payload.channel() != channel) {
+                    throw new IllegalArgumentException("Legacy payload channel identity mismatch");
+                }
+                buffer.writeByte(payload.registration().discriminator() & 0xff);
+                payload.registration().encoder().accept(payload.message(), buffer);
+            }
+        };
+    }
+
+    private static void handlePayload(LegacyPayload payload, IPayloadContext context) {
+        ServerPlayer sender = context.flow() == PacketFlow.SERVERBOUND
+                ? requirePlayer(context) : null;
+        LegacyContext legacyContext = new LegacyContext(sender, context::enqueueWork);
+        try (var ignored = Forge1192LifecycleBridge.enterRecorded(payload.channel().modId())) {
+            payload.registration().consumer().accept(payload.message(), () -> legacyContext);
+        } catch (RuntimeException | Error failure) {
+            throw failure;
+        } catch (Exception impossible) {
+            throw new IllegalStateException("Failed to close legacy network lifecycle scope", impossible);
+        }
+    }
+
+    private static ServerPlayer requirePlayer(IPayloadContext context) {
+        if (context.player() instanceof ServerPlayer player) return player;
+        throw new IllegalStateException("Serverbound legacy payload has no ServerPlayer sender");
+    }
+
+    private static <T> T requireArgument(LegacyPacketTarget target, Class<T> type) {
+        if (type.isInstance(target.argument())) return type.cast(target.argument());
+        throw new IllegalArgumentException("Legacy packet target " + target.kind()
+                + " requires " + type.getName() + " but got "
+                + (target.argument() == null ? "null" : target.argument().getClass().getName()));
     }
     /**
      * LMS-owned replacement for the old Forge NetworkEvent.Context. The actual

@@ -433,10 +433,7 @@ public final class LmsMod {
 
 
     private void onPayloadRegistration(RegisterPayloadHandlersEvent event) {
-        // NeoForge 26.3 requires explicit payload type, codec, flow and phase.
-        // The old indexed-message descriptor alone does not prove these.
-        // Do not register an invented bidirectional protocol.
-        LOG.info("LMS network-payload-registration state=BLOCKED reason=legacy-direction-and-codec-unverified");
+        com.fuckingdeveloper.lms.runtime.Forge1192NetworkBridge.registerPayloads(event);
     }
 
 }
