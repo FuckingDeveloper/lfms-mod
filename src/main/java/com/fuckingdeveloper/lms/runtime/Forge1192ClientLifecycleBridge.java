@@ -64,6 +64,17 @@ public final class Forge1192ClientLifecycleBridge {
         return minecraft == null ? null : minecraft.player;
     }
 
+    /** Resolve a source-era cached singleton after target client construction. */
+    public static Minecraft currentMinecraft(Minecraft cached) {
+        if (cached != null) return cached;
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null) {
+            throw new IllegalStateException(
+                    "Target Minecraft singleton is unavailable at legacy client callback");
+        }
+        return minecraft;
+    }
+
     private static void invokeScoped(String modId, Object receiver, String helperName) {
         synchronized (PENDING) {
             Set<String> methods = PENDING.get(receiver);

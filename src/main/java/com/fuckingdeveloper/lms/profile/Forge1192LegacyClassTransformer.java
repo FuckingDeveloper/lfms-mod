@@ -149,6 +149,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyEarlyClientInitialization(node);
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
+        rewrites += rewriteLegacyCachedMinecraftReads(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyStringRepresentableOverride(node);
         rewrites += rewriteVerifiedVanillaOverrides(node);
@@ -3268,6 +3269,59 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 client objects could cache Minecraft during mod
+     * construction, while the target creates the singleton later. For fields
+     * proven to be initialized from the exact singleton accessor, retain the
+     * cached value when present and otherwise resolve the now-live target
+     * singleton at the point of use.
+     */
+    private static int rewriteLegacyCachedMinecraftReads(ClassNode node) {
+        java.util.Set<String> cachedFields = new java.util.HashSet<>();
+        for (var method : node.methods) {
+            if (!method.name.equals("<init>")) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                        || !call.owner.equals("net/minecraft/client/Minecraft")
+                        || !(call.name.equals("m_91087_") || call.name.equals("getInstance"))
+                        || !call.desc.equals("()Lnet/minecraft/client/Minecraft;")) continue;
+                var receiver = previousExecutable(call);
+                var store = nextExecutable(call);
+                if (receiver instanceof org.objectweb.asm.tree.VarInsnNode load
+                        && load.getOpcode() == org.objectweb.asm.Opcodes.ALOAD
+                        && load.var == 0
+                        && store instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.PUTFIELD
+                        && field.owner.equals(node.name)
+                        && field.desc.equals("Lnet/minecraft/client/Minecraft;")) {
+                    cachedFields.add(field.name);
+                }
+            }
+        }
+        if (cachedFields.isEmpty()) return 0;
+
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if (method.name.equals("<init>")) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETFIELD
+                        || !field.owner.equals(node.name)
+                        || !field.desc.equals("Lnet/minecraft/client/Minecraft;")
+                        || !cachedFields.contains(field.name)) continue;
+                method.instructions.insert(field, new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192ClientLifecycleBridge",
+                        "currentMinecraft",
+                        "(Lnet/minecraft/client/Minecraft;)Lnet/minecraft/client/Minecraft;",
+                        false));
+                rewrites++;
             }
         }
         return rewrites;
