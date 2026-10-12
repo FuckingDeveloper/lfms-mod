@@ -55,6 +55,7 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.event.village.WandererTradesEvent#getGenericTrades()Ljava/util/List;",
             "net.minecraftforge.event.village.WandererTradesEvent#getRareTrades()Ljava/util/List;",
             "net.minecraftforge.fluids.FluidStack#getFluid()Lnet/minecraft/world/level/material/Fluid;",
+            "net.minecraftforge.fluids.FluidUtil#getFluidContained(Lnet/minecraft/world/item/ItemStack;)Ljava/util/Optional;",
             "net.minecraftforge.fluids.capability.IFluidHandler#getTanks()I",
             "net.minecraftforge.fluids.capability.templates.FluidTank#<init>(I)V",
             "net.minecraftforge.fluids.capability.templates.FluidTank#<init>(ILjava/util/function/Predicate;)V",

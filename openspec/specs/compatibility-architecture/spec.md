@@ -120,6 +120,14 @@ value from the exact preserved construction intent and target component
 initializers. It MUST NOT bind or mutate global holder state early, fabricate
 empty defaults, or continue when the complete value cannot be materialized.
 
+When a read-only source capability query is valid during that pre-binding
+window, the target adapter MAY present the isolated value through a read-only
+target capability context. The context MUST expose the exact materialized
+components and count, MUST NOT derive a default resource from unbound global
+holder state, and MUST reject mutation. A missing provider or genuinely empty
+handler may map to the source's empty result; failure to materialize the value
+MUST NOT be reported as an empty capability result.
+
 When that same ordered callback also contributes target component initializers,
 the target adapter MAY execute it after dynamic registries and tags are loaded
 but before the target applies its pending component set. Any newly contributed

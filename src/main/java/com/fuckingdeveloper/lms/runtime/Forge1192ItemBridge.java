@@ -2,6 +2,8 @@ package com.fuckingdeveloper.lms.runtime;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -127,5 +129,15 @@ public final class Forge1192ItemBridge {
         } else {
             stack.set(DataComponents.CUSTOM_DATA, new CustomData(tag));
         }
+    }
+
+    /** Preserve the exact Forge 1.19.2 ItemStack NBT schema. */
+    public static CompoundTag save(ItemStack stack, CompoundTag destination) {
+        var id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        destination.putString("id", id == null ? "minecraft:air" : id.toString());
+        destination.putByte("Count", (byte) stack.getCount());
+        CompoundTag legacyTag = getTag(stack);
+        if (legacyTag != null) destination.put("tag", legacyTag.copy());
+        return destination;
     }
 }

@@ -1728,8 +1728,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     insn = next;
                     continue;
                 }
-                if (call.name.equals("m_220152_") && call.desc.equals("(" + tab + ")Z")
-                        && call.owner.equals("net/minecraft/world/item/Item")) {
+                // The verifier owner of an inherited call may be any legacy
+                // Item subtype (not only Item itself), especially for a
+                // invokespecial super call. The exact SRG identity and source
+                // descriptor establish this as Item#allowedIn.
+                if (call.name.equals("m_220152_") && call.desc.equals("(" + tab + ")Z")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192CreativeTabBridge";
                     call.name = "allowedIn";
@@ -1739,8 +1742,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     insn = next;
                     continue;
                 }
-                if (!call.name.equals("m_6787_") || !call.desc.equals("(" + tab + list + ")V")
-                        || !call.owner.startsWith("net/minecraft/world/item/")) {
+                if (!call.name.equals("m_6787_") || !call.desc.equals("(" + tab + list + ")V")) {
                     insn = next;
                     continue;
                 }
@@ -3884,6 +3886,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
                     call.name = "getDescriptionId";
                     call.desc = "(Lnet/minecraft/world/item/ItemStack;)Ljava/lang/String;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/ItemStack")
+                        && call.name.equals("m_41739_")
+                        && call.desc.equals("(Lnet/minecraft/nbt/CompoundTag;)"
+                                + "Lnet/minecraft/nbt/CompoundTag;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                    call.name = "save";
+                    call.desc = "(Lnet/minecraft/world/item/ItemStack;"
+                            + "Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/nbt/CompoundTag;";
                     call.itf = false;
                     rewrites++;
                     continue;
@@ -7296,6 +7312,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192FluidBridge";
                     call.name = "isFluidEqual";
                     call.desc = "(Lnet/neoforged/neoforge/fluids/FluidStack;Lnet/neoforged/neoforge/fluids/FluidStack;)Z";
+                    call.itf = false;
+                    rewrites++;
+                }
+                if (call.owner.equals("net/minecraftforge/fluids/FluidUtil")
+                        && call.name.equals("getFluidContained")
+                        && call.desc.equals("(Lnet/minecraft/world/item/ItemStack;)Ljava/util/Optional;")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192FluidBridge";
                     call.itf = false;
                     rewrites++;
                 }

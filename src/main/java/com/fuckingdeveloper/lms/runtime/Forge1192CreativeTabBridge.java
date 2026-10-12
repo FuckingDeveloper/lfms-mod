@@ -7,6 +7,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.core.NonNullList;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.Objects;
 
 /**
@@ -35,7 +37,7 @@ public final class Forge1192CreativeTabBridge {
     /** Reconstruct the removed target base implementation for legacy super calls. */
     public static void fillBaseItemCategory(
             Item item, CreativeModeTab tab, NonNullList<ItemStack> output) {
-        if (allowedIn(item, tab)) output.add(new ItemStack(item));
+        if (allowedIn(item, tab)) output.add(Forge1192EarlyItemStackBridge.create(item));
     }
 
     /**
@@ -44,26 +46,22 @@ public final class Forge1192CreativeTabBridge {
      */
     public static void fillItemCategory(
             Item item, CreativeModeTab tab, NonNullList<ItemStack> output) {
-        java.lang.reflect.Method override = null;
-        for (Class<?> type = item.getClass(); type != null && type != Item.class;
-             type = type.getSuperclass()) {
-            try {
-                override = type.getDeclaredMethod("m_6787_", CreativeModeTab.class, NonNullList.class);
-                break;
-            } catch (NoSuchMethodException ignored) {
-                // Continue through the legacy-owned hierarchy.
-            }
-        }
-        if (override == null) {
+        java.lang.invoke.MethodHandle override;
+        try {
+            Class<?> type = item.getClass();
+            override = MethodHandles.privateLookupIn(type, MethodHandles.lookup()).findVirtual(
+                    type, "m_6787_",
+                    MethodType.methodType(void.class, CreativeModeTab.class, NonNullList.class));
+        } catch (NoSuchMethodException e) {
             fillBaseItemCategory(item, tab, output);
             return;
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access legacy creative item enumeration for "
+                    + item.getClass().getName(), e);
         }
         try {
-            override.setAccessible(true);
             override.invoke(item, tab, output);
-        } catch (ReflectiveOperationException e) {
-            Throwable cause = e instanceof java.lang.reflect.InvocationTargetException invocation
-                    && invocation.getCause() != null ? invocation.getCause() : e;
+        } catch (Throwable cause) {
             throw new IllegalStateException("Legacy creative item enumeration failed for "
                     + item.getClass().getName(), cause);
         }
