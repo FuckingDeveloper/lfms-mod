@@ -152,6 +152,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
+        rewrites += rewriteLegacyMixinPropertyAccessors(node);
         rewrites += rewriteLegacyEarlyClientInitialization(node);
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
         rewrites += rewriteLegacyCachedMinecraftReads(node);
@@ -1596,6 +1597,117 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 return false;
             }
         });
+    }
+
+    /**
+     * Replace legacy Mixin accessors only when their annotations prove the
+     * exact target and member and the target runtime exposes an equivalent
+     * public property API.
+     */
+    private int rewriteLegacyMixinPropertyAccessors(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE) continue;
+                LegacyMixinAccessor accessor = legacyMixinAccessor(call.owner, call.name, call.desc);
+                if (accessor == null) continue;
+                String targetName;
+                String targetDescriptor;
+                boolean discardFluentResult;
+                if (accessor.target().equals("net/minecraft/world/level/block/state/BlockBehaviour")
+                        && accessor.member().equals("properties")
+                        && call.desc.equals(
+                        "()Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;")) {
+                    targetName = "properties";
+                    targetDescriptor = call.desc;
+                    discardFluentResult = false;
+                } else if (accessor.target().equals(
+                        "net/minecraft/world/level/block/state/BlockBehaviour$Properties")
+                        && accessor.member().equals("explosionResistance")
+                        && call.desc.equals("(F)V")) {
+                    targetName = "explosionResistance";
+                    targetDescriptor = "(F)Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;";
+                    discardFluentResult = true;
+                } else {
+                    continue;
+                }
+                var cast = previousExecutable(call);
+                if (discardFluentResult) {
+                    if (!(cast instanceof org.objectweb.asm.tree.VarInsnNode argument)
+                            || argument.getOpcode() != org.objectweb.asm.Opcodes.FLOAD) continue;
+                    cast = previousExecutable(cast);
+                }
+                if (!(cast instanceof TypeInsnNode type)
+                        || cast.getOpcode() != org.objectweb.asm.Opcodes.CHECKCAST
+                        || !type.desc.equals(call.owner)) continue;
+                method.instructions.remove(cast);
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL);
+                call.owner = accessor.target();
+                call.name = targetName;
+                call.desc = targetDescriptor;
+                call.itf = false;
+                if (discardFluentResult) {
+                    method.instructions.insert(call, new org.objectweb.asm.tree.InsnNode(
+                            org.objectweb.asm.Opcodes.POP));
+                }
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private record LegacyMixinAccessor(String target, String member) {}
+
+    private LegacyMixinAccessor legacyMixinAccessor(String owner, String name, String descriptor) {
+        try {
+            byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(owner);
+            if (bytes == null) return null;
+            ClassNode mixin = new ClassNode();
+            new ClassReader(bytes).accept(mixin, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            org.objectweb.asm.tree.AnnotationNode mixinAnnotation = annotation(
+                    mixin.visibleAnnotations, mixin.invisibleAnnotations,
+                    "Lorg/spongepowered/asm/mixin/Mixin;");
+            if (mixinAnnotation == null) return null;
+            Object targets = annotationValue(mixinAnnotation, "value");
+            if (!(targets instanceof java.util.List<?> list) || list.size() != 1
+                    || !(list.getFirst() instanceof Type target)) return null;
+            var methods = mixin.methods.stream()
+                    .filter(method -> method.name.equals(name) && method.desc.equals(descriptor))
+                    .toList();
+            if (methods.size() != 1) return null;
+            org.objectweb.asm.tree.AnnotationNode accessor = annotation(
+                    methods.getFirst().visibleAnnotations, methods.getFirst().invisibleAnnotations,
+                    "Lorg/spongepowered/asm/mixin/gen/Accessor;");
+            if (accessor == null) return null;
+            Object member = annotationValue(accessor, "value");
+            if (!(member instanceof String field) || field.isBlank()) return null;
+            return new LegacyMixinAccessor(target.getInternalName(), field);
+        } catch (java.io.IOException | RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static org.objectweb.asm.tree.AnnotationNode annotation(
+            java.util.List<org.objectweb.asm.tree.AnnotationNode> visible,
+            java.util.List<org.objectweb.asm.tree.AnnotationNode> invisible,
+            String descriptor) {
+        if (visible != null) {
+            for (var annotation : visible) if (annotation.desc.equals(descriptor)) return annotation;
+        }
+        if (invisible != null) {
+            for (var annotation : invisible) if (annotation.desc.equals(descriptor)) return annotation;
+        }
+        return null;
+    }
+
+    private static Object annotationValue(
+            org.objectweb.asm.tree.AnnotationNode annotation, String name) {
+        if (annotation.values == null) return null;
+        for (int i = 0; i + 1 < annotation.values.size(); i += 2) {
+            if (name.equals(annotation.values.get(i))) return annotation.values.get(i + 1);
+        }
+        return null;
     }
 
     private static int rewriteLegacyMultiBufferSource(ClassNode node) {
