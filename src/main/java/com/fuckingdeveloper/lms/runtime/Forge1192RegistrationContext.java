@@ -328,7 +328,8 @@ public final class Forge1192RegistrationContext {
         Objects.requireNonNull(method, "method");
         String modId = requireModId();
         var action = new PendingItemComponentInitializer(receiver, owner, method);
-        if (net.minecraft.world.item.Items.AIR.builtInRegistryHolder().areComponentsBound()) {
+        if (Target263DataComponentBindingBridge.currentRegistries().isPresent()
+                || net.minecraft.world.item.Items.AIR.builtInRegistryHolder().areComponentsBound()) {
             invokeItemStackAction(action);
             return;
         }
@@ -341,7 +342,8 @@ public final class Forge1192RegistrationContext {
         Objects.requireNonNull(method, "method");
         String modId = requireModId();
         var action = new PendingStaticItemComponentInitializer(owner, method);
-        if (net.minecraft.world.item.Items.AIR.builtInRegistryHolder().areComponentsBound()) {
+        if (Target263DataComponentBindingBridge.currentRegistries().isPresent()
+                || net.minecraft.world.item.Items.AIR.builtInRegistryHolder().areComponentsBound()) {
             invokeItemStackAction(action);
             return;
         }

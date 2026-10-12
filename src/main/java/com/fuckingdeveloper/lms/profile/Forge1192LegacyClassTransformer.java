@@ -212,6 +212,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteEarlyItemStackConsumers(node);
         rewrites += rewriteLegacyItemStackConstruction(node);
         rewrites += rewriteLegacyItemStackComparison(node);
+        rewrites += rewriteLegacyDiggerItemChecks(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
@@ -237,6 +238,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
+        rewrites += rewriteTargetInterfaceInvocationShapes(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
@@ -3638,8 +3640,15 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         if (resolved == null || !resolved.resolved()) continue;
                         String owner = handle.getOwner().startsWith("net/minecraft/")
                                 ? resolved.owner() : handle.getOwner();
-                        indy.bsmArgs[i] = new Handle(handle.getTag(), owner,
-                                resolved.name(), resolved.descriptor(), handle.isInterface());
+                        boolean targetInterface = runtimeOwnerIsInterface(owner)
+                                .orElse(handle.isInterface());
+                        int tag = handle.getTag();
+                        if (tag == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL && targetInterface)
+                            tag = org.objectweb.asm.Opcodes.H_INVOKEINTERFACE;
+                        else if (tag == org.objectweb.asm.Opcodes.H_INVOKEINTERFACE && !targetInterface)
+                            tag = org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL;
+                        indy.bsmArgs[i] = new Handle(tag, owner,
+                                resolved.name(), resolved.descriptor(), targetInterface);
                         rewrites++;
                     }
                 }
@@ -4226,9 +4235,33 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.desc = resolved.descriptor();
                     rewrites++;
                 }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE) {
+                    var targetInterface = runtimeOwnerIsInterface(call.owner);
+                    if (targetInterface.isPresent()
+                            && targetInterface.get() != (call.getOpcode()
+                                    == org.objectweb.asm.Opcodes.INVOKEINTERFACE)) {
+                        call.setOpcode(targetInterface.get()
+                                ? org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                                : org.objectweb.asm.Opcodes.INVOKEVIRTUAL);
+                        call.itf = targetInterface.get();
+                        rewrites++;
+                    }
+                }
             }
         }
         return rewrites;
+    }
+
+    private static java.util.Optional<Boolean> runtimeOwnerIsInterface(String owner) {
+        if (!SafeFrameClassWriter.isParentRuntimeType(owner)) return java.util.Optional.empty();
+        try {
+            Class<?> type = Class.forName(owner.replace('/', '.'), false,
+                    Forge1192LegacyClassTransformer.class.getClassLoader());
+            return java.util.Optional.of(type.isInterface());
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return java.util.Optional.empty();
+        }
     }
 
     private static Forge1192SrgRuntimeResolver.Resolution resolveRelocatedVanillaMethod(
@@ -5716,6 +5749,89 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         + "Lnet/minecraft/world/item/ItemStack;)Z";
                 call.itf = false;
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Adjust exact invocation shape for source classes that are target interfaces. */
+    private static int rewriteTargetInterfaceInvocationShapes(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.owner.equals("net/minecraft/nbt/NumericTag")) {
+                    String targetName = targetNumericMethod(call.name, call.desc);
+                    if (targetName != null && !targetName.equals(call.name)) {
+                        call.name = targetName;
+                        rewrites++;
+                    }
+                    if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKEINTERFACE);
+                        call.itf = true;
+                        rewrites++;
+                    }
+                }
+                if (!(insn instanceof InvokeDynamicInsnNode indy)) continue;
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    if (!(indy.bsmArgs[i] instanceof Handle handle)
+                            || !handle.getOwner().equals("net/minecraft/nbt/NumericTag")) continue;
+                    String targetName = targetNumericMethod(handle.getName(), handle.getDesc());
+                    int tag = handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                            ? org.objectweb.asm.Opcodes.H_INVOKEINTERFACE : handle.getTag();
+                    if (targetName == null) targetName = handle.getName();
+                    if (tag == handle.getTag() && targetName.equals(handle.getName())
+                            && handle.isInterface()) continue;
+                    indy.bsmArgs[i] = new Handle(tag,
+                            handle.getOwner(), targetName, handle.getDesc(), true);
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    private static String targetNumericMethod(String sourceName, String descriptor) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String canonical = sourceName.startsWith("m_")
+                ? SRG_RUNTIME_RESOLVER.get().canonicalMethodName(
+                        "net/minecraft/nbt/NumericTag", sourceName, descriptor).orElse(null)
+                : sourceName;
+        if (canonical == null) return null;
+        return switch (canonical) {
+            case "getAsByte" -> "byteValue";
+            case "getAsShort" -> "shortValue";
+            case "getAsInt" -> "intValue";
+            case "getAsLong" -> "longValue";
+            case "getAsFloat" -> "floatValue";
+            case "getAsDouble" -> "doubleValue";
+            case "getAsNumber" -> "box";
+            default -> null;
+        };
+    }
+
+    /**
+     * The source DiggerItem base class became target item/tag semantics. Adapt
+     * only the exact source type test; construction remains handled by the
+     * proven tool-item family adapters.
+     */
+    private static int rewriteLegacyDiggerItemChecks(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof TypeInsnNode type
+                        && type.getOpcode() == org.objectweb.asm.Opcodes.INSTANCEOF
+                        && type.desc.equals("net/minecraft/world/item/DiggerItem")) {
+                    method.instructions.set(type, new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge",
+                            "isDiggerItem",
+                            "(Ljava/lang/Object;)Z",
+                            false));
+                    rewrites++;
+                }
+                insn = next;
             }
         }
         return rewrites;

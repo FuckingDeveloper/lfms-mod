@@ -5,6 +5,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.tags.ItemTags;
 
 /** Target adapter for item semantics that moved into default components. */
 public final class Forge1192ItemBridge {
@@ -26,11 +27,24 @@ public final class Forge1192ItemBridge {
 
     /** Forge 1.19.2 Item#isEdible was equivalent to having food properties. */
     public static boolean isEdible(Item item) {
-        if (!item.builtInRegistryHolder().areComponentsBound()) {
-            throw new IllegalStateException("Legacy Item#isEdible queried before default components were bound: "
-                    + item);
+        if (item.builtInRegistryHolder().areComponentsBound())
+            return item.components().has(DataComponents.FOOD);
+        return Forge1192EarlyItemStackBridge.create(item)
+                .getComponents().has(DataComponents.FOOD);
+    }
+
+    /** Preserve the source DiggerItem type family after target class removal. */
+    public static boolean isDiggerItem(Object value) {
+        if (!(value instanceof Item item)) return false;
+        if (item instanceof com.fuckingdeveloper.lms.runtime.item.LegacyAxeItem
+                || item instanceof com.fuckingdeveloper.lms.runtime.item.LegacyHoeItem
+                || item instanceof com.fuckingdeveloper.lms.runtime.item.LegacyPickaxeItem
+                || item instanceof com.fuckingdeveloper.lms.runtime.item.LegacyShovelItem) {
+            return true;
         }
-        return item.components().has(DataComponents.FOOD);
+        var holder = item.builtInRegistryHolder();
+        return holder.is(ItemTags.AXES) || holder.is(ItemTags.HOES)
+                || holder.is(ItemTags.PICKAXES) || holder.is(ItemTags.SHOVELS);
     }
 
     /** Forge 1.19.2 ItemStack#is(Item) was an exact item-identity comparison. */

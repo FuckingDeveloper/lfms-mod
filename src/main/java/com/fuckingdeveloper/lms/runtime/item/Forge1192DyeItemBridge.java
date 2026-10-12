@@ -1,5 +1,6 @@
 package com.fuckingdeveloper.lms.runtime.item;
 
+import com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.DyeColor;
@@ -13,7 +14,8 @@ public final class Forge1192DyeItemBridge {
         DyeItem match = null;
         for (var item : BuiltInRegistries.ITEM) {
             if (!(item instanceof DyeItem dye)
-                    || item.components().get(DataComponents.DYE) != color) {
+                    || Forge1192EarlyItemStackBridge.create(item)
+                            .getComponents().get(DataComponents.DYE) != color) {
                 continue;
             }
             if (match != null && match != dye) {

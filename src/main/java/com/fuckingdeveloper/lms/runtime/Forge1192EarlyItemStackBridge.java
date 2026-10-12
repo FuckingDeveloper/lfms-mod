@@ -71,6 +71,12 @@ public final class Forge1192EarlyItemStackBridge {
             HolderLookup.Provider context,
             Holder.Reference<Item> holder,
             ResourceKey<Item> key) {
+        if (Target263DataComponentBindingBridge.currentRegistries().isPresent()) {
+            return Target263DataComponentBindingBridge.currentItemDefaults(key)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "No pending target components for early ItemStack "
+                                    + key.identifier()));
+        }
         java.util.concurrent.atomic.AtomicReference<DataComponentMap> result =
                 new java.util.concurrent.atomic.AtomicReference<>();
         for (var pending : BuiltInRegistries.DATA_COMPONENT_INITIALIZERS.build(context)) {

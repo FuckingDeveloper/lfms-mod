@@ -200,6 +200,24 @@ public final class Forge1192SrgRuntimeResolver {
         }
     }
 
+    /** Resolve only the exact 1.19.2 Mojang method identity. */
+    public Optional<String> canonicalMethodName(
+            String internalOwner, String srgName, String descriptor) {
+        if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("m_"))
+            return Optional.empty();
+        var legacy = srg.resolveWithNamedOwner(
+                internalOwner.replace('/', '.'), srgName, descriptor, mojmap);
+        if (legacy.status() != LegacySrgIndex.ResolutionStatus.RESOLVED
+                || legacy.matches().size() != 1
+                || legacy.matches().getFirst().owners().isEmpty()) return Optional.empty();
+        var match = legacy.matches().getFirst();
+        List<ProguardMappingReader.MethodMapping> named = mojmap
+                .findByObfuscated(match.owners().getFirst(), match.sourceName()).stream()
+                .filter(candidate -> parametersMatch(candidate.parameters(), descriptor))
+                .toList();
+        return named.size() == 1 ? Optional.of(named.getFirst().namedName()) : Optional.empty();
+    }
+
     public FieldResolution resolveField(String internalOwner, String srgName, String descriptor) {
         if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("f_")) {
             return new FieldResolution(internalOwner, srgName, descriptor, false, "Not a vanilla SRG field");
