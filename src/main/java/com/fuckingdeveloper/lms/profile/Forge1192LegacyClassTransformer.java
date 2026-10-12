@@ -192,6 +192,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockAtlasIdentity(node);
         rewrites += rewriteLegacyVector3fFamily(node);
         rewrites += rewriteLegacyBakedQuadFamily(node);
+        rewrites += rewriteLegacyEntityRendererAddLayers(node);
+        rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -1717,6 +1719,232 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 exposed player renderer variants as the legacy string
+     * identities "default" and "slim". Target 26.3 keys the same renderer
+     * map by PlayerModelType, so preserve the source event ABI while routing
+     * through the target's explicit legacy-name conversion.
+     */
+    private static int rewriteLegacyEntityRendererAddLayers(ClassNode node) {
+        final String event = "net/minecraftforge/client/event/EntityRenderersEvent$AddLayers";
+        final String targetEvent =
+                "net/neoforged/neoforge/client/event/EntityRenderersEvent$AddLayers";
+        final String bridge =
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192EntityRendererLayerBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals(event)) continue;
+                if (call.name.equals("getSkins")
+                        && call.desc.equals("()Ljava/util/Set;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "getSkins";
+                    call.desc = "(L" + targetEvent + ";)Ljava/util/Set;";
+                    call.itf = false;
+                    rewrites++;
+                } else if (call.name.equals("getSkin")
+                        && call.desc.equals("(Ljava/lang/String;)"
+                                + "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "getSkin";
+                    call.desc = "(L" + targetEvent + ";Ljava/lang/String;)"
+                            + "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;";
+                    call.itf = false;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    /** Exact Forge 1.19.2 input identities retained by the SDL target API. */
+    private static int rewriteLegacyInputConstantsFamily(ClassNode node) {
+        final String input = "com/mojang/blaze3d/platform/InputConstants";
+        final String key = input + "$Key";
+        final String type = input + "$Type";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            java.util.Set<Integer> adaptedWindowLocals = adaptLegacyWindowHandleLocals(node, method);
+            rewrites += adaptedWindowLocals.size();
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals(type)
+                        && field.desc.equals("L" + type + ";")
+                        && (field.name.equals("KEYSYM") || field.name.equals("SCANCODE"))) {
+                    field.name = "KEYBOARD";
+                    rewrites++;
+                    continue;
+                }
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals(input)
+                        && call.name.equals("m_84830_")
+                        && call.desc.equals("(JI)Z")) {
+                    MethodInsnNode windowHandle = previousLegacyWindowHandle(call);
+                    if (windowHandle != null) {
+                        method.instructions.remove(windowHandle);
+                    } else if (!hasPreviousAdaptedWindowLoad(call, adaptedWindowLocals)) {
+                        throw new IllegalStateException("Legacy keyboard query lacks its Window handle producer: "
+                                + node.name + "#" + method.name);
+                    }
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192InputBridge";
+                    call.name = "isKeyDown";
+                    call.desc = "(Lcom/mojang/blaze3d/platform/Window;I)Z";
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("org/lwjgl/glfw/GLFW")
+                        && call.name.equals("glfwGetMouseButton")
+                        && call.desc.equals("(JI)I")) {
+                    MethodInsnNode windowHandle = previousLegacyWindowHandle(call);
+                    if (windowHandle != null) {
+                        method.instructions.remove(windowHandle);
+                    } else if (!hasPreviousAdaptedWindowLoad(call, adaptedWindowLocals)) {
+                        throw new IllegalStateException("Legacy mouse query lacks its Window handle producer: "
+                                + node.name + "#" + method.name);
+                    }
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192InputBridge";
+                    call.name = "mouseButton";
+                    call.desc = "(Lcom/mojang/blaze3d/platform/Window;I)I";
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals(key)) {
+                    String name = switch (call.name + call.desc) {
+                        case "m_84868_()Lcom/mojang/blaze3d/platform/InputConstants$Type;" -> "getType";
+                        case "m_84873_()I" -> "getValue";
+                        case "m_84875_()Lnet/minecraft/network/chat/Component;" -> "getDisplayName";
+                        default -> null;
+                    };
+                    if (name != null) {
+                        call.name = name;
+                        rewrites++;
+                    }
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals(type)
+                        && call.name.equals("m_84895_")
+                        && call.desc.equals("(I)L" + key + ";")) {
+                    call.name = "getOrCreate";
+                    rewrites++;
+                }
+            }
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("com/mojang/blaze3d/platform/Window")
+                        && call.name.equals("m_85439_")
+                        && call.desc.equals("()J")) {
+                    throw new IllegalStateException("Unadapted native GLFW window handle use: "
+                            + node.name + "#" + method.name);
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    private static java.util.Set<Integer> adaptLegacyWindowHandleLocals(
+            ClassNode node, org.objectweb.asm.tree.MethodNode method) {
+        java.util.Set<Integer> locals = new java.util.HashSet<>();
+        for (var insn = method.instructions.getFirst(); insn != null;) {
+            var next = insn.getNext();
+            if (insn instanceof MethodInsnNode call
+                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                    && call.owner.equals("com/mojang/blaze3d/platform/Window")
+                    && call.name.equals("m_85439_")
+                    && call.desc.equals("()J")) {
+                var storeInsn = nextRealInstruction(call.getNext());
+                if (!(storeInsn instanceof org.objectweb.asm.tree.VarInsnNode store)
+                        || store.getOpcode() != org.objectweb.asm.Opcodes.LSTORE) {
+                    insn = next;
+                    continue;
+                }
+                locals.add(store.var);
+                store.setOpcode(org.objectweb.asm.Opcodes.ASTORE);
+                method.instructions.remove(call);
+            }
+            insn = next;
+        }
+        if (locals.isEmpty()) return locals;
+        for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (!(insn instanceof org.objectweb.asm.tree.VarInsnNode load)
+                    || load.getOpcode() != org.objectweb.asm.Opcodes.LLOAD
+                    || !locals.contains(load.var)) continue;
+            var consumer = nextLegacyInputConsumer(load);
+            if (consumer == null) {
+                throw new IllegalStateException("Native GLFW handle local escapes input adaptation: "
+                        + node.name + "#" + method.name + " local=" + load.var);
+            }
+            load.setOpcode(org.objectweb.asm.Opcodes.ALOAD);
+        }
+        return locals;
+    }
+
+    private static MethodInsnNode nextLegacyInputConsumer(
+            org.objectweb.asm.tree.AbstractInsnNode instruction) {
+        int examined = 0;
+        for (var cursor = instruction.getNext(); cursor != null && examined < 8;
+                cursor = cursor.getNext()) {
+            if (cursor.getOpcode() < 0) continue;
+            examined++;
+            if (cursor instanceof MethodInsnNode call
+                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                    && ((call.owner.equals("com/mojang/blaze3d/platform/InputConstants")
+                            && call.name.equals("m_84830_") && call.desc.equals("(JI)Z"))
+                        || (call.owner.equals("org/lwjgl/glfw/GLFW")
+                            && call.name.equals("glfwGetMouseButton") && call.desc.equals("(JI)I")))) {
+                return call;
+            }
+            if (cursor instanceof org.objectweb.asm.tree.JumpInsnNode
+                    || cursor instanceof org.objectweb.asm.tree.TableSwitchInsnNode
+                    || cursor instanceof org.objectweb.asm.tree.LookupSwitchInsnNode) return null;
+        }
+        return null;
+    }
+
+    private static boolean hasPreviousAdaptedWindowLoad(
+            MethodInsnNode consumer, java.util.Set<Integer> adaptedLocals) {
+        int examined = 0;
+        for (var cursor = consumer.getPrevious(); cursor != null && examined < 8;
+                cursor = cursor.getPrevious()) {
+            if (cursor.getOpcode() < 0) continue;
+            examined++;
+            if (cursor instanceof org.objectweb.asm.tree.VarInsnNode load
+                    && load.getOpcode() == org.objectweb.asm.Opcodes.ALOAD
+                    && adaptedLocals.contains(load.var)) return true;
+            if (cursor instanceof org.objectweb.asm.tree.JumpInsnNode
+                    || cursor instanceof org.objectweb.asm.tree.TableSwitchInsnNode
+                    || cursor instanceof org.objectweb.asm.tree.LookupSwitchInsnNode) return false;
+        }
+        return false;
+    }
+
+    private static MethodInsnNode previousLegacyWindowHandle(MethodInsnNode consumer) {
+        int examined = 0;
+        for (var cursor = consumer.getPrevious(); cursor != null && examined < 12;
+                cursor = cursor.getPrevious()) {
+            if (cursor.getOpcode() < 0) continue;
+            examined++;
+            if (cursor instanceof MethodInsnNode call
+                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                    && call.owner.equals("com/mojang/blaze3d/platform/Window")
+                    && call.name.equals("m_85439_")
+                    && call.desc.equals("()J")) return call;
+            if (cursor instanceof org.objectweb.asm.tree.JumpInsnNode
+                    || cursor instanceof org.objectweb.asm.tree.TableSwitchInsnNode
+                    || cursor instanceof org.objectweb.asm.tree.LookupSwitchInsnNode) return null;
+        }
+        return null;
     }
 
     /**
@@ -3569,6 +3797,38 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             && target.size() == 1) {
                         field.owner = "net/minecraft/world/level/block/CakeBlock";
                         field.name = "SHAPES";
+                        rewrites++;
+                        continue;
+                    }
+                }
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/world/entity/EntityType")
+                        && field.desc.equals("Lnet/minecraft/world/entity/EntityType;")) {
+                    String canonical = SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+                    if (canonical != null) {
+                        var targets = VANILLA_RELOCATIONS.searchExactField(
+                                "net.minecraft.world.entity.EntityTypes", canonical, field.desc);
+                        if (targets.size() == 1) {
+                            field.owner = "net/minecraft/world/entity/EntityTypes";
+                            field.name = canonical;
+                            rewrites++;
+                            continue;
+                        }
+                    }
+                }
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                        && field.owner.equals("net/minecraft/client/Minecraft")
+                        && field.name.equals("f_91080_")
+                        && field.desc.equals("Lnet/minecraft/client/gui/screens/Screen;")) {
+                    String canonical = SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+                    if ("screen".equals(canonical)) {
+                        method.instructions.set(field, new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                "com/fuckingdeveloper/lms/runtime/render/Forge1192MinecraftClientBridge",
+                                "screen", "(Lnet/minecraft/client/Minecraft;)"
+                                        + "Lnet/minecraft/client/gui/screens/Screen;", false));
                         rewrites++;
                         continue;
                     }
