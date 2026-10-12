@@ -15,7 +15,7 @@ import com.fuckingdeveloper.lms.runtime.Forge1192RuntimeSession;
 import com.fuckingdeveloper.lms.runtime.Forge1192CompatibilitySurface;
 import com.fuckingdeveloper.lms.runtime.Forge1192NeoForgeApiVerifier;
 import com.fuckingdeveloper.lms.runtime.Target263LegacyResourcePackBridge;
-import com.fuckingdeveloper.lms.runtime.LegacyTextureStitchSpriteSource;
+import com.fuckingdeveloper.lms.runtime.Target263ClientRuntimeBootstrap;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -25,10 +25,11 @@ import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.loading.FMLEnvironment;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
-import net.neoforged.neoforge.client.event.RegisterSpriteSourcesEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +49,9 @@ public final class LmsMod {
     public LmsMod(IEventBus modBus, ModContainer hostContainer) {
         modBus.addListener(this::onPayloadRegistration);
         modBus.addListener(AddPackFindersEvent.class, legacyResourcePacks::addPackFinders);
-        modBus.addListener(RegisterSpriteSourcesEvent.class, LegacyTextureStitchSpriteSource::register);
+        if (FMLEnvironment.getDist() == Dist.CLIENT) {
+            Target263ClientRuntimeBootstrap.register(modBus);
+        }
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {
             Files.createDirectories(directory);
