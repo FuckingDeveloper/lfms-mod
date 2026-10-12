@@ -150,6 +150,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyStringRepresentableOverride(node);
+        rewrites += rewriteVerifiedVanillaOverrides(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyCreativeTabLookup(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
@@ -1528,6 +1529,23 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (insn instanceof InvokeDynamicInsnNode indy) {
+                    if (indy.name.startsWith("m_")
+                            && indy.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")
+                            && indy.bsmArgs.length >= 1
+                            && indy.bsmArgs[0] instanceof Type samType) {
+                        Type functionalType = Type.getReturnType(indy.desc);
+                        if (functionalType.getSort() == Type.OBJECT) {
+                            String functionalOwner = functionalType.getInternalName();
+                            var resolved = SRG_RUNTIME_RESOLVER.get().resolve(
+                                    functionalOwner, indy.name, samType.getDescriptor());
+                            if (resolved.resolved()
+                                    && resolved.owner().equals(functionalOwner)
+                                    && resolved.descriptor().equals(samType.getDescriptor())) {
+                                indy.name = resolved.name();
+                                rewrites++;
+                            }
+                        }
+                    }
                     for (int i = 0; i < indy.bsmArgs.length; i++) {
                         if (!(indy.bsmArgs[i] instanceof Handle handle)
                                 || !handle.getName().startsWith("m_")) continue;
@@ -1751,6 +1769,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 var resolved = resolveRelocatedVanillaMethod(call.owner, call.name, call.desc);
                 if (resolved == null) {
                     resolved = SRG_RUNTIME_RESOLVER.get().resolve(call.owner, call.name, call.desc);
+                }
+                if (!resolved.resolved() && call.name.startsWith("m_")) {
+                    var inherited = resolveInheritedVanillaMethod(call.owner, call.name, call.desc);
+                    if (inherited != null) resolved = inherited;
                 }
                 if (!resolved.resolved()) {
                     resolved = SRG_RUNTIME_RESOLVER.get().resolveCovariantReturn(
@@ -3258,6 +3280,91 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * Restore SRG-named method declarations that override an exactly surviving
+     * vanilla contract. Call-site projection is insufficient for overrides:
+     * the JVM selects implementations by their target-runtime name and
+     * descriptor, so leaving the legacy declaration name behind makes an
+     * otherwise concrete managed subtype appear abstract.
+     *
+     * <p>The declaring managed class is never used as mapping evidence. The
+     * rewrite requires an exact SRG identity resolved through a proven vanilla
+     * superclass/interface, plus an unchanged descriptor in the target
+     * runtime. This deliberately excludes descriptor-only matches and API
+     * families whose target semantics or descriptors changed.</p>
+     */
+    private int rewriteVerifiedVanillaOverrides(ClassNode node) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
+        int rewrites = 0;
+        java.util.HashMap<String, String> renamed = new java.util.HashMap<>();
+        for (var method : node.methods) {
+            if (!method.name.startsWith("m_")
+                    || (method.access & (org.objectweb.asm.Opcodes.ACC_STATIC
+                            | org.objectweb.asm.Opcodes.ACC_PRIVATE)) != 0) continue;
+            var resolved = resolveOverriddenVanillaMethod(node, method.name, method.desc);
+            if (resolved == null || resolved.name().equals(method.name)
+                    || !isTargetMethodOverridable(resolved)) continue;
+            boolean collision = node.methods.stream().anyMatch(candidate -> candidate != method
+                    && candidate.name.equals(resolved.name())
+                    && candidate.desc.equals(resolved.descriptor()));
+            if (collision) {
+                throw new IllegalStateException("Managed class " + node.name
+                        + " declares both legacy and target override identities for "
+                        + resolved.name() + resolved.descriptor());
+            }
+            renamed.put(method.name + method.desc, resolved.name());
+            method.name = resolved.name();
+            rewrites++;
+        }
+        if (renamed.isEmpty()) return rewrites;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call) || !call.owner.equals(node.name)) continue;
+                String targetName = renamed.get(call.name + call.desc);
+                if (targetName == null) continue;
+                call.name = targetName;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private Forge1192SrgRuntimeResolver.Resolution resolveOverriddenVanillaMethod(
+            ClassNode node, String name, String descriptor) {
+        java.util.LinkedHashMap<String, Forge1192SrgRuntimeResolver.Resolution> matches =
+                new java.util.LinkedHashMap<>();
+        if (node.superName != null) {
+            var resolved = resolveInheritedVanillaMethod(node.superName, name, descriptor);
+            if (resolved != null) matches.put(resolved.name() + resolved.descriptor(), resolved);
+        }
+        for (String interfaceName : node.interfaces) {
+            var resolved = resolveInheritedVanillaMethod(interfaceName, name, descriptor);
+            if (resolved != null) matches.put(resolved.name() + resolved.descriptor(), resolved);
+        }
+        return matches.size() == 1 ? matches.values().iterator().next() : null;
+    }
+
+    private boolean isTargetMethodOverridable(
+            Forge1192SrgRuntimeResolver.Resolution resolved) {
+        try {
+            byte[] bytes = hierarchyBytes(resolved.owner());
+            if (bytes == null) return false;
+            ClassNode target = new ClassNode();
+            new ClassReader(bytes).accept(target,
+                    ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            for (var method : target.methods) {
+                if (!method.name.equals(resolved.name())
+                        || !method.desc.equals(resolved.descriptor())) continue;
+                return (method.access & (org.objectweb.asm.Opcodes.ACC_FINAL
+                        | org.objectweb.asm.Opcodes.ACC_STATIC
+                        | org.objectweb.asm.Opcodes.ACC_PRIVATE)) == 0;
+            }
+        } catch (java.io.IOException | RuntimeException ignored) {
+            // Missing/corrupt target ABI evidence must fail closed.
+        }
+        return false;
     }
 
     private static int deferLegacyMinecraftFieldInitialization(
