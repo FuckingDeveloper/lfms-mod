@@ -5193,18 +5193,73 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    /** Registry static fields moved to BuiltInRegistries after 1.19.2. */
+    /** Registry static values/keys split into BuiltInRegistries and Registries after 1.19.2. */
     private static int rewriteLegacyVanillaRegistryFields(ClassNode node) {
         int rewrites = 0;
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (insn instanceof FieldInsnNode field
-                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
-                        && field.owner.equals("net/minecraft/core/Registry")
-                        && field.name.equals("f_122832_")
+                if (!(insn instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals("net/minecraft/core/Registry")) continue;
+                if (field.name.equals("f_122832_")
                         && field.desc.equals("Lnet/minecraft/core/Registry;")) {
                     field.owner = "net/minecraft/core/registries/BuiltInRegistries";
                     field.name = "CUSTOM_STAT";
+                    rewrites++;
+                    continue;
+                }
+                String targetRegistry = switch (field.name) {
+                    case "f_122821_" -> "SOUND_EVENT";
+                    case "f_122822_" -> "FLUID";
+                    case "f_122823_" -> "MOB_EFFECT";
+                    case "f_122824_" -> "BLOCK";
+                    // Enchantments became data-driven; there is deliberately
+                    // no process-global migration for f_122825_.
+                    case "f_122826_" -> "ENTITY_TYPE";
+                    case "f_122827_" -> "ITEM";
+                    case "f_122828_" -> "POTION";
+                    case "f_122829_" -> "PARTICLE_TYPE";
+                    case "f_122830_" -> "BLOCK_ENTITY_TYPE";
+                    case "f_122833_" -> "CHUNK_STATUS";
+                    default -> null;
+                };
+                if (targetRegistry != null) {
+                    field.owner = "net/minecraft/core/registries/BuiltInRegistries";
+                    field.name = targetRegistry;
+                    field.desc = switch (targetRegistry) {
+                        case "FLUID", "BLOCK", "ENTITY_TYPE", "ITEM", "CHUNK_STATUS" ->
+                                "Lnet/minecraft/core/DefaultedRegistry;";
+                        default -> "Lnet/minecraft/core/Registry;";
+                    };
+                    rewrites++;
+                    continue;
+                }
+                if (!field.desc.equals("Lnet/minecraft/resources/ResourceKey;")) continue;
+                String targetKey = switch (field.name) {
+                    case "f_122898_" -> "SOUND_EVENT";
+                    case "f_122899_" -> "FLUID";
+                    case "f_122900_" -> "MOB_EFFECT";
+                    case "f_122901_" -> "BLOCK";
+                    case "f_122902_" -> "ENCHANTMENT";
+                    case "f_122903_" -> "ENTITY_TYPE";
+                    case "f_122904_" -> "ITEM";
+                    case "f_122905_" -> "POTION";
+                    case "f_122906_" -> "PARTICLE_TYPE";
+                    case "f_122907_" -> "BLOCK_ENTITY_TYPE";
+                    case "f_122909_" -> "CUSTOM_STAT";
+                    case "f_122910_" -> "CHUNK_STATUS";
+                    case "f_122911_" -> "RULE_TEST";
+                    case "f_122912_" -> "POS_RULE_TEST";
+                    case "f_122913_" -> "MENU";
+                    case "f_122914_" -> "RECIPE_TYPE";
+                    case "f_122915_" -> "RECIPE_SERIALIZER";
+                    case "f_122916_" -> "ATTRIBUTE";
+                    case "f_122917_" -> "STAT_TYPE";
+                    default -> null;
+                };
+                if (targetKey != null) {
+                    field.owner = "net/minecraft/core/registries/Registries";
+                    field.name = targetKey;
                     rewrites++;
                 }
             }
@@ -5771,6 +5826,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         call.itf = true;
                         rewrites++;
                     }
+                }
+                if (insn instanceof MethodInsnNode call
+                        && (call.owner.equals("net/minecraft/core/Registry")
+                            || call.owner.equals("net/minecraft/core/DefaultedRegistry"))
+                        && call.name.equals("m_203613_")
+                        && call.desc.equals("()Ljava/util/stream/Stream;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/registry/Forge1192RegistryTagBridge";
+                    call.name = "tagNames";
+                    call.desc = "(Ljava/lang/Object;)Ljava/util/stream/Stream;";
+                    call.itf = false;
+                    rewrites++;
+                } else if (insn instanceof MethodInsnNode call
+                        && call.owner.equals("net/minecraft/core/DefaultedRegistry")
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL) {
+                    // DefaultedRegistry changed from an abstract class to an
+                    // interface in the target runtime. The semantic method
+                    // identity is resolved separately; fix the JVM call shape.
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKEINTERFACE);
+                    call.itf = true;
+                    rewrites++;
                 }
                 if (!(insn instanceof InvokeDynamicInsnNode indy)) continue;
                 for (int i = 0; i < indy.bsmArgs.length; i++) {
@@ -7037,6 +7113,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         rewrites++;
                     }
                 }
+                // Forge 1.19.2 exposed stable, reload-aware ITagManager/ITag
+                // views from each registry. Preserve that semantic contract
+                // over the target registry's live HolderSet bindings.
+                if (call.owner.equals("com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry")
+                        && call.name.equals("tags")
+                        && call.desc.equals("()Lcom/fuckingdeveloper/lms/runtime/registry/LegacyTagManager;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/registry/Forge1192RegistryTagBridge";
+                    call.desc = "(Ljava/lang/Object;)Lcom/fuckingdeveloper/lms/runtime/registry/LegacyTagManager;";
+                    call.itf = false;
+                    rewrites++;
+                }
                 // Legacy IForgeRegistry#register is no longer a mutable
                 // registry call. Route it through the active RegisterEvent scope.
                 if ((call.owner.equals("net/neoforged/neoforge/registries/IForgeRegistry")
@@ -7550,6 +7638,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // Forge1192RegistrationContext by semantic adapters below.
         if (value.equals("net/minecraftforge/registries/IForgeRegistry"))
             return "com/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry";
+        if (value.equals("net/minecraftforge/registries/tags/ITagManager"))
+            return "com/fuckingdeveloper/lms/runtime/registry/LegacyTagManager";
+        if (value.equals("net/minecraftforge/registries/tags/ITag"))
+            return "com/fuckingdeveloper/lms/runtime/registry/LegacyTag";
         if (value.equals("net/minecraftforge/common/IPlantable"))
             return "com/fuckingdeveloper/lms/runtime/block/LegacyIPlantable";
         if (value.equals("net/minecraftforge/common/PlantType"))
@@ -7675,6 +7767,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/common/extensions/IForgeBlock", "com/fuckingdeveloper/lms/runtime/block/LegacyIForgeBlock")
                 .replace("net/minecraftforge/common/extensions/IForgeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyIForgeItem")
                 .replace("net/minecraftforge/registries/RegistryObject", "com/fuckingdeveloper/lms/runtime/registry/LegacyRegistryObject")
+                .replace("net/minecraftforge/registries/tags/ITagManager", "com/fuckingdeveloper/lms/runtime/registry/LegacyTagManager")
+                .replace("net/minecraftforge/registries/tags/ITag", "com/fuckingdeveloper/lms/runtime/registry/LegacyTag")
                 .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
                 .replace("net/minecraftforge/common/capabilities/RegisterCapabilitiesEvent", "net/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent")
                 .replace("net/minecraftforge/common/capabilities/CapabilityToken", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken")

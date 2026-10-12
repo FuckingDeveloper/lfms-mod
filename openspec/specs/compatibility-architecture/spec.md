@@ -100,6 +100,12 @@ Target adapters SHOULD contain:
 
 Direct target-runtime API calls SHOULD be concentrated behind target adapters or target-aware bridge implementations when doing so prevents source profiles from becoming coupled to one target generation.
 
+When a source registry exposes stable tag-manager and tag objects whose
+contents are rebound across data reloads, LMS MUST preserve the stable source
+object identity while resolving each operation against the target registry's
+current tag binding. An unknown source tag MUST remain an empty, unbound view;
+LMS MUST NOT manufacture registry entries or snapshot stale holder contents.
+
 When a source lifecycle callback is internally ordered but the target makes a
 required invariant available only at a later phase, LMS MUST preserve the
 callback as one ordered lifecycle unit. Splitting individual calls across the
