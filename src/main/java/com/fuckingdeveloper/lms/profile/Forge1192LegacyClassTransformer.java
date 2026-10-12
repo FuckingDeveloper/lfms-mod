@@ -2076,6 +2076,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 var current = insn;
                 insn = insn.getNext();
                 if (!(current instanceof FieldInsnNode field)) continue;
+                // Sheets#f_110739_ was the 1.19.2 block-atlas identifier.
+                // The exact target value moved to TextureAtlas.LOCATION_BLOCKS.
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/client/renderer/Sheets")
+                        && field.name.equals("f_110739_")
+                        && field.desc.equals("Lnet/minecraft/resources/Identifier;")) {
+                    field.owner = "net/minecraft/client/renderer/texture/TextureAtlas";
+                    field.name = "LOCATION_BLOCKS";
+                    rewrites++;
+                    continue;
+                }
                 String copperCollection = legacyCopperCollectionField(field);
                 if (copperCollection != null) {
                     field.name = copperCollection;
