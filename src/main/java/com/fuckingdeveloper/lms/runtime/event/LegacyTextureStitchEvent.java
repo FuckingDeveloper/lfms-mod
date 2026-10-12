@@ -36,6 +36,10 @@ public class LegacyTextureStitchEvent extends Event {
             return sprites.add(Objects.requireNonNull(sprite, "sprite"));
         }
 
+        public Set<Identifier> requestedSprites() {
+            return Set.copyOf(sprites);
+        }
+
         /**
          * Minecraft 26.3 obtains atlas members from data-driven sprite sources.
          * Accept legacy additions only when those sources already materialized

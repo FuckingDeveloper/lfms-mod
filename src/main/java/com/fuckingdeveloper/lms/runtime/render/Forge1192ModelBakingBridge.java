@@ -73,12 +73,8 @@ public final class Forge1192ModelBakingBridge {
             Object context, Item item, LegacyModelResourceLocation modelKey) {
         Context active = requireContext(context);
         Identifier itemId = BuiltInRegistries.ITEM.getKey(item);
-        if (itemId == null || !itemId.equals(modelKey.identifier())
-                || !"inventory".equals(modelKey.getVariant())) {
-            throw new IllegalStateException("Legacy item model registration cannot be represented: item="
-                    + itemId + " model=" + modelKey);
-        }
-        active.markItemRegistration(itemId);
+        if (itemId == null) throw new IllegalStateException("Unregistered legacy item model: " + item);
+        active.registerItemModel(itemId, modelKey);
     }
 
     public static LegacyModelResourceLocation stateModelKey(BlockState state) {
@@ -110,7 +106,8 @@ public final class Forge1192ModelBakingBridge {
         private final ModelEvent.ModifyBakingResult mutable;
         private final ModelEvent.BakingCompleted completed;
         private final Map<Object, Object> models;
-        private final java.util.Set<Identifier> itemRegistrations = new java.util.HashSet<>();
+        private final Map<LegacyModelResourceLocation, LegacyBakedModel> legacyModels =
+                new java.util.HashMap<>();
 
         private Context(
                 ModelEvent.ModifyBakingResult mutable, ModelEvent.BakingCompleted completed) {
@@ -134,14 +131,26 @@ public final class Forge1192ModelBakingBridge {
             return result().missingModels().blockPart().particleMaterial();
         }
 
-        private void markItemRegistration(Identifier itemId) {
-            if (!itemRegistrations.add(itemId)) {
-                throw new IllegalStateException("Legacy item model registered more than once: " + itemId);
+        private void registerItemModel(
+                Identifier itemId, LegacyModelResourceLocation modelKey) {
+            LegacyBakedModel model = legacyModels.get(modelKey);
+            // Forge 1.19.2 ItemModelShaper#register stored into a map and a
+            // later registration for the same item replaced the earlier one.
+            if (model != null) {
+                result().itemStackModels().put(itemId,
+                        new LegacyItemModel(model, missingMaterial()));
+                return;
             }
-            if (!result().itemStackModels().containsKey(itemId)) {
-                throw new IllegalStateException("Legacy item model key was not populated before registration: "
-                        + itemId);
+            // A source callback may deliberately retain a model that was
+            // already baked from resources (Map#get + conditional put) and
+            // then register another item against that exact model key.
+            ItemModel baked = result().itemStackModels().get(modelKey.identifier());
+            if (baked == null || baked == result().missingModels().item()) {
+                throw new IllegalStateException(
+                        "Legacy item model key was not populated before registration: item="
+                                + itemId + " model=" + modelKey);
             }
+            result().itemStackModels().put(itemId, baked);
         }
     }
 
@@ -177,6 +186,7 @@ public final class Forge1192ModelBakingBridge {
                 throw new IllegalArgumentException("Not a legacy baked model: " + value);
             }
             Object previous = get(location);
+            context.legacyModels.put(location, model);
             if (location.blockState() != null) {
                 context.result().blockStateModels().put(location.blockState(),
                         new LegacyBlockModel(model, location.blockState(), context.missingMaterial()));

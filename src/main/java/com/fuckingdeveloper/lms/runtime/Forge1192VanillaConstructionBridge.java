@@ -42,6 +42,8 @@ public final class Forge1192VanillaConstructionBridge {
             Collections.synchronizedMap(new WeakHashMap<>());
     private static final Map<net.minecraft.resources.Identifier, CreativeModeTab> LEGACY_TABS_BY_ITEM_ID =
             new ConcurrentHashMap<>();
+    private static final Map<Item, Item.Properties> ITEM_PROPERTIES =
+            Collections.synchronizedMap(new IdentityHashMap<>());
     private static final AtomicBoolean CREATIVE_TAB_GAP_REPORTED = new AtomicBoolean();
     private static final Map<FoodProperties.Builder, LegacyFoodIntent> LEGACY_FOOD_BUILDERS =
             Collections.synchronizedMap(new IdentityHashMap<>());
@@ -333,6 +335,17 @@ public final class Forge1192VanillaConstructionBridge {
                                             net.minecraft.resources.Identifier itemId) {
         CreativeModeTab tab = LEGACY_TABS_BY_PROPERTIES.remove(properties);
         if (tab != null) LEGACY_TABS_BY_ITEM_ID.put(itemId, tab);
+    }
+
+    public static void associateItemProperties(Item item, Item.Properties properties) {
+        Item.Properties previous = ITEM_PROPERTIES.putIfAbsent(item, properties);
+        if (previous != null && previous != properties) {
+            throw new IllegalStateException("Multiple Item.Properties objects for " + item);
+        }
+    }
+
+    static Optional<Item.Properties> itemProperties(Item item) {
+        return Optional.ofNullable(ITEM_PROPERTIES.get(item));
     }
 
     /**

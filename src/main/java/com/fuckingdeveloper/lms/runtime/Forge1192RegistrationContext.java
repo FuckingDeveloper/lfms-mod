@@ -55,7 +55,16 @@ public final class Forge1192RegistrationContext {
 
     public static AutoCloseable enterMod(String modId) {
         Objects.requireNonNull(modId, "modId");
-        if (CURRENT_MOD.get() != null) throw new IllegalStateException("Nested legacy mod scopes are not supported");
+        String active = CURRENT_MOD.get();
+        if (active != null) {
+            if (!active.equals(modId)) {
+                throw new IllegalStateException("Cannot enter legacy mod scope for " + modId
+                        + " while " + active + " is active");
+            }
+            // Synchronous target-to-legacy callbacks retain the owning mod's
+            // namespace. Registry-event nesting remains independently forbidden.
+            return () -> {};
+        }
         Thread owner = Thread.currentThread();
         CURRENT_MOD.set(modId);
         return () -> {

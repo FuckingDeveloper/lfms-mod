@@ -108,6 +108,19 @@ earlier deferred call. Whole-callback deferral is permitted only with evidence
 that the source event parameter is not consumed after its original phase;
 otherwise the unsupported lifecycle migration MUST fail closed.
 
+When such a callback requires a source-era value before the target binds its
+global default-component state, a target adapter MAY materialize an isolated
+value from the exact preserved construction intent and target component
+initializers. It MUST NOT bind or mutate global holder state early, fabricate
+empty defaults, or continue when the complete value cannot be materialized.
+
+When a source generation exposes a live mutable arbitrary-NBT view of an item
+stack but the target stores that payload in a data component, the target
+adapter MUST preserve mutations made through the returned source view and MUST
+store them in the target's serializable custom-data component. Returning a
+detached copy from a source mutation API is forbidden. The adapter MUST NOT
+reinterpret component-owned target data as arbitrary legacy NBT.
+
 When a source generation exposes one combined baked-model contract but the
 target splits block-state and item rendering, LMS MUST preserve the legacy
 registration lifecycle and adapt the model independently into each target
@@ -122,6 +135,15 @@ render-pipeline state but the target separates those concepts, LMS MUST retain
 source chunk layers as semantic identities until the model adapter selects the
 target chunk/material representation. It MUST NOT substitute an unrelated
 target render pipeline merely because both APIs use a class named RenderType.
+
+Managed legacy artifacts remain immutable inputs, but their client and server
+resources MUST be exposed through the target generation's resource-pack
+lifecycle when that artifact is admitted to a runtime session. The target
+adapter MAY provide target-current pack metadata instead of trusting obsolete
+legacy `pack.mcmeta` compatibility declarations. That metadata adaptation MUST
+NOT rewrite the artifact or reinterpret resource contents; parsing and semantic
+migration of individual resource families remain separate, fail-closed
+compatibility operations.
 
 ## Generic compatibility requirement
 

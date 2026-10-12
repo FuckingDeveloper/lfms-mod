@@ -59,6 +59,8 @@ public final class Forge1192EventBusBridge {
             new CopyOnWriteArrayList<>();
     private static final List<PrioritizedListener<LegacyTextureStitchEvent.Post>> TEXTURE_STITCH_POST =
             new CopyOnWriteArrayList<>();
+    private static final java.util.Map<Identifier, java.util.Set<Identifier>> PREPARED_TEXTURE_SPRITES =
+            new java.util.concurrent.ConcurrentHashMap<>();
     private static boolean textureStitchDispatcherRegistered;
 
     private Forge1192EventBusBridge() {}
@@ -276,9 +278,13 @@ public final class Forge1192EventBusBridge {
             Consumer<LegacyModelBakingCompletedEvent> listener) {
         AtomicReference<ModelEvent.ModifyBakingResult> mutable = new AtomicReference<>();
         bus.addListener(priority, false, ModelEvent.ModifyBakingResult.class, event -> {
-            if (!mutable.compareAndSet(null, event)) {
+            ModelEvent.ModifyBakingResult previous = mutable.getAndSet(event);
+            if (previous != null && previous.getModelBakery() == event.getModelBakery()) {
                 throw new IllegalStateException("Mutable model-baking result captured more than once");
             }
+            // A failed resource reload has no BakingCompleted event. The target
+            // may immediately start a fallback reload, whose distinct bakery
+            // supersedes the abandoned mutable result.
         });
         bus.addListener(priority, false, ModelEvent.BakingCompleted.class, event -> {
             ModelEvent.ModifyBakingResult captured = mutable.getAndSet(null);
@@ -322,9 +328,26 @@ public final class Forge1192EventBusBridge {
         textureStitchDispatcherRegistered = true;
     }
 
-    private static void dispatchLegacyTextureStitch(TextureAtlasStitchedEvent target) {
-        var pre = new LegacyTextureStitchEvent.Pre(target.getAtlas());
+    public static java.util.Set<Identifier> collectLegacyTextureSprites(
+            net.minecraft.client.renderer.texture.TextureAtlas atlas) {
+        var pre = new LegacyTextureStitchEvent.Pre(atlas);
         ordered(TEXTURE_STITCH_PRE).forEach(listener -> listener.consumer().accept(pre));
+        java.util.Set<Identifier> requested = pre.requestedSprites();
+        PREPARED_TEXTURE_SPRITES.put(atlas.location(), requested);
+        return requested;
+    }
+
+    private static void dispatchLegacyTextureStitch(TextureAtlasStitchedEvent target) {
+        java.util.Set<Identifier> prepared = PREPARED_TEXTURE_SPRITES.remove(target.getAtlas().location());
+        var pre = prepared == null
+                ? new LegacyTextureStitchEvent.Pre(target.getAtlas())
+                : new LegacyTextureStitchEvent.Pre(target.getAtlas(), prepared);
+        // Atlases without an LMS sprite source remain explicitly unsupported:
+        // invoke Pre at the only available boundary and fail if it asks for a
+        // sprite that the target did not already materialize.
+        if (prepared == null) {
+            ordered(TEXTURE_STITCH_PRE).forEach(listener -> listener.consumer().accept(pre));
+        }
         pre.requireMaterialized();
 
         var post = new LegacyTextureStitchEvent.Post(target.getAtlas());
@@ -381,7 +404,8 @@ public final class Forge1192EventBusBridge {
             int initial = existing != null && existing.burnTime() instanceof ResolvableInt.Constant constant
                     ? constant.value() : 0;
             LegacyFurnaceFuelBurnTimeEvent legacy =
-                    new LegacyFurnaceFuelBurnTimeEvent(new ItemStack(item), initial);
+                    new LegacyFurnaceFuelBurnTimeEvent(
+                            Forge1192EarlyItemStackBridge.create(item, 1, components.build()), initial);
             listener.accept(legacy);
             if (!legacy.overridden()) return;
             ResolvableFloat speed = existing == null

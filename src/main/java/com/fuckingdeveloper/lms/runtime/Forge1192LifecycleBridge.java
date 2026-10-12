@@ -43,6 +43,17 @@ public final class Forge1192LifecycleBridge {
 
     /** Reconstruct the source-era FML thread context for a deferred callback. */
     public static AutoCloseable enterRecorded(String modId) {
+        Context active = CURRENT.get();
+        if (active != null) {
+            if (!active.modId().equals(Objects.requireNonNull(modId, "modId"))) {
+                throw new IllegalStateException("Cannot enter legacy lifecycle for " + modId
+                        + " while " + active.modId() + " is active");
+            }
+            // Target services may synchronously call back into another legacy
+            // event owned by the same mod. Preserve the existing source-era
+            // context (including active-container state) for that re-entry.
+            return () -> {};
+        }
         Binding binding = BINDINGS.get(Objects.requireNonNull(modId, "modId"));
         if (binding == null) {
             throw new IllegalStateException("No lifecycle binding recorded for legacy mod " + modId);

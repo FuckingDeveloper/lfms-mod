@@ -14,6 +14,8 @@ import com.fuckingdeveloper.lms.runtime.Forge1192RegistrationPlanner;
 import com.fuckingdeveloper.lms.runtime.Forge1192RuntimeSession;
 import com.fuckingdeveloper.lms.runtime.Forge1192CompatibilitySurface;
 import com.fuckingdeveloper.lms.runtime.Forge1192NeoForgeApiVerifier;
+import com.fuckingdeveloper.lms.runtime.Target263LegacyResourcePackBridge;
+import com.fuckingdeveloper.lms.runtime.LegacyTextureStitchSpriteSource;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -25,6 +27,8 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.event.AddPackFindersEvent;
+import net.neoforged.neoforge.client.event.RegisterSpriteSourcesEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,9 +43,12 @@ public final class LmsMod {
     private static final Logger LOG = LoggerFactory.getLogger(LmsMod.class);
     private static final String MEMBER_PLANNER_FINGERPRINT = "2026-10-10-member-v2";
     private final java.util.List<Forge1192RuntimeSession> runtimeSessions = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final Target263LegacyResourcePackBridge legacyResourcePacks = new Target263LegacyResourcePackBridge();
 
     public LmsMod(IEventBus modBus, ModContainer hostContainer) {
         modBus.addListener(this::onPayloadRegistration);
+        modBus.addListener(AddPackFindersEvent.class, legacyResourcePacks::addPackFinders);
+        modBus.addListener(RegisterSpriteSourcesEvent.class, LegacyTextureStitchSpriteSource::register);
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {
             Files.createDirectories(directory);
@@ -78,6 +85,8 @@ public final class LmsMod {
                                     mod.modId(), dependencyDecision.missing());
                             continue;
                         }
+                        legacyResourcePacks.admit(mod.file());
+                        legacyResourcePacks.admitAll(dependencyDecision.artifacts());
                         LOG.info("LMS dependency-gate id={} state=READY mandatoryDependenciesSatisfied=true managedArtifacts={}",
                                 mod.modId(), dependencyDecision.artifacts().stream()
                                         .map(path -> path.getFileName().toString()).toList());

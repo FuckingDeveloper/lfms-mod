@@ -57,9 +57,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransforms", "net/minecraft/client/resources/model/cuboid/ItemTransforms"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransforms$TransformType", "net/minecraft/world/item/ItemDisplayContext"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/BakedQuad", "net/minecraft/client/resources/model/geometry/BakedQuad"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/model/BlockFaceUV", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockFaceUV"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/model/BlockElementFace", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockElementFace"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/model/BlockElementRotation", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockElementRotation"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/model/FaceBakery", "com/fuckingdeveloper/lms/runtime/render/LegacyFaceBakery"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemOverrides", "com/fuckingdeveloper/lms/runtime/render/LegacyItemOverrides"),
             java.util.Map.entry("net/minecraft/client/gui/screens/SoundOptionsScreen", "net/minecraft/client/gui/screens/options/SoundOptionsScreen"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderType"),
+            java.util.Map.entry("com/mojang/math/Vector3f", "org/joml/Vector3f"),
             java.util.Map.entry("net/minecraft/world/level/BlockAndTintGetter", "net/minecraft/client/renderer/block/BlockAndTintGetter"),
             java.util.Map.entry("net/minecraft/core/BlockSource", "net/minecraft/core/dispenser/BlockSource"),
             java.util.Map.entry("net/minecraft/world/entity/animal/Sheep", "net/minecraft/world/entity/animal/sheep/Sheep"),
@@ -171,6 +176,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyNamedItemConstruction(node);
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
         rewrites += rewriteEarlyItemStackConsumers(node);
+        rewrites += rewriteLegacyItemStackConstruction(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
@@ -182,6 +188,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyItemTransformFamily(node);
         rewrites += rewriteLegacyModelBakingPipeline(node);
         rewrites += rewriteLegacyBlockAtlasIdentity(node);
+        rewrites += rewriteLegacyVector3fAccessors(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -978,12 +985,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.owner.equals("net/minecraft/world/item/Item")
                         || !call.name.equals("<init>")
                         || !call.desc.equals("(" + properties + ")V")) continue;
+                int propertiesLocal = method.maxLocals++;
                 var adaptation = new org.objectweb.asm.tree.InsnList();
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
                 appendRegistryNameLoad(adaptation, registryName);
                 adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
                         "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                         "withItemId", "(" + properties + "Ljava/lang/String;)" + properties, false));
                 method.instructions.insertBefore(call, adaptation);
+                var association = new org.objectweb.asm.tree.InsnList();
+                association.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+                association.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                association.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "associateItemProperties",
+                        "(Lnet/minecraft/world/item/Item;Lnet/minecraft/world/item/Item$Properties;)V", false));
+                method.instructions.insert(call, association);
                 rewrites++;
             }
         }
@@ -1162,6 +1183,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                         "associateBlockItem",
                         "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item;)V", false));
+                association.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, 0));
+                association.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                association.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "associateItemProperties",
+                        "(Lnet/minecraft/world/item/Item;Lnet/minecraft/world/item/Item$Properties;)V", false));
                 method.instructions.insert(call, association);
                 rewrites++;
             }
@@ -1245,6 +1274,15 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         "(Lnet/minecraft/world/item/Item$Properties;Ljava/lang/String;)"
                                 + "Lnet/minecraft/world/item/Item$Properties;", false));
                 method.instructions.insertBefore(call, adaptation);
+                var association = new org.objectweb.asm.tree.InsnList();
+                association.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+                association.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                association.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "associateItemProperties",
+                        "(Lnet/minecraft/world/item/Item;Lnet/minecraft/world/item/Item$Properties;)V", false));
+                method.instructions.insert(call, association);
                 rewrites++;
             }
         }
@@ -1486,6 +1524,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")) continue;
                 field.owner = "net/minecraft/client/renderer/texture/TextureAtlas";
                 field.name = "LOCATION_BLOCKS";
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyVector3fAccessors(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || !call.owner.equals("com/mojang/math/Vector3f")
+                        || !call.desc.equals("()F")) continue;
+                String target = switch (call.name) {
+                    case "m_122239_" -> "x";
+                    case "m_122260_" -> "y";
+                    case "m_122269_" -> "z";
+                    default -> null;
+                };
+                if (target == null) continue;
+                call.name = target;
                 rewrites++;
             }
         }
@@ -2368,6 +2427,93 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     continue;
                 }
 
+                // Forge 1.19.2 ItemStack#is(Item) (m_150930_) compared the
+                // stack's concrete item by identity. Target 26.3 removed that
+                // overload while retaining ItemStack#getItem, so preserve the
+                // exact source member rather than broadening it to a predicate.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/ItemStack")
+                        && call.name.equals("m_150930_")
+                        && call.desc.equals("(Lnet/minecraft/world/item/Item;)Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                    call.name = "is";
+                    call.desc = "(Lnet/minecraft/world/item/ItemStack;"
+                            + "Lnet/minecraft/world/item/Item;)Z";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                // Forge 1.19.2 ItemStack#addTagElement mutated the stack's
+                // arbitrary NBT payload. Target 26.3 preserves that payload in
+                // the CUSTOM_DATA component and requires copy-on-write update.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/ItemStack")
+                        && call.name.equals("m_41700_")
+                        && call.desc.equals("(Ljava/lang/String;Lnet/minecraft/nbt/Tag;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                    call.name = "addTagElement";
+                    call.desc = "(Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;"
+                            + "Lnet/minecraft/nbt/Tag;)V";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                // Forge 1.19.2 exposed arbitrary stack NBT as a live mutable
+                // CompoundTag. The target stores that payload in CUSTOM_DATA;
+                // these exact source members use the bridge's live view so
+                // mutations are not lost through detached component copies.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/ItemStack")) {
+                    String bridgeName = null;
+                    String bridgeDesc = null;
+                    if (call.name.equals("m_41782_") && call.desc.equals("()Z")) {
+                        bridgeName = "hasTag";
+                        bridgeDesc = "(Lnet/minecraft/world/item/ItemStack;)Z";
+                    } else if (call.name.equals("m_41783_")
+                            && call.desc.equals("()Lnet/minecraft/nbt/CompoundTag;")) {
+                        bridgeName = "getTag";
+                        bridgeDesc = "(Lnet/minecraft/world/item/ItemStack;)"
+                                + "Lnet/minecraft/nbt/CompoundTag;";
+                    } else if (call.name.equals("m_41784_")
+                            && call.desc.equals("()Lnet/minecraft/nbt/CompoundTag;")) {
+                        bridgeName = "getOrCreateTag";
+                        bridgeDesc = "(Lnet/minecraft/world/item/ItemStack;)"
+                                + "Lnet/minecraft/nbt/CompoundTag;";
+                    } else if (call.name.equals("m_41698_")
+                            && call.desc.equals("(Ljava/lang/String;)Lnet/minecraft/nbt/CompoundTag;")) {
+                        bridgeName = "getOrCreateTagElement";
+                        bridgeDesc = "(Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;)"
+                                + "Lnet/minecraft/nbt/CompoundTag;";
+                    } else if (call.name.equals("m_41737_")
+                            && call.desc.equals("(Ljava/lang/String;)Lnet/minecraft/nbt/CompoundTag;")) {
+                        bridgeName = "getTagElement";
+                        bridgeDesc = "(Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;)"
+                                + "Lnet/minecraft/nbt/CompoundTag;";
+                    } else if (call.name.equals("m_41749_")
+                            && call.desc.equals("(Ljava/lang/String;)V")) {
+                        bridgeName = "removeTagKey";
+                        bridgeDesc = "(Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;)V";
+                    } else if (call.name.equals("m_41751_")
+                            && call.desc.equals("(Lnet/minecraft/nbt/CompoundTag;)V")) {
+                        bridgeName = "setTag";
+                        bridgeDesc = "(Lnet/minecraft/world/item/ItemStack;"
+                                + "Lnet/minecraft/nbt/CompoundTag;)V";
+                    }
+                    if (bridgeName != null) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                        call.name = bridgeName;
+                        call.desc = bridgeDesc;
+                        call.itf = false;
+                        rewrites++;
+                        continue;
+                    }
+                }
+
                 // Forge 1.19.2 maintained a client-only WoodType -> sign
                 // material cache in Sheets. Minecraft 26.3 removed that cache
                 // and renders registered sign block/model resources directly.
@@ -2458,6 +2604,33 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         && call.name.equals("m_135815_")
                         && call.desc.equals("()Ljava/lang/String;")) {
                     call.name = "getPath";
+                    rewrites++;
+                }
+
+                // ResourceLocation#tryParse retained its nullable parsing
+                // contract after ResourceLocation became Identifier. The
+                // 1.19.2 mappings identify m_135820_ as tryParse; adapting the
+                // exact owner, SRG member and descriptor avoids treating an
+                // arbitrary String factory as equivalent.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/resources/Identifier")
+                        && call.name.equals("m_135820_")
+                        && call.desc.equals("(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;")) {
+                    call.name = "tryParse";
+                    rewrites++;
+                }
+
+                // Minecraft 1.19.2 Minecraft#useFancyGraphics (m_91405_)
+                // selected foliage render behavior from the global graphics
+                // tier. Target 26.3 represents that surviving choice as the
+                // independently configurable cutout-leaves option.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/client/Minecraft")
+                        && call.name.equals("m_91405_")
+                        && call.desc.equals("()Z")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ClientGraphicsBridge";
+                    call.name = "useFancyGraphics";
+                    call.itf = false;
                     rewrites++;
                 }
 
@@ -2959,7 +3132,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     continue;
                 }
                 var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(field.owner, field.name, field.desc);
-                if (!resolved.resolved() && !field.owner.startsWith("net/minecraft/")) {
+                if (!resolved.resolved()) {
+                    // javac may encode an inherited static field with the
+                    // receiver subclass as its constant-pool owner. Resolve
+                    // the exact SRG identity along the verified hierarchy for
+                    // vanilla subclasses as well as managed subclasses.
                     resolved = resolveInheritedVanillaField(field.owner, field.name, field.desc);
                 }
                 if (!resolved.resolved()) continue;
@@ -3899,6 +4076,74 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 // detached node terminates ASM traversal after the first
                 // ResourceLocation in a method. Resume after the replacement
                 // factory so every allocation in large <clinit> methods is adapted.
+                insn = factory.getNext();
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Preserve source-era ItemStack construction during callbacks that target
+     * 26.3 executes before global default components are bound. The factory
+     * uses the ordinary target constructor after binding and an isolated,
+     * exact component snapshot before binding.
+     */
+    private static int rewriteLegacyItemStackConstruction(ClassNode node) {
+        int rewrites = 0;
+        final String stack = "net/minecraft/world/item/ItemStack";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (!(insn instanceof TypeInsnNode allocation)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !allocation.desc.equals(stack)) {
+                    insn = next;
+                    continue;
+                }
+                var dup = allocation.getNext();
+                if (dup == null || dup.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                    throw new IllegalStateException("Unsupported legacy ItemStack allocation: "
+                            + node.name + "#" + method.name);
+                }
+                MethodInsnNode init = null;
+                int nested = 0;
+                for (var cursor = dup.getNext(); cursor != null; cursor = cursor.getNext()) {
+                    if (cursor instanceof TypeInsnNode type
+                            && type.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                        nested++;
+                    } else if (cursor instanceof MethodInsnNode call
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && call.name.equals("<init>")) {
+                        if (nested > 0) nested--;
+                        else if (call.owner.equals(stack)) {
+                            init = call;
+                            break;
+                        }
+                    }
+                }
+                if (init == null) {
+                    throw new IllegalStateException("Cannot match legacy ItemStack constructor: "
+                            + node.name + "#" + method.name);
+                }
+                String factoryDesc = switch (init.desc) {
+                    case "(Lnet/minecraft/world/level/ItemLike;)V" ->
+                            "(Lnet/minecraft/world/level/ItemLike;)Lnet/minecraft/world/item/ItemStack;";
+                    case "(Lnet/minecraft/world/level/ItemLike;I)V" ->
+                            "(Lnet/minecraft/world/level/ItemLike;I)Lnet/minecraft/world/item/ItemStack;";
+                    default -> null;
+                };
+                if (factoryDesc == null) {
+                    insn = next;
+                    continue;
+                }
+                method.instructions.remove(allocation);
+                method.instructions.remove(dup);
+                MethodInsnNode factory = new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192EarlyItemStackBridge",
+                        "create", factoryDesc, false);
+                method.instructions.set(init, factory);
+                rewrites++;
                 insn = factory.getNext();
             }
         }

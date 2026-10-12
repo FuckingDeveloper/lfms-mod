@@ -23,6 +23,9 @@ Created by FuckingDeveloper | 2026
 Website: www.fuckingdeveloper.com
 '''
 
+[[accessTransformers]]
+file="META-INF/accesstransformer.cfg"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"
