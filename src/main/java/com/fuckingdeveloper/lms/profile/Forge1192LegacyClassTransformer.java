@@ -2496,6 +2496,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                     continue;
                 }
+                String commonTag = renamedCommonTagField(field);
+                if (commonTag != null) {
+                    field.name = commonTag;
+                    rewrites++;
+                    continue;
+                }
                 String cauldronInteractions = legacyCauldronInteractions(field);
                 if (cauldronInteractions != null) {
                     method.instructions.set(field, new MethodInsnNode(
@@ -2534,6 +2540,48 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private record LegacyColorCollectionField(String collection, String color) {}
     private record LegacyCopperCollectionField(String collection, String track, String state) {}
+
+    /**
+     * NeoForge's common-tag convention renamed a small set of Forge 1.19.2
+     * category identities while preserving their meaning.  Require the exact
+     * legacy owner/name/descriptor and verify the selected target declaration;
+     * unchanged fields continue through ordinary namespace migration.
+     */
+    private String renamedCommonTagField(FieldInsnNode field) {
+        if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                || !field.owner.startsWith("net/neoforged/neoforge/common/Tags$")
+                || !field.desc.equals("Lnet/minecraft/tags/TagKey;")) return null;
+        String nested = field.owner.substring(field.owner.lastIndexOf('$') + 1);
+        String targetName = switch (nested + '#' + field.name) {
+            case "Blocks#COBBLESTONE", "Items#COBBLESTONE" -> "COBBLESTONES";
+            case "Blocks#GLASS", "Items#GLASS" -> "GLASS_BLOCKS";
+            case "Blocks#GRAVEL", "Items#GRAVEL" -> "GRAVELS";
+            case "Blocks#SANDSTONE" -> "SANDSTONE_BLOCKS";
+            case "Blocks#STONE", "Items#STONE" -> "STONES";
+            case "Items#INGOTS_BRICK" -> "BRICKS_NORMAL";
+            case "Items#INGOTS_NETHER_BRICK" -> "BRICKS_NETHER";
+            case "Items#OBSIDIAN" -> "OBSIDIANS";
+            case "Items#SHEARS" -> "TOOLS_SHEAR";
+            case "Biomes#IS_WATER" -> "IS_AQUATIC";
+            default -> null;
+        };
+        if (targetName == null) return null;
+        try {
+            byte[] bytes = hierarchyBytes(field.owner);
+            if (bytes == null) return null;
+            ClassNode target = new ClassNode();
+            new ClassReader(bytes).accept(target,
+                    ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            long matches = target.fields.stream()
+                    .filter(candidate -> candidate.name.equals(targetName)
+                            && candidate.desc.equals(field.desc)
+                            && (candidate.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0)
+                    .count();
+            return matches == 1 ? targetName : null;
+        } catch (java.io.IOException | RuntimeException ignored) {
+            return null;
+        }
+    }
 
     /**
      * WallBlock's four directional EnumProperty fields kept their semantic
