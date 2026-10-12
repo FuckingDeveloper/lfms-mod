@@ -174,6 +174,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockRenderLayerRegistration(node);
         rewrites += rewriteLegacyDirectClientReloadRegistration(node);
         rewrites += rewriteLegacyReloadListenerRegistration(node);
+        rewrites += rewriteLegacyResourceQueries(node);
+        rewrites += rewriteLegacyBlockModelParsing(node);
+        rewrites += rewriteLegacyItemTransformFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -1549,6 +1552,253 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         + "Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V";
                 call.itf = false;
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 resource queries accepted a Predicate<ResourceLocation>.
+     * Minecraft 26.3 gives the same query operations a dedicated Selector
+     * functional interface. Preserve predicate behavior through an explicit
+     * target adapter for both members of the query family.
+     */
+    private static int rewriteLegacyResourceQueries(ClassNode node) {
+        final String manager = "net/minecraft/server/packs/resources/ResourceManager";
+        final String provider = "net/minecraft/server/packs/resources/ResourceProvider";
+        final String location = "Lnet/minecraft/resources/ResourceLocation;";
+        final String predicate = "Ljava/util/function/Predicate;";
+        final String bridge = "com/fuckingdeveloper/lms/runtime/Forge1192ResourceManagerBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE) continue;
+                if ((call.owner.equals(manager) || call.owner.equals(provider))
+                        && call.desc.startsWith("(" + location + ")")) {
+                    String targetName = switch (call.name + call.desc) {
+                        case "m_213713_(" + location + ")Ljava/util/Optional;" -> "getResource";
+                        case "m_215593_(" + location + ")Lnet/minecraft/server/packs/resources/Resource;" ->
+                                "getResourceOrThrow";
+                        case "m_215595_(" + location + ")Ljava/io/InputStream;" -> "open";
+                        case "m_215597_(" + location + ")Ljava/io/BufferedReader;" -> "openAsReader";
+                        default -> null;
+                    };
+                    if (targetName != null) {
+                        call.name = targetName;
+                        rewrites++;
+                        continue;
+                    }
+                }
+                if (!call.owner.equals(manager)) continue;
+                String survivingName = switch (call.name + call.desc) {
+                    case "m_7187_()Ljava/util/Set;" -> "getNamespaces";
+                    case "m_213829_(" + location + ")Ljava/util/List;" -> "getResourceStack";
+                    case "m_7536_()Ljava/util/stream/Stream;" -> "listPacks";
+                    default -> null;
+                };
+                if (survivingName != null) {
+                    call.name = survivingName;
+                    rewrites++;
+                    continue;
+                }
+                String bridgeName;
+                String returnType;
+                if (call.name.equals("m_214159_")
+                        && call.desc.equals("(Ljava/lang/String;" + predicate + ")Ljava/util/Map;")) {
+                    bridgeName = "listResources";
+                    returnType = "Ljava/util/Map;";
+                } else if (call.name.equals("m_214160_")
+                        && call.desc.equals("(Ljava/lang/String;" + predicate + ")Ljava/util/Map;")) {
+                    bridgeName = "listResourceStacks";
+                    returnType = "Ljava/util/Map;";
+                } else {
+                    continue;
+                }
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = bridge;
+                call.name = bridgeName;
+                call.desc = "(L" + manager + ";Ljava/lang/String;" + predicate + ")" + returnType;
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * The source BlockModel JSON object became the target UnbakedModel model
+     * graph while its old binary name was reused by an unrelated render-state
+     * interface. Adapt the proven parsing/property subset to an opaque LMS
+     * token so it can never be confused with the target BlockModel contract.
+     */
+    private static int rewriteLegacyBlockModelParsing(ClassNode node) {
+        final String legacyModel = "net/minecraft/client/renderer/block/model/BlockModel";
+        final String bridge =
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192UnbakedModelBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call) || !call.owner.equals(legacyModel)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.name.equals("m_111461_")
+                        && call.desc.equals("(Ljava/io/Reader;)L" + legacyModel + ";")) {
+                    call.owner = bridge;
+                    call.name = "parse";
+                    call.desc = "(Ljava/io/Reader;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.name.equals("getParentLocation")
+                        && call.desc.equals("()Lnet/minecraft/resources/ResourceLocation;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "parent";
+                    call.desc = "(Ljava/lang/Object;)Lnet/minecraft/resources/ResourceLocation;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.name.equals("m_111491_")
+                        && call.desc.equals("()Lnet/minecraft/client/renderer/block/model/ItemTransforms;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "transforms";
+                    call.desc = "(Ljava/lang/Object;)"
+                            + "Lnet/minecraft/client/renderer/block/model/ItemTransforms;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                throw new IllegalStateException("Unsupported Forge 1.19.2 BlockModel operation: "
+                        + node.name + "#" + method.name + method.desc + " -> "
+                        + call.name + call.desc);
+            }
+        }
+        return rewrites;
+    }
+
+    /** Preserve the Forge 1.19.2 item-display transform value contract. */
+    private static int rewriteLegacyItemTransformFamily(ClassNode node) {
+        final String transforms = "net/minecraft/client/renderer/block/model/ItemTransforms";
+        final String transform = "net/minecraft/client/renderer/block/model/ItemTransform";
+        final String context = transforms + "$TransformType";
+        final String bridge =
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192ItemTransformBridge";
+        final String transformArg = "L" + transform + ";";
+        final String eightTransforms = transformArg.repeat(8);
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof MethodInsnNode call) {
+                    if (call.owner.equals(transforms)
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.name.equals("m_111808_")
+                            && call.desc.equals("(L" + context + ";)L" + transform + ";")) {
+                        call.name = "getTransform";
+                        rewrites++;
+                    } else if (call.owner.equals(transforms)
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.name.equals("m_111810_")
+                            && call.desc.equals("(L" + context + ";)Z")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "hasTransform";
+                        call.desc = "(L" + transforms + ";L" + context + ";)Z";
+                        call.itf = false;
+                        rewrites++;
+                    } else if (call.owner.equals(transform)
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.name.equals("m_111763_")
+                            && call.desc.equals("(ZLcom/mojang/blaze3d/vertex/PoseStack;)V")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "apply";
+                        call.desc = "(L" + transform
+                                + ";ZLcom/mojang/blaze3d/vertex/PoseStack;)V";
+                        call.itf = false;
+                        rewrites++;
+                    } else if (call.owner.equals(transforms)
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && call.name.equals("<init>")) {
+                        boolean supportedConstructor = call.desc.equals(
+                                "(" + eightTransforms
+                                        + "Lcom/google/common/collect/ImmutableMap;)V")
+                                || call.desc.equals("(" + eightTransforms + ")V")
+                                || call.desc.equals("(L" + transforms + ";)V");
+                        String factoryDescriptor = supportedConstructor
+                                ? call.desc.substring(0, call.desc.length() - 1)
+                                        + "L" + transforms + ";"
+                                : null;
+                        if (factoryDescriptor != null) {
+                            TypeInsnNode allocation = null;
+                            org.objectweb.asm.tree.AbstractInsnNode duplicate = null;
+                            for (var candidate = call.getPrevious(); candidate != null;
+                                 candidate = candidate.getPrevious()) {
+                                if (!(candidate instanceof TypeInsnNode type)
+                                        || type.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                                        || !type.desc.equals(transforms)) continue;
+                                allocation = type;
+                                duplicate = nextExecutable(type);
+                                if (duplicate == null
+                                        || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                                    allocation = null;
+                                    duplicate = null;
+                                }
+                                break;
+                            }
+                            if (allocation == null) {
+                                throw new IllegalStateException(
+                                        "Cannot pair legacy ItemTransforms allocation with constructor: "
+                                                + node.name + "#" + method.name + method.desc);
+                            }
+                            method.instructions.remove(allocation);
+                            method.instructions.remove(duplicate);
+                            call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                            call.owner = bridge;
+                            call.name = call.desc.equals("(L" + transforms + ";)V")
+                                    ? "copy" : "create";
+                            call.desc = factoryDescriptor;
+                            call.itf = false;
+                            rewrites++;
+                        }
+                    }
+                } else if (insn instanceof FieldInsnNode field) {
+                    if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                            && field.owner.equals(transforms)
+                            && field.name.equals("f_111786_")
+                            && field.desc.equals("L" + transforms + ";")) {
+                        field.name = "NO_TRANSFORMS";
+                        rewrites++;
+                    } else if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                            && field.owner.equals(transform)
+                            && field.name.equals("f_111754_")
+                            && field.desc.equals("L" + transform + ";")) {
+                        field.name = "NO_TRANSFORM";
+                        rewrites++;
+                    } else if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                            && field.owner.equals(transform)
+                            && field.desc.equals("Lcom/mojang/math/Vector3f;")) {
+                        String accessor = switch (field.name) {
+                            case "f_111755_" -> "rotation";
+                            case "f_111756_" -> "translation";
+                            case "f_111757_" -> "scale";
+                            case "rightRotation" -> "rightRotation";
+                            default -> null;
+                        };
+                        if (accessor != null) {
+                            method.instructions.set(field, new MethodInsnNode(
+                                    org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, accessor,
+                                    "(L" + transform + ";)Lcom/mojang/math/Vector3f;", false));
+                            rewrites++;
+                        }
+                    }
+                }
+                insn = next;
             }
         }
         return rewrites;
