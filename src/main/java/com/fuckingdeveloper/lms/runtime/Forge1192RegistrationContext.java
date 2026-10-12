@@ -14,7 +14,7 @@ import net.minecraft.core.registries.Registries;
 import java.util.Iterator;
 import net.neoforged.neoforge.registries.RegisterEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.DefaultDataComponentsBoundEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -353,8 +353,12 @@ public final class Forge1192RegistrationContext {
             PENDING_ITEM_STACK_CONSUMERS.computeIfAbsent(modId, ignored -> new ArrayList<>())
                     .add(action);
             if (ITEM_STACK_FLUSH_REGISTERED.add(modId)) {
-                NeoForge.EVENT_BUS.addListener((DefaultDataComponentsBoundEvent event) -> {
-                    if (event.shouldUpdateStaticData()) flushItemStackConsumersScoped(modId);
+                NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent.ServerDataLoad event) -> {
+                    if (event.shouldUpdateStaticData()) {
+                        Target263DataComponentBindingBridge.runBeforeBinding(
+                                event.getServerResources(), event.getRegistries(),
+                                () -> flushItemStackConsumersScoped(modId));
+                    }
                 });
             }
         }
@@ -423,7 +427,8 @@ public final class Forge1192RegistrationContext {
         }
         try {
             target.setAccessible(true);
-            target.invoke(pending.receiver(), new ItemStack(pending.item()), pending.id());
+            target.invoke(pending.receiver(),
+                    Forge1192EarlyItemStackBridge.create(pending.item()), pending.id());
         } catch (ReflectiveOperationException e) {
             Throwable cause = e instanceof java.lang.reflect.InvocationTargetException invocation
                     && invocation.getCause() != null ? invocation.getCause() : e;

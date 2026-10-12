@@ -114,6 +114,13 @@ value from the exact preserved construction intent and target component
 initializers. It MUST NOT bind or mutate global holder state early, fabricate
 empty defaults, or continue when the complete value cannot be materialized.
 
+When that same ordered callback also contributes target component initializers,
+the target adapter MAY execute it after dynamic registries and tags are loaded
+but before the target applies its pending component set. Any newly contributed
+initializers MUST be incorporated by rebuilding that still-pending set as one
+atomic lifecycle operation. LMS MUST NOT mutate already-bound holder defaults
+or split the source callback around the binding boundary.
+
 When a source generation exposes a live mutable arbitrary-NBT view of an item
 stack but the target stores that payload in a data component, the target
 adapter MUST preserve mutations made through the returned source view and MUST

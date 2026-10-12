@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms.runtime;
 
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.component.DataComponentInitializers;
 import net.minecraft.core.component.DataComponentMap;
@@ -38,7 +39,8 @@ public final class Forge1192EarlyItemStackBridge {
 
         ResourceKey<Item> key = holder.unwrapKey().orElseThrow(() ->
                 new IllegalStateException("Legacy early ItemStack item has no registry key"));
-        RegistryAccess.Frozen context = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        HolderLookup.Provider context = Target263DataComponentBindingBridge.currentRegistries()
+                .orElseGet(() -> RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY));
         DataComponentMap defaults = Forge1192VanillaConstructionBridge.itemProperties(item)
                 .map(properties -> legacyDefaults(properties, context, key, item))
                 .orElseGet(() -> targetDefaults(context, holder, key));
@@ -52,7 +54,7 @@ public final class Forge1192EarlyItemStackBridge {
 
     private static DataComponentMap legacyDefaults(
             Item.Properties properties,
-            RegistryAccess.Frozen context,
+            HolderLookup.Provider context,
             ResourceKey<Item> key,
             Item item) {
         DataComponentMap.Builder components = DataComponentMap.builder();
@@ -66,7 +68,7 @@ public final class Forge1192EarlyItemStackBridge {
 
     @SuppressWarnings("unchecked")
     private static DataComponentMap targetDefaults(
-            RegistryAccess.Frozen context,
+            HolderLookup.Provider context,
             Holder.Reference<Item> holder,
             ResourceKey<Item> key) {
         java.util.concurrent.atomic.AtomicReference<DataComponentMap> result =

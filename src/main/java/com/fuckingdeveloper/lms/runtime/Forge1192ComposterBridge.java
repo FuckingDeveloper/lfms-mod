@@ -36,6 +36,7 @@ public final class Forge1192ComposterBridge {
         BuiltInRegistries.DATA_COMPONENT_INITIALIZERS.add(itemKey,
                 (components, context, key) ->
                         components.set(DataComponents.COMPOSTABLE, new Compostable(provider)));
+        Target263DataComponentBindingBridge.initializersChanged();
         return 0.0F;
     }
 

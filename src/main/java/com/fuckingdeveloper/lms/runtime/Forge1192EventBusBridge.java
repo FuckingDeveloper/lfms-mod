@@ -18,7 +18,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
-import net.neoforged.neoforge.event.DefaultDataComponentsBoundEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.fml.event.lifecycle.ModLifecycleEvent;
 import net.minecraft.core.component.DataComponents;
@@ -242,10 +242,10 @@ public final class Forge1192EventBusBridge {
 
     /**
      * Forge 1.19.2 lifecycle callbacks ran after registered items had usable
-     * default state. Minecraft 26.3 binds that state later than some equivalent
-     * lifecycle stages. Capture the source event and replay an
-     * event-parameter-independent handler once components bind, preserving the
-     * handler's internal ordering as one lifecycle unit.
+     * default state and could still contribute setup that affected those
+     * defaults. Minecraft 26.3 binds that state during data loading. Capture
+     * the source event and replay an event-parameter-independent handler after
+     * dynamic tags load but before the pending component set is applied.
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static <T extends Event> void registerComponentBoundLifecycle(
@@ -259,16 +259,18 @@ public final class Forge1192EventBusBridge {
                         + eventType.getName());
             }
         });
-        NeoForge.EVENT_BUS.addListener(priority, false, DefaultDataComponentsBoundEvent.class, event -> {
+        NeoForge.EVENT_BUS.addListener(priority, false, TagsUpdatedEvent.ServerDataLoad.class, event -> {
             if (!event.shouldUpdateStaticData() || invoked.get()) return;
             T lifecycleEvent = pending.getAndSet(null);
             if (lifecycleEvent == null) {
                 throw new IllegalStateException(
-                        "Item components bound before the deferred legacy lifecycle event was captured: "
+                        "Component binding began before the deferred legacy lifecycle event was captured: "
                                 + eventType.getName());
             }
             if (!invoked.compareAndSet(false, true)) return;
-            listener.accept(lifecycleEvent);
+            Target263DataComponentBindingBridge.runBeforeBinding(
+                    event.getServerResources(), event.getRegistries(),
+                    () -> listener.accept(lifecycleEvent));
         });
     }
 
