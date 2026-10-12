@@ -105,6 +105,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/item/crafting/RecipeSerializer", "com/fuckingdeveloper/lms/runtime/recipe/LegacyRecipeSerializer"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterial"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterials"),
+            java.util.Map.entry("net/minecraft/advancements/CriteriaTriggers", "net/minecraft/advancements/triggers/CriteriaTriggers"),
+            java.util.Map.entry("net/minecraft/advancements/FrameType", "net/minecraft/advancements/AdvancementType"),
+            java.util.Map.entry("net/minecraft/advancements/critereon/InventoryChangeTrigger", "net/minecraft/advancements/triggers/InventoryChangeTrigger"),
+            java.util.Map.entry("net/minecraft/advancements/critereon/InventoryChangeTrigger$TriggerInstance", "net/minecraft/advancements/triggers/InventoryChangeTrigger$TriggerInstance"),
+            java.util.Map.entry("net/minecraft/advancements/CriterionTrigger", "com/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacyCriterionTrigger"),
+            java.util.Map.entry("net/minecraft/advancements/CriterionTrigger$Listener", "com/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacyCriterionListener"),
+            java.util.Map.entry("net/minecraft/advancements/critereon/AbstractCriterionTriggerInstance", "com/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacyCriterionInstance"),
+            java.util.Map.entry("net/minecraft/advancements/critereon/EntityPredicate$Composite", "com/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacyEntityPredicateComposite"),
+            java.util.Map.entry("net/minecraft/advancements/critereon/DeserializationContext", "com/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacyDeserializationContext"),
+            java.util.Map.entry("net/minecraft/advancements/critereon/SerializationContext", "com/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacySerializationContext"),
             java.util.Map.entry("net/minecraft/world/level/GameRules", "net/minecraft/world/level/gamerules/GameRules"),
             java.util.Map.entry("net/minecraft/world/level/chunk/ChunkStatus", "net/minecraft/world/level/chunk/status/ChunkStatus"),
             java.util.Map.entry("net/minecraft/world/level/material/MaterialColor", "net/minecraft/world/level/material/MapColor"),
@@ -117,6 +127,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private final java.util.Map<String, Boolean> configuredFeatureInitializers =
             new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, Boolean> itemComponentInitializers =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, Boolean> legacyUnitMapCodecFields =
             new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
@@ -196,6 +208,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyPackMetadataConstruction(node);
         rewrites += rewriteLegacySimpleJsonReloadListener(node);
         rewrites += rewriteLegacyIngredientFamily(node);
+        rewrites += rewriteLegacyUnitMapCodecFamily(node);
+        rewrites += rewriteLegacyCriterionTriggerFamily(node);
+        rewrites += rewriteLegacyAdvancementDisplayFamily(node);
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
@@ -844,6 +859,281 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * DFU split source {@code Codec.unit(Supplier)} from target registry
+     * {@code MapCodec.unit(Supplier)}. Migrate the producing field and every
+     * managed field access together, identified by the exact source
+     * initializer shape rather than by field name or descriptor alone.
+     */
+    private int rewriteLegacyUnitMapCodecFamily(ClassNode node) {
+        final String codecDescriptor = "Lcom/mojang/serialization/Codec;";
+        final String mapCodecDescriptor = "Lcom/mojang/serialization/MapCodec;";
+        int rewrites = 0;
+
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                        || !call.owner.equals("com/mojang/serialization/Codec")
+                        || !call.name.equals("unit")
+                        || !call.desc.equals("(Ljava/util/function/Supplier;)"
+                                + codecDescriptor)) {
+                    continue;
+                }
+                var store = nextRealInstruction(call.getNext());
+                if (!(store instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.PUTSTATIC
+                        || !field.owner.equals(node.name)
+                        || !field.desc.equals(codecDescriptor)) {
+                    throw new IllegalStateException(
+                            "Unsupported Forge 1.19.2 Codec.unit storage shape in "
+                                    + node.name + "#" + method.name + method.desc);
+                }
+                call.owner = "com/mojang/serialization/MapCodec";
+                call.name = "unit";
+                call.desc = "(Ljava/util/function/Supplier;)" + mapCodecDescriptor;
+                call.itf = false;
+                field.desc = mapCodecDescriptor;
+                boolean found = false;
+                for (var declared : node.fields) {
+                    if (declared.name.equals(field.name)
+                            && declared.desc.equals(codecDescriptor)) {
+                        declared.desc = mapCodecDescriptor;
+                        found = true;
+                    }
+                }
+                if (!found) {
+                    throw new IllegalStateException(
+                            "Missing Forge 1.19.2 Codec.unit field " + node.name + "." + field.name);
+                }
+                legacyUnitMapCodecFields.put(node.name + "." + field.name, true);
+                rewrites += 3;
+            }
+        }
+
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.desc.equals(codecDescriptor)
+                        && isLegacyUnitMapCodecField(field.owner, field.name)) {
+                    field.desc = mapCodecDescriptor;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    private boolean isLegacyUnitMapCodecField(String owner, String name) {
+        String key = owner + "." + name;
+        return legacyUnitMapCodecFields.computeIfAbsent(key, ignored -> {
+            try {
+                byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(owner);
+                if (bytes == null) return false;
+                ClassNode candidate = new ClassNode();
+                new ClassReader(bytes).accept(candidate, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                for (var method : candidate.methods) {
+                    if (!method.name.equals("<clinit>")) continue;
+                    for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                        if (!(insn instanceof MethodInsnNode call)
+                                || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                                || !call.owner.equals("com/mojang/serialization/Codec")
+                                || !call.name.equals("unit")
+                                || !call.desc.equals("(Ljava/util/function/Supplier;)"
+                                        + "Lcom/mojang/serialization/Codec;")) {
+                            continue;
+                        }
+                        var store = nextRealInstruction(call.getNext());
+                        if (store instanceof FieldInsnNode field
+                                && field.getOpcode() == org.objectweb.asm.Opcodes.PUTSTATIC
+                                && field.owner.equals(owner)
+                                && field.name.equals(name)
+                                && field.desc.equals("Lcom/mojang/serialization/Codec;")) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            } catch (java.io.IOException exception) {
+                throw new IllegalStateException(
+                        "Cannot inspect legacy Codec.unit field " + key, exception);
+            }
+        });
+    }
+
+    /**
+     * Forge 1.19.2 custom criteria owned their listener maps and registered
+     * through CriteriaTriggers. Target 26.3 stores active instances inside
+     * PlayerAdvancements and requires a codec-backed trigger. Adapt only the
+     * exact source interface/members and the proven manual-listener lookup
+     * shape; ordinary Map.get calls are deliberately outside this rule.
+     */
+    private static int rewriteLegacyCriterionTriggerFamily(ClassNode node) {
+        final String sourceTrigger = "net/minecraft/advancements/CriterionTrigger";
+        final String legacyTrigger =
+                "com/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacyCriterionTrigger";
+        final String bridge =
+                "com/fuckingdeveloper/lms/runtime/advancement/Forge1192CriterionBridge";
+        boolean implementsSourceTrigger = node.interfaces.contains(sourceTrigger);
+        int rewrites = 0;
+
+        if (implementsSourceTrigger) {
+            int index = node.interfaces.indexOf(sourceTrigger);
+            node.interfaces.set(index, legacyTrigger);
+            rewrites++;
+            for (var method : node.methods) {
+                if ((method.name.equals("m_7295_") || method.name.equals("getId"))
+                        && method.desc.equals("()Lnet/minecraft/resources/ResourceLocation;")) {
+                    method.name = "lms$criterionId";
+                    rewrites++;
+                } else if ((method.name.equals("m_5868_") || method.name.equals("createInstance"))
+                        && method.desc.equals("(Lcom/google/gson/JsonObject;"
+                                + "Lnet/minecraft/advancements/critereon/DeserializationContext;)"
+                                + "Lnet/minecraft/advancements/CriterionTriggerInstance;")) {
+                    method.name = "lms$createInstance";
+                    method.desc = "(Lcom/google/gson/JsonObject;"
+                            + "Lcom/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacyDeserializationContext;)"
+                            + "Lnet/minecraft/advancements/CriterionTriggerInstance;";
+                    rewrites++;
+                }
+            }
+        }
+
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/advancements/critereon/InventoryChangeTrigger$TriggerInstance")
+                        && call.name.equals("m_43199_")
+                        && call.desc.equals("([Lnet/minecraft/world/level/ItemLike;)"
+                                + "Lnet/minecraft/advancements/critereon/InventoryChangeTrigger$TriggerInstance;")) {
+                    call.owner = "net/minecraft/advancements/triggers/InventoryChangeTrigger$TriggerInstance";
+                    call.name = "hasItems";
+                    call.desc = "([Lnet/minecraft/world/level/ItemLike;)"
+                            + "Lnet/minecraft/advancements/triggers/Criterion;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/advancements/CriteriaTriggers")
+                        && (call.name.equals("m_10595_") || call.name.equals("register"))
+                        && call.desc.equals("(Lnet/minecraft/advancements/CriterionTrigger;)"
+                                + "Lnet/minecraft/advancements/CriterionTrigger;")) {
+                    call.owner = bridge;
+                    call.name = "register";
+                    call.desc = "(L" + legacyTrigger + ";)L" + legacyTrigger + ";";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/advancements/Advancement$Builder")
+                        && (call.name.equals("m_138386_") || call.name.equals("addCriterion"))
+                        && call.desc.equals("(Ljava/lang/String;"
+                                + "Lnet/minecraft/advancements/CriterionTriggerInstance;)"
+                                + "Lnet/minecraft/advancements/Advancement$Builder;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "addCriterion";
+                    call.desc = "(Lnet/minecraft/advancements/Advancement$Builder;Ljava/lang/String;"
+                            + "Ljava/lang/Object;)"
+                            + "Lnet/minecraft/advancements/Advancement$Builder;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (!implementsSourceTrigger
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                        || !call.owner.equals("java/util/Map")
+                        || !call.name.equals("get")
+                        || !call.desc.equals("(Ljava/lang/Object;)Ljava/lang/Object;")) {
+                    continue;
+                }
+                var previous = call.getPrevious();
+                while (previous != null && previous.getOpcode() < 0) previous = previous.getPrevious();
+                if (previous instanceof MethodInsnNode advancements
+                        && advancements.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && advancements.owner.equals("net/minecraft/server/level/ServerPlayer")
+                        && (advancements.name.equals("m_8960_")
+                                || advancements.name.equals("getAdvancements"))
+                        && advancements.desc.equals("()Lnet/minecraft/server/PlayerAdvancements;")) {
+                    method.instructions.insertBefore(call,
+                            new org.objectweb.asm.tree.VarInsnNode(
+                                    org.objectweb.asm.Opcodes.ALOAD, 0));
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "activeListeners";
+                    call.desc = "(Ljava/util/Map;Lnet/minecraft/server/PlayerAdvancements;L"
+                            + legacyTrigger + ";)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    /** Exact 1.19.2 DisplayInfo value construction migrated to target records/assets. */
+    private static int rewriteLegacyAdvancementDisplayFamily(ClassNode node) {
+        final String owner = "net/minecraft/advancements/DisplayInfo";
+        final String sourceDescriptor = "(Lnet/minecraft/world/item/ItemStack;"
+                + "Lnet/minecraft/network/chat/Component;"
+                + "Lnet/minecraft/network/chat/Component;"
+                + "Lnet/minecraft/resources/ResourceLocation;"
+                + "Lnet/minecraft/advancements/FrameType;ZZZ)V";
+        final String bridge =
+                "com/fuckingdeveloper/lms/runtime/advancement/Forge1192AdvancementBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("<init>")
+                        || !call.desc.equals(sourceDescriptor)) {
+                    insn = next;
+                    continue;
+                }
+                TypeInsnNode allocation = null;
+                org.objectweb.asm.tree.AbstractInsnNode duplicate = null;
+                for (var cursor = call.getPrevious(); cursor != null; cursor = cursor.getPrevious()) {
+                    if (cursor instanceof TypeInsnNode type
+                            && type.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                            && type.desc.equals(owner)) {
+                        var possibleDuplicate = cursor.getNext();
+                        while (possibleDuplicate != null && possibleDuplicate.getOpcode() < 0) {
+                            possibleDuplicate = possibleDuplicate.getNext();
+                        }
+                        if (possibleDuplicate != null
+                                && possibleDuplicate.getOpcode() == org.objectweb.asm.Opcodes.DUP) {
+                            allocation = type;
+                            duplicate = possibleDuplicate;
+                            break;
+                        }
+                    }
+                }
+                if (allocation == null) {
+                    throw new IllegalStateException(
+                            "Cannot pair Forge 1.19.2 DisplayInfo construction in "
+                                    + node.name + "#" + method.name + method.desc);
+                }
+                method.instructions.remove(allocation);
+                method.instructions.remove(duplicate);
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = bridge;
+                call.name = "displayInfo";
+                call.desc = sourceDescriptor.substring(0, sourceDescriptor.length() - 1)
+                        + "L" + owner + ";";
+                call.itf = false;
+                rewrites++;
+                insn = next;
             }
         }
         return rewrites;
@@ -6304,16 +6594,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LivingEventBridge";
                     call.desc = "(Lnet/neoforged/neoforge/event/entity/living/LivingShieldBlockEvent;Z)V";
-                    call.itf = false;
-                    rewrites++;
-                }
-                // DFU renamed the value-preserving Supplier overload while
-                // keeping its Codec return contract unchanged.
-                if (call.owner.equals("com/mojang/serialization/Codec")
-                        && call.name.equals("unit")
-                        && call.desc.equals("(Ljava/util/function/Supplier;)Lcom/mojang/serialization/Codec;")) {
-                    call.owner = "com/mojang/serialization/MapCodec";
-                    call.name = "unitCodec";
                     call.itf = false;
                     rewrites++;
                 }
