@@ -161,6 +161,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
+        rewrites += rewriteLegacyBlockRenderLayerRegistration(node);
         rewrites += rewriteLegacyReloadListenerRegistration(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
@@ -1481,6 +1482,30 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Preserve Forge 1.19.2's global block/render-layer predicate for a future
+     * model-baking adapter. Minecraft 26.3 assigns a chunk layer to each baked
+     * quad, so the source registration has no direct target call equivalent.
+     */
+    private static int rewriteLegacyBlockRenderLayerRegistration(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC
+                        || !call.owner.equals("net/minecraft/client/renderer/ItemBlockRenderTypes")
+                        || !call.name.equals("setRenderLayer")
+                        || !call.desc.equals("(Lnet/minecraft/world/level/block/Block;"
+                                + "Ljava/util/function/Predicate;)V")) continue;
+                call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192RenderLayerBridge";
+                call.name = "register";
+                call.itf = false;
+                rewrites++;
             }
         }
         return rewrites;
