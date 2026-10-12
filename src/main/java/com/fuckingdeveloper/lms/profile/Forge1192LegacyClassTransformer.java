@@ -104,6 +104,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private int transformedClasses;
     private int totalRewrites;
     private volatile LegacyClassTransformer.ClassBytesLookup managedClassBytes;
+    private final java.util.Map<String, Boolean> configuredFeatureInitializers =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     public void bindManagedClassBytes(LegacyClassTransformer.ClassBytesLookup lookup) {
@@ -147,6 +149,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyViewBlockingPredicate(node);
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
         rewrites += rewriteLegacyKeyMappingConstruction(node);
+        rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
         rewrites += rewriteLegacyEarlyClientInitialization(node);
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
         rewrites += rewriteLegacyCachedMinecraftReads(node);
@@ -1483,6 +1486,113 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * Configured features moved from the process-global BuiltinRegistries into
+     * target datapack RegistryAccess. Defer calls to proven no-arg initializers
+     * that consume that exact legacy registry, then resolve the registry from
+     * the active server when the initializer runs.
+     */
+    private int rewriteLegacyConfiguredFeatureInitialization(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            FieldInsnNode treeMapping = legacySimpleTreeMappingField(node, method);
+            if (treeMapping != null) {
+                method.instructions.clear();
+                method.tryCatchBlocks.clear();
+                method.localVariables = null;
+                method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, 0));
+                method.instructions.add(new FieldInsnNode(
+                        org.objectweb.asm.Opcodes.GETFIELD, node.name,
+                        treeMapping.name, treeMapping.desc));
+                method.instructions.add(new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192DynamicRegistryBridge",
+                        "populateSimpleTreeBlockMapping", "(Ljava/util/Map;)V", false));
+                method.instructions.add(new org.objectweb.asm.tree.InsnNode(
+                        org.objectweb.asm.Opcodes.RETURN));
+                rewrites++;
+                continue;
+            }
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE)
+                        || !call.desc.equals("()V")
+                        || !usesLegacyConfiguredFeatures(call.owner, call.name, call.desc)) continue;
+                var metadata = new org.objectweb.asm.tree.InsnList();
+                metadata.add(new LdcInsnNode(Type.getObjectType(call.owner)));
+                metadata.add(new LdcInsnNode(call.name));
+                method.instructions.insertBefore(call, metadata);
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192DynamicRegistryBridge";
+                call.name = "deferConfiguredFeatureInitialization";
+                call.desc = "(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;)V";
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static FieldInsnNode legacySimpleTreeMappingField(
+            ClassNode owner, org.objectweb.asm.tree.MethodNode method) {
+        if (!method.desc.equals("()V")
+                || (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0) return null;
+        FieldInsnNode mapping = null;
+        boolean configuredFeatures = false;
+        boolean treeConfiguration = false;
+        boolean trunkProvider = false;
+        boolean foliageProvider = false;
+        for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof FieldInsnNode field) {
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                        && field.owner.equals(owner.name)
+                        && field.desc.equals("Ljava/util/Map;")) {
+                    if (mapping != null && !mapping.name.equals(field.name)) return null;
+                    mapping = field;
+                } else if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/data/BuiltinRegistries")
+                        && field.name.equals("f_123861_")
+                        && field.desc.equals("Lnet/minecraft/core/Registry;")) {
+                    configuredFeatures = true;
+                } else if (field.owner.equals(
+                        "net/minecraft/world/level/levelgen/feature/configurations/TreeConfiguration")
+                        && field.desc.equals(
+                        "Lnet/minecraft/world/level/levelgen/feature/stateproviders/BlockStateProvider;")) {
+                    if (field.name.equals("f_68185_")) trunkProvider = true;
+                    if (field.name.equals("f_161213_")) foliageProvider = true;
+                }
+            } else if (insn instanceof TypeInsnNode type
+                    && type.desc.equals(
+                    "net/minecraft/world/level/levelgen/feature/configurations/TreeConfiguration")) {
+                treeConfiguration = true;
+            }
+        }
+        return configuredFeatures && treeConfiguration && trunkProvider && foliageProvider
+                ? mapping : null;
+    }
+
+    private boolean usesLegacyConfiguredFeatures(String owner, String name, String descriptor) {
+        if (owner.startsWith("net/minecraft/")) return false;
+        String key = owner + '#' + name + descriptor;
+        return configuredFeatureInitializers.computeIfAbsent(key, ignored -> {
+            try {
+                byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(owner);
+                if (bytes == null) return false;
+                ClassNode candidate = new ClassNode();
+                new ClassReader(bytes).accept(candidate, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                var methods = candidate.methods.stream()
+                        .filter(method -> method.name.equals(name) && method.desc.equals(descriptor))
+                        .toList();
+                if (methods.size() != 1) return false;
+                return legacySimpleTreeMappingField(candidate, methods.getFirst()) != null;
+            } catch (java.io.IOException | RuntimeException e) {
+                return false;
+            }
+        });
     }
 
     private static int rewriteLegacyMultiBufferSource(ClassNode node) {
