@@ -31,9 +31,10 @@ public final class LegacyFaceBakery {
         BakedQuad.MaterialInfo material = BakedQuad.MaterialInfo.of(
                 new Material.Baked(sprite, false), sprite.transparency(),
                 face.f_111355_, null, 0, shade);
-        return FaceBakery.bakeQuad(
+        BakedQuad quad = FaceBakery.bakeQuad(
                 IDENTITY_INTERNER, from, to, face.f_111357_.target(),
                 face.f_111357_.rotation(), material, direction, state,
                 rotation == null ? null : rotation.target());
+        return Forge1192BakedQuadBridge.rememberShade(quad, shade);
     }
 }

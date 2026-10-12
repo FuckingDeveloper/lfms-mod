@@ -6,6 +6,7 @@ import net.minecraft.client.resources.model.cuboid.ItemTransform;
 import net.minecraft.client.resources.model.cuboid.ItemTransforms;
 import net.minecraft.world.item.ItemDisplayContext;
 import org.joml.Vector3f;
+import org.joml.Quaternionf;
 
 /** Target adapter for Forge 1.19.2 item-display transform values. */
 public final class Forge1192ItemTransformBridge {
@@ -56,5 +57,13 @@ public final class Forge1192ItemTransformBridge {
 
     public static Vector3f rightRotation(ItemTransform transform) {
         return new Vector3f(transform.rightRotation());
+    }
+
+    /** Source Quaternion#fromXYZDegrees, preserving X then Y then Z order. */
+    public static Quaternionf quaternionFromXYZDegrees(Vector3f degrees) {
+        return new Quaternionf().rotationXYZ(
+                (float) Math.toRadians(degrees.x),
+                (float) Math.toRadians(degrees.y),
+                (float) Math.toRadians(degrees.z));
     }
 }

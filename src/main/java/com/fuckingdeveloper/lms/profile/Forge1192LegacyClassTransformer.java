@@ -190,7 +190,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyItemTransformFamily(node);
         rewrites += rewriteLegacyModelBakingPipeline(node);
         rewrites += rewriteLegacyBlockAtlasIdentity(node);
-        rewrites += rewriteLegacyVector3fAccessors(node);
+        rewrites += rewriteLegacyVector3fFamily(node);
+        rewrites += rewriteLegacyBakedQuadFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -1547,22 +1548,172 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    private static int rewriteLegacyVector3fAccessors(ClassNode node) {
+    /**
+     * Mojang's mutable 1.19.2 Vector3f was replaced by JOML. Besides moving
+     * the type, JOML changed several mutators' return descriptors and
+     * normalize's success result, while the axis-angle helpers disappeared.
+     * Adapt only exact source SRG identities whose target semantics have been
+     * verified; unrelated JOML operations remain untouched.
+     */
+    private static int rewriteLegacyVector3fFamily(ClassNode node) {
         int rewrites = 0;
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("com/mojang/math/Vector3f")
+                        && field.desc.equals("Lcom/mojang/math/Vector3f;")) {
+                    String target = switch (field.name) {
+                        case "f_122223_" -> "XP";
+                        case "f_122225_" -> "YP";
+                        case "f_122227_" -> "ZP";
+                        default -> null;
+                    };
+                    if (target != null) {
+                        field.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192Vector3fBridge";
+                        field.name = target;
+                        field.desc = "Lorg/joml/Vector3f;";
+                        rewrites++;
+                    }
+                    continue;
+                }
                 if (!(insn instanceof MethodInsnNode call)
-                        || !call.owner.equals("com/mojang/math/Vector3f")
-                        || !call.desc.equals("()F")) continue;
-                String target = switch (call.name) {
-                    case "m_122239_" -> "x";
-                    case "m_122260_" -> "y";
-                    case "m_122269_" -> "z";
-                    default -> null;
-                };
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals("com/mojang/math/Vector3f")) continue;
+                String target = null;
+                String descriptor = null;
+                if (call.desc.equals("()F")) {
+                    target = switch (call.name) {
+                        case "m_122239_" -> "x";
+                        case "m_122260_" -> "y";
+                        case "m_122269_" -> "z";
+                        default -> null;
+                    };
+                } else if (call.name.equals("m_122261_") && call.desc.equals("(F)V")) {
+                    target = "mul";
+                    descriptor = "(Lorg/joml/Vector3f;F)V";
+                } else if (call.name.equals("m_122272_") && call.desc.equals("(FFF)V")) {
+                    target = "set";
+                    descriptor = "(Lorg/joml/Vector3f;FFF)V";
+                } else if (call.name.equals("m_122278_") && call.desc.equals("()Z")) {
+                    target = "normalize";
+                    descriptor = "(Lorg/joml/Vector3f;)Z";
+                } else if (call.name.equals("m_122270_")
+                        && call.desc.equals("(F)Lcom/mojang/math/Quaternion;")) {
+                    target = "rotation";
+                    descriptor = "(Lorg/joml/Vector3f;F)Lorg/joml/Quaternionf;";
+                } else if (call.name.equals("m_122240_")
+                        && call.desc.equals("(F)Lcom/mojang/math/Quaternion;")) {
+                    target = "rotationDegrees";
+                    descriptor = "(Lorg/joml/Vector3f;F)Lorg/joml/Quaternionf;";
+                }
                 if (target == null) continue;
-                call.name = target;
+                if (descriptor == null) {
+                    call.name = target;
+                } else {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192Vector3fBridge";
+                    call.name = target;
+                    call.desc = descriptor;
+                    call.itf = false;
+                }
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Target 26.3 replaced the packed mutable-era BakedQuad class with a
+     * geometry record. Preserve the exact 1.19.2 accessor and construction
+     * ABI through an explicit representation bridge before relocating type
+     * references to the target record.
+     */
+    private static int rewriteLegacyBakedQuadFamily(ClassNode node) {
+        final String legacy = "net/minecraft/client/renderer/block/model/BakedQuad";
+        final String target = "net/minecraft/client/resources/model/geometry/BakedQuad";
+        final String bridge = "com/fuckingdeveloper/lms/runtime/render/Forge1192BakedQuadBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof TypeInsnNode allocation
+                        && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                        && allocation.desc.equals(legacy)) {
+                    var dup = allocation.getNext();
+                    if (dup == null || dup.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                        throw new IllegalStateException("Unsupported legacy BakedQuad allocation: "
+                                + node.name + "#" + method.name);
+                    }
+                    MethodInsnNode init = null;
+                    int nested = 0;
+                    for (var cursor = dup.getNext(); cursor != null; cursor = cursor.getNext()) {
+                        if (cursor instanceof TypeInsnNode nestedAllocation
+                                && nestedAllocation.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                            nested++;
+                        } else if (cursor instanceof MethodInsnNode call
+                                && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                                && call.name.equals("<init>")) {
+                            if (nested > 0) {
+                                nested--;
+                            } else if (call.owner.equals(legacy)) {
+                                init = call;
+                                break;
+                            }
+                        }
+                    }
+                    if (init == null) {
+                        throw new IllegalStateException("Cannot match legacy BakedQuad constructor: "
+                                + node.name + "#" + method.name);
+                    }
+                    String factoryDesc = switch (init.desc) {
+                        case "([IILnet/minecraft/core/Direction;"
+                                + "Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;Z)V" ->
+                                "([IILnet/minecraft/core/Direction;"
+                                        + "Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;Z)L"
+                                        + target + ";";
+                        case "([IILnet/minecraft/core/Direction;"
+                                + "Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;ZZ)V" ->
+                                "([IILnet/minecraft/core/Direction;"
+                                        + "Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;ZZ)L"
+                                        + target + ";";
+                        default -> throw new IllegalStateException(
+                                "Unsupported legacy BakedQuad constructor: "
+                                        + node.name + "#" + method.name + init.desc);
+                    };
+                    method.instructions.remove(allocation);
+                    method.instructions.remove(dup);
+                    MethodInsnNode factory = new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC, bridge,
+                            "create", factoryDesc, false);
+                    method.instructions.set(init, factory);
+                    rewrites++;
+                    insn = factory.getNext();
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals(legacy)) {
+                    String bridgeName = switch (call.name + call.desc) {
+                        case "m_173410_()Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;" -> "sprite";
+                        case "m_111303_()[I" -> "vertices";
+                        case "m_111304_()Z" -> "isTinted";
+                        case "m_111305_()I" -> "tintIndex";
+                        case "m_111306_()Lnet/minecraft/core/Direction;" -> "direction";
+                        case "m_111307_()Z" -> "isShade";
+                        case "m_111308_()Z" -> "hasAmbientOcclusion";
+                        default -> null;
+                    };
+                    if (bridgeName != null) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = bridgeName;
+                        call.desc = "(L" + target + ";)" + call.desc.substring(2);
+                        call.itf = false;
+                        rewrites++;
+                    }
+                }
+                insn = next;
             }
         }
         return rewrites;
@@ -2449,6 +2600,41 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("com/mojang/math/Quaternion")
+                        && call.name.equals("m_175225_")
+                        && call.desc.equals("(Lorg/joml/Vector3f;)"
+                                + "Lcom/mojang/math/Quaternion;")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/"
+                            + "Forge1192ItemTransformBridge";
+                    call.name = "quaternionFromXYZDegrees";
+                    call.desc = "(Lorg/joml/Vector3f;)Lorg/joml/Quaternionf;";
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraftforge/client/model/geometry/"
+                                + "UnbakedGeometryHelper")) {
+                    if (call.name.equals("createUnbakedItemElements")
+                            && call.desc.equals("(ILnet/minecraft/client/renderer/texture/"
+                                    + "TextureAtlasSprite;)Ljava/util/List;")) {
+                        call.owner = "com/fuckingdeveloper/lms/runtime/render/"
+                                + "Forge1192UnbakedGeometryBridge";
+                        rewrites++;
+                        continue;
+                    }
+                    if (call.name.equals("bakeElements")
+                            && call.desc.equals("(Ljava/util/List;Ljava/util/function/Function;"
+                                    + "Lnet/minecraft/client/renderer/block/dispatch/ModelState;"
+                                    + "Lnet/minecraft/resources/Identifier;)Ljava/util/List;")) {
+                        call.owner = "com/fuckingdeveloper/lms/runtime/render/"
+                                + "Forge1192UnbakedGeometryBridge";
+                        rewrites++;
+                        continue;
+                    }
+                }
 
                 // Transformation retained its four semantic components, but
                 // target 26.3 widened concrete vectors/quaternions to JOML
@@ -3364,6 +3550,25 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                                 "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem",
                                 "lmsLegacyArmorSlot",
                                 "()Lnet/minecraft/world/entity/EquipmentSlot;", false));
+                        rewrites++;
+                        continue;
+                    }
+                }
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.name.equals("f_51181_")
+                        && field.desc.equals("[Lnet/minecraft/world/phys/shapes/VoxelShape;")) {
+                    String sourceOwner = resolveInheritedLegacyVanillaFieldOwner(
+                            field.owner, field.name, field.desc);
+                    String canonical = sourceOwner == null ? null : SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(sourceOwner, field.name, field.desc).orElse(null);
+                    var target = VANILLA_RELOCATIONS.searchExactField(
+                            "net.minecraft.world.level.block.CakeBlock", "SHAPES", field.desc);
+                    if (sourceOwner != null
+                            && sourceOwner.equals("net/minecraft/world/level/block/CakeBlock")
+                            && "SHAPE_BY_BITE".equals(canonical)
+                            && target.size() == 1) {
+                        field.owner = "net/minecraft/world/level/block/CakeBlock";
+                        field.name = "SHAPES";
                         rewrites++;
                         continue;
                     }
