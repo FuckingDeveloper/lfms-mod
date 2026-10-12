@@ -39,6 +39,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/model/VillagerModel", "net/minecraft/client/model/npc/VillagerModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieModel", "net/minecraft/client/model/monster/zombie/ZombieModel"),
             java.util.Map.entry("net/minecraft/client/model/ZombieVillagerModel", "net/minecraft/client/model/monster/zombie/ZombieVillagerModel"),
+            java.util.Map.entry("net/minecraft/client/renderer/blockentity/SignRenderer", "net/minecraft/client/renderer/blockentity/StandingSignRenderer"),
             java.util.Map.entry("net/minecraft/Util", "net/minecraft/util/Util"),
             java.util.Map.entry("com/mojang/blaze3d/vertex/BufferVertexConsumer", "com/fuckingdeveloper/lms/runtime/render/LegacyBufferVertexConsumer"),
             java.util.Map.entry("com/mojang/blaze3d/vertex/DefaultVertexFormat", "com/fuckingdeveloper/lms/runtime/render/LegacyDefaultVertexFormat"),
@@ -67,6 +68,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/gui/screens/SoundOptionsScreen", "net/minecraft/client/gui/screens/options/SoundOptionsScreen"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderType"),
             java.util.Map.entry("com/mojang/math/Vector3f", "org/joml/Vector3f"),
+            java.util.Map.entry("com/mojang/math/Quaternion", "org/joml/Quaternionf"),
             java.util.Map.entry("net/minecraft/world/level/BlockAndTintGetter", "net/minecraft/client/renderer/block/BlockAndTintGetter"),
             java.util.Map.entry("net/minecraft/core/BlockSource", "net/minecraft/core/dispenser/BlockSource"),
             java.util.Map.entry("net/minecraft/world/entity/animal/Sheep", "net/minecraft/world/entity/animal/sheep/Sheep"),
@@ -176,6 +178,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
         rewrites += rewriteLegacyComposterRegistrations(node);
         rewrites += rewriteLegacyMixinPropertyAccessors(node);
+        rewrites += rewriteLegacyFixedBufferRegistration(node);
         rewrites += rewriteLegacyRecipesUpdatedHandlers(node);
         rewrites += rewriteLegacyEarlyClientInitialization(node);
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
@@ -203,11 +206,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyModelBakingPipeline(node);
         rewrites += rewriteLegacyBlockAtlasIdentity(node);
         rewrites += rewriteLegacyVector3fFamily(node);
+        rewrites += rewriteLegacyQuaternionFamily(node);
         rewrites += rewriteLegacyBakedQuadFamily(node);
         rewrites += rewriteLegacyPackRepositoryFamily(node);
         rewrites += rewriteLegacyPackMetadataConstruction(node);
         rewrites += rewriteLegacySimpleJsonReloadListener(node);
         rewrites += rewriteLegacyIngredientFamily(node);
+        rewrites += rewriteLegacyDyeItemLookup(node);
         rewrites += rewriteLegacyUnitMapCodecFamily(node);
         rewrites += rewriteLegacyCriterionTriggerFamily(node);
         rewrites += rewriteLegacyAdvancementDisplayFamily(node);
@@ -856,6 +861,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.name = "items";
                     call.desc = "(Lnet/minecraft/world/item/crafting/Ingredient;)"
                             + "[Lnet/minecraft/world/item/ItemStack;";
+                    call.itf = false;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    /** Exact removed DyeItem color index, rebuilt from target DYE components. */
+    private static int rewriteLegacyDyeItemLookup(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/world/item/DyeItem")
+                        && (call.name.equals("m_41082_") || call.name.equals("byColor"))
+                        && call.desc.equals("(Lnet/minecraft/world/item/DyeColor;)"
+                                + "Lnet/minecraft/world/item/DyeItem;")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/item/Forge1192DyeItemBridge";
+                    call.name = "byColor";
                     call.itf = false;
                     rewrites++;
                 }
@@ -2184,6 +2210,136 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     /**
+     * Minecraft 1.19.2's concrete mutable Quaternion became JOML's
+     * Quaternionf/Quaternionfc contract. Adapt the exact source operations
+     * whose calling convention or return descriptor changed before applying
+     * the explicit type relocation. The Euler factory preserves Mojang's
+     * verified X/Y/Z multiplication order and avoids leaving an invalid
+     * NEW/DUP sequence behind.
+     */
+    private static int rewriteLegacyQuaternionFamily(ClassNode node) {
+        final String legacy = "com/mojang/math/Quaternion";
+        final String concrete = "org/joml/Quaternionf";
+        final String readOnly = "org/joml/Quaternionfc";
+        final String bridge =
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192QuaternionBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof TypeInsnNode allocation
+                        && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                        && allocation.desc.equals(legacy)) {
+                    var duplicate = allocation.getNext();
+                    if (duplicate == null
+                            || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                        throw new IllegalStateException("Unsupported legacy Quaternion allocation: "
+                                + node.name + "#" + method.name);
+                    }
+                    MethodInsnNode init = null;
+                    int nested = 0;
+                    for (var cursor = duplicate.getNext(); cursor != null;
+                            cursor = cursor.getNext()) {
+                        if (cursor instanceof TypeInsnNode nestedAllocation
+                                && nestedAllocation.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                            nested++;
+                        } else if (cursor instanceof MethodInsnNode call
+                                && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                                && call.name.equals("<init>")) {
+                            if (nested > 0) {
+                                nested--;
+                            } else if (call.owner.equals(legacy)) {
+                                init = call;
+                                break;
+                            }
+                        }
+                    }
+                    if (init == null) {
+                        throw new IllegalStateException("Cannot match legacy Quaternion constructor: "
+                                + node.name + "#" + method.name);
+                    }
+                    if (init.desc.equals("(FFFZ)V")) {
+                        method.instructions.remove(allocation);
+                        method.instructions.remove(duplicate);
+                        var factory = new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                                bridge, "eulerXYZ", "(FFFZ)L" + concrete + ";", false);
+                        method.instructions.set(init, factory);
+                        rewrites++;
+                        insn = factory.getNext();
+                        continue;
+                    }
+                    // JOML retains the exact x/y/z/w constructor. Other source
+                    // constructors have different descriptors and remain an
+                    // explicit fail-closed boundary until proven.
+                    if (!init.desc.equals("(FFFF)V")) {
+                        throw new IllegalStateException("Unadapted legacy Quaternion constructor: "
+                                + node.name + "#" + method.name + init.desc);
+                    }
+                }
+                if (insn instanceof MethodInsnNode call) {
+                    if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                            && call.owner.equals(legacy)
+                            && call.name.equals("m_175225_")
+                            && call.desc.equals("(Lcom/mojang/math/Vector3f;)L"
+                                    + legacy + ";")) {
+                        call.owner = "com/fuckingdeveloper/lms/runtime/render/"
+                                + "Forge1192ItemTransformBridge";
+                        call.name = "quaternionFromXYZDegrees";
+                        call.desc = "(Lorg/joml/Vector3f;)L" + concrete + ";";
+                        rewrites++;
+                    } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && call.owner.equals("com/mojang/math/Transformation")
+                            && call.name.equals("<init>")
+                            && call.desc.equals("(Lcom/mojang/math/Vector3f;L" + legacy + ";"
+                                    + "Lcom/mojang/math/Vector3f;L" + legacy + ";)V")) {
+                        call.desc = "(Lorg/joml/Vector3fc;L" + readOnly + ";"
+                                + "Lorg/joml/Vector3fc;L" + readOnly + ";)V";
+                        rewrites++;
+                    } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.owner.equals(legacy)
+                            && call.name.equals("m_80148_")
+                            && call.desc.equals("(L" + legacy + ";)V")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "multiply";
+                        call.desc = "(L" + concrete + ";L" + readOnly + ";)V";
+                        call.itf = false;
+                        rewrites++;
+                    } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.owner.equals("com/mojang/blaze3d/vertex/PoseStack")
+                            && call.name.equals("m_85845_")
+                            && call.desc.equals("(L" + legacy + ";)V")) {
+                        call.name = "rotate";
+                        call.desc = "(L" + readOnly + ";)V";
+                        rewrites++;
+                    } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.owner.equals("net/minecraft/core/Direction")
+                            && call.name.equals("m_122406_")
+                            && call.desc.equals("()L" + legacy + ";")) {
+                        call.name = "getRotation";
+                        call.desc = "()L" + concrete + ";";
+                        rewrites++;
+                    } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.owner.equals(
+                                    "net/minecraft/client/renderer/entity/EntityRenderDispatcher")
+                            && call.name.equals("m_114470_")
+                            && call.desc.equals("()L" + legacy + ";")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "cameraOrientation";
+                        call.desc = "(Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;)"
+                                + "L" + concrete + ";";
+                        call.itf = false;
+                        rewrites++;
+                    }
+                }
+                insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
      * Target 26.3 replaced the packed mutable-era BakedQuad class with a
      * geometry record. Preserve the exact 1.19.2 accessor and construction
      * ABI through an explicit representation bridge before relocating type
@@ -3070,6 +3226,42 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE) continue;
                 LegacyMixinAccessor accessor = legacyMixinAccessor(call.owner, call.name, call.desc);
                 if (accessor == null) continue;
+                if (accessor.target().equals("net/minecraft/client/renderer/LevelRenderer")
+                        && accessor.member().equals("renderBuffers")
+                        && call.desc.equals("()Lnet/minecraft/client/renderer/RenderBuffers;")) {
+                    var receiverCast = previousExecutable(call);
+                    var buffersCast = nextExecutable(call);
+                    var fixedBuffersCall = buffersCast == null
+                            ? null : nextExecutable(buffersCast);
+                    if (!(receiverCast instanceof TypeInsnNode receiverType)
+                            || receiverCast.getOpcode() != org.objectweb.asm.Opcodes.CHECKCAST
+                            || !receiverType.desc.equals(call.owner)
+                            || !(buffersCast instanceof TypeInsnNode)
+                            || buffersCast.getOpcode() != org.objectweb.asm.Opcodes.CHECKCAST
+                            || !(fixedBuffersCall instanceof MethodInsnNode fixedCall)
+                            || fixedCall.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE) {
+                        continue;
+                    }
+                    LegacyMixinAccessor fixedAccessor = legacyMixinAccessor(
+                            fixedCall.owner, fixedCall.name, fixedCall.desc);
+                    if (fixedAccessor == null
+                            || !fixedAccessor.target().equals(
+                                    "net/minecraft/client/renderer/RenderBuffers")
+                            || !fixedAccessor.member().equals("fixedBuffers")
+                            || !fixedCall.desc.equals("()Ljava/util/SortedMap;")) continue;
+                    method.instructions.remove(receiverCast);
+                    method.instructions.remove(buffersCast);
+                    method.instructions.remove(fixedCall);
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/"
+                            + "Forge1192FixedBufferBridge";
+                    call.name = "registrationContext";
+                    call.desc = "(Lnet/minecraft/client/renderer/LevelRenderer;)"
+                            + "Ljava/util/SortedMap;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
                 String targetName;
                 String targetDescriptor;
                 boolean discardFluentResult;
@@ -3111,6 +3303,54 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 rewrites++;
             }
+        }
+        return rewrites;
+    }
+
+    /** Capture removed source fixed-buffer registrations as render intent. */
+    private static int rewriteLegacyFixedBufferRegistration(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if ((method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0
+                    || !method.desc.equals("(Ljava/util/SortedMap;"
+                            + "Lnet/minecraft/client/renderer/RenderType;)V")) continue;
+            boolean readsBufferSize = false;
+            boolean constructsBuffer = false;
+            boolean insertsSortedMap = false;
+            for (var insn = method.instructions.getFirst(); insn != null;
+                    insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/renderer/RenderType")
+                        && call.name.equals("m_110507_") && call.desc.equals("()I")) {
+                    readsBufferSize = true;
+                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals("com/mojang/blaze3d/vertex/BufferBuilder")
+                        && call.name.equals("<init>") && call.desc.equals("(I)V")) {
+                    constructsBuffer = true;
+                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                        && call.owner.equals("java/util/SortedMap")
+                        && call.name.equals("put")
+                        && call.desc.equals("(Ljava/lang/Object;Ljava/lang/Object;)"
+                                + "Ljava/lang/Object;")) {
+                    insertsSortedMap = true;
+                }
+            }
+            if (!readsBufferSize || !constructsBuffer || !insertsSortedMap) continue;
+            method.instructions.clear();
+            method.tryCatchBlocks.clear();
+            method.localVariables = null;
+            method.visibleLocalVariableAnnotations = null;
+            method.invisibleLocalVariableAnnotations = null;
+            method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                    org.objectweb.asm.Opcodes.ALOAD, 1));
+            method.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/runtime/render/Forge1192FixedBufferBridge",
+                    "register", "(Lcom/fuckingdeveloper/lms/runtime/render/LegacyRenderType;)V",
+                    false));
+            method.instructions.add(new org.objectweb.asm.tree.InsnNode(
+                    org.objectweb.asm.Opcodes.RETURN));
+            rewrites++;
         }
         return rewrites;
     }

@@ -136,6 +136,13 @@ source chunk layers as semantic identities until the model adapter selects the
 target chunk/material representation. It MUST NOT substitute an unrelated
 target render pipeline merely because both APIs use a class named RenderType.
 
+When the source renderer pre-registers render types in a mutable fixed-buffer
+map that the target no longer exposes, LMS MAY capture the exact registration
+intent in an LMS-owned target adapter. It MUST NOT reflectively mutate a target
+renderer's private buffers or treat captured intent as proof that the target
+render pipeline supports that type. Attempted functional use MUST remain
+fail-closed until a verified target rendering operation consumes the intent.
+
 Managed legacy artifacts remain immutable inputs, but their client and server
 resources MUST be exposed through the target generation's resource-pack
 lifecycle when that artifact is admitted to a runtime session. The target
