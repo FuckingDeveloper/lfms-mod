@@ -149,6 +149,17 @@ store them in the target's serializable custom-data component. Returning a
 detached copy from a source mutation API is forbidden. The adapter MUST NOT
 reinterpret component-owned target data as arbitrary legacy NBT.
 
+When source-generation saved data is registered by a runtime loader function,
+constructor and global string key, while the target requires a typed saved-data
+descriptor and codec, LMS MAY synthesize that target descriptor from the exact
+source operations. The bridge MUST use the source loader for decoding, the
+source saved-data writer for encoding, and the source constructor for absent
+data. It MUST retain the source string key's global collision semantics and
+MUST fail explicitly if a produced value does not expose the verified source
+saved-data writer contract. Existing on-disk path migration, when source and
+target storage layouts differ, remains a separate compatibility operation and
+MUST NOT be claimed from codec linkage alone.
+
 When a source generation exposes one combined baked-model contract but the
 target splits block-state and item rendering, LMS MUST preserve the legacy
 registration lifecycle and adapt the model independently into each target

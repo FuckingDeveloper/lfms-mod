@@ -188,6 +188,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstants(node);
+        rewrites += rewriteLegacySavedDataFamily(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
         rewrites += rewriteLegacyMaterialColorProperties(node);
@@ -2171,6 +2172,77 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    private int rewriteLegacySavedDataFamily(ClassNode node) {
+        final String legacyStorage = "net/minecraft/world/level/storage/DimensionDataStorage";
+        final String targetStorage = "net/minecraft/world/level/storage/SavedDataStorage";
+        final String savedData = "net/minecraft/world/level/saveddata/SavedData";
+        final String tag = "Lnet/minecraft/nbt/CompoundTag;";
+        final String legacySaveDescriptor = "(" + tag + ")" + tag;
+        int rewrites = 0;
+
+        var legacyWriter = node.methods.stream()
+                .filter(method -> method.name.equals("m_7176_")
+                        && method.desc.equals(legacySaveDescriptor)
+                        && (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0)
+                .findFirst().orElse(null);
+        if (legacyWriter != null && isManagedSubtypeOf(node, savedData)) {
+            final String legacyContract =
+                    "com/fuckingdeveloper/lms/runtime/saveddata/LegacySavedData";
+            if (!node.interfaces.contains(legacyContract)) {
+                node.interfaces.add(legacyContract);
+                var adapter = new org.objectweb.asm.tree.MethodNode(
+                        org.objectweb.asm.Opcodes.ACC_PUBLIC
+                                | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                        "lms$saveLegacy", legacySaveDescriptor, null, null);
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, 0));
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, 1));
+                adapter.instructions.add(new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        node.name, legacyWriter.name, legacyWriter.desc, false));
+                adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(
+                        org.objectweb.asm.Opcodes.ARETURN));
+                adapter.maxStack = 2;
+                adapter.maxLocals = 2;
+                node.methods.add(adapter);
+                rewrites++;
+            }
+        }
+
+        final String legacyComputeDescriptor = "(Ljava/util/function/Function;"
+                + "Ljava/util/function/Supplier;Ljava/lang/String;)L" + savedData + ";";
+        final String bridgeComputeDescriptor = "(L" + targetStorage + ";"
+                + "Ljava/util/function/Function;Ljava/util/function/Supplier;"
+                + "Ljava/lang/String;)L" + savedData + ";";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/server/level/ServerLevel")
+                        && call.name.equals("m_8895_")
+                        && call.desc.equals("()L" + legacyStorage + ";")) {
+                    call.name = "getDataStorage";
+                    call.desc = "()L" + targetStorage + ";";
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals(legacyStorage)
+                        && call.name.equals("m_164861_")
+                        && call.desc.equals(legacyComputeDescriptor)) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/saveddata/Forge1192SavedDataBridge";
+                    call.name = "computeIfAbsent";
+                    call.desc = bridgeComputeDescriptor;
+                    call.itf = false;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
     private static void verifyNoRemovedForgeClientTypes(ClassNode node) {
         final String removed = "net/minecraftforge/client/gui/ModListScreen";
         for (var method : node.methods) {
@@ -3713,6 +3785,53 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
+
+                // The source exposed the operator permission threshold as an
+                // integer. Target 26.3 stores the same ordered 0..4 value in
+                // LevelBasedPermissionSet#level().
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/server/MinecraftServer")
+                        && call.name.equals("m_7022_")
+                        && call.desc.equals("()I")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ServerBridge";
+                    call.name = "operatorUserPermissionLevel";
+                    call.desc = "(Lnet/minecraft/server/MinecraftServer;)I";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                // ResourceLocation became Identifier while retaining the
+                // same UTF wire representation. Adapt both directions as one
+                // exact FriendlyByteBuf family.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/network/FriendlyByteBuf")) {
+                    if (call.name.equals("m_130085_")
+                            && call.desc.equals("(Lnet/minecraft/resources/Identifier;)"
+                                    + "Lnet/minecraft/network/FriendlyByteBuf;")) {
+                        call.name = "writeIdentifier";
+                        rewrites++;
+                        continue;
+                    }
+                    if (call.name.equals("m_130281_")
+                            && call.desc.equals("()Lnet/minecraft/resources/Identifier;")) {
+                        call.name = "readIdentifier";
+                        rewrites++;
+                        continue;
+                    }
+                }
+
+                // ChunkPos#toLong (m_45588_) retained the exact packed long
+                // semantic in 26.3 as ChunkPos#pack().
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/level/ChunkPos")
+                        && call.name.equals("m_45588_")
+                        && call.desc.equals("()J")) {
+                    call.name = "pack";
+                    rewrites++;
+                    continue;
+                }
 
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
                         && call.owner.equals("com/mojang/math/Quaternion")
