@@ -7,6 +7,7 @@ import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.component.PatchedDataComponentMap;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
@@ -37,22 +38,57 @@ public final class Forge1192EarlyItemStackBridge {
 
         ResourceKey<Item> key = holder.unwrapKey().orElseThrow(() ->
                 new IllegalStateException("Legacy early ItemStack item has no registry key"));
-        var properties = Forge1192VanillaConstructionBridge.itemProperties(item)
-                .orElseThrow(() -> new IllegalStateException(
-                        "No preserved Item.Properties for early ItemStack " + key.identifier()));
-        DataComponentMap.Builder components = DataComponentMap.builder();
         RegistryAccess.Frozen context = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+        DataComponentMap defaults = Forge1192VanillaConstructionBridge.itemProperties(item)
+                .map(properties -> legacyDefaults(properties, context, key, item))
+                .orElseGet(() -> targetDefaults(context, holder, key));
+        try {
+            return ISOLATED_CONSTRUCTOR.newInstance(
+                    holder, count, new PatchedDataComponentMap(defaults));
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot materialize isolated early ItemStack", e);
+        }
+    }
+
+    private static DataComponentMap legacyDefaults(
+            Item.Properties properties,
+            RegistryAccess.Frozen context,
+            ResourceKey<Item> key,
+            Item item) {
+        DataComponentMap.Builder components = DataComponentMap.builder();
         DataComponentInitializers.Initializer<Item> initializer = properties.componentInitializer;
         initializer.run(components, context, key);
         components.set(DataComponents.ITEM_NAME, Component.translatable(item.getDescriptionId()));
         components.set(DataComponents.ITEM_MODEL, key.identifier());
         net.neoforged.neoforge.internal.DataComponentModifiers.apply(context, item, components);
-        try {
-            return ISOLATED_CONSTRUCTOR.newInstance(
-                    holder, count, new PatchedDataComponentMap(components.build()));
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Cannot materialize isolated early ItemStack", e);
+        return components.build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static DataComponentMap targetDefaults(
+            RegistryAccess.Frozen context,
+            Holder.Reference<Item> holder,
+            ResourceKey<Item> key) {
+        java.util.concurrent.atomic.AtomicReference<DataComponentMap> result =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        for (var pending : BuiltInRegistries.DATA_COMPONENT_INITIALIZERS.build(context)) {
+            if (!pending.key().equals(Registries.ITEM)) continue;
+            var itemComponents = (DataComponentInitializers.PendingComponents<Item>) pending;
+            itemComponents.forEach((candidate, components) -> {
+                if (candidate == holder || candidate.unwrapKey().filter(key::equals).isPresent()) {
+                    if (!result.compareAndSet(null, components)) {
+                        throw new IllegalStateException("Duplicate target defaults for early ItemStack "
+                                + key.identifier());
+                    }
+                }
+            });
         }
+        DataComponentMap defaults = result.get();
+        if (defaults == null) {
+            throw new IllegalStateException("No target component initializer for early ItemStack "
+                    + key.identifier());
+        }
+        return defaults;
     }
 
     static ItemStack create(Item item, int count, DataComponentMap defaults) {

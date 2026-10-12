@@ -192,6 +192,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockAtlasIdentity(node);
         rewrites += rewriteLegacyVector3fFamily(node);
         rewrites += rewriteLegacyBakedQuadFamily(node);
+        rewrites += rewriteLegacyPackRepositoryFamily(node);
+        rewrites += rewriteLegacyPackMetadataConstruction(node);
+        rewrites += rewriteLegacySimpleJsonReloadListener(node);
+        rewrites += rewriteLegacyIngredientFamily(node);
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
@@ -576,6 +580,270 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 repository sources received a PackConstructor callback,
+     * while the 26.3 RepositorySource contract makes the source construct the
+     * Pack itself. Adapt only the exact source override, and expose the old
+     * PackResources operations through a typed LMS contract so the target
+     * runtime can wrap them without reflecting on legacy implementation names.
+     */
+    private int rewriteLegacyPackRepositoryFamily(ClassNode node) {
+        final String repositorySource = "net/minecraft/server/packs/repository/RepositorySource";
+        final String oldLoadDescriptor = "(Ljava/util/function/Consumer;"
+                + "Lnet/minecraft/server/packs/repository/Pack$PackConstructor;)V";
+        final String packResources = "net/minecraft/server/packs/PackResources";
+        final String access = "com/fuckingdeveloper/lms/runtime/Forge1192LegacyPackResourcesAccess";
+        final String bridge = "com/fuckingdeveloper/lms/runtime/Forge1192PackRepositoryBridge";
+        int rewrites = 0;
+
+        if (isManagedSubtypeOf(node, repositorySource)) {
+            for (var method : node.methods) {
+                if (!method.name.equals("m_7686_") || !method.desc.equals(oldLoadDescriptor)) continue;
+                int constructorLoads = 0;
+                int constructorCalls = 0;
+                for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                    if (insn instanceof org.objectweb.asm.tree.VarInsnNode variable && variable.var == 2) {
+                        if (variable.getOpcode() != org.objectweb.asm.Opcodes.ALOAD) {
+                            throw new IllegalStateException("Legacy RepositorySource mutates PackConstructor local: "
+                                    + node.name + "#" + method.name + method.desc);
+                        }
+                        constructorLoads++;
+                    } else if (insn instanceof org.objectweb.asm.tree.IincInsnNode increment
+                            && increment.var == 2) {
+                        throw new IllegalStateException("Legacy RepositorySource mutates PackConstructor local: "
+                                + node.name + "#" + method.name + method.desc);
+                    }
+                    if (insn instanceof MethodInsnNode call
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                            && call.owner.equals("net/minecraft/server/packs/repository/Pack$PackConstructor")
+                            && call.name.equals("create")) {
+                        String targetDescriptor;
+                        if (call.desc.equals("(Ljava/lang/String;Lnet/minecraft/network/chat/Component;Z"
+                                + "Ljava/util/function/Supplier;Lnet/minecraft/server/packs/metadata/pack/PackMetadataSection;"
+                                + "Lnet/minecraft/server/packs/repository/Pack$Position;"
+                                + "Lnet/minecraft/server/packs/repository/PackSource;Z)"
+                                + "Lnet/minecraft/server/packs/repository/Pack;")) {
+                            targetDescriptor = "(Ljava/lang/String;Lnet/minecraft/network/chat/Component;Z"
+                                    + "Ljava/util/function/Supplier;Lnet/minecraft/server/packs/metadata/pack/PackMetadataSection;"
+                                    + "Lnet/minecraft/server/packs/repository/Pack$Position;"
+                                    + "Lnet/minecraft/server/packs/repository/PackSource;Z)"
+                                    + "Lnet/minecraft/server/packs/repository/Pack;";
+                        } else if (call.desc.equals("(Ljava/lang/String;Lnet/minecraft/network/chat/Component;Z"
+                                + "Ljava/util/function/Supplier;Lnet/minecraft/server/packs/metadata/pack/PackMetadataSection;"
+                                + "Lnet/minecraft/server/packs/repository/Pack$Position;"
+                                + "Lnet/minecraft/server/packs/repository/PackSource;)"
+                                + "Lnet/minecraft/server/packs/repository/Pack;")) {
+                            targetDescriptor = call.desc;
+                        } else {
+                            throw new IllegalStateException("Unsupported legacy PackConstructor#create shape: "
+                                    + node.name + "#" + method.name + " call=" + call.desc);
+                        }
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "create";
+                        call.desc = targetDescriptor;
+                        call.itf = false;
+                        constructorCalls++;
+                    }
+                }
+                if (constructorCalls == 0 || constructorLoads != constructorCalls) {
+                    throw new IllegalStateException("Legacy RepositorySource PackConstructor data flow is ambiguous: "
+                            + node.name + "#" + method.name + method.desc
+                            + " loads=" + constructorLoads + " calls=" + constructorCalls);
+                }
+                for (var insn = method.instructions.getFirst(); insn != null; ) {
+                    var next = insn.getNext();
+                    if (insn instanceof org.objectweb.asm.tree.VarInsnNode variable
+                            && variable.var == 2 && variable.getOpcode() == org.objectweb.asm.Opcodes.ALOAD) {
+                        method.instructions.remove(insn);
+                    }
+                    insn = next;
+                }
+                method.name = "loadPacks";
+                method.desc = "(Ljava/util/function/Consumer;)V";
+                method.signature = null;
+                rewrites += constructorCalls + constructorLoads + 2;
+            }
+        }
+
+        if (isManagedSubtypeOf(node, packResources)) {
+            var required = new java.util.LinkedHashMap<String, String>();
+            required.put("m_5542_(Ljava/lang/String;)Ljava/io/InputStream;", "lms$legacyGetRootResource");
+            required.put("m_8031_(Lnet/minecraft/server/packs/PackType;Lnet/minecraft/resources/ResourceLocation;)Ljava/io/InputStream;",
+                    "lms$legacyGetResource");
+            required.put("m_214146_(Lnet/minecraft/server/packs/PackType;Ljava/lang/String;Ljava/lang/String;Ljava/util/function/Predicate;)Ljava/util/Collection;",
+                    "lms$legacyListResources");
+            required.put("m_5698_(Lnet/minecraft/server/packs/PackType;)Ljava/util/Set;", "lms$legacyNamespaces");
+            required.put("m_8017_()Ljava/lang/String;", "lms$legacyPackName");
+            for (var entry : required.entrySet()) {
+                int split = entry.getKey().indexOf('(');
+                String oldName = entry.getKey().substring(0, split);
+                String descriptor = entry.getKey().substring(split);
+                // rewriteVerifiedVanillaOverrides runs earlier and may already
+                // project an exact source SRG identity to its canonical source
+                // name when that declaration also remains a valid target
+                // override (currently getNamespaces). Both names therefore
+                // represent the same mapping-proven 1.19.2 operation here.
+                String canonicalSourceName = switch (oldName) {
+                    case "m_5542_" -> "getRootResource";
+                    case "m_8031_" -> "getResource";
+                    case "m_214146_" -> "getResources";
+                    case "m_5698_" -> "getNamespaces";
+                    case "m_8017_" -> "getName";
+                    default -> throw new IllegalStateException("Unknown legacy PackResources identity: " + oldName);
+                };
+                var matches = node.methods.stream()
+                        .filter(method -> (method.name.equals(oldName) || method.name.equals(canonicalSourceName))
+                                && method.desc.equals(descriptor))
+                        .toList();
+                if (matches.size() != 1) {
+                    throw new IllegalStateException("Legacy PackResources implementation requires exact declared operation "
+                            + entry.getKey() + ": " + node.name + " matches=" + matches.size());
+                }
+                matches.getFirst().name = entry.getValue();
+                rewrites++;
+            }
+            if (!node.interfaces.contains(access)) {
+                node.interfaces.add(access);
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyPackMetadataConstruction(ClassNode node) {
+        final String owner = "net/minecraft/server/packs/metadata/pack/PackMetadataSection";
+        final String legacyDescriptor = "(Lnet/minecraft/network/chat/Component;I)V";
+        final String bridge = "com/fuckingdeveloper/lms/runtime/Forge1192PackRepositoryBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; ) {
+                var next = insn.getNext();
+                if (!(insn instanceof TypeInsnNode allocation)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !allocation.desc.equals(owner)) {
+                    insn = next;
+                    continue;
+                }
+                var duplicate = allocation.getNext();
+                if (duplicate == null || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                    throw new IllegalStateException("Unsupported legacy PackMetadataSection allocation: "
+                            + node.name + "#" + method.name + method.desc);
+                }
+                MethodInsnNode init = null;
+                int nestedAllocations = 0;
+                for (var cursor = duplicate.getNext(); cursor != null; cursor = cursor.getNext()) {
+                    if (cursor instanceof TypeInsnNode nested
+                            && nested.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                        nestedAllocations++;
+                    } else if (cursor instanceof MethodInsnNode candidate
+                            && candidate.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && candidate.name.equals("<init>")) {
+                        if (nestedAllocations > 0) {
+                            nestedAllocations--;
+                        } else {
+                            if (candidate.owner.equals(owner) && candidate.desc.equals(legacyDescriptor)) init = candidate;
+                            break;
+                        }
+                    }
+                }
+                if (init == null) {
+                    throw new IllegalStateException("Cannot pair legacy PackMetadataSection constructor: "
+                            + node.name + "#" + method.name + method.desc);
+                }
+                method.instructions.remove(allocation);
+                method.instructions.remove(duplicate);
+                init.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                init.owner = bridge;
+                init.name = "metadata";
+                init.desc = legacyDescriptor.substring(0, legacyDescriptor.length() - 1) + "L" + owner + ";";
+                init.itf = false;
+                rewrites++;
+                next = init.getNext();
+                insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * The old Gson/directory SimpleJsonResourceReloadListener became a
+     * codec/FileToIdConverter listener. Preserve the legacy JsonElement map
+     * contract through a target-backed superclass rather than guessing a
+     * codec for each legacy subclass.
+     */
+    private static int rewriteLegacySimpleJsonReloadListener(ClassNode node) {
+        final String source = "net/minecraft/server/packs/resources/SimpleJsonResourceReloadListener";
+        final String bridge = "com/fuckingdeveloper/lms/runtime/Forge1192SimpleJsonResourceReloadListener";
+        if (!node.superName.equals(source)) return 0;
+        int constructorCalls = 0;
+        for (var method : node.methods) {
+            if (!method.name.equals("<init>")) continue;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals(source)
+                        && call.name.equals("<init>")
+                        && call.desc.equals("(Lcom/google/gson/Gson;Ljava/lang/String;)V")) {
+                    call.owner = bridge;
+                    constructorCalls++;
+                }
+            }
+        }
+        if (constructorCalls == 0) {
+            throw new IllegalStateException("Legacy SimpleJsonResourceReloadListener subclass has no exact source constructor: "
+                    + node.name);
+        }
+        node.superName = bridge;
+        return constructorCalls + 1;
+    }
+
+    /** Exact Forge 1.19.2 Ingredient factories/accessors removed by the holder-set model. */
+    private static int rewriteLegacyIngredientFamily(ClassNode node) {
+        final String ingredient = "net/minecraft/world/item/crafting/Ingredient";
+        final String bridge = "com/fuckingdeveloper/lms/runtime/Forge1192IngredientBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call) || !call.owner.equals(ingredient)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.name.equals("m_43927_")
+                        && call.desc.equals("([Lnet/minecraft/world/item/ItemStack;)"
+                                + "Lnet/minecraft/world/item/crafting/Ingredient;")) {
+                    call.owner = bridge;
+                    call.name = "ofStacks";
+                    call.itf = false;
+                    rewrites++;
+                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.name.equals("m_43921_")
+                        && call.desc.equals("(Ljava/util/stream/Stream;)"
+                                + "Lnet/minecraft/world/item/crafting/Ingredient;")) {
+                    call.owner = bridge;
+                    call.name = "ofStackStream";
+                    call.itf = false;
+                    rewrites++;
+                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.name.equals("m_43929_")
+                        && call.desc.equals("([Lnet/minecraft/world/level/ItemLike;)"
+                                + "Lnet/minecraft/world/item/crafting/Ingredient;")) {
+                    call.name = "of";
+                    rewrites++;
+                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.name.equals("m_43908_")
+                        && call.desc.equals("()[Lnet/minecraft/world/item/ItemStack;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "items";
+                    call.desc = "(Lnet/minecraft/world/item/crafting/Ingredient;)"
+                            + "[Lnet/minecraft/world/item/ItemStack;";
+                    call.itf = false;
+                    rewrites++;
+                }
             }
         }
         return rewrites;
