@@ -1548,8 +1548,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         }
                     }
                     for (int i = 0; i < indy.bsmArgs.length; i++) {
-                        if (!(indy.bsmArgs[i] instanceof Handle handle)
-                                || !handle.getName().startsWith("m_")) continue;
+                        if (!(indy.bsmArgs[i] instanceof Handle handle)) continue;
+                        if (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESTATIC
+                                && handle.getOwner().equals("net/minecraft/client/renderer/Sheets")
+                                && handle.getName().equals("addWoodType")
+                                && handle.getDesc().equals("(Lnet/minecraft/world/level/block/state/properties/WoodType;)V")) {
+                            indy.bsmArgs[i] = new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                                    "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                                    "legacyAddWoodType", handle.getDesc(), false);
+                            rewrites++;
+                            continue;
+                        }
+                        if (!handle.getName().startsWith("m_")) continue;
                         var resolved = handle.getOwner().startsWith("net/minecraft/")
                                 ? SRG_RUNTIME_RESOLVER.get().resolve(
                                         handle.getOwner(), handle.getName(), handle.getDesc())
@@ -1564,6 +1574,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
+
+                // Forge 1.19.2 maintained a client-only WoodType -> sign
+                // material cache in Sheets. Minecraft 26.3 removed that cache
+                // and renders registered sign block/model resources directly.
+                // Preserve the source lifecycle operation behind an explicit
+                // bridge, including when it appears as a method reference.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/client/renderer/Sheets")
+                        && call.name.equals("addWoodType")
+                        && call.desc.equals("(Lnet/minecraft/world/level/block/state/properties/WoodType;)V")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                    call.name = "legacyAddWoodType";
+                    call.itf = false;
+                    rewrites++;
+                }
 
                 // Registry is an interface in the target runtime. Its static
                 // register method therefore requires an InterfaceMethodref,

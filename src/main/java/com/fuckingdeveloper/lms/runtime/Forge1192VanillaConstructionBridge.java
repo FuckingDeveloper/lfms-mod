@@ -176,6 +176,16 @@ public final class Forge1192VanillaConstructionBridge {
         return new WoodType(name, setType);
     }
 
+    /**
+     * Preserve the Forge 1.19.2 client-setup operation after removal of
+     * {@code Sheets}' WoodType-to-sign-material cache. Minecraft 26.3 sign
+     * rendering consumes registered block/model resources and has no
+     * equivalent mutable render cache to populate.
+     */
+    public static void legacyAddWoodType(WoodType type) {
+        java.util.Objects.requireNonNull(type, "legacy wood type");
+    }
+
     /** Attach the legacy block name before the modern Block constructor reads it. */
     public static BlockBehaviour.Properties withBlockId(
             BlockBehaviour.Properties properties, String legacyName) {
