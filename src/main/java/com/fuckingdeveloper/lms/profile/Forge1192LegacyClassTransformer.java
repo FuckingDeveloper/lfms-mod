@@ -3868,7 +3868,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                             && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE)
                         || !call.desc.equals("()V")
-                        || !usesItemStackDefaults(call.owner, call.name, call.desc)) continue;
+                        || !usesItemStackDefaultsAtDispatch(node, call)) continue;
                 var metadata = new org.objectweb.asm.tree.InsnList();
                 metadata.add(new LdcInsnNode(Type.getObjectType(call.owner)));
                 metadata.add(new LdcInsnNode(call.name));
@@ -3882,6 +3882,121 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * A lifecycle call can be compiled against a base type while a side-selected
+     * implementation performs the component-dependent work.  Resolve that case
+     * only when the receiver is a static field and its initializer exposes
+     * concrete constructor handles (the shape emitted for supplier-based side
+     * selection).  This retains the field/method/override evidence instead of
+     * broadening the rewrite from the descriptor alone.
+     */
+    private boolean usesItemStackDefaultsAtDispatch(ClassNode caller, MethodInsnNode call) {
+        if (usesItemStackDefaults(call.owner, call.name, call.desc)) return true;
+        var receiver = previousExecutable(call);
+        if (!(receiver instanceof FieldInsnNode field)
+                || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                || !field.desc.equals("L" + call.owner + ";")) return false;
+        for (String implementation : concreteStaticFieldImplementations(caller, field)) {
+            if (usesItemStackDefaults(implementation, call.name, call.desc)) return true;
+        }
+        return false;
+    }
+
+    private java.util.Set<String> concreteStaticFieldImplementations(
+            ClassNode caller, FieldInsnNode field) {
+        ClassNode owner = caller.name.equals(field.owner) ? caller : readManagedClass(field.owner);
+        if (owner == null) return java.util.Set.of();
+        var implementations = new java.util.LinkedHashSet<String>();
+        boolean foundAssignment = false;
+        for (var method : owner.methods) {
+            if (!method.name.equals("<clinit>") || !method.desc.equals("()V")) continue;
+            var segmentStart = method.instructions.getFirst();
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof FieldInsnNode assignment)
+                        || assignment.getOpcode() != org.objectweb.asm.Opcodes.PUTSTATIC) continue;
+                if (assignment.owner.equals(field.owner)
+                        && assignment.name.equals(field.name)
+                        && assignment.desc.equals(field.desc)) {
+                    foundAssignment = true;
+                    collectConstructedTypes(owner, method, segmentStart, assignment,
+                            implementations, new java.util.HashSet<>());
+                }
+                segmentStart = insn.getNext();
+            }
+        }
+        if (!foundAssignment) return java.util.Set.of();
+        String declaredType = Type.getType(field.desc).getInternalName();
+        implementations.removeIf(candidate -> !isManagedSubtype(candidate, declaredType));
+        return implementations;
+    }
+
+    private void collectConstructedTypes(
+            ClassNode owner,
+            org.objectweb.asm.tree.MethodNode method,
+            org.objectweb.asm.tree.AbstractInsnNode start,
+            org.objectweb.asm.tree.AbstractInsnNode end,
+            java.util.Set<String> result,
+            java.util.Set<String> visiting) {
+        for (var insn = start; insn != null && insn != end; insn = insn.getNext()) {
+            if (insn instanceof TypeInsnNode type
+                    && type.getOpcode() == org.objectweb.asm.Opcodes.NEW) result.add(type.desc);
+            if (!(insn instanceof InvokeDynamicInsnNode dynamic)) continue;
+            for (Object argument : dynamic.bsmArgs) {
+                if (!(argument instanceof Handle handle)) continue;
+                if (handle.getTag() == org.objectweb.asm.Opcodes.H_NEWINVOKESPECIAL) {
+                    result.add(handle.getOwner());
+                } else if (handle.getOwner().equals(owner.name)) {
+                    collectConstructedTypesFromMethod(owner, handle, result, visiting);
+                }
+            }
+        }
+    }
+
+    private void collectConstructedTypesFromMethod(
+            ClassNode owner, Handle handle, java.util.Set<String> result,
+            java.util.Set<String> visiting) {
+        String key = handle.getOwner() + '#' + handle.getName() + handle.getDesc();
+        if (!visiting.add(key)) return;
+        try {
+            for (var candidate : owner.methods) {
+                if (!candidate.name.equals(handle.getName())
+                        || !candidate.desc.equals(handle.getDesc())) continue;
+                collectConstructedTypes(owner, candidate, candidate.instructions.getFirst(), null,
+                        result, visiting);
+            }
+        } finally {
+            visiting.remove(key);
+        }
+    }
+
+    private ClassNode readManagedClass(String owner) {
+        try {
+            byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(owner);
+            if (bytes == null) return null;
+            ClassNode node = new ClassNode();
+            new ClassReader(bytes).accept(node, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            return node;
+        } catch (java.io.IOException | RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private boolean isManagedSubtype(String candidate, String target) {
+        var pending = new java.util.ArrayDeque<String>();
+        var visited = new java.util.HashSet<String>();
+        pending.add(candidate);
+        while (!pending.isEmpty()) {
+            String current = pending.removeFirst();
+            if (!visited.add(current)) continue;
+            if (current.equals(target)) return true;
+            ClassNode type = readManagedClass(current);
+            if (type == null) continue;
+            if (type.superName != null) pending.addLast(type.superName);
+            pending.addAll(type.interfaces);
+        }
+        return false;
     }
 
     private boolean usesItemStackDefaults(String owner, String name, String descriptor) {
