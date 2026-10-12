@@ -41,6 +41,8 @@ public final class Forge1192RegistrationContext {
             Item item, Class<?> owner, String method) implements PendingItemStackAction {}
     private record PendingItemComponentInitializer(
             Object receiver, Class<?> owner, String method) implements PendingItemStackAction {}
+    private record PendingStaticItemComponentInitializer(
+            Class<?> owner, String method) implements PendingItemStackAction {}
 
     private Forge1192RegistrationContext() {}
 
@@ -324,6 +326,19 @@ public final class Forge1192RegistrationContext {
         enqueueItemStackAction(modId, action);
     }
 
+    /** Delay a proven static no-arg component consumer until defaults are bound. */
+    public static void deferStaticItemComponentInitializer(Class<?> owner, String method) {
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(method, "method");
+        String modId = requireModId();
+        var action = new PendingStaticItemComponentInitializer(owner, method);
+        if (net.minecraft.world.item.Items.AIR.builtInRegistryHolder().areComponentsBound()) {
+            invokeItemStackAction(action);
+            return;
+        }
+        enqueueItemStackAction(modId, action);
+    }
+
     private static void enqueueItemStackAction(String modId, PendingItemStackAction action) {
         synchronized (PENDING) {
             PENDING_ITEM_STACK_CONSUMERS.computeIfAbsent(modId, ignored -> new ArrayList<>())
@@ -375,6 +390,8 @@ public final class Forge1192RegistrationContext {
             invokeStaticItemStackConsumer(consumer);
         } else if (pending instanceof PendingItemComponentInitializer initializer) {
             invokeItemComponentInitializer(initializer);
+        } else if (pending instanceof PendingStaticItemComponentInitializer initializer) {
+            invokeStaticItemComponentInitializer(initializer);
         } else {
             throw new IllegalStateException("Unknown deferred ItemStack action: " + pending.getClass().getName());
         }
@@ -436,6 +453,24 @@ public final class Forge1192RegistrationContext {
             Throwable cause = e instanceof java.lang.reflect.InvocationTargetException invocation
                     && invocation.getCause() != null ? invocation.getCause() : e;
             throw new IllegalStateException("Deferred item-component initializer failed: "
+                    + pending.owner().getName() + "#" + pending.method(), cause);
+        }
+    }
+
+    private static void invokeStaticItemComponentInitializer(PendingStaticItemComponentInitializer pending) {
+        try {
+            java.lang.reflect.Method target = pending.owner().getDeclaredMethod(pending.method());
+            if (!java.lang.reflect.Modifier.isStatic(target.getModifiers())
+                    || target.getReturnType() != void.class) {
+                throw new IllegalStateException("Deferred static item-component initializer has changed shape: "
+                        + target);
+            }
+            target.setAccessible(true);
+            target.invoke(null);
+        } catch (ReflectiveOperationException e) {
+            Throwable cause = e instanceof java.lang.reflect.InvocationTargetException invocation
+                    && invocation.getCause() != null ? invocation.getCause() : e;
+            throw new IllegalStateException("Deferred static item-component initializer failed: "
                     + pending.owner().getName() + "#" + pending.method(), cause);
         }
     }

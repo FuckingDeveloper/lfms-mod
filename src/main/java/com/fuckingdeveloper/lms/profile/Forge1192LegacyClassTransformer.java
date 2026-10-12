@@ -1931,6 +1931,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Item#isEdible read the legacy item's default food properties.
+                // In 26.3 that intent is represented by the bound FOOD component.
+                if (call.owner.equals("net/minecraft/world/item/Item")
+                        && call.name.equals("m_41472_")
+                        && call.desc.equals("()Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                    call.name = "isEdible";
+                    call.desc = "(Lnet/minecraft/world/item/Item;)Z";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
                 // Forge 1.19.2 maintained a client-only WoodType -> sign
                 // material cache in Sheets. Minecraft 26.3 removed that cache
                 // and renders registered sign block/model resources directly.
@@ -3974,21 +3988,32 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if (!method.desc.equals(
                     "(Lnet/minecraftforge/fml/event/lifecycle/FMLCommonSetupEvent;)V")) continue;
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (!(insn instanceof MethodInsnNode call)
-                        || (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                            && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE)
-                        || !call.desc.equals("()V")
-                        || !usesItemStackDefaultsAtDispatch(node, call)) continue;
-                var metadata = new org.objectweb.asm.tree.InsnList();
-                metadata.add(new LdcInsnNode(Type.getObjectType(call.owner)));
-                metadata.add(new LdcInsnNode(call.name));
-                method.instructions.insertBefore(call, metadata);
-                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
-                call.name = "deferItemComponentInitializer";
-                call.desc = "(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;)V";
-                call.itf = false;
-                rewrites++;
+                if (!(insn instanceof MethodInsnNode call) || !call.desc.equals("()V")) continue;
+                if ((call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE)
+                        && usesItemStackDefaultsAtDispatch(node, call)) {
+                    var metadata = new org.objectweb.asm.tree.InsnList();
+                    metadata.add(new LdcInsnNode(Type.getObjectType(call.owner)));
+                    metadata.add(new LdcInsnNode(call.name));
+                    method.instructions.insertBefore(call, metadata);
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                    call.name = "deferItemComponentInitializer";
+                    call.desc = "(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;)V";
+                    call.itf = false;
+                    rewrites++;
+                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && usesItemStackDefaults(call.owner, call.name, call.desc)) {
+                    var metadata = new org.objectweb.asm.tree.InsnList();
+                    metadata.add(new LdcInsnNode(Type.getObjectType(call.owner)));
+                    metadata.add(new LdcInsnNode(call.name));
+                    method.instructions.insertBefore(call, metadata);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RegistrationContext";
+                    call.name = "deferStaticItemComponentInitializer";
+                    call.desc = "(Ljava/lang/Class;Ljava/lang/String;)V";
+                    call.itf = false;
+                    rewrites++;
+                }
             }
         }
         return rewrites;
@@ -4133,6 +4158,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if (methods.size() != 1) return false;
             for (var insn = methods.getFirst().instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.owner.equals("net/minecraft/world/item/Item")
+                        && call.name.equals("m_41472_")
+                        && call.desc.equals("()Z")) return true;
                 if (call.owner.equals("net/minecraft/world/item/ItemStack")
                         && call.name.equals("<init>")) return true;
                 Type returnType = Type.getReturnType(call.desc);
