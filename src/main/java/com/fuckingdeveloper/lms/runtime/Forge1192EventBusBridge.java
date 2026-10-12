@@ -431,13 +431,9 @@ public final class Forge1192EventBusBridge {
             return List.of(
                     RenderLevelStageEvent.AfterSky.class,
                     RenderLevelStageEvent.AfterOpaqueBlocks.class,
-                    RenderLevelStageEvent.AfterOpaqueFeatures.class,
-                    RenderLevelStageEvent.AfterTranslucentFeatures.class,
                     RenderLevelStageEvent.AfterTranslucentBlocks.class,
                     RenderLevelStageEvent.AfterTranslucentParticles.class,
-                    RenderLevelStageEvent.AfterWeather.class,
-                    RenderLevelStageEvent.OitTranslucent.class,
-                    RenderLevelStageEvent.AfterLevel.class);
+                    RenderLevelStageEvent.AfterWeather.class);
         if (eventType == InputEvent.class)
             return List.of(
                     InputEvent.Key.class,

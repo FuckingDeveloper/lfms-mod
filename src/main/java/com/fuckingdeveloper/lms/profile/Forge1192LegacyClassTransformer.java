@@ -178,6 +178,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
+        rewrites += rewriteLegacyEntityLevelFieldAccess(node);
+        rewrites += rewriteLegacyBlockPosConstruction(node);
         rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
         // superclass constructor is still visible. Later construction-shape
@@ -189,6 +191,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstants(node);
         rewrites += rewriteLegacySavedDataFamily(node);
+        rewrites += rewriteLegacyRecipeViewFamily(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
         rewrites += rewriteLegacyMaterialColorProperties(node);
@@ -2243,6 +2246,40 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    private int rewriteLegacyRecipeViewFamily(ClassNode node) {
+        final String recipe = "net/minecraft/world/item/crafting/Recipe";
+        if (!isManagedSubtypeOf(node, recipe)) return 0;
+        int rewrites = 0;
+        for (var source : java.util.List.of(
+                new String[] {"m_8043_", "()Lnet/minecraft/world/item/ItemStack;",
+                        "com/fuckingdeveloper/lms/runtime/recipe/LegacyRecipeResult",
+                        "lms$legacyResult"},
+                new String[] {"m_7527_", "()Lnet/minecraft/core/NonNullList;",
+                        "com/fuckingdeveloper/lms/runtime/recipe/LegacyRecipeIngredients",
+                        "lms$legacyIngredients"})) {
+            var implementation = node.methods.stream()
+                    .filter(method -> method.name.equals(source[0])
+                            && method.desc.equals(source[1])
+                            && (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0)
+                    .findFirst().orElse(null);
+            if (implementation == null || node.interfaces.contains(source[2])) continue;
+            node.interfaces.add(source[2]);
+            var adapter = new org.objectweb.asm.tree.MethodNode(
+                    org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                    source[3], source[1], null, null);
+            adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                    org.objectweb.asm.Opcodes.ALOAD, 0));
+            adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                    node.name, implementation.name, implementation.desc, false));
+            adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));
+            adapter.maxStack = 1;
+            adapter.maxLocals = 1;
+            node.methods.add(adapter);
+            rewrites++;
+        }
+        return rewrites;
+    }
+
     private static void verifyNoRemovedForgeClientTypes(ClassNode node) {
         final String removed = "net/minecraftforge/client/gui/ModListScreen";
         for (var method : node.methods) {
@@ -3786,6 +3823,179 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                        && call.owner.equals("net/minecraft/world/item/crafting/Recipe")
+                        && call.name.equals("m_8043_")
+                        && call.desc.equals("()Lnet/minecraft/world/item/ItemStack;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RecipeBridge";
+                    call.name = "legacyResult";
+                    call.desc = "(Lnet/minecraft/world/item/crafting/Recipe;)"
+                            + "Lnet/minecraft/world/item/ItemStack;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                        && call.owner.equals("net/minecraft/world/item/crafting/Recipe")
+                        && call.name.equals("m_7527_")
+                        && call.desc.equals("()Lnet/minecraft/core/NonNullList;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RecipeBridge";
+                    call.name = "legacyIngredients";
+                    call.desc = "(Lnet/minecraft/world/item/crafting/Recipe;)"
+                            + "Lnet/minecraft/core/NonNullList;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/crafting/RecipeManager")
+                        && call.name.equals("m_44051_")
+                        && call.desc.equals("()Ljava/util/Collection;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RecipeBridge";
+                    call.name = "legacyRecipes";
+                    call.desc = "(Lnet/minecraft/world/item/crafting/RecipeManager;)"
+                            + "Ljava/util/Collection;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/client/gui/screens/Screen")
+                        && (call.name.equals("m_96637_")
+                                || call.name.equals("m_96638_")
+                                || call.name.equals("m_96639_"))
+                        && call.desc.equals("()Z")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192ClientInputBridge";
+                    call.name = switch (call.name) {
+                        case "m_96637_" -> "hasControlDown";
+                        case "m_96638_" -> "hasShiftDown";
+                        default -> "hasAltDown";
+                    };
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/renderer/debug/DebugRenderer")
+                        && call.name.equals("m_113506_")
+                        && call.desc.equals("()Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192DebugBridge";
+                    call.name = "toggleChunkBorders";
+                    call.desc = "(Lnet/minecraft/client/gui/components/debug/DebugScreenEntryList;)Z";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/renderer/GameRenderer")
+                        && call.name.equals("m_109153_")
+                        && call.desc.equals("()Lnet/minecraft/client/Camera;")) {
+                    call.name = "mainCamera";
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/Camera")
+                        && call.name.equals("m_90583_")
+                        && call.desc.equals("()Lnet/minecraft/world/phys/Vec3;")) {
+                    call.name = "position";
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/multiplayer/ClientPacketListener")
+                        && call.name.equals("m_105141_")
+                        && call.desc.equals("()Lnet/minecraft/world/item/crafting/RecipeManager;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192RecipeBridge";
+                    call.name = "clientRecipeManager";
+                    call.desc = "(Lnet/minecraft/client/multiplayer/ClientPacketListener;)"
+                            + "Lnet/minecraft/world/item/crafting/RecipeManager;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/neoforged/neoforge/client/event/RenderLevelStageEvent")
+                        && call.name.equals("getStage")
+                        && call.desc.equals("()Lcom/fuckingdeveloper/lms/runtime/render/"
+                                + "Forge1192RenderStageBridge$Stage;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192RenderStageBridge";
+                    call.name = "stage";
+                    call.desc = "(Lnet/neoforged/neoforge/client/event/RenderLevelStageEvent;)"
+                            + "Lcom/fuckingdeveloper/lms/runtime/render/"
+                            + "Forge1192RenderStageBridge$Stage;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                // NeoForge narrowed the spawn-position event's world result
+                // from LevelAccessor to ServerLevelAccessor. The event is
+                // server-only and the returned object already satisfied the
+                // wider source interface.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/neoforged/neoforge/event/entity/living/"
+                                + "MobSpawnEvent$PositionCheck")
+                        && call.name.equals("getLevel")
+                        && call.desc.equals("()Lnet/minecraft/world/level/LevelAccessor;")) {
+                    call.desc = "()Lnet/minecraft/world/level/ServerLevelAccessor;";
+                    rewrites++;
+                    continue;
+                }
+
+                // Source command senders exposed their current world through
+                // getCommandSenderWorld. Entity#level is the exact target
+                // accessor for player receivers.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/entity/player/Player")
+                        && call.name.equals("m_20193_")
+                        && call.desc.equals("()Lnet/minecraft/world/level/Level;")) {
+                    call.name = "level";
+                    rewrites++;
+                    continue;
+                }
+
+                // The dimension-key lookup retained its nullable ServerLevel
+                // result and only changed from SRG to the target named ABI.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/server/MinecraftServer")
+                        && call.name.equals("m_129880_")
+                        && call.desc.equals("(Lnet/minecraft/resources/ResourceKey;)"
+                                + "Lnet/minecraft/server/level/ServerLevel;")) {
+                    call.name = "getLevel";
+                    rewrites++;
+                    continue;
+                }
+
+                // Forge 1.19.2 exposed ordered integer command permission
+                // levels. Target 26.3 represents the same five thresholds as
+                // named permission checks.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/commands/CommandSourceStack")
+                        && call.name.equals("m_6761_")
+                        && call.desc.equals("(I)Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ServerBridge";
+                    call.name = "hasPermission";
+                    call.desc = "(Lnet/minecraft/commands/CommandSourceStack;I)Z";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
                 // The source exposed the operator permission threshold as an
                 // integer. Target 26.3 stores the same ordered 0..4 value in
                 // LevelBasedPermissionSet#level().
@@ -3822,8 +4032,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
 
-                // ChunkPos#toLong (m_45588_) retained the exact packed long
-                // semantic in 26.3 as ChunkPos#pack().
+                // ChunkPos#toLong/asLong retained the exact packed-long
+                // semantic in 26.3 as the instance/static pack overloads.
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                         && call.owner.equals("net/minecraft/world/level/ChunkPos")
                         && call.name.equals("m_45588_")
@@ -3831,6 +4041,49 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.name = "pack";
                     rewrites++;
                     continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/world/level/ChunkPos")
+                        && call.name.equals("m_45589_")
+                        && call.desc.equals("(II)J")) {
+                    call.name = "pack";
+                    rewrites++;
+                    continue;
+                }
+
+                // PoseStack kept the same transform-stack semantics while
+                // leaving the SRG namespace and migrating matrices to JOML.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("com/mojang/blaze3d/vertex/PoseStack")) {
+                    String targetName = switch (call.name + call.desc) {
+                        case "m_85836_()V" -> "pushPose";
+                        case "m_85837_(DDD)V" -> "translate";
+                        case "m_85841_(FFF)V" -> "scale";
+                        case "m_85849_()V" -> "popPose";
+                        case "m_85850_()Lcom/mojang/blaze3d/vertex/PoseStack$Pose;" -> "last";
+                        // Source clear() and target isEmpty() both report that
+                        // the stack contains only its base pose.
+                        case "m_85851_()Z" -> "isEmpty";
+                        default -> null;
+                    };
+                    if (targetName != null) {
+                        call.name = targetName;
+                        rewrites++;
+                        continue;
+                    }
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("com/mojang/blaze3d/vertex/PoseStack$Pose")) {
+                    String targetName = switch (call.name + call.desc) {
+                        case "m_85861_()Lorg/joml/Matrix4f;" -> "pose";
+                        case "m_85864_()Lorg/joml/Matrix3f;" -> "normal";
+                        default -> null;
+                    };
+                    if (targetName != null) {
+                        call.name = targetName;
+                        rewrites++;
+                        continue;
+                    }
                 }
 
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
@@ -4690,6 +4943,36 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 var current = insn;
                 insn = insn.getNext();
                 if (!(current instanceof FieldInsnNode field)) continue;
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                        && field.name.equals("f_19853_")
+                        && field.desc.equals("Lnet/minecraft/world/level/Level;")) {
+                    String sourceOwner = resolveInheritedLegacyVanillaFieldOwner(
+                            field.owner, field.name, field.desc);
+                    String canonical = sourceOwner == null ? null : SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(sourceOwner, field.name, field.desc).orElse(null);
+                    if ("net/minecraft/world/entity/Entity".equals(sourceOwner)
+                            && "level".equals(canonical)) {
+                        method.instructions.set(field, new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                                "net/minecraft/world/entity/Entity", "level",
+                                "()Lnet/minecraft/world/level/Level;", false));
+                        rewrites++;
+                        continue;
+                    }
+                }
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                        && field.owner.equals("net/minecraft/client/Minecraft")
+                        && field.name.equals("f_91064_")
+                        && field.desc.equals("Lnet/minecraft/client/renderer/debug/DebugRenderer;")) {
+                    String canonical = SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+                    if ("debugRenderer".equals(canonical)) {
+                        field.name = "debugEntries";
+                        field.desc = "Lnet/minecraft/client/gui/components/debug/DebugScreenEntryList;";
+                        rewrites++;
+                        continue;
+                    }
+                }
                 // Sheets#f_110739_ was the 1.19.2 block-atlas identifier.
                 // The exact target value moved to TextureAtlas.LOCATION_BLOCKS.
                 if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
@@ -4715,7 +4998,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             copperCollection.state(),
                             "()Ljava/lang/Object;", false));
                     select.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,
-                            "net/minecraft/world/level/block/Block"));
+                            copperCollection.valueType()));
                     method.instructions.insert(field, select);
                     rewrites++;
                     continue;
@@ -4897,7 +5180,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private record LegacyColorCollectionField(String collection, String color) {}
-    private record LegacyCopperCollectionField(String collection, String track, String state) {}
+    private record LegacyCopperCollectionField(
+            String collection, String track, String state, String valueType) {}
 
     /**
      * NeoForge's common-tag convention renamed a small set of Forge 1.19.2
@@ -5052,34 +5336,42 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     /** Minecraft 26.3 consolidated copper stages and wax states into collections. */
     private LegacyCopperCollectionField legacyCopperCollectionField(FieldInsnNode field) {
         if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
-                || !field.owner.equals("net/minecraft/world/level/block/Blocks")
-                || !field.desc.equals("Lnet/minecraft/world/level/block/Block;")
                 || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String valueType;
+        if (field.owner.equals("net/minecraft/world/level/block/Blocks")
+                && field.desc.equals("Lnet/minecraft/world/level/block/Block;")) {
+            valueType = "net/minecraft/world/level/block/Block";
+        } else if (field.owner.equals("net/minecraft/world/item/Items")
+                && field.desc.equals("Lnet/minecraft/world/item/Item;")) {
+            valueType = "net/minecraft/world/item/Item";
+        } else {
+            return null;
+        }
         String canonical = SRG_RUNTIME_RESOLVER.get()
                 .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
         if (canonical == null) return null;
         LegacyCopperCollectionField migrated = switch (canonical) {
-            case "COPPER_BLOCK" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "unaffected");
-            case "EXPOSED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "exposed");
-            case "WEATHERED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "weathered");
-            case "OXIDIZED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "oxidized");
-            case "WAXED_COPPER_BLOCK" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "unaffected");
-            case "WAXED_EXPOSED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "exposed");
-            case "WAXED_WEATHERED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "weathered");
-            case "WAXED_OXIDIZED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "oxidized");
-            case "CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "unaffected");
-            case "EXPOSED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "exposed");
-            case "WEATHERED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "weathered");
-            case "OXIDIZED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "oxidized");
-            case "WAXED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "unaffected");
-            case "WAXED_EXPOSED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "exposed");
-            case "WAXED_WEATHERED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "weathered");
-            case "WAXED_OXIDIZED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "oxidized");
+            case "COPPER_BLOCK" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "unaffected", valueType);
+            case "EXPOSED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "exposed", valueType);
+            case "WEATHERED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "weathered", valueType);
+            case "OXIDIZED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "oxidized", valueType);
+            case "WAXED_COPPER_BLOCK" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "unaffected", valueType);
+            case "WAXED_EXPOSED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "exposed", valueType);
+            case "WAXED_WEATHERED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "weathered", valueType);
+            case "WAXED_OXIDIZED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "oxidized", valueType);
+            case "CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "unaffected", valueType);
+            case "EXPOSED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "exposed", valueType);
+            case "WEATHERED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "weathered", valueType);
+            case "OXIDIZED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "oxidized", valueType);
+            case "WAXED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "unaffected", valueType);
+            case "WAXED_EXPOSED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "exposed", valueType);
+            case "WAXED_WEATHERED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "weathered", valueType);
+            case "WAXED_OXIDIZED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "oxidized", valueType);
             default -> null;
         };
         if (migrated == null) return null;
         var target = VANILLA_RELOCATIONS.searchExactField(
-                "net.minecraft.world.level.block.Blocks", migrated.collection(),
+                field.owner.replace('/', '.'), migrated.collection(),
                 "Lnet/minecraft/world/level/block/WeatheringCopperCollection;");
         return target.size() == 1 ? migrated : null;
     }
@@ -5714,6 +6006,81 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         "()Z",
                         false));
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Source Entity#level was public; target 26.3 exposes the same value by accessor. */
+    private static int rewriteLegacyEntityLevelFieldAccess(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var current = insn;
+                insn = insn.getNext();
+                if (!(current instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETFIELD
+                        || !field.owner.equals("net/minecraft/world/entity/Entity")
+                        || !(field.name.equals("f_19853_") || field.name.equals("level"))
+                        || !field.desc.equals("Lnet/minecraft/world/level/Level;")) {
+                    continue;
+                }
+                method.instructions.set(field, new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        "net/minecraft/world/entity/Entity",
+                        "level",
+                        "()Lnet/minecraft/world/level/Level;",
+                        false));
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Target 26.3 replaced the flooring double constructor with an exact factory. */
+    private static int rewriteLegacyBlockPosConstruction(ClassNode node) {
+        final String blockPos = "net/minecraft/core/BlockPos";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (!(insn instanceof TypeInsnNode allocation)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !allocation.desc.equals(blockPos)) {
+                    insn = next;
+                    continue;
+                }
+                var duplicate = allocation.getNext();
+                if (duplicate == null || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                    throw new IllegalStateException("Unsupported legacy BlockPos allocation: "
+                            + node.name + "#" + method.name);
+                }
+                MethodInsnNode constructor = null;
+                int nested = 0;
+                for (var cursor = duplicate.getNext(); cursor != null; cursor = cursor.getNext()) {
+                    if (cursor instanceof TypeInsnNode nestedType
+                            && nestedType.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                        nested++;
+                    } else if (cursor instanceof MethodInsnNode call
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && call.name.equals("<init>")) {
+                        if (nested > 0) nested--;
+                        else if (call.owner.equals(blockPos)) {
+                            constructor = call;
+                            break;
+                        }
+                    }
+                }
+                if (constructor != null && constructor.desc.equals("(DDD)V")) {
+                    method.instructions.remove(allocation);
+                    method.instructions.remove(duplicate);
+                    var factory = new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            blockPos, "containing", "(DDD)L" + blockPos + ";", false);
+                    method.instructions.set(constructor, factory);
+                    next = factory.getNext();
+                    rewrites++;
+                }
+                insn = next;
             }
         }
         return rewrites;
@@ -7831,6 +8198,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // adapted by Forge1192TickEventBridge after namespace projection.
         if (value.equals("net/minecraftforge/event/TickEvent$Phase"))
             return "com/fuckingdeveloper/lms/runtime/Forge1192TickEventBridge$Phase";
+        if (value.equals("net/minecraftforge/client/event/RenderLevelStageEvent$Stage"))
+            return "com/fuckingdeveloper/lms/runtime/render/Forge1192RenderStageBridge$Stage";
         if (value.equals("net/minecraftforge/event/TickEvent$PlayerTickEvent"))
             return "net/neoforged/neoforge/event/tick/PlayerTickEvent";
         if (value.equals("net/minecraftforge/event/TickEvent$ServerTickEvent"))

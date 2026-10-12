@@ -160,6 +160,25 @@ saved-data writer contract. Existing on-disk path migration, when source and
 target storage layouts differ, remains a separate compatibility operation and
 MUST NOT be claimed from codec linkage alone.
 
+When a source client API exposes the complete recipe manager but the target
+only synchronizes a reduced client recipe view, LMS MAY satisfy the source
+contract from the authoritative co-resident integrated server recipe manager.
+It MUST fail explicitly when no co-resident server exists and MUST NOT claim
+remote-client recipe compatibility from this singleplayer bridge.
+
+When a source render-stage enum is replaced by target event subclasses, LMS
+MAY expose source stages only for target events whose ordering point is
+semantically established. Target-only stages MUST NOT be invented as source
+stages. If several source chunk-layer stages collapse into one target stage,
+the adapter MUST identify the last completed source-equivalent stage and
+document that earlier intermediate callbacks are unavailable.
+
+When a source client debug option moves from a renderer-owned toggle to a
+named target debug-entry model, LMS MAY bridge the exact source toggle to the
+verified target entry. The bridge MUST preserve both the state transition and
+the returned post-transition value; it MUST NOT replace the operation with a
+constant merely because the option is diagnostic.
+
 When a source generation exposes one combined baked-model contract but the
 target splits block-state and item rendering, LMS MUST preserve the legacy
 registration lifecycle and adapt the model independently into each target
