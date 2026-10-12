@@ -153,6 +153,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
         rewrites += rewriteLegacyMixinPropertyAccessors(node);
+        rewrites += rewriteLegacyRecipesUpdatedHandlers(node);
         rewrites += rewriteLegacyEarlyClientInitialization(node);
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
         rewrites += rewriteLegacyCachedMinecraftReads(node);
@@ -1708,6 +1709,42 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if (name.equals(annotation.values.get(i))) return annotation.values.get(i + 1);
         }
         return null;
+    }
+
+    /**
+     * Forge's client recipe notification was replaced by RecipesReceivedEvent.
+     * Adapt only handlers which treat the event as a timing signal and never
+     * read the legacy event argument; data-consuming handlers need a semantic
+     * recipe-map adapter and intentionally remain fail-closed.
+     */
+    private static int rewriteLegacyRecipesUpdatedHandlers(ClassNode node) {
+        final String legacy = "net/minecraftforge/client/event/RecipesUpdatedEvent";
+        final String target = "net/neoforged/neoforge/client/event/RecipesReceivedEvent";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            if (!method.desc.equals("(L" + legacy + ";)V")) continue;
+            int parameterSlot = (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0 ? 1 : 0;
+            boolean used = false;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof org.objectweb.asm.tree.VarInsnNode variable
+                        && variable.getOpcode() == org.objectweb.asm.Opcodes.ALOAD
+                        && variable.var == parameterSlot) {
+                    used = true;
+                    break;
+                }
+            }
+            if (used) continue;
+            method.desc = "(L" + target + ";)V";
+            if (method.signature != null) method.signature = method.signature.replace(legacy, target);
+            if (method.localVariables != null) {
+                for (var local : method.localVariables) {
+                    if (local.desc.equals("L" + legacy + ";")) local.desc = "L" + target + ";";
+                    if (local.signature != null) local.signature = local.signature.replace(legacy, target);
+                }
+            }
+            rewrites++;
+        }
+        return rewrites;
     }
 
     private static int rewriteLegacyMultiBufferSource(ClassNode node) {
