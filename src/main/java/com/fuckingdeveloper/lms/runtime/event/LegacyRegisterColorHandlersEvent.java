@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.runtime.event;
 
-import com.fuckingdeveloper.lms.runtime.render.LegacyBlockColor;
-import com.fuckingdeveloper.lms.runtime.render.LegacyItemColor;
+import com.fuckingdeveloper.lms.runtime.color.LegacyBlockColor;
+import com.fuckingdeveloper.lms.runtime.color.LegacyItemColor;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.color.block.BlockColors;
 import net.minecraft.client.color.block.BlockTintSource;
@@ -61,7 +61,7 @@ public abstract class LegacyRegisterColorHandlersEvent extends Event {
         public static int color(ItemStack stack, int tintIndex) {
             LegacyItemColor color = COLORS.get(stack.getItem());
             if (color == null) throw new IllegalStateException("No legacy item color registered for " + stack.getItem());
-            return color.getColor(stack, tintIndex);
+            return color.m_92671_(stack, tintIndex);
         }
 
         public static boolean hasColor(Item item) {
@@ -98,12 +98,12 @@ public abstract class LegacyRegisterColorHandlersEvent extends Event {
             return new BlockTintSource() {
                 @Override
                 public int color(BlockState state) {
-                    return color.getColor(state, null, null, tintIndex);
+                    return color.m_92566_(state, null, null, tintIndex);
                 }
 
                 @Override
                 public int colorInWorld(BlockState state, BlockAndTintGetter level, BlockPos pos) {
-                    return color.getColor(state, level, pos, tintIndex);
+                    return color.m_92566_(state, level, pos, tintIndex);
                 }
 
                 @Override
