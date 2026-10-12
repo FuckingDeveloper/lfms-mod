@@ -56,8 +56,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransform", "net/minecraft/client/resources/model/cuboid/ItemTransform"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransforms", "net/minecraft/client/resources/model/cuboid/ItemTransforms"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransforms$TransformType", "net/minecraft/world/item/ItemDisplayContext"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/model/BakedQuad", "net/minecraft/client/resources/model/geometry/BakedQuad"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemOverrides", "com/fuckingdeveloper/lms/runtime/render/LegacyItemOverrides"),
             java.util.Map.entry("net/minecraft/client/gui/screens/SoundOptionsScreen", "net/minecraft/client/gui/screens/options/SoundOptionsScreen"),
-            java.util.Map.entry("net/minecraft/client/renderer/RenderType", "net/minecraft/client/renderer/rendertype/RenderType"),
+            java.util.Map.entry("net/minecraft/client/renderer/RenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderType"),
             java.util.Map.entry("net/minecraft/world/level/BlockAndTintGetter", "net/minecraft/client/renderer/block/BlockAndTintGetter"),
             java.util.Map.entry("net/minecraft/core/BlockSource", "net/minecraft/core/dispenser/BlockSource"),
             java.util.Map.entry("net/minecraft/world/entity/animal/Sheep", "net/minecraft/world/entity/animal/sheep/Sheep"),
@@ -79,6 +81,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraftforge/client/event/RegisterColorHandlersEvent$Block", "com/fuckingdeveloper/lms/runtime/event/LegacyRegisterColorHandlersEvent$Block"),
             java.util.Map.entry("net/minecraftforge/client/event/RegisterColorHandlersEvent$Item", "com/fuckingdeveloper/lms/runtime/event/LegacyRegisterColorHandlersEvent$Item"),
             java.util.Map.entry("net/minecraftforge/client/event/RegisterGuiOverlaysEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyRegisterGuiOverlaysEvent"),
+            java.util.Map.entry("net/minecraftforge/client/event/ModelEvent$BakingCompleted", "com/fuckingdeveloper/lms/runtime/event/LegacyModelBakingCompletedEvent"),
             java.util.Map.entry("net/minecraftforge/client/gui/overlay/IGuiOverlay", "com/fuckingdeveloper/lms/runtime/render/LegacyGuiOverlay"),
             java.util.Map.entry("net/minecraftforge/client/gui/overlay/ForgeGui", "com/fuckingdeveloper/lms/runtime/render/LegacyForgeGui"),
             java.util.Map.entry("net/minecraftforge/client/model/SimpleModelState", "com/fuckingdeveloper/lms/runtime/render/LegacySimpleModelState"),
@@ -177,6 +180,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyResourceQueries(node);
         rewrites += rewriteLegacyBlockModelParsing(node);
         rewrites += rewriteLegacyItemTransformFamily(node);
+        rewrites += rewriteLegacyModelBakingPipeline(node);
+        rewrites += rewriteLegacyBlockAtlasIdentity(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -1467,6 +1472,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     /**
+     * Minecraft 1.19.2 exposed the block atlas identifier from InventoryMenu;
+     * the same target identity is now owned by TextureAtlas.
+     */
+    private static int rewriteLegacyBlockAtlasIdentity(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals("net/minecraft/world/inventory/InventoryMenu")
+                        || !field.name.equals("f_39692_")
+                        || !field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")) continue;
+                field.owner = "net/minecraft/client/renderer/texture/TextureAtlas";
+                field.name = "LOCATION_BLOCKS";
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
      * Forge 1.19.2 exposed immediate render buffers from its block-highlight
      * event. Restrict the deferred-buffer adapter to methods whose exact ABI
      * identifies them as block-highlight handlers; MultiBufferSource is used
@@ -1799,6 +1825,93 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Retain the source baked-model registration context without pretending
+     * that removed ItemRenderer/ItemModelShaper objects survive on the target.
+     */
+    private static int rewriteLegacyModelBakingPipeline(ClassNode node) {
+        final String event =
+                "Lnet/minecraftforge/client/event/ModelEvent$BakingCompleted;";
+        final String bridge =
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192ModelBakingBridge";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            boolean modelCallback = method.desc.contains(event);
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (modelCallback
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/Minecraft")
+                        && call.name.equals("m_91291_")
+                        && call.desc.equals("()Lnet/minecraft/client/renderer/entity/ItemRenderer;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "registrationContext";
+                    call.desc = "(Lnet/minecraft/client/Minecraft;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (modelCallback
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/renderer/entity/ItemRenderer")
+                        && call.name.equals("m_115103_")
+                        && call.desc.equals("()Lnet/minecraft/client/renderer/ItemModelShaper;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "itemModelRegistration";
+                    call.desc = "(Ljava/lang/Object;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (modelCallback
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/renderer/ItemModelShaper")
+                        && call.name.equals("m_109396_")
+                        && call.desc.equals("(Lnet/minecraft/world/item/Item;"
+                                + "Lnet/minecraft/client/resources/model/ModelResourceLocation;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "registerItemModel";
+                    call.desc = "(Ljava/lang/Object;Lnet/minecraft/world/item/Item;"
+                            + "Lnet/minecraft/client/resources/model/ModelResourceLocation;)V";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/client/renderer/block/BlockModelShaper")
+                        && call.name.equals("m_110895_")
+                        && call.desc.equals("(Lnet/minecraft/world/level/block/state/BlockState;)"
+                                + "Lnet/minecraft/client/resources/model/ModelResourceLocation;")) {
+                    call.owner = bridge;
+                    call.name = "stateModelKey";
+                    call.desc = "(Lnet/minecraft/world/level/block/state/BlockState;)"
+                            + "Lnet/minecraft/client/resources/model/ModelResourceLocation;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/Minecraft")
+                        && call.name.equals("m_91258_")
+                        && call.desc.equals("(Lnet/minecraft/resources/ResourceLocation;)"
+                                + "Ljava/util/function/Function;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "spriteLookup";
+                    call.desc = "(Lnet/minecraft/client/Minecraft;"
+                            + "Lnet/minecraft/resources/ResourceLocation;)"
+                            + "Ljava/util/function/Function;";
+                    call.itf = false;
+                    rewrites++;
+                }
             }
         }
         return rewrites;

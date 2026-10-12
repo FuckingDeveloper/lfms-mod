@@ -1,5 +1,14 @@
 package com.fuckingdeveloper.lms.runtime.render;
 
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
+import net.minecraft.core.Direction;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.model.data.ModelData;
+
+import java.util.List;
+
 /**
  * Structural identity for legacy baked models.
  *
@@ -9,4 +18,19 @@ package com.fuckingdeveloper.lms.runtime.render;
  * them to either of the incompatible replacement contracts.</p>
  */
 public interface LegacyBakedModel {
+    List<BakedQuad> m_213637_(BlockState state, Direction direction, RandomSource random);
+
+    boolean m_7541_();
+
+    boolean m_7539_();
+
+    boolean m_7547_();
+
+    boolean m_7521_();
+
+    TextureAtlasSprite m_6160_();
+
+    TextureAtlasSprite getParticleIcon(ModelData data);
+
+    LegacyItemOverrides m_7343_();
 }

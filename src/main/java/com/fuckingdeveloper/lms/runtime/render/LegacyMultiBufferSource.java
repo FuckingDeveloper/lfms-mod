@@ -3,7 +3,6 @@ package com.fuckingdeveloper.lms.runtime.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.rendertype.RenderType;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -19,7 +18,7 @@ import java.util.function.Consumer;
 public class LegacyMultiBufferSource {
     private final SubmitNodeCollector submitter;
     private final PoseStack poseStack;
-    private final Map<RenderType, RecordingVertexConsumer> batches = new LinkedHashMap<>();
+    private final Map<LegacyRenderType, RecordingVertexConsumer> batches = new LinkedHashMap<>();
     private boolean flushed;
 
     protected LegacyMultiBufferSource() {
@@ -33,11 +32,11 @@ public class LegacyMultiBufferSource {
     }
 
     /** Exact Forge 1.19.2 SRG ABI used by legacy bytecode. */
-    public VertexConsumer m_6299_(RenderType renderType) {
+    public VertexConsumer m_6299_(LegacyRenderType renderType) {
         return getBuffer(renderType);
     }
 
-    public VertexConsumer getBuffer(RenderType renderType) {
+    public VertexConsumer getBuffer(LegacyRenderType renderType) {
         if (submitter == null) {
             throw new UnsupportedOperationException(
                     "Forge 1.19.2 immediate MultiBufferSource rendering has no direct Minecraft 26.3 target");
@@ -57,7 +56,7 @@ public class LegacyMultiBufferSource {
         batches.forEach((renderType, recorder) -> {
             List<Consumer<VertexConsumer>> operations = List.copyOf(recorder.operations);
             if (!operations.isEmpty()) {
-                submitter.submitCustomGeometry(poseStack, renderType,
+                submitter.submitCustomGeometry(poseStack, renderType.requireTargetRenderType(),
                         (pose, target) -> operations.forEach(operation -> operation.accept(target)));
             }
         });

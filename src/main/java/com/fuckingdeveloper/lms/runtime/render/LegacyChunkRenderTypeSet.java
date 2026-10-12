@@ -1,7 +1,5 @@
 package com.fuckingdeveloper.lms.runtime.render;
 
-import net.minecraft.client.renderer.rendertype.RenderType;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -10,16 +8,16 @@ import java.util.List;
 import java.util.Set;
 
 /** Source-shaped Forge 1.19.2 set of eligible chunk render types. */
-public final class LegacyChunkRenderTypeSet implements Iterable<RenderType> {
+public final class LegacyChunkRenderTypeSet implements Iterable<LegacyRenderType> {
     private static final LegacyChunkRenderTypeSet NONE =
             new LegacyChunkRenderTypeSet(false, Set.of());
     private static final LegacyChunkRenderTypeSet ALL =
             new LegacyChunkRenderTypeSet(true, Set.of());
 
     private final boolean all;
-    private final Set<RenderType> types;
+    private final Set<LegacyRenderType> types;
 
-    private LegacyChunkRenderTypeSet(boolean all, Collection<RenderType> types) {
+    private LegacyChunkRenderTypeSet(boolean all, Collection<LegacyRenderType> types) {
         this.all = all;
         this.types = Set.copyOf(types);
     }
@@ -32,11 +30,11 @@ public final class LegacyChunkRenderTypeSet implements Iterable<RenderType> {
         return ALL;
     }
 
-    public static LegacyChunkRenderTypeSet of(RenderType... types) {
+    public static LegacyChunkRenderTypeSet of(LegacyRenderType... types) {
         return of(Arrays.asList(types));
     }
 
-    public static LegacyChunkRenderTypeSet of(Collection<RenderType> types) {
+    public static LegacyChunkRenderTypeSet of(Collection<LegacyRenderType> types) {
         return types.isEmpty() ? NONE : new LegacyChunkRenderTypeSet(false, types);
     }
 
@@ -49,7 +47,7 @@ public final class LegacyChunkRenderTypeSet implements Iterable<RenderType> {
     }
 
     public static LegacyChunkRenderTypeSet union(Iterable<LegacyChunkRenderTypeSet> sets) {
-        Set<RenderType> result = new LinkedHashSet<>();
+        Set<LegacyRenderType> result = new LinkedHashSet<>();
         for (LegacyChunkRenderTypeSet set : sets) {
             if (set.all) return ALL;
             result.addAll(set.types);
@@ -66,7 +64,7 @@ public final class LegacyChunkRenderTypeSet implements Iterable<RenderType> {
     }
 
     public static LegacyChunkRenderTypeSet intersection(Iterable<LegacyChunkRenderTypeSet> sets) {
-        Set<RenderType> result = null;
+        Set<LegacyRenderType> result = null;
         boolean sawSet = false;
         for (LegacyChunkRenderTypeSet set : sets) {
             sawSet = true;
@@ -82,16 +80,16 @@ public final class LegacyChunkRenderTypeSet implements Iterable<RenderType> {
         return !all && types.isEmpty();
     }
 
-    public boolean contains(RenderType type) {
+    public boolean contains(LegacyRenderType type) {
         return all || types.contains(type);
     }
 
     @Override
-    public Iterator<RenderType> iterator() {
+    public Iterator<LegacyRenderType> iterator() {
         return asList().iterator();
     }
 
-    public List<RenderType> asList() {
+    public List<LegacyRenderType> asList() {
         if (all) {
             throw new UnsupportedOperationException(
                     "Forge 1.19.2 ChunkRenderTypeSet.all() cannot be enumerated because "

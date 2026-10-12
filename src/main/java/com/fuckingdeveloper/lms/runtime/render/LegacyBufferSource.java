@@ -1,7 +1,6 @@
 package com.fuckingdeveloper.lms.runtime.render;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.rendertype.RenderType;
 
 /**
  * Source-shaped immediate buffer facade. Minecraft 26.3 removed this drawing
@@ -14,7 +13,7 @@ public final class LegacyBufferSource extends LegacyMultiBufferSource {
     }
 
     @Override
-    public VertexConsumer getBuffer(RenderType renderType) {
+    public VertexConsumer getBuffer(LegacyRenderType renderType) {
         return super.getBuffer(renderType);
     }
 
@@ -26,7 +25,7 @@ public final class LegacyBufferSource extends LegacyMultiBufferSource {
         unsupported();
     }
 
-    public void endBatch(RenderType renderType) {
+    public void endBatch(LegacyRenderType renderType) {
         unsupported();
     }
 

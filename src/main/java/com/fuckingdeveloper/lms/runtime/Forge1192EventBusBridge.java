@@ -13,6 +13,7 @@ import net.neoforged.neoforge.client.event.TextureAtlasStitchedEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -42,11 +43,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.fuckingdeveloper.lms.runtime.event.LegacyRenderHighlightBlockEvent;
+import com.fuckingdeveloper.lms.runtime.event.LegacyModelBakingCompletedEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyTextureStitchEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyRegisterGuiOverlaysEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyVillagerTradesEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyWandererTradesEvent;
+import com.fuckingdeveloper.lms.runtime.render.Forge1192ModelBakingBridge;
 
 /**
  * Semantic adapters for Forge 1.19.2 event-bus contracts that changed in NeoForge.
@@ -190,6 +193,10 @@ public final class Forge1192EventBusBridge {
                     event -> registerLegacyBlockHighlightRenderer(event, (Consumer) listener));
             return;
         }
+        if (eventType == LegacyModelBakingCompletedEvent.class) {
+            registerLegacyModelBakingListener(bus, priority, (Consumer) listener);
+            return;
+        }
         if (eventType == LegacyTextureStitchEvent.Pre.class) {
             registerLegacyTextureStitchListener(priority, (Consumer) listener, true);
             return;
@@ -260,6 +267,27 @@ public final class Forge1192EventBusBridge {
             }
             if (!invoked.compareAndSet(false, true)) return;
             listener.accept(lifecycleEvent);
+        });
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void registerLegacyModelBakingListener(
+            IEventBus bus, net.neoforged.bus.api.EventPriority priority,
+            Consumer<LegacyModelBakingCompletedEvent> listener) {
+        AtomicReference<ModelEvent.ModifyBakingResult> mutable = new AtomicReference<>();
+        bus.addListener(priority, false, ModelEvent.ModifyBakingResult.class, event -> {
+            if (!mutable.compareAndSet(null, event)) {
+                throw new IllegalStateException("Mutable model-baking result captured more than once");
+            }
+        });
+        bus.addListener(priority, false, ModelEvent.BakingCompleted.class, event -> {
+            ModelEvent.ModifyBakingResult captured = mutable.getAndSet(null);
+            if (captured == null) {
+                throw new IllegalStateException(
+                        "Legacy model-baking completion ran without a mutable target result");
+            }
+            Forge1192ModelBakingBridge.invoke(
+                    Forge1192ModelBakingBridge.context(captured, event), listener);
         });
     }
 

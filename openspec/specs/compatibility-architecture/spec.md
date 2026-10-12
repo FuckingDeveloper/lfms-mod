@@ -108,6 +108,21 @@ earlier deferred call. Whole-callback deferral is permitted only with evidence
 that the source event parameter is not consumed after its original phase;
 otherwise the unsupported lifecycle migration MUST fail closed.
 
+When a source generation exposes one combined baked-model contract but the
+target splits block-state and item rendering, LMS MUST preserve the legacy
+registration lifecycle and adapt the model independently into each target
+pipeline. A target mutable baking result MAY be captured before the legacy
+callback and mutated at the source-equivalent later phase when the target
+retains those map identities. LMS MUST NOT cast or namespace-rename the legacy
+combined model into either unrelated target model interface. Unsupported
+legacy rendering operations MUST remain explicit fail-closed boundaries.
+
+When a source render-type class combines chunk-layer identity with immediate
+render-pipeline state but the target separates those concepts, LMS MUST retain
+source chunk layers as semantic identities until the model adapter selects the
+target chunk/material representation. It MUST NOT substitute an unrelated
+target render pipeline merely because both APIs use a class named RenderType.
+
 ## Generic compatibility requirement
 
 Reference mods are integration tests, not architectural namespaces.

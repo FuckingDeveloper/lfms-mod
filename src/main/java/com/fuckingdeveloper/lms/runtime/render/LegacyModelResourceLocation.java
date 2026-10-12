@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms.runtime.render;
 
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Objects;
 
@@ -10,6 +11,7 @@ public final class LegacyModelResourceLocation {
 
     private final Identifier identifier;
     private final String variant;
+    private final BlockState blockState;
 
     public LegacyModelResourceLocation(String namespace, String path, String variant) {
         this(Identifier.fromNamespaceAndPath(namespace, path), variant);
@@ -20,8 +22,7 @@ public final class LegacyModelResourceLocation {
     }
 
     public LegacyModelResourceLocation(Identifier identifier, String variant) {
-        this.identifier = Objects.requireNonNull(identifier, "identifier");
-        this.variant = Objects.requireNonNull(variant, "variant");
+        this(identifier, variant, null);
     }
 
     public LegacyModelResourceLocation(String identifier, String variant) {
@@ -30,6 +31,21 @@ public final class LegacyModelResourceLocation {
 
     private LegacyModelResourceLocation(String[] parts) {
         this(Identifier.parse(parts[0]), parts[1]);
+    }
+
+    private LegacyModelResourceLocation(
+            Identifier identifier, String variant, BlockState blockState) {
+        this.identifier = Objects.requireNonNull(identifier, "identifier");
+        this.variant = Objects.requireNonNull(variant, "variant");
+        this.blockState = blockState;
+    }
+
+    public static LegacyModelResourceLocation fromBlockState(BlockState state) {
+        BlockState value = Objects.requireNonNull(state, "block state");
+        Identifier id = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(value.getBlock());
+        if (id == null) throw new IllegalStateException("Unregistered block model state: " + value);
+        return new LegacyModelResourceLocation(id, value.toString(), value);
     }
 
     private static String[] decompose(String combined) {
@@ -52,6 +68,10 @@ public final class LegacyModelResourceLocation {
 
     public String getVariant() {
         return variant;
+    }
+
+    public BlockState blockState() {
+        return blockState;
     }
 
     @Override
