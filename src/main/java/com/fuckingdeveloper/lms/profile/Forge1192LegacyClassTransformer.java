@@ -91,6 +91,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/renderer/MultiBufferSource", "com/fuckingdeveloper/lms/runtime/render/LegacyMultiBufferSource"),
             java.util.Map.entry("net/minecraft/client/renderer/MultiBufferSource$BufferSource", "com/fuckingdeveloper/lms/runtime/render/LegacyBufferSource"),
             java.util.Map.entry("net/minecraft/util/LazyLoadedValue", "com/fuckingdeveloper/lms/runtime/LegacyLazyLoadedValue"),
+            java.util.Map.entry("net/minecraft/util/Tuple", "com/fuckingdeveloper/lms/runtime/Forge1192Tuple"),
             java.util.Map.entry("net/minecraft/world/item/crafting/RecipeSerializer", "com/fuckingdeveloper/lms/runtime/recipe/LegacyRecipeSerializer"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterial"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterials"),
@@ -3504,6 +3505,38 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         final String target = "net/minecraft/world/inventory/TransientCraftingContainer";
         int rewrites = 0;
         var constructors = VANILLA_RELOCATIONS.constructorsOf(target);
+        if (node.superName.equals(legacy)) {
+            boolean migratedConstructor = false;
+            for (var method : node.methods) {
+                if (!method.name.equals("<init>")) continue;
+                MethodInsnNode superCall = null;
+                for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                    if (insn instanceof MethodInsnNode call
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && call.owner.equals(legacy)
+                            && call.name.equals("<init>")) {
+                        if (superCall != null) {
+                            throw new IllegalStateException("Ambiguous legacy CraftingContainer super call: "
+                                    + node.name + method.desc);
+                        }
+                        superCall = call;
+                    }
+                }
+                if (superCall == null || !constructors.contains(superCall.desc)) {
+                    throw new IllegalStateException("CraftingContainer subclass constructor requires semantic adapter: "
+                            + node.name + method.desc + "; target public constructors=" + constructors);
+                }
+                superCall.owner = target;
+                migratedConstructor = true;
+                rewrites++;
+            }
+            if (!migratedConstructor) {
+                throw new IllegalStateException("Legacy CraftingContainer subclass has no explicit constructor: "
+                        + node.name);
+            }
+            node.superName = target;
+            rewrites++;
+        }
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof TypeInsnNode allocation)
