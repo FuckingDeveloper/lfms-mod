@@ -57,10 +57,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransforms", "net/minecraft/client/resources/model/cuboid/ItemTransforms"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemTransforms$TransformType", "net/minecraft/world/item/ItemDisplayContext"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/BakedQuad", "net/minecraft/client/resources/model/geometry/BakedQuad"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/model/BlockElement", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockElement"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/BlockFaceUV", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockFaceUV"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/BlockElementFace", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockElementFace"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/BlockElementRotation", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockElementRotation"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/FaceBakery", "com/fuckingdeveloper/lms/runtime/render/LegacyFaceBakery"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemModelGenerator", "com/fuckingdeveloper/lms/runtime/render/LegacyItemModelGenerator"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemOverrides", "com/fuckingdeveloper/lms/runtime/render/LegacyItemOverrides"),
             java.util.Map.entry("net/minecraft/client/gui/screens/SoundOptionsScreen", "net/minecraft/client/gui/screens/options/SoundOptionsScreen"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderType"),
@@ -597,6 +599,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.desc.equals(legacyDesc)) continue;
 
                 var adaptation = new org.objectweb.asm.tree.InsnList();
+                int preservedPropertiesLocal = -1;
                 if (registryName != null) {
                     // Keep uninitialized this untouched on the operand stack;
                     // spill only the constructor arguments while attaching the
@@ -604,6 +607,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     int wallLocal = method.maxLocals++;
                     int standingLocal = method.maxLocals++;
                     int propertiesLocal = method.maxLocals++;
+                    preservedPropertiesLocal = propertiesLocal;
                     adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, wallLocal));
                     adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, standingLocal));
                     adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
@@ -632,6 +636,19 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 method.instructions.insertBefore(call, adaptation);
                 call.owner = "net/minecraft/world/item/StandingAndWallBlockItem";
                 call.desc = "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/core/Direction;Lnet/minecraft/world/item/Item$Properties;)V";
+                if (preservedPropertiesLocal >= 0) {
+                    var association = new org.objectweb.asm.tree.InsnList();
+                    association.add(new org.objectweb.asm.tree.VarInsnNode(
+                            org.objectweb.asm.Opcodes.ALOAD, 0));
+                    association.add(new org.objectweb.asm.tree.VarInsnNode(
+                            org.objectweb.asm.Opcodes.ALOAD, preservedPropertiesLocal));
+                    association.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                            "associateItemProperties",
+                            "(Lnet/minecraft/world/item/Item;"
+                                    + "Lnet/minecraft/world/item/Item$Properties;)V", false));
+                    method.instructions.insert(call, association);
+                }
                 rewrites++;
             }
         }
@@ -1866,6 +1883,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         field.name = "NO_TRANSFORM";
                         rewrites++;
                     } else if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                            && field.owner.equals(transforms)
+                            && field.desc.equals("L" + transform + ";")) {
+                        String accessor = switch (field.name) {
+                            case "f_111787_" -> "thirdPersonLeftHand";
+                            case "f_111788_" -> "thirdPersonRightHand";
+                            case "f_111789_" -> "firstPersonLeftHand";
+                            case "f_111790_" -> "firstPersonRightHand";
+                            case "f_111791_" -> "head";
+                            case "f_111792_" -> "gui";
+                            case "f_111793_" -> "ground";
+                            case "f_111794_" -> "fixed";
+                            default -> null;
+                        };
+                        if (accessor != null) {
+                            method.instructions.set(field, new MethodInsnNode(
+                                    org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                                    transforms, accessor, "()L" + transform + ";", false));
+                            rewrites++;
+                        }
+                    } else if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
                             && field.owner.equals(transform)
                             && field.desc.equals("Lcom/mojang/math/Vector3f;")) {
                         String accessor = switch (field.name) {
@@ -2413,6 +2450,162 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Transformation retained its four semantic components, but
+                // target 26.3 widened concrete vectors/quaternions to JOML
+                // read-only interfaces. This exact legacy constructor shape
+                // is verifier-compatible after Vector3f namespace migration;
+                // null quaternion operands retain their identity semantics.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals("com/mojang/math/Transformation")
+                        && call.name.equals("<init>")
+                        && call.desc.equals("(Lorg/joml/Vector3f;Lcom/mojang/math/Quaternion;"
+                                + "Lorg/joml/Vector3f;Lcom/mojang/math/Quaternion;)V")) {
+                    call.desc = "(Lorg/joml/Vector3fc;Lorg/joml/Quaternionfc;"
+                            + "Lorg/joml/Vector3fc;Lorg/joml/Quaternionfc;)V";
+                    rewrites++;
+                    continue;
+                }
+
+                // Preserve the exact source copy contract rather than mapping
+                // it to target getMatrix(), whose Matrix4fc is a shared
+                // read-only view. The concrete JOML result remains valid for
+                // the independently verified Direction.rotate migration.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("com/mojang/math/Transformation")
+                        && call.name.equals("m_121104_")
+                        && call.desc.equals("()Lcom/mojang/math/Matrix4f;")) {
+                    call.name = "getMatrixCopy";
+                    call.desc = "()Lorg/joml/Matrix4f;";
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/core/Direction")
+                        && call.name.equals("m_122384_")
+                        && call.desc.equals("(Lcom/mojang/math/Matrix4f;"
+                                + "Lnet/minecraft/core/Direction;)"
+                                + "Lnet/minecraft/core/Direction;")) {
+                    call.name = "rotate";
+                    call.desc = "(Lorg/joml/Matrix4fc;Lnet/minecraft/core/Direction;)"
+                            + "Lnet/minecraft/core/Direction;";
+                    rewrites++;
+                    continue;
+                }
+
+                // When a removed fluid-texture accessor immediately consumes
+                // IClientFluidTypeExtensions.of(state/fluid), retain the
+                // authoritative fluid operand and resolve either the legacy
+                // source extension value or the target baked fluid model.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/neoforged/neoforge/client/extensions/common/"
+                                + "IClientFluidTypeExtensions")
+                        && call.name.equals("of")) {
+                    var next = nextExecutable(call);
+                    if (next instanceof MethodInsnNode getter
+                            && getter.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                            && getter.owner.equals(call.owner)
+                            && getter.desc.equals("()Lnet/minecraft/resources/Identifier;")
+                            && (getter.name.equals("getStillTexture")
+                                || getter.name.equals("getFlowingTexture"))) {
+                        String argument = switch (call.desc) {
+                            case "(Lnet/minecraft/world/level/material/FluidState;)"
+                                    + "Lnet/neoforged/neoforge/client/extensions/common/"
+                                    + "IClientFluidTypeExtensions;" ->
+                                    "Lnet/minecraft/world/level/material/FluidState;";
+                            case "(Lnet/minecraft/world/level/material/Fluid;)"
+                                    + "Lnet/neoforged/neoforge/client/extensions/common/"
+                                    + "IClientFluidTypeExtensions;" ->
+                                    "Lnet/minecraft/world/level/material/Fluid;";
+                            default -> null;
+                        };
+                        if (argument != null) {
+                            call.owner = "com/fuckingdeveloper/lms/runtime/"
+                                    + "Forge1192ClientFluidExtensionsBridge";
+                            call.name = getter.name;
+                            call.desc = "(" + argument + ")Lnet/minecraft/resources/Identifier;";
+                            call.itf = false;
+                            method.instructions.remove(getter);
+                            rewrites++;
+                            continue;
+                        }
+                    }
+                }
+
+                // Forge 1.19.2 stored still/flowing/overlay/tint values on
+                // IClientFluidTypeExtensions implementations. Target 26.3
+                // moved texture selection into fluid models and removed these
+                // accessors, but source-defined extension objects still carry
+                // the authoritative values during legacy callbacks.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                        && call.owner.equals("net/neoforged/neoforge/client/extensions/common/"
+                                + "IClientFluidTypeExtensions")) {
+                    String bridgeDesc = switch (call.name + call.desc) {
+                        case "getStillTexture()Lnet/minecraft/resources/Identifier;" ->
+                                "(Ljava/lang/Object;)Lnet/minecraft/resources/Identifier;";
+                        case "getFlowingTexture()Lnet/minecraft/resources/Identifier;" ->
+                                "(Ljava/lang/Object;)Lnet/minecraft/resources/Identifier;";
+                        case "getOverlayTexture()Lnet/minecraft/resources/Identifier;" ->
+                                "(Ljava/lang/Object;)Lnet/minecraft/resources/Identifier;";
+                        case "getTintColor()I" -> "(Ljava/lang/Object;)I";
+                        case "getStillTexture(Lnet/neoforged/neoforge/fluids/FluidStack;)"
+                                + "Lnet/minecraft/resources/Identifier;",
+                             "getFlowingTexture(Lnet/neoforged/neoforge/fluids/FluidStack;)"
+                                + "Lnet/minecraft/resources/Identifier;",
+                             "getOverlayTexture(Lnet/neoforged/neoforge/fluids/FluidStack;)"
+                                + "Lnet/minecraft/resources/Identifier;" ->
+                                "(Ljava/lang/Object;Ljava/lang/Object;)"
+                                        + "Lnet/minecraft/resources/Identifier;";
+                        case "getTintColor(Lnet/neoforged/neoforge/fluids/FluidStack;)I" ->
+                                "(Ljava/lang/Object;Ljava/lang/Object;)I";
+                        default -> null;
+                    };
+                    if (bridgeDesc != null) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/"
+                                + "Forge1192ClientFluidExtensionsBridge";
+                        call.desc = bridgeDesc;
+                        call.itf = false;
+                        rewrites++;
+                        continue;
+                    }
+                }
+
+                // Minecraft 26.3 made CompoundTag primitive/object reads
+                // Optional-valued. Forge 1.19.2 returned type-specific defaults
+                // (and accepted tag type 99 for any numeric tag), so preserve
+                // that exact source family through a semantic target bridge.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/nbt/CompoundTag")) {
+                    String bridgeName = switch (call.name + call.desc) {
+                        case "m_128435_(Ljava/lang/String;)B" -> "getTagType";
+                        case "m_128425_(Ljava/lang/String;I)Z" -> "contains";
+                        case "m_128445_(Ljava/lang/String;)B" -> "getByte";
+                        case "m_128448_(Ljava/lang/String;)S" -> "getShort";
+                        case "m_128451_(Ljava/lang/String;)I" -> "getInt";
+                        case "m_128454_(Ljava/lang/String;)J" -> "getLong";
+                        case "m_128457_(Ljava/lang/String;)F" -> "getFloat";
+                        case "m_128459_(Ljava/lang/String;)D" -> "getDouble";
+                        case "m_128461_(Ljava/lang/String;)Ljava/lang/String;" -> "getString";
+                        case "m_128463_(Ljava/lang/String;)[B" -> "getByteArray";
+                        case "m_128465_(Ljava/lang/String;)[I" -> "getIntArray";
+                        case "m_128467_(Ljava/lang/String;)[J" -> "getLongArray";
+                        case "m_128469_(Ljava/lang/String;)Lnet/minecraft/nbt/CompoundTag;" -> "getCompound";
+                        case "m_128437_(Ljava/lang/String;I)Lnet/minecraft/nbt/ListTag;" -> "getList";
+                        case "m_128471_(Ljava/lang/String;)Z" -> "getBoolean";
+                        case "m_128473_(Ljava/lang/String;)V" -> "remove";
+                        default -> null;
+                    };
+                    if (bridgeName != null) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192CompoundTagBridge";
+                        call.name = bridgeName;
+                        call.desc = "(Lnet/minecraft/nbt/CompoundTag;" + call.desc.substring(1);
+                        call.itf = false;
+                        rewrites++;
+                        continue;
+                    }
+                }
+
                 // Item#isEdible read the legacy item's default food properties.
                 // In 26.3 that intent is represented by the bound FOOD component.
                 if (call.owner.equals("net/minecraft/world/item/Item")
@@ -2440,6 +2633,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.name = "is";
                     call.desc = "(Lnet/minecraft/world/item/ItemStack;"
                             + "Lnet/minecraft/world/item/Item;)Z";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/ItemStack")
+                        && call.name.equals("m_41778_")
+                        && call.desc.equals("()Ljava/lang/String;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                    call.name = "getDescriptionId";
+                    call.desc = "(Lnet/minecraft/world/item/ItemStack;)Ljava/lang/String;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/Item")
+                        && call.name.equals("m_5671_")
+                        && call.desc.equals("(Lnet/minecraft/world/item/ItemStack;)Ljava/lang/String;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                    call.name = "getDescriptionId";
+                    call.desc = "(Lnet/minecraft/world/item/Item;"
+                            + "Lnet/minecraft/world/item/ItemStack;)Ljava/lang/String;";
                     call.itf = false;
                     rewrites++;
                     continue;
@@ -3131,6 +3349,25 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                     continue;
                 }
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
+                        && field.name.equals("f_40377_")
+                        && field.desc.equals("Lnet/minecraft/world/entity/EquipmentSlot;")) {
+                    String sourceOwner = resolveInheritedLegacyVanillaFieldOwner(
+                            field.owner, field.name, field.desc);
+                    String canonical = sourceOwner == null ? null : SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(sourceOwner, field.name, field.desc).orElse(null);
+                    if (sourceOwner != null
+                            && sourceOwner.equals("net/minecraft/world/item/ArmorItem")
+                            && "slot".equals(canonical)) {
+                        method.instructions.set(field, new MethodInsnNode(
+                                org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                                "com/fuckingdeveloper/lms/runtime/item/LegacyArmorItem",
+                                "lmsLegacyArmorSlot",
+                                "()Lnet/minecraft/world/entity/EquipmentSlot;", false));
+                        rewrites++;
+                        continue;
+                    }
+                }
                 var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(field.owner, field.name, field.desc);
                 if (!resolved.resolved()) {
                     // javac may encode an inherited static field with the
@@ -3403,6 +3640,37 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
         return new Forge1192SrgRuntimeResolver.FieldResolution(
                 receiver, name, desc, false, "No inherited vanilla field identity resolved");
+    }
+
+    /**
+     * Locate the exact source-era vanilla declaration behind a field access
+     * whose constant-pool owner is a managed subclass. Unlike ordinary SRG
+     * resolution this deliberately does not require the field to survive in
+     * the target runtime; semantic adapters use the returned source identity.
+     */
+    private String resolveInheritedLegacyVanillaFieldOwner(
+            String receiver, String name, String desc) {
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        pending.add(receiver);
+        while (!pending.isEmpty()) {
+            String current = pending.removeFirst();
+            if (!seen.add(current)) continue;
+            if (current.startsWith("net/minecraft/")
+                    && SRG_RUNTIME_RESOLVER.get().canonicalFieldName(current, name, desc).isPresent()) {
+                return current;
+            }
+            try {
+                byte[] bytes = hierarchyBytes(current);
+                if (bytes == null) continue;
+                ClassReader reader = new ClassReader(bytes);
+                if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
+                java.util.Collections.addAll(pending, reader.getInterfaces());
+            } catch (java.io.IOException | LinkageError | RuntimeException ignored) {
+                // Incomplete hierarchy evidence fails closed.
+            }
+        }
+        return null;
     }
 
     /** Exact 1.19.2 SRG identities for MobEffects' migration to Holder fields. */

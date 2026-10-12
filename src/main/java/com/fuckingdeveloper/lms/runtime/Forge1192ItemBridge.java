@@ -10,6 +10,20 @@ import net.minecraft.world.item.component.CustomData;
 public final class Forge1192ItemBridge {
     private Forge1192ItemBridge() {}
 
+    private static final ClassValue<java.util.Optional<java.lang.invoke.MethodHandle>>
+            LEGACY_DESCRIPTION_ID = new ClassValue<>() {
+                @Override
+                protected java.util.Optional<java.lang.invoke.MethodHandle> computeValue(Class<?> type) {
+                    try {
+                        return java.util.Optional.of(java.lang.invoke.MethodHandles.publicLookup()
+                                .findVirtual(type, "m_5671_", java.lang.invoke.MethodType.methodType(
+                                        String.class, ItemStack.class)));
+                    } catch (NoSuchMethodException | IllegalAccessException ignored) {
+                        return java.util.Optional.empty();
+                    }
+                }
+            };
+
     /** Forge 1.19.2 Item#isEdible was equivalent to having food properties. */
     public static boolean isEdible(Item item) {
         if (!item.builtInRegistryHolder().areComponentsBound()) {
@@ -22,6 +36,27 @@ public final class Forge1192ItemBridge {
     /** Forge 1.19.2 ItemStack#is(Item) was an exact item-identity comparison. */
     public static boolean is(ItemStack stack, Item item) {
         return stack.getItem() == item;
+    }
+
+    /**
+     * Forge 1.19.2 ItemStack#getDescriptionId delegated virtually to
+     * Item#getDescriptionId(ItemStack). The target removed that overload, so
+     * retain managed legacy overrides and otherwise use the exact source
+     * default of the item's ordinary description id.
+     */
+    public static String getDescriptionId(ItemStack stack) {
+        return getDescriptionId(stack.getItem(), stack);
+    }
+
+    public static String getDescriptionId(Item item, ItemStack stack) {
+        var legacy = LEGACY_DESCRIPTION_ID.get(item.getClass());
+        if (legacy.isEmpty()) return item.getDescriptionId();
+        try {
+            return (String) legacy.get().invoke(item, stack);
+        } catch (Throwable error) {
+            throw new IllegalStateException("Legacy Item#getDescriptionId(ItemStack) failed for "
+                    + item.getClass().getName(), error);
+        }
     }
 
     /** Store a source-era arbitrary stack tag in the target custom-data component. */
