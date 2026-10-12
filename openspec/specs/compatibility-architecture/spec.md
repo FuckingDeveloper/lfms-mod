@@ -100,6 +100,14 @@ Target adapters SHOULD contain:
 
 Direct target-runtime API calls SHOULD be concentrated behind target adapters or target-aware bridge implementations when doing so prevents source profiles from becoming coupled to one target generation.
 
+When a source lifecycle callback is internally ordered but the target makes a
+required invariant available only at a later phase, LMS MUST preserve the
+callback as one ordered lifecycle unit. Splitting individual calls across the
+phase boundary is forbidden when later calls can observe state produced by an
+earlier deferred call. Whole-callback deferral is permitted only with evidence
+that the source event parameter is not consumed after its original phase;
+otherwise the unsupported lifecycle migration MUST fail closed.
+
 ## Generic compatibility requirement
 
 Reference mods are integration tests, not architectural namespaces.

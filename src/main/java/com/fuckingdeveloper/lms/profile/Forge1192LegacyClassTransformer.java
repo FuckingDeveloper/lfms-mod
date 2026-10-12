@@ -163,6 +163,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteVerifiedVanillaOverrides(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyCreativeTabLookup(node);
+        rewrites += rewriteLegacyCreativeTabEnumeration(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
         rewrites += rewriteLegacyNamedItemConstruction(node);
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
@@ -1039,6 +1040,65 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 call.desc = "(Lnet/minecraft/world/item/Item;)Lnet/minecraft/world/item/CreativeModeTab;";
                 call.itf = false;
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Preserve the 1.19.2 search-tab enumeration protocol used by recipe and
+     * item caches. Legacy item overrides remain the authority for variants;
+     * target Item/BlockItem base implementations are reconstructed explicitly.
+     * This is distinct from populating Minecraft 26.3 creative tabs.
+     */
+    private static int rewriteLegacyCreativeTabEnumeration(ClassNode node) {
+        int rewrites = 0;
+        final String tab = "Lnet/minecraft/world/item/CreativeModeTab;";
+        final String list = "Lnet/minecraft/core/NonNullList;";
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/world/item/CreativeModeTab")
+                        && field.name.equals("f_40754_")
+                        && field.desc.equals(tab)) {
+                    method.instructions.set(field, new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192CreativeTabBridge",
+                            "searchTab", "()" + tab, false));
+                    rewrites++;
+                    insn = next;
+                    continue;
+                }
+                if (!(insn instanceof MethodInsnNode call)) {
+                    insn = next;
+                    continue;
+                }
+                if (call.name.equals("m_220152_") && call.desc.equals("(" + tab + ")Z")
+                        && call.owner.equals("net/minecraft/world/item/Item")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192CreativeTabBridge";
+                    call.name = "allowedIn";
+                    call.desc = "(Lnet/minecraft/world/item/Item;" + tab + ")Z";
+                    call.itf = false;
+                    rewrites++;
+                    insn = next;
+                    continue;
+                }
+                if (!call.name.equals("m_6787_") || !call.desc.equals("(" + tab + list + ")V")
+                        || !call.owner.startsWith("net/minecraft/world/item/")) {
+                    insn = next;
+                    continue;
+                }
+                boolean baseCall = call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192CreativeTabBridge";
+                call.name = baseCall ? "fillBaseItemCategory" : "fillItemCategory";
+                call.desc = "(Lnet/minecraft/world/item/Item;" + tab + list + ")V";
+                call.itf = false;
+                rewrites++;
+                insn = next;
             }
         }
         return rewrites;
@@ -4459,7 +4519,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    private static int rewriteSemanticAdapters(ClassNode node) {
+    private int rewriteSemanticAdapters(ClassNode node) {
         int rewrites = 0;
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
@@ -4877,11 +4937,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     if (eventType == null)
                         throw new IllegalStateException("Cannot infer legacy lambda event type: "
                                 + node.name + "#" + method.name + method.desc);
+                    boolean deferUntilItemComponentsBound =
+                            requiresComponentBoundLifecycle(call, eventType, node, method);
+                    method.instructions.insertBefore(call, new org.objectweb.asm.tree.InsnNode(
+                            deferUntilItemComponentsBound
+                                    ? org.objectweb.asm.Opcodes.ICONST_1
+                                    : org.objectweb.asm.Opcodes.ICONST_0));
                     method.instructions.insertBefore(call, new LdcInsnNode(eventType));
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
                     call.name = "addListener";
-                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Ljava/util/function/Consumer;Ljava/lang/Class;)V";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Ljava/util/function/Consumer;ZLjava/lang/Class;)V";
                     call.itf = false;
                     rewrites++;
                 }
@@ -4892,11 +4958,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     if (eventType == null)
                         throw new IllegalStateException("Cannot infer prioritized legacy lambda event type: "
                                 + node.name + "#" + method.name + method.desc);
+                    boolean deferUntilItemComponentsBound =
+                            requiresComponentBoundLifecycle(call, eventType, node, method);
+                    method.instructions.insertBefore(call, new org.objectweb.asm.tree.InsnNode(
+                            deferUntilItemComponentsBound
+                                    ? org.objectweb.asm.Opcodes.ICONST_1
+                                    : org.objectweb.asm.Opcodes.ICONST_0));
                     method.instructions.insertBefore(call, new LdcInsnNode(eventType));
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
                     call.name = "addListener";
-                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Lnet/neoforged/bus/api/EventPriority;Ljava/util/function/Consumer;Ljava/lang/Class;)V";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Lnet/neoforged/bus/api/EventPriority;Ljava/util/function/Consumer;ZLjava/lang/Class;)V";
                     call.itf = false;
                     rewrites++;
                 }
@@ -4931,36 +5003,93 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static Type inferLambdaEventType(MethodInsnNode addListenerCall) {
+        InvokeDynamicInsnNode indy = findLambdaConsumer(addListenerCall);
+        if (indy == null) return null;
+        // LambdaMetafactory's instantiated method type is conventionally
+        // bootstrap arg #2. It preserves Consumer<ConcreteEvent> even though
+        // the runtime Consumer object itself is erased.
+        if (indy.bsmArgs.length >= 3 && indy.bsmArgs[2] instanceof Type instantiated
+                && instantiated.getSort() == Type.METHOD) {
+            Type[] args = instantiated.getArgumentTypes();
+            if (args.length == 1 && args[0].getSort() == Type.OBJECT)
+                return Type.getObjectType(migrateInternalName(args[0].getInternalName()));
+        }
+
+        // Method-reference/lambda fallback: use the final object argument
+        // of the implementation handle after captured arguments.
+        Handle handle = lambdaImplementationHandle(indy);
+        if (handle != null) {
+            Type[] args = Type.getMethodType(handle.getDesc()).getArgumentTypes();
+            if (args.length > 0 && args[args.length - 1].getSort() == Type.OBJECT)
+                return Type.getObjectType(migrateInternalName(args[args.length - 1].getInternalName()));
+        }
+        return null;
+    }
+
+    private static InvokeDynamicInsnNode findLambdaConsumer(MethodInsnNode addListenerCall) {
         int realInstructions = 0;
         for (var previous = addListenerCall.getPrevious();
              previous != null && realInstructions < 24; previous = previous.getPrevious()) {
             if (previous.getOpcode() >= 0) realInstructions++;
             if (!(previous instanceof InvokeDynamicInsnNode indy)) continue;
             if (!indy.desc.endsWith(")Ljava/util/function/Consumer;")) continue;
-
-            // LambdaMetafactory's instantiated method type is conventionally
-            // bootstrap arg #2. It preserves Consumer<ConcreteEvent> even
-            // though the runtime Consumer object itself is erased.
-            if (indy.bsmArgs.length >= 3 && indy.bsmArgs[2] instanceof Type instantiated
-                    && instantiated.getSort() == Type.METHOD) {
-                Type[] args = instantiated.getArgumentTypes();
-                if (args.length == 1 && args[0].getSort() == Type.OBJECT)
-                    return Type.getObjectType(migrateInternalName(args[0].getInternalName()));
-            }
-
-            // Method-reference/lambda fallback: use the final object argument
-            // of the implementation handle after captured arguments.
-            for (Object bootstrapArg : indy.bsmArgs) {
-                if (!(bootstrapArg instanceof Handle handle)) continue;
-                Type methodType = Type.getMethodType(handle.getDesc());
-                Type[] args = methodType.getArgumentTypes();
-                if (args.length == 0) continue;
-                Type candidate = args[args.length - 1];
-                if (candidate.getSort() == Type.OBJECT)
-                    return Type.getObjectType(migrateInternalName(candidate.getInternalName()));
-            }
+            return indy;
         }
         return null;
+    }
+
+    private static Handle lambdaImplementationHandle(InvokeDynamicInsnNode indy) {
+        if (indy.bsmArgs.length >= 2 && indy.bsmArgs[1] instanceof Handle handle) return handle;
+        return null;
+    }
+
+    private boolean requiresComponentBoundLifecycle(
+            MethodInsnNode addListenerCall, Type eventType, ClassNode caller,
+            org.objectweb.asm.tree.MethodNode callerMethod) {
+        if (!eventType.getInternalName().startsWith(
+                "net/neoforged/fml/event/lifecycle/")) return false;
+        InvokeDynamicInsnNode indy = findLambdaConsumer(addListenerCall);
+        Handle implementation = indy == null ? null : lambdaImplementationHandle(indy);
+        if (implementation == null) return false;
+        Handle sourceImplementation = sourceLifecycleHandle(implementation);
+        if (!usesItemStackDefaults(sourceImplementation.getOwner(), sourceImplementation.getName(),
+                sourceImplementation.getDesc())) return false;
+        if (!lambdaEventParameterIsUnused(sourceImplementation)) {
+            throw new IllegalStateException("Legacy lifecycle callback requires item-component deferral but reads its "
+                    + "source event parameter: " + caller.name + "#" + callerMethod.name
+                    + callerMethod.desc + " -> " + implementation.getOwner() + '#'
+                    + implementation.getName() + implementation.getDesc());
+        }
+        return true;
+    }
+
+    private static Handle sourceLifecycleHandle(Handle implementation) {
+        String sourceDescriptor = implementation.getDesc().replace(
+                "Lnet/neoforged/fml/event/lifecycle/",
+                "Lnet/minecraftforge/fml/event/lifecycle/");
+        if (sourceDescriptor.equals(implementation.getDesc())) return implementation;
+        return new Handle(implementation.getTag(), implementation.getOwner(), implementation.getName(),
+                sourceDescriptor, implementation.isInterface());
+    }
+
+    private boolean lambdaEventParameterIsUnused(Handle implementation) {
+        ClassNode owner = readManagedClass(implementation.getOwner());
+        if (owner == null) return false;
+        for (var method : owner.methods) {
+            if (!method.name.equals(implementation.getName())
+                    || !method.desc.equals(implementation.getDesc())) continue;
+            Type[] arguments = Type.getArgumentTypes(method.desc);
+            if (arguments.length == 0 || arguments[arguments.length - 1].getSort() != Type.OBJECT) return false;
+            int slot = (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0 ? 1 : 0;
+            for (int i = 0; i < arguments.length - 1; i++) slot += arguments[i].getSize();
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof org.objectweb.asm.tree.VarInsnNode variable
+                        && variable.getOpcode() == org.objectweb.asm.Opcodes.ALOAD
+                        && variable.var == slot) return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     private static void verifyNoEscapingLegacyNetworkFacade(ClassNode node) {

@@ -4,6 +4,7 @@ import net.neoforged.bus.api.Event;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
@@ -16,7 +17,9 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
+import net.neoforged.neoforge.event.DefaultDataComponentsBoundEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
+import net.neoforged.fml.event.lifecycle.ModLifecycleEvent;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -35,6 +38,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.fuckingdeveloper.lms.runtime.event.LegacyRenderHighlightBlockEvent;
 import com.fuckingdeveloper.lms.runtime.event.LegacyTextureStitchEvent;
@@ -104,17 +109,20 @@ public final class Forge1192EventBusBridge {
      * target bus; only the legacy return contract is reconstructed.
      */
     public static <T extends Event> void addListener(IEventBus bus, Consumer<T> listener,
+                    boolean deferUntilItemComponentsBound,
                                                      Class<T> eventType) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
         registerListener(bus, net.neoforged.bus.api.EventPriority.NORMAL, eventType,
-                event -> invokeScoped(modId, listener, event));
+                event -> invokeScoped(modId, listener, event), deferUntilItemComponentsBound);
     }
 
     public static <T extends Event> void addListener(IEventBus bus, net.neoforged.bus.api.EventPriority priority,
-                                                     Consumer<T> listener, Class<T> eventType) {
+                                                     Consumer<T> listener,
+                                                     boolean deferUntilItemComponentsBound,
+                                                     Class<T> eventType) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
         registerListener(bus, priority, eventType,
-                event -> invokeScoped(modId, listener, event));
+                event -> invokeScoped(modId, listener, event), deferUntilItemComponentsBound);
     }
 
     /**
@@ -147,7 +155,7 @@ public final class Forge1192EventBusBridge {
             Class<? extends Event> eventType = method.getParameterTypes()[0].asSubclass(Event.class);
             method.setAccessible(true);
             Consumer listener = event -> invokeScoped(modId, ignored -> invokeSubscriber(subscriber, method, ignored), (Event) event);
-            registerListener(bus, annotation.priority(), eventType, listener);
+            registerListener(bus, annotation.priority(), eventType, listener, false);
         }
     }
 
@@ -161,7 +169,16 @@ public final class Forge1192EventBusBridge {
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static <T extends Event> void registerListener(
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
-            Class<T> eventType, Consumer<T> listener) {
+            Class<T> eventType, Consumer<T> listener,
+            boolean deferUntilItemComponentsBound) {
+        if (deferUntilItemComponentsBound) {
+            if (!ModLifecycleEvent.class.isAssignableFrom(eventType)) {
+                throw new IllegalStateException("Item-component deferral is only valid for mod lifecycle events: "
+                        + eventType.getName());
+            }
+            registerComponentBoundLifecycle(bus, priority, eventType, listener);
+            return;
+        }
         if (eventType == LegacyFurnaceFuelBurnTimeEvent.class) {
             IEventBus modBus = Forge1192LifecycleBridge.requireActive().modEventBus();
             modBus.addListener(priority, false, ModifyDefaultComponentsEvent.class,
@@ -212,6 +229,38 @@ public final class Forge1192EventBusBridge {
         for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
             bus.addListener(priority, false, (Class) concreteType, (Consumer) listener);
         }
+    }
+
+    /**
+     * Forge 1.19.2 lifecycle callbacks ran after registered items had usable
+     * default state. Minecraft 26.3 binds that state later than some equivalent
+     * lifecycle stages. Capture the source event and replay an
+     * event-parameter-independent handler once components bind, preserving the
+     * handler's internal ordering as one lifecycle unit.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static <T extends Event> void registerComponentBoundLifecycle(
+            IEventBus bus, net.neoforged.bus.api.EventPriority priority,
+            Class<T> eventType, Consumer<T> listener) {
+        AtomicReference<T> pending = new AtomicReference<>();
+        AtomicBoolean invoked = new AtomicBoolean();
+        bus.addListener(priority, false, eventType, event -> {
+            if (!pending.compareAndSet(null, event)) {
+                throw new IllegalStateException("Legacy lifecycle event was captured more than once: "
+                        + eventType.getName());
+            }
+        });
+        NeoForge.EVENT_BUS.addListener(priority, false, DefaultDataComponentsBoundEvent.class, event -> {
+            if (!event.shouldUpdateStaticData() || invoked.get()) return;
+            T lifecycleEvent = pending.getAndSet(null);
+            if (lifecycleEvent == null) {
+                throw new IllegalStateException(
+                        "Item components bound before the deferred legacy lifecycle event was captured: "
+                                + eventType.getName());
+            }
+            if (!invoked.compareAndSet(false, true)) return;
+            listener.accept(lifecycleEvent);
+        });
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
