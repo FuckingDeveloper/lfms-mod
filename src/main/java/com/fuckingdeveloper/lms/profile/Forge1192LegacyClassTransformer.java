@@ -2417,16 +2417,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                     continue;
                 }
-                String copperCollection = legacyCopperCollectionField(field);
+                LegacyCopperCollectionField copperCollection = legacyCopperCollectionField(field);
                 if (copperCollection != null) {
-                    field.name = copperCollection;
+                    field.name = copperCollection.collection();
                     field.desc = "Lnet/minecraft/world/level/block/WeatheringCopperCollection;";
                     var select = new org.objectweb.asm.tree.InsnList();
                     select.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
-                            "net/minecraft/world/level/block/WeatheringCopperCollection", "weathering",
+                            "net/minecraft/world/level/block/WeatheringCopperCollection",
+                            copperCollection.track(),
                             "()Lnet/minecraft/world/level/block/WeatheringCopperCollection$ByState;", false));
                     select.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
-                            "net/minecraft/world/level/block/WeatheringCopperCollection$ByState", "unaffected",
+                            "net/minecraft/world/level/block/WeatheringCopperCollection$ByState",
+                            copperCollection.state(),
                             "()Ljava/lang/Object;", false));
                     select.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,
                             "net/minecraft/world/level/block/Block"));
@@ -2531,6 +2533,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private record LegacyColorCollectionField(String collection, String color) {}
+    private record LegacyCopperCollectionField(String collection, String track, String state) {}
 
     /**
      * WallBlock's four directional EnumProperty fields kept their semantic
@@ -2640,8 +2643,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         };
     }
 
-    /** Minecraft 26.3 consolidated the base members of copper block families. */
-    private String legacyCopperCollectionField(FieldInsnNode field) {
+    /** Minecraft 26.3 consolidated copper stages and wax states into collections. */
+    private LegacyCopperCollectionField legacyCopperCollectionField(FieldInsnNode field) {
         if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
                 || !field.owner.equals("net/minecraft/world/level/block/Blocks")
                 || !field.desc.equals("Lnet/minecraft/world/level/block/Block;")
@@ -2649,10 +2652,30 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         String canonical = SRG_RUNTIME_RESOLVER.get()
                 .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
         if (canonical == null) return null;
+        LegacyCopperCollectionField migrated = switch (canonical) {
+            case "COPPER_BLOCK" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "unaffected");
+            case "EXPOSED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "exposed");
+            case "WEATHERED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "weathered");
+            case "OXIDIZED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "weathering", "oxidized");
+            case "WAXED_COPPER_BLOCK" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "unaffected");
+            case "WAXED_EXPOSED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "exposed");
+            case "WAXED_WEATHERED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "weathered");
+            case "WAXED_OXIDIZED_COPPER" -> new LegacyCopperCollectionField("COPPER_BLOCK", "waxed", "oxidized");
+            case "CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "unaffected");
+            case "EXPOSED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "exposed");
+            case "WEATHERED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "weathered");
+            case "OXIDIZED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "weathering", "oxidized");
+            case "WAXED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "unaffected");
+            case "WAXED_EXPOSED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "exposed");
+            case "WAXED_WEATHERED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "weathered");
+            case "WAXED_OXIDIZED_CUT_COPPER" -> new LegacyCopperCollectionField("CUT_COPPER", "waxed", "oxidized");
+            default -> null;
+        };
+        if (migrated == null) return null;
         var target = VANILLA_RELOCATIONS.searchExactField(
-                "net.minecraft.world.level.block.Blocks", canonical,
+                "net.minecraft.world.level.block.Blocks", migrated.collection(),
                 "Lnet/minecraft/world/level/block/WeatheringCopperCollection;");
-        return target.size() == 1 ? canonical : null;
+        return target.size() == 1 ? migrated : null;
     }
 
     /** Minecraft 26.3 consolidated exact color-specific block fields. */
