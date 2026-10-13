@@ -827,27 +827,114 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     /** Adapt the exact 1.19.2 Level#playSound player exclusion to Entity. */
-    private static int rewriteLegacyLevelSoundPlayback(ClassNode node) {
-        final String owner = "net/minecraft/world/level/Level";
-        final String tail = "Lnet/minecraft/core/BlockPos;"
-                + "Lnet/minecraft/sounds/SoundEvent;"
-                + "Lnet/minecraft/sounds/SoundSource;FF)V";
-        final String legacyDesc = "(Lnet/minecraft/world/entity/player/Player;" + tail;
-        final String targetDesc = "(Lnet/minecraft/world/entity/Entity;" + tail;
+    private int rewriteLegacyLevelSoundPlayback(ClassNode node) {
+        if (isManagedSubtypeOf(node, "net/minecraft/world/level/Level")
+                && node.methods.stream().anyMatch(m -> legacyLevelSoundMember(node.name, m.name, m.desc) != null)) {
+            throw new IllegalStateException("Unadapted source level-sound override: " + node.name);
+        }
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
         int rewrites = 0;
-        for (var method : node.methods) {
-            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (!(insn instanceof MethodInsnNode call)
-                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        || !call.owner.equals(owner)
-                        || !call.name.equals("m_5594_")
-                        || !call.desc.equals(legacyDesc)) continue;
-                call.name = "playSound";
-                call.desc = targetDesc;
-                rewrites++;
+        for (var method : node.methods) for (var insn : method.instructions) {
+            if (insn instanceof MethodInsnNode call
+                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL) {
+                Handle adapted = legacyLevelSoundMember(call.owner, call.name, call.desc);
+                if (adapted != null) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = adapted.getOwner(); call.name = adapted.getName();
+                    call.desc = adapted.getDesc(); call.itf = false; rewrites++;
+                }
+            } else if (insn instanceof InvokeDynamicInsnNode indy) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    Object adapted = adaptLegacyLevelSoundConstant(node, indy.bsmArgs[i], adapters,
+                            capturedBridgeReceiver(indy, indy.bsmArgs[i]));
+                    if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
+                }
+            } else if (insn instanceof LdcInsnNode ldc) {
+                Object adapted = adaptLegacyLevelSoundConstant(node, ldc.cst, adapters, null);
+                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
             }
         }
+        node.methods.addAll(adapters);
         return rewrites;
+    }
+
+    /** A captured receiver can be narrower than an invokevirtual handle owner. */
+    private String capturedBridgeReceiver(InvokeDynamicInsnNode indy, Object value) {
+        if (!(value instanceof Handle handle)
+                || handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                || !indy.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) return null;
+        Type[] captured = Type.getArgumentTypes(indy.desc);
+        if (captured.length == 0 || captured[0].getSort() != Type.OBJECT) return null;
+        String receiver = captured[0].getInternalName();
+        return isManagedSubtypeOf(receiver, handle.getOwner()) ? receiver : null;
+    }
+
+    /** Preserve the original callable type, including LambdaMetafactory's exact capture rule. */
+    private static Handle preserveBridgeHandleType(ClassNode node, Handle original, Handle bridge,
+            String capturedReceiver, java.util.List<org.objectweb.asm.tree.MethodNode> adapters) {
+        String receiver = capturedReceiver == null ? original.getOwner() : capturedReceiver;
+        String descriptor = "(L" + receiver + ";" + original.getDesc().substring(1);
+        if (descriptor.equals(bridge.getDesc())) return bridge;
+        String name = "lms$semanticHandle$" + (node.methods.size() + adapters.size());
+        while (hasMethod(node, adapters, name, descriptor)) name += "$";
+        var adapter = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC
+                | org.objectweb.asm.Opcodes.ACC_STATIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                name, descriptor, null, null);
+        int local = 0;
+        for (Type argument : Type.getArgumentTypes(descriptor)) {
+            adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                    argument.getOpcode(org.objectweb.asm.Opcodes.ILOAD), local));
+            local += argument.getSize();
+        }
+        adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                bridge.getOwner(), bridge.getName(), bridge.getDesc(), false));
+        adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(
+                Type.getReturnType(descriptor).getOpcode(org.objectweb.asm.Opcodes.IRETURN)));
+        adapter.maxLocals = local; adapter.maxStack = Math.max(local, Type.getReturnType(descriptor).getSize());
+        adapters.add(adapter);
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, node.name, name, descriptor,
+                (node.access & org.objectweb.asm.Opcodes.ACC_INTERFACE) != 0);
+    }
+
+    private static boolean hasMethod(ClassNode node,
+            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String name, String descriptor) {
+        return java.util.stream.Stream.concat(node.methods.stream(), adapters.stream())
+                .anyMatch(method -> method.name.equals(name) && method.desc.equals(descriptor));
+    }
+
+    private Handle legacyLevelSoundMember(String owner, String name, String descriptor) {
+        String sourceName = switch (name + descriptor) {
+            case "m_5594_(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/core/BlockPos;Lnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V",
+                 "m_6263_(Lnet/minecraft/world/entity/player/Player;DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V",
+                 "m_6269_(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V" -> "playSound";
+            case "m_214150_(Lnet/minecraft/world/entity/player/Player;DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FFJ)V",
+                 "m_213890_(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FFJ)V" -> "playSeededSound";
+            default -> null;
+        };
+        if (sourceName == null || !isManagedSubtypeOf(owner, "net/minecraft/world/level/Level")) return null;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Forge1192LevelSoundBridge", sourceName,
+                "(Lnet/minecraft/world/level/Level;" + descriptor.substring(1), false);
+    }
+
+    private Object adaptLegacyLevelSoundConstant(ClassNode node, Object value,
+            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String capturedReceiver) {
+        if (value instanceof Handle handle && handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL) {
+            Handle adapted = legacyLevelSoundMember(handle.getOwner(), handle.getName(), handle.getDesc());
+            return adapted == null ? value : preserveBridgeHandleType(node, handle, adapted, capturedReceiver, adapters);
+        }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
+            boolean changed = false;
+            for (int i = 0; i < args.length; i++) {
+                Object original = dynamic.getBootstrapMethodArgument(i);
+                args[i] = adaptLegacyLevelSoundConstant(node, original, adapters, null);
+                changed |= args[i] != original;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(),
+                    dynamic.getBootstrapMethod(), args) : value;
+        }
+        return value;
     }
 
     /** Adapt 1.19.2 enum constants to the target sealed result-family fields. */
@@ -7471,6 +7558,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 && node.methods.stream().anyMatch(m -> legacyMobEffectQuery(node.name, m.name, m.desc) != null)) {
             throw new IllegalStateException("Unadapted source raw-effect query override: " + node.name);
         }
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
         int rewrites = 0;
         for (var method : node.methods) {
             for (var insn : method.instructions) {
@@ -7485,29 +7573,32 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 } else if (insn instanceof InvokeDynamicInsnNode indy) {
                     for (int i = 0; i < indy.bsmArgs.length; i++) {
-                        Object adapted = adaptLegacyMobEffectConstant(indy.bsmArgs[i]);
+                        Object adapted = adaptLegacyMobEffectConstant(node, indy.bsmArgs[i], adapters,
+                            capturedBridgeReceiver(indy, indy.bsmArgs[i]));
                         if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
                     }
                 } else if (insn instanceof org.objectweb.asm.tree.LdcInsnNode ldc) {
-                    Object adapted = adaptLegacyMobEffectConstant(ldc.cst);
+                    Object adapted = adaptLegacyMobEffectConstant(node, ldc.cst, adapters, null);
                     if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
                 }
             }
         }
+        node.methods.addAll(adapters);
         return rewrites;
     }
 
-    private Object adaptLegacyMobEffectConstant(Object value) {
+    private Object adaptLegacyMobEffectConstant(ClassNode node, Object value,
+            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String capturedReceiver) {
         if (value instanceof Handle handle && handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL) {
             Handle adapted = legacyMobEffectQuery(handle.getOwner(), handle.getName(), handle.getDesc());
-            return adapted == null ? value : adapted;
+            return adapted == null ? value : preserveBridgeHandleType(node, handle, adapted, capturedReceiver, adapters);
         }
         if (value instanceof ConstantDynamic dynamic) {
             Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
             boolean changed = false;
             for (int i = 0; i < args.length; i++) {
                 Object original = dynamic.getBootstrapMethodArgument(i);
-                args[i] = adaptLegacyMobEffectConstant(original);
+                args[i] = adaptLegacyMobEffectConstant(node, original, adapters, null);
                 changed |= args[i] != original;
             }
             return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(),

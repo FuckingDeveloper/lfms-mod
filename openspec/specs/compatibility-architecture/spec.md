@@ -259,6 +259,30 @@ remaining position, sound, category, volume, and pitch operands MUST be
 preserved unchanged; descriptor similarity on an unrelated owner is not
 sufficient evidence for this migration.
 
+The Forge 1.19.2 level-sound family includes block-position, coordinate and
+entity-source playback, plus coordinate and entity seeded playback. Source
+exclusion identity, raw sound identity and explicit seed MUST survive target
+holder conversion. Direct calls, inherited receivers and method-reference or
+dynamic-constant handles MUST obey the same exact member selection. Unadapted
+source playback overrides MUST fail explicitly instead of losing dispatch.
+
+Static bridge handles MUST preserve the source callable receiver type. When
+`LambdaMetafactory` captures a narrower receiver than the original virtual
+handle owner, an adapter MAY generate a typed static thunk in the source
+caller, selected using the verified capture hierarchy. The thunk MUST retain
+all arguments and the return value while delegating to the semantic bridge.
+Nested dynamic constants without such a capture MUST preserve the original
+handle's invocation type. Handle migration verification SHOULD link actual
+transformed method references, including inherited/narrower receiver captures.
+
+When source loader access widening made menu-counter and synchronization
+members public, a target adapter MAY restore visibility for the exact retained
+target members. Forge 1.19.2 `ServerPlayer.containerCounter`,
+`nextContainerCounter()` and `initMenu(AbstractContainerMenu)` MUST retain the
+counter's modulo-100 allocation and attachment of the target listener and
+synchronizer. This access contract MUST NOT be described as proof of custom
+menu networking, client screen rendering or inventory interaction support.
+
 When a source interaction-result enum becomes a sealed target result family,
 LMS MAY adapt exact source constant field identities to their corresponding
 target concrete result types. The source result meaning (success with swing,
