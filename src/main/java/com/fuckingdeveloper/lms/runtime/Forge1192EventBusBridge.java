@@ -59,6 +59,12 @@ import com.fuckingdeveloper.lms.runtime.render.Forge1192ModelBakingBridge;
  * Semantic adapters for Forge 1.19.2 event-bus contracts that changed in NeoForge.
  */
 public final class Forge1192EventBusBridge {
+    private static final AtomicBoolean LEGACY_CLIENT_RELOAD_LISTENER_PUBLISHED =
+            new AtomicBoolean();
+    private static final AtomicBoolean DEFERRED_CLIENT_RELOAD_REPLAY_REGISTERED =
+            new AtomicBoolean();
+    private static final AtomicBoolean DEFERRED_LIFECYCLE_CHANGED_CLIENT_STATE =
+            new AtomicBoolean();
     private static final List<PrioritizedListener<LegacyTextureStitchEvent.Pre>> TEXTURE_STITCH_PRE =
             new CopyOnWriteArrayList<>();
     private static final List<PrioritizedListener<LegacyTextureStitchEvent.Post>> TEXTURE_STITCH_POST =
@@ -112,6 +118,7 @@ public final class Forge1192EventBusBridge {
             key = Identifier.fromNamespaceAndPath(modId, base + "_" + suffix++);
         }
         event.addListener(key, listener);
+        LEGACY_CLIENT_RELOAD_LISTENER_PUBLISHED.set(true);
     }
 
     /**
@@ -257,6 +264,7 @@ public final class Forge1192EventBusBridge {
     private static <T extends Event> void registerComponentBoundLifecycle(
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
             Class<T> eventType, Consumer<T> listener) {
+        registerDeferredClientReloadReplay();
         AtomicReference<T> pending = new AtomicReference<>();
         AtomicBoolean invoked = new AtomicBoolean();
         bus.addListener(priority, false, eventType, event -> {
@@ -276,8 +284,38 @@ public final class Forge1192EventBusBridge {
             if (!invoked.compareAndSet(false, true)) return;
             Target263DataComponentBindingBridge.runBeforeBinding(
                     event.getServerResources(), event.getRegistries(),
-                    () -> listener.accept(lifecycleEvent));
+                    () -> {
+                        listener.accept(lifecycleEvent);
+                        DEFERRED_LIFECYCLE_CHANGED_CLIENT_STATE.set(true);
+                    });
         });
+    }
+
+    /**
+     * Replay target client resources when a whole deferred source lifecycle
+     * callback populated state after the initial client reload had completed.
+     */
+    private static void registerDeferredClientReloadReplay() {
+        if (!DEFERRED_CLIENT_RELOAD_REPLAY_REGISTERED.compareAndSet(false, true)) return;
+        NeoForge.EVENT_BUS.addListener(
+                net.neoforged.bus.api.EventPriority.LOWEST, false,
+                TagsUpdatedEvent.ServerDataLoad.class, event -> {
+                    if (!event.shouldUpdateStaticData()
+                            || !LEGACY_CLIENT_RELOAD_LISTENER_PUBLISHED.get()) return;
+                    net.minecraft.client.Minecraft minecraft =
+                            net.minecraft.client.Minecraft.getInstance();
+                    if (minecraft == null) {
+                        throw new IllegalStateException(
+                                "Deferred legacy client reload requires an active target client");
+                    }
+                    // Queue after this complete event dispatch so source
+                    // callbacks at the same priority also finish first.
+                    minecraft.execute(() -> {
+                        if (DEFERRED_LIFECYCLE_CHANGED_CLIENT_STATE.getAndSet(false)) {
+                            minecraft.reloadResourcePacks();
+                        }
+                    });
+                });
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

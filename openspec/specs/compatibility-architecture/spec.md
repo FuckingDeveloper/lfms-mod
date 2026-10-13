@@ -121,6 +121,15 @@ earlier deferred call. Whole-callback deferral is permitted only with evidence
 that the source event parameter is not consumed after its original phase;
 otherwise the unsupported lifecycle migration MUST fail closed.
 
+If such whole-callback deferral moves source setup past the target's initial
+client-resource reload, and source code already contributed a client reload
+listener whose state is populated by that setup, LMS MUST request a subsequent
+ordinary target client reload after all deferred callbacks for that data-load
+dispatch complete. LMS MUST use the target reload machinery so listener
+ordering, preparation barriers, application threading, and failure handling
+remain authoritative; it MUST NOT invoke an arbitrary listener callback
+directly or special-case the state that one integration mod happens to build.
+
 When such a callback requires a source-era value before the target binds its
 global default-component state, a target adapter MAY materialize an isolated
 value from the exact preserved construction intent and target component
