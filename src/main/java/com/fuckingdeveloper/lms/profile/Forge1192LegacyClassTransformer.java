@@ -247,6 +247,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyVector3fFamily(node);
         rewrites += rewriteLegacyQuaternionFamily(node);
         rewrites += rewriteLegacyBakedQuadFamily(node);
+        rewrites += rewriteLegacyRenderShapeConstants(node);
         rewrites += rewriteLegacyPackRepositoryFamily(node);
         rewrites += rewriteLegacyPackMetadataConstruction(node);
         rewrites += rewriteLegacySimpleJsonReloadListener(node);
@@ -5664,6 +5665,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     /**
+     * Forge 1.19.2 used ENTITYBLOCK_ANIMATED to exclude a block from chunk
+     * model tessellation while leaving its block-entity renderer active. The
+     * 26.3 chunk compiler handles block entities independently and represents
+     * that same no-model decision with INVISIBLE.
+     */
+    private static int rewriteLegacyRenderShapeConstants(ClassNode node) {
+        final String owner = "net/minecraft/world/level/block/RenderShape";
+        final String descriptor = "Lnet/minecraft/world/level/block/RenderShape;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals(owner)
+                        && field.name.equals("ENTITYBLOCK_ANIMATED")
+                        && field.desc.equals(descriptor)) {
+                    field.name = "INVISIBLE";
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
      * Adapt the source-generation fluent vertex writer to the target 26.3
      * channel names. Position narrows from double to the target's float ABI;
      * the bridge performs that conversion explicitly. Target BufferBuilder
@@ -9062,7 +9088,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
                 // Current NeoForge EventHooks posts the same NeighborNotifyEvent
                 // and returns it; the old ForgeEventFactory owner was removed.
-                if (call.owner.equals("net/neoforged/neoforge/event/ForgeEventFactory")
+                if ((call.owner.equals("net/minecraftforge/event/ForgeEventFactory")
+                        || call.owner.equals("net/neoforged/neoforge/event/ForgeEventFactory"))
                         && call.name.equals("onNeighborNotify")
                         && call.desc.equals("(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Ljava/util/EnumSet;Z)Lnet/neoforged/neoforge/event/level/BlockEvent$NeighborNotifyEvent;")) {
                     call.owner = "net/neoforged/neoforge/event/EventHooks";

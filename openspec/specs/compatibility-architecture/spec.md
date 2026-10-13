@@ -379,6 +379,19 @@ render position into the source quad operation. LMS MUST NOT substitute empty
 model data for positioned block rendering or query a live block entity from a
 meshing worker to reconstruct the snapshot.
 
+When the source render-shape enum distinguishes block-entity-only rendering
+from fully invisible blocks but the target chunk compiler handles block
+entities independently, LMS MAY map the exact source block-entity-only enum
+constant to the target no-model shape. This mapping MUST preserve independent
+block-entity discovery/submission and MUST NOT be inferred from enum ordinal or
+from another removed constant with unverified rendering semantics.
+
+When a source Forge event-factory hook survives in the target under a different
+owner with the same event construction, dispatch, cancellation, arguments and
+return contract, LMS MAY migrate that exact owner/member/descriptor identity.
+The rewrite MUST match the source owner directly even when fail-closed namespace
+projection intentionally leaves the removed owner unchanged.
+
 When a source generation registers procedural block or item color handlers but
 the target consumes packed tint values during block tessellation or item render-
 state extraction, an LMS-owned legacy model adapter MAY evaluate the preserved
