@@ -216,6 +216,20 @@ migration from the interface method descriptor alone, guess a target from the
 Mixin interface name, or silently skip an accessor/invoker whose target
 equivalence is unproven.
 
+When a source Mixin accessor names client sound-engine fields that retain the
+same identity, type, and purpose in the target, LMS MAY replace casts and
+accessor calls with direct target field reads after verifying both source
+annotations and target fields. The adapter MUST preserve access to the target
+sound manager, channel access, and sound-buffer library; it MUST NOT skip
+source audio playback when these fields are unavailable.
+
+Forge 1.19.2 Blaze3D `Channel` SRG calls MAY be renamed to target methods
+only when the exact source owner, name, and descriptor resolve to a public
+target method with the same channel-control semantics. The source profile
+MUST cover the verified channel-control family rather than only the first
+failing call. Unknown or changed channel operations MUST remain unresolved;
+an audio executor failure MUST NOT be hidden as successful playback.
+
 When a source level sound operation excludes a nullable player from hearing a
 sound and the target widens that exclusion parameter to any entity, LMS MAY
 adapt the exact mapped level member to the widened target descriptor. The
