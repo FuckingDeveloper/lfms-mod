@@ -295,6 +295,12 @@ MUST be gated by the verified source superclass, override descriptor, and
 constructor shape; it MUST NOT choose a fixed target model or texture merely
 to make renderer construction succeed.
 
+When a target replaces a source normalized color vector with a packed color,
+LMS MAY reconstruct the source value shape only from the exact target semantic
+color member and its documented channel encoding. It MUST preserve channel
+order and normalization and MUST NOT reinterpret an unrelated packed color
+merely because it has the same primitive type.
+
 When the target snapshots or derives its block-state dispatch before the
 source-equivalent completion phase, LMS MAY execute a legacy baked-model
 registration callback during the target's final mutable baking phase. This

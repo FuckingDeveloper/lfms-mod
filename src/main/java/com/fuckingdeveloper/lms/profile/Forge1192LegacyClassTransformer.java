@@ -254,6 +254,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteLegacyTextureAtlasSpriteIdentity(node);
         rewrites += rewriteLegacyBoatRendererSubclass(node);
+        rewrites += rewriteLegacyDyeColorValues(node);
         rewrites += rewriteLegacyPlayerInteractionDecisions(node);
         rewrites += rewriteLegacyLevelSoundPlayback(node);
         rewrites += rewriteLegacyInteractionResultConstants(node);
@@ -410,6 +411,30 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.owner = targetSuper;
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Target 26.3 packs the same dye texture color into ARGB instead of the
+     * source generation's normalized RGB float array.
+     */
+    private static int rewriteLegacyDyeColorValues(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals("net/minecraft/world/item/DyeColor")
+                        || !call.name.equals("m_41068_")
+                        || !call.desc.equals("()[F")) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192DyeColorBridge";
+                call.name = "textureDiffuseColors";
+                call.desc = "(Lnet/minecraft/world/item/DyeColor;)[F";
+                call.itf = false;
+                rewrites++;
             }
         }
         return rewrites;
