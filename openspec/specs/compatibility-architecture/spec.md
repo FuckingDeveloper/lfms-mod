@@ -606,6 +606,30 @@ services. It MUST NOT mutate FML's loader lists or fabricate native containers,
 configuration factories or update-check results for managed sessions. Display
 presence MUST NOT imply functional compatibility or target loader ownership.
 
+Forge 1.19.2 raw-effect queries on verified `LivingEntity` receivers MUST
+resolve the registered target effect holder and preserve query, removal,
+notification and cancellation semantics. Instance effect reads MUST return the
+exact raw effect value. The family MUST cover inherited receivers, method
+references and nested dynamic constants. Descriptor coincidence on unrelated
+owners MUST NOT trigger a rewrite. The five surviving source constructor
+shapes MAY migrate to holder arguments; removed hidden-effect/factor-data
+construction MUST fail explicitly. This does not establish compatibility for
+mutable raw-key effect maps, custom effect execution or potion serialization.
+Unadapted source query overrides and mutable raw-key map access MUST fail
+explicitly rather than bypass overrides or expose target holder keys as raw
+source effect keys.
+
+Forge 1.19.2 block `use` overrides MAY participate in the target's split
+item/empty-hand interaction pipeline through verified block inheritance and
+the exact source callback descriptor. Ordinary target interaction MUST invoke
+the source callback once with the original state, level, position, player,
+hand and hit result, including when the held stack is empty. A source PASS
+MUST remain PASS and MUST NOT request a second empty-hand callback. Explicit
+target empty-hand dispatch MUST supply MAIN_HAND, the only hand represented by
+that target operation. Source-super base dispatch MUST preserve the source
+base PASS instead of redispatching to the override. Callback delivery alone
+MUST NOT be claimed as menu, screen, networking or machine functionality.
+
 Forge 1.19.2 custom item-use callbacks MUST preserve the source action/value
 pair when the target returns an action with an optional transformed held stack.
 Success results MUST retain their swing semantics and exact returned stack.

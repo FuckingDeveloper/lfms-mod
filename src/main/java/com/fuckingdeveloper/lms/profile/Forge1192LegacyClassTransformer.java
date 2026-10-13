@@ -198,6 +198,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacySignItemConstruction(node);
         rewrites += rewriteLegacyItemNameDefaults(node);
         rewrites += rewriteLegacyItemUseCallbacks(node);
+        rewrites += rewriteLegacyBlockUseCallbacks(node);
         rewrites += rewriteLegacySignBlockConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
@@ -291,6 +292,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
         rewrites += rewriteLegacyMobEffectInstanceConstruction(node);
+        rewrites += rewriteLegacyMobEffectQueries(node);
         rewrites += rewriteLegacyVanillaRegistryFields(node);
         rewrites += rewriteLegacyForgeBuiltinFields(node);
         rewrites += rewriteLegacyForgeRegistries(node);
@@ -1897,6 +1899,66 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 rewrites++;
                 insn = next;
             }
+        }
+        return rewrites;
+    }
+
+    /** The target calls useItemOn even for an empty stack; PASS must not request a second callback. */
+    private int rewriteLegacyBlockUseCallbacks(ClassNode node) {
+        String block = "net/minecraft/world/level/block/Block";
+        String state = "Lnet/minecraft/world/level/block/state/BlockState;";
+        String level = "Lnet/minecraft/world/level/Level;";
+        String pos = "Lnet/minecraft/core/BlockPos;";
+        String player = "Lnet/minecraft/world/entity/player/Player;";
+        String hand = "Lnet/minecraft/world/InteractionHand;";
+        String hit = "Lnet/minecraft/world/phys/BlockHitResult;";
+        String result = "Lnet/minecraft/world/InteractionResult;";
+        String sourceDescriptor = "(" + state + level + pos + player + hand + hit + ")" + result;
+        int rewrites = 0;
+        // The exact source BlockBehaviour base implementation returns PASS.
+        // Keep explicit source-super dispatch distinct from virtual callbacks.
+        for (var method : node.methods) for (var insn : method.instructions) {
+            if (insn instanceof MethodInsnNode call && call.name.equals("m_6227_")
+                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                    && call.desc.equals(sourceDescriptor)
+                    && (call.owner.equals(block)
+                        || call.owner.equals("net/minecraft/world/level/block/state/BlockBehaviour"))) {
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BlockInteractionBridge";
+                call.name = "baseUse";
+                call.desc = "(L" + block + ";" + sourceDescriptor.substring(1);
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        if (!isManagedSubtypeOf(node, block)) return rewrites;
+        var source = node.methods.stream().filter(m -> m.name.equals("m_6227_")
+                && m.desc.equals(sourceDescriptor)
+                && (m.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0).findFirst().orElse(null);
+        if (source == null) return rewrites;
+        for (boolean withItem : new boolean[]{true, false}) {
+            String name = withItem ? "useItemOn" : "useWithoutItem";
+            String descriptor = withItem
+                    ? "(Lnet/minecraft/world/item/ItemStack;" + sourceDescriptor.substring(1)
+                    : "(" + state + level + pos + player + hit + ")" + result;
+            if (node.methods.stream().anyMatch(m -> m.name.equals(name) && m.desc.equals(descriptor)))
+                throw new IllegalStateException("Conflicting source/target block-use callbacks: " + node.name);
+            var adapter = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC
+                    | org.objectweb.asm.Opcodes.ACC_SYNTHETIC, name, descriptor, null, null);
+            adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+            int offset = withItem ? 1 : 0;
+            for (int i = 1; i <= 4; i++) adapter.instructions.add(
+                    new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, i + offset));
+            if (withItem) adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 6));
+            else adapter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
+                    "net/minecraft/world/InteractionHand", "MAIN_HAND", hand));
+            adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, withItem ? 7 : 5));
+            adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                    node.name, source.name, source.desc, false));
+            adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));
+            adapter.maxStack = 7; adapter.maxLocals = withItem ? 8 : 6;
+            node.methods.add(adapter);
+            rewrites++;
         }
         return rewrites;
     }
@@ -7370,6 +7432,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         || !call.owner.equals(owner)
                         || !call.name.equals("<init>")
                         || !call.desc.startsWith(legacyPrefix)) continue;
+                if (!java.util.Set.of(legacyPrefix + ")V", legacyPrefix + "I)V",
+                        legacyPrefix + "II)V", legacyPrefix + "IIZZ)V",
+                        legacyPrefix + "IIZZZ)V").contains(call.desc)) {
+                    throw new IllegalStateException("Unadapted source effect construction: "
+                            + node.name + "#" + method.name + " -> " + call.desc);
+                }
                 Type[] arguments = Type.getArgumentTypes(call.desc);
                 int[] locals = new int[arguments.length];
                 var adaptation = new org.objectweb.asm.tree.InsnList();
@@ -7395,6 +7463,78 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Holder migration requires source member identity AND verified receiver ancestry. */
+    private int rewriteLegacyMobEffectQueries(ClassNode node) {
+        if (isManagedSubtypeOf(node, "net/minecraft/world/entity/LivingEntity")
+                && node.methods.stream().anyMatch(m -> legacyMobEffectQuery(node.name, m.name, m.desc) != null)) {
+            throw new IllegalStateException("Unadapted source raw-effect query override: " + node.name);
+        }
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn : method.instructions) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL) {
+                    Handle adapted = legacyMobEffectQuery(call.owner, call.name, call.desc);
+                    if (adapted != null) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = adapted.getOwner(); call.name = adapted.getName();
+                        call.desc = adapted.getDesc(); call.itf = false;
+                        rewrites++;
+                    }
+                } else if (insn instanceof InvokeDynamicInsnNode indy) {
+                    for (int i = 0; i < indy.bsmArgs.length; i++) {
+                        Object adapted = adaptLegacyMobEffectConstant(indy.bsmArgs[i]);
+                        if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
+                    }
+                } else if (insn instanceof org.objectweb.asm.tree.LdcInsnNode ldc) {
+                    Object adapted = adaptLegacyMobEffectConstant(ldc.cst);
+                    if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    private Object adaptLegacyMobEffectConstant(Object value) {
+        if (value instanceof Handle handle && handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL) {
+            Handle adapted = legacyMobEffectQuery(handle.getOwner(), handle.getName(), handle.getDesc());
+            return adapted == null ? value : adapted;
+        }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
+            boolean changed = false;
+            for (int i = 0; i < args.length; i++) {
+                Object original = dynamic.getBootstrapMethodArgument(i);
+                args[i] = adaptLegacyMobEffectConstant(original);
+                changed |= args[i] != original;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(),
+                    dynamic.getBootstrapMethod(), args) : value;
+        }
+        return value;
+    }
+
+    private Handle legacyMobEffectQuery(String owner, String name, String descriptor) {
+        String effect = "Lnet/minecraft/world/effect/MobEffect;";
+        String receiver = "net/minecraft/world/entity/LivingEntity";
+        String target = switch (name + descriptor) {
+            case "m_21124_(Lnet/minecraft/world/effect/MobEffect;)Lnet/minecraft/world/effect/MobEffectInstance;" -> "getEffect";
+            case "m_21023_(Lnet/minecraft/world/effect/MobEffect;)Z" -> "hasEffect";
+            case "m_6234_(Lnet/minecraft/world/effect/MobEffect;)Lnet/minecraft/world/effect/MobEffectInstance;" -> "removeEffectNoUpdate";
+            case "m_21195_(Lnet/minecraft/world/effect/MobEffect;)Z" -> "removeEffect";
+            case "m_21221_()Ljava/util/Map;" -> "getActiveEffectsMap";
+            default -> null;
+        };
+        if (name.equals("m_19544_") && descriptor.equals("()" + effect)) {
+            receiver = "net/minecraft/world/effect/MobEffectInstance";
+            target = "getEffect";
+        }
+        if (target == null || !isManagedSubtypeOf(owner, receiver)) return null;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Forge1192MobEffectBridge", target,
+                "(L" + receiver + ";" + descriptor.substring(1), false);
     }
 
     private static int rewriteLegacyForgeBuiltinFields(ClassNode node) {

@@ -208,3 +208,19 @@ tasks.register('prepareLegacyRuntime') {
         logger.lifecycle("LMS: prepared ${target} from ${selected}")
     }
 }
+
+// Redistributable ASM fixtures; external legacy artifacts are optional evidence.
+sourceSets {
+    compatibilityTest {
+        java.srcDir 'src/compatibilityTest/java'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+tasks.register('compatibilityTest', JavaExec) {
+    group = 'verification'
+    dependsOn tasks.named('classes'), tasks.named('compatibilityTestClasses')
+    classpath = sourceSets.compatibilityTest.runtimeClasspath
+    mainClass = 'com.fuckingdeveloper.lms.check.GameplayFamilyCheck'
+    workingDir = layout.projectDirectory.dir('run')
+}
