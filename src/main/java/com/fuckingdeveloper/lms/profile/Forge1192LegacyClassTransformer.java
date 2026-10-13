@@ -252,6 +252,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
+        rewrites += rewriteLegacyPlayerInteractionDecisions(node);
+        rewrites += rewriteLegacyLevelSoundPlayback(node);
+        rewrites += rewriteLegacyInteractionResultConstants(node);
+        rewrites += rewriteLegacyPlacedBlockCriterion(node);
+        rewrites += rewriteLegacyBlockStateCloneItem(node);
         rewrites += rewriteLegacyNeighborUpdateFamily(node);
         rewrites += rewriteLegacyVertexConsumerFamily(node);
         rewrites += rewriteTargetInterfaceInvocationShapes(node);
@@ -332,6 +337,177 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         node.fields = migrated.fields;
         node.methods = migrated.methods;
         return changed;
+    }
+
+    /**
+     * Forge 1.19.2 represented right-click use decisions with Event.Result;
+     * target 26.3 retains the same three semantics using TriState. Rewrite the
+     * exact event accessors/mutators and their value identities together.
+     */
+    private static int rewriteLegacyPlayerInteractionDecisions(ClassNode node) {
+        final String event = "net/neoforged/neoforge/event/entity/player/"
+                + "PlayerInteractEvent$RightClickBlock";
+        final String legacyResult = "Lnet/neoforged/bus/api/Event$Result;";
+        final String targetResult = "Lnet/minecraft/util/TriState;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            boolean rightClickDecisionFamily = false;
+            for (var candidate = method.instructions.getFirst();
+                    candidate != null; candidate = candidate.getNext()) {
+                if (!(candidate instanceof MethodInsnNode call) || !call.owner.equals(event)) continue;
+                if (((call.name.equals("getUseBlock") || call.name.equals("getUseItem"))
+                        && call.desc.equals("()" + legacyResult))
+                        || ((call.name.equals("setUseBlock") || call.name.equals("setUseItem"))
+                        && call.desc.equals("(" + legacyResult + ")V"))) {
+                    rightClickDecisionFamily = true;
+                    break;
+                }
+            }
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call && call.owner.equals(event)) {
+                    if ((call.name.equals("getUseBlock") || call.name.equals("getUseItem"))
+                            && call.desc.equals("()" + legacyResult)) {
+                        call.desc = "()" + targetResult;
+                        rewrites++;
+                        continue;
+                    }
+                    if ((call.name.equals("setUseBlock") || call.name.equals("setUseItem"))
+                            && call.desc.equals("(" + legacyResult + ")V")) {
+                        call.desc = "(" + targetResult + ")V";
+                        rewrites++;
+                        continue;
+                    }
+                }
+                if (!(insn instanceof FieldInsnNode field)
+                        || !rightClickDecisionFamily
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals("net/neoforged/bus/api/Event$Result")
+                        || !field.desc.equals(legacyResult)) continue;
+                String mapped = switch (field.name) {
+                    case "ALLOW" -> "TRUE";
+                    case "DENY" -> "FALSE";
+                    case "DEFAULT" -> "DEFAULT";
+                    default -> null;
+                };
+                if (mapped == null) continue;
+                field.owner = "net/minecraft/util/TriState";
+                field.name = mapped;
+                field.desc = targetResult;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Adapt the exact 1.19.2 Level#playSound player exclusion to Entity. */
+    private static int rewriteLegacyLevelSoundPlayback(ClassNode node) {
+        final String owner = "net/minecraft/world/level/Level";
+        final String tail = "Lnet/minecraft/core/BlockPos;"
+                + "Lnet/minecraft/sounds/SoundEvent;"
+                + "Lnet/minecraft/sounds/SoundSource;FF)V";
+        final String legacyDesc = "(Lnet/minecraft/world/entity/player/Player;" + tail;
+        final String targetDesc = "(Lnet/minecraft/world/entity/Entity;" + tail;
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("m_5594_")
+                        || !call.desc.equals(legacyDesc)) continue;
+                call.name = "playSound";
+                call.desc = targetDesc;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Adapt 1.19.2 enum constants to the target sealed result-family fields. */
+    private static int rewriteLegacyInteractionResultConstants(ClassNode node) {
+        final String owner = "net/minecraft/world/InteractionResult";
+        final String legacyDesc = "L" + owner + ";";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals(owner)
+                        || !field.desc.equals(legacyDesc)) continue;
+                String targetType = switch (field.name) {
+                    case "SUCCESS", "CONSUME" -> owner + "$Success";
+                    case "PASS" -> owner + "$Pass";
+                    case "FAIL" -> owner + "$Fail";
+                    default -> null;
+                };
+                if (targetType == null) continue;
+                field.desc = "L" + targetType + ";";
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Migrate the exact built-in placed-block criterion and trigger call. */
+    private static int rewriteLegacyPlacedBlockCriterion(ClassNode node) {
+        final String criteria = "net/minecraft/advancements/triggers/CriteriaTriggers";
+        final String sourceTrigger = "net/minecraft/advancements/critereon/PlacedBlockTrigger";
+        final String targetTrigger = "net/minecraft/advancements/triggers/ItemUsedOnLocationTrigger";
+        final String sourceDesc = "(Lnet/minecraft/server/level/ServerPlayer;"
+                + "Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/item/ItemStack;)V";
+        final String targetDesc = "(Lnet/minecraft/server/level/ServerPlayer;"
+                + "Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/item/ItemInstance;)V";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals(criteria)
+                        && field.name.equals("f_10591_")
+                        && field.desc.equals("L" + sourceTrigger + ";")) {
+                    field.name = "PLACED_BLOCK";
+                    field.desc = "L" + targetTrigger + ";";
+                    rewrites++;
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals(sourceTrigger)
+                        && call.name.equals("m_59469_")
+                        && call.desc.equals(sourceDesc)) {
+                    call.owner = targetTrigger;
+                    call.name = "trigger";
+                    call.desc = targetDesc;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    /** Preserve player-sensitive clone-item semantics after hit context removal. */
+    private static int rewriteLegacyBlockStateCloneItem(ClassNode node) {
+        final String owner = "net/minecraft/world/level/block/state/BlockState";
+        final String sourceDesc = "(Lnet/minecraft/world/phys/HitResult;"
+                + "Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;"
+                + "Lnet/minecraft/world/entity/player/Player;)Lnet/minecraft/world/item/ItemStack;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals(owner)
+                        || !call.name.equals("getCloneItemStack")
+                        || !call.desc.equals(sourceDesc)) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BlockStateBridge";
+                call.name = "getCloneItemStack";
+                call.desc = "(L" + owner + ";" + sourceDesc.substring(1);
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
     }
 
     private static byte[] writeNode(ClassNode node) {
@@ -5454,6 +5630,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 var current = insn;
                 insn = insn.getNext();
                 if (!(current instanceof FieldInsnNode field)) continue;
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/world/level/chunk/status/ChunkStatus")
+                        && field.name.equals("f_62326_")
+                        && field.desc.equals("Lnet/minecraft/world/level/chunk/status/ChunkStatus;")) {
+                    field.name = "FULL";
+                    rewrites++;
+                    continue;
+                }
                 if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
                         && field.name.equals("f_19853_")
                         && field.desc.equals("Lnet/minecraft/world/level/Level;")) {

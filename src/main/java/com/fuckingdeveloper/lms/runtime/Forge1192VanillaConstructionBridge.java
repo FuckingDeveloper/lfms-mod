@@ -348,6 +348,17 @@ public final class Forge1192VanillaConstructionBridge {
         return Optional.ofNullable(ITEM_PROPERTIES.get(item));
     }
 
+    /** Resolve the target model identity without reading unbound holder components. */
+    public static net.minecraft.resources.Identifier itemModelIdentity(Item item) {
+        Item.Properties properties = ITEM_PROPERTIES.get(item);
+        if (properties != null) return properties.effectiveModel();
+        return BuiltInRegistries.ITEM.getResourceKey(item)
+                .map(ResourceKey::identifier)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Item model registration has neither preserved properties nor a target registry key for "
+                                + item));
+    }
+
     /**
      * 1.19.2 exposed BlockEntityType(supplier, validBlocks, dataFixerType).
      * The public builder is the surviving construction contract. The legacy

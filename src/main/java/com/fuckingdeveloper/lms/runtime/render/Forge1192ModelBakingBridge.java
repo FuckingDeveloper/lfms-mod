@@ -1,5 +1,6 @@
 package com.fuckingdeveloper.lms.runtime.render;
 
+import com.fuckingdeveloper.lms.runtime.Forge1192VanillaConstructionBridge;
 import com.fuckingdeveloper.lms.runtime.event.LegacyModelBakingCompletedEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -83,7 +84,13 @@ public final class Forge1192ModelBakingBridge {
             throw new IllegalStateException("Unregistered legacy item model: " + item
                     + " resolvedId=" + itemId);
         }
-        active.registerItemModel(itemId, modelKey);
+        Identifier targetModelId =
+                Forge1192VanillaConstructionBridge.itemModelIdentity(item);
+        if (targetModelId == null) {
+            throw new IllegalStateException(
+                    "Registered legacy item has no target item-model component: " + itemId);
+        }
+        active.registerItemModel(itemId, targetModelId, modelKey);
     }
 
     public static LegacyModelResourceLocation stateModelKey(BlockState state) {
@@ -150,14 +157,15 @@ public final class Forge1192ModelBakingBridge {
             return result().missingModels().blockPart().particleMaterial();
         }
 
-        private void registerItemModel(
-                Identifier itemId, LegacyModelResourceLocation modelKey) {
+        private void registerItemModel(Identifier itemId, Identifier targetModelId,
+                                       LegacyModelResourceLocation modelKey) {
             LegacyBakedModel model = legacyModels.get(modelKey);
             // Forge 1.19.2 ItemModelShaper#register stored into a map and a
             // later registration for the same item replaced the earlier one.
             if (model != null) {
-                result().itemStackModels().put(itemId,
-                        new LegacyItemModel(model, missingMaterial()));
+                LegacyItemModel migrated = new LegacyItemModel(model, missingMaterial());
+                result().itemStackModels().put(modelKey.identifier(), migrated);
+                result().itemStackModels().put(targetModelId, migrated);
                 itemModels++;
                 return;
             }
@@ -170,7 +178,7 @@ public final class Forge1192ModelBakingBridge {
                         "Legacy item model key was not populated before registration: item="
                                 + itemId + " model=" + modelKey);
             }
-            result().itemStackModels().put(itemId, baked);
+            result().itemStackModels().put(targetModelId, baked);
             itemModels++;
         }
     }

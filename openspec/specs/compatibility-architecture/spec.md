@@ -180,6 +180,45 @@ time, position, and extracted entity-state properties identify exactly one
 entity. Missing or ambiguous matches MUST fail explicitly; an arbitrary nearby
 entity MUST NOT be substituted.
 
+When a source player-interaction event expresses its block/item-use decision
+with Forge's three-valued `Event.Result`, a target adapter MAY translate that
+decision to a target three-state type only after proving the exact event
+owner, accessor/mutator member identity, and value semantics. Source
+`ALLOW`, `DENY`, and `DEFAULT` MUST retain their force-allow, force-deny, and
+defer-to-normal-processing meanings respectively. LMS MUST rewrite both the
+method descriptor and the corresponding enum constants as one compatibility
+family; it MUST NOT generalize this conversion from an enum descriptor alone.
+
+When a source level sound operation excludes a nullable player from hearing a
+sound and the target widens that exclusion parameter to any entity, LMS MAY
+adapt the exact mapped level member to the widened target descriptor. The
+remaining position, sound, category, volume, and pitch operands MUST be
+preserved unchanged; descriptor similarity on an unrelated owner is not
+sufficient evidence for this migration.
+
+When a source interaction-result enum becomes a sealed target result family,
+LMS MAY adapt exact source constant field identities to their corresponding
+target concrete result types. The source result meaning (success with swing,
+consume without swing, pass, or fail) MUST be preserved. A source constant
+whose target semantics are not proven MUST remain unresolved rather than being
+collapsed into a superficially similar result.
+
+When a source placed-block advancement trigger is replaced by a generalized
+item-used-on-location trigger, LMS MAY migrate the exact built-in trigger field
+and invocation together when the target retains the same player, position, and
+item observation. Widening the item operand from a source stack to a target
+item-instance interface is valid only when the source stack implements that
+interface; arbitrary advancement triggers MUST NOT be redirected by descriptor
+similarity.
+
+When a source block-state clone/pick operation carries hit, world, position,
+and player context but the target no longer represents hit context, LMS MAY
+adapt the exact source extension member to the target player-sensitive clone
+operation. The world MUST satisfy the target level-reader contract, the player
+and position MUST be preserved, and source behavior MUST NOT be replaced with
+an arbitrary registry lookup. The removed hit value MAY be discarded only
+because the target operation has no equivalent input.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state
@@ -243,6 +282,18 @@ Source event operations that require the completed model manager or other
 later state MUST remain fail-closed. LMS MUST NOT mutate a completed target
 model manager reflectively or claim that a late mutation of a detached baking
 map updates the target dispatch cache.
+
+When a source item-model shaper binds a baked model to an item object but the
+target renderer resolves models through an item data component, LMS MUST
+publish the migrated model under the source binding's explicit model identity
+and, when distinct, the exact target construction model identity of that item.
+The item's registry identifier remains authoritative for validating the source
+item identity; it MUST NOT replace the explicit source model identity merely
+because older generations commonly used one identifier for both. If the target
+has not yet bound global holder components during the source-equivalent
+model-registration phase, LMS MUST derive its construction model identity from
+the exact preserved item properties or the proven target default; it MUST NOT
+force early global binding or read incomplete holder state.
 
 When source model baking is ordered after texture-stitch completion but the
 target uploads the prepared atlas only after it snapshots model dispatch,
