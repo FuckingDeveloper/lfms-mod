@@ -63,7 +63,13 @@ public final class Target263LegacyResourcePackBridge {
                 .toList();
         event.addRepositorySource(output -> {
             if (packType == PackType.CLIENT_RESOURCES) output.accept(createAtlasExtensionPack());
-            snapshot.forEach(artifact -> output.accept(createPack(artifact, packType)));
+            snapshot.forEach(artifact -> {
+                output.accept(createPack(artifact, packType));
+                if (packType == PackType.CLIENT_RESOURCES) {
+                    Pack signGuiPack = Target263LegacySignGuiResources.createPack(artifact);
+                    if (signGuiPack != null) output.accept(signGuiPack);
+                }
+            });
         });
         LOG.info("LMS legacy-resource-packs type={} artifacts={}", packType, snapshot.size());
     }
