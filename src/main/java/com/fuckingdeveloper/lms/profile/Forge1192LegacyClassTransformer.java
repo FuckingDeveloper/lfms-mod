@@ -205,6 +205,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockPropertiesCopy(node);
         rewrites += rewriteLegacyViewBlockingPredicate(node);
         rewrites += rewriteLegacyBlockSetTypeConstruction(node);
+        rewrites += rewriteLegacyFarmlandFields(node);
         rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
         rewrites += rewriteLegacyComposterRegistrations(node);
@@ -1886,6 +1887,25 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 method.instructions.insertBefore(call, adaptation);
                 call.desc = "(" + blockSetType + properties + ")V";
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Migrate only the verified static farmland property, not the changed class ABI. */
+    private static int rewriteLegacyFarmlandFields(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/world/level/block/FarmBlock")
+                        && field.name.equals("f_53243_")
+                        && field.desc.equals("Lnet/minecraft/world/level/block/state/properties/IntegerProperty;")) {
+                    field.owner = "net/minecraft/world/level/block/FarmlandBlock";
+                    field.name = "MOISTURE";
+                    rewrites++;
+                }
             }
         }
         return rewrites;

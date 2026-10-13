@@ -239,6 +239,12 @@ same concrete gameplay role, LMS MAY map the exact source SRG/Mojang field to
 the exact target declaration only with verified source and target registry
 evidence. Similar field types or names alone are insufficient.
 
+When a target class rename also changes construction or instance behavior, LMS
+MUST NOT globally relocate the source class merely to resolve a verified static
+member. It MAY migrate an exact source static field to the corresponding target
+field while leaving unproven constructors, inheritance, and instance operations
+fail-closed.
+
 When a source chat click event stores an action and string but the target uses
 action-specific value types, LMS MUST construct the exact target event type
 for values representable by the target and MUST preserve source action/value
