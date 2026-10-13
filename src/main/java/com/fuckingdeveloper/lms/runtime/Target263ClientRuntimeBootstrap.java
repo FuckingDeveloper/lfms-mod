@@ -15,7 +15,11 @@ import net.neoforged.neoforge.client.event.RegisterSpriteSourcesEvent;
 public final class Target263ClientRuntimeBootstrap {
     private Target263ClientRuntimeBootstrap() {}
 
-    public static void register(IEventBus modBus) {
+    public static void register(IEventBus modBus,
+            java.util.function.Supplier<java.util.List<Forge1192RuntimeSession>> sessions) {
         modBus.addListener(RegisterSpriteSourcesEvent.class, LegacyTextureStitchSpriteSource::register);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                net.neoforged.neoforge.client.event.ScreenEvent.Opening.class,
+                event -> Target263LegacyModListBridge.opening(event, sessions.get()));
     }
 }

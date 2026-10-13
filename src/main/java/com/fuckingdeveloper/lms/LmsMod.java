@@ -52,7 +52,7 @@ public final class LmsMod {
         modBus.addListener(Forge1192CreativeTabBridge::onRegister);
         modBus.addListener(AddPackFindersEvent.class, legacyResourcePacks::addPackFinders);
         if (FMLEnvironment.getDist() == Dist.CLIENT) {
-            Target263ClientRuntimeBootstrap.register(modBus);
+            Target263ClientRuntimeBootstrap.register(modBus, () -> java.util.List.copyOf(runtimeSessions));
         }
         Path directory = Path.of(System.getProperty("user.dir"), "legacy-mods");
         try {

@@ -597,6 +597,15 @@ malformed category JSON MUST fail explicitly rather than silently lose names.
 
 ## Generic compatibility requirement
 
+The target mod-list presentation SHOULD include metadata from initialized
+managed legacy sessions, using their original artifact and admitted mod ID.
+Discovery candidates and blocked/uninitialized sessions MUST NOT be presented
+as loaded mods. A target adapter MAY reconstruct an immutable target screen
+with additional display records while preserving native entries and screen
+services. It MUST NOT mutate FML's loader lists or fabricate native containers,
+configuration factories or update-check results for managed sessions. Display
+presence MUST NOT imply functional compatibility or target loader ownership.
+
 Forge 1.19.2 custom item-use callbacks MUST preserve the source action/value
 pair when the target returns an action with an optional transformed held stack.
 Success results MUST retain their swing semantics and exact returned stack.
