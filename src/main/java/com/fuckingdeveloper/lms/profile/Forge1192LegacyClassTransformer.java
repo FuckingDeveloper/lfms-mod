@@ -27,8 +27,12 @@ import org.objectweb.asm.Type;
  * claiming that removed Forge APIs have already been adapted.</p>
  */
 public final class Forge1192LegacyClassTransformer implements LegacyClassTransformer {
+    private static final String SOURCE_MATERIAL = "net/minecraft/world/level/material/Material";
+    private static final String RUNTIME_MATERIAL =
+            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge$LegacyMaterial";
     private static final Forge1192MappingLayer VANILLA_RELOCATIONS = new Forge1192MappingLayer();
     private static final java.util.Map<String, String> EXPLICIT_VANILLA_CLASS_RELOCATIONS = java.util.Map.ofEntries(
+            java.util.Map.entry(SOURCE_MATERIAL, RUNTIME_MATERIAL),
             java.util.Map.entry("net/minecraft/client/model/ArmorStandArmorModel", "net/minecraft/client/model/object/armorstand/ArmorStandArmorModel"),
             java.util.Map.entry("net/minecraft/client/model/BoatModel", "net/minecraft/client/model/object/boat/BoatModel"),
             java.util.Map.entry("net/minecraft/client/model/BookModel", "net/minecraft/client/model/object/book/BookModel"),
@@ -204,6 +208,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyRecipeViewFamily(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
+        rewrites += rewriteLegacyMaterialQueries(node);
         rewrites += rewriteLegacyMaterialColorProperties(node);
         rewrites += rewriteLegacyBlockPropertiesCopy(node);
         rewrites += rewriteLegacyViewBlockingPredicate(node);
@@ -356,6 +361,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         Remapper remapper = new Remapper() {
             @Override public String map(String internalName) {
                 return migrateInternalName(internalName);
+            }
+            @Override public String mapFieldName(String owner, String name, String descriptor) {
+                String material = owner.equals(SOURCE_MATERIAL)
+                        && descriptor.equals("L" + SOURCE_MATERIAL + ";") ? legacyMaterialKind(name) : null;
+                return material == null ? name : material;
+            }
+            @Override public String mapMethodName(String owner, String name, String descriptor) {
+                String method = owner.equals(SOURCE_MATERIAL) ? legacyMaterialMethod(name, descriptor) : null;
+                return method == null ? name : method;
+            }
+            @Override public Object mapValue(Object value) {
+                if (value instanceof Handle handle
+                        && handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                        && isLegacyBlockMaterialQuery(handle.getOwner(), handle.getName(), handle.getDesc())) {
+                    return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                            "getMaterial", "(Lnet/minecraft/world/level/block/state/BlockState;)L"
+                                    + RUNTIME_MATERIAL + ";", false);
+                }
+                return super.mapValue(value);
             }
         };
         node.accept(new ClassRemapper(migrated, remapper));
@@ -2021,6 +2046,48 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    private static boolean isLegacyBlockMaterialQuery(String owner, String name, String descriptor) {
+        return owner.equals("net/minecraft/world/level/block/state/BlockState")
+                && name.equals("m_60767_") && descriptor.equals("()L" + SOURCE_MATERIAL + ";");
+    }
+
+    private static int rewriteLegacyMaterialQueries(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof TypeInsnNode type && type.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                        && (type.desc.equals(SOURCE_MATERIAL) || type.desc.equals(SOURCE_MATERIAL + "$Builder"))) {
+                    throw new IllegalStateException("Custom Forge 1.19.2 material construction is unsupported: "
+                            + node.name + "#" + method.name);
+                }
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !isLegacyBlockMaterialQuery(call.owner, call.name, call.desc)) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge";
+                call.name = "getMaterial";
+                call.desc = "(Lnet/minecraft/world/level/block/state/BlockState;)L" + RUNTIME_MATERIAL + ";";
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private static String legacyMaterialMethod(String name, String descriptor) {
+        return switch (name + descriptor) {
+            case "m_76332_()Z" -> "isLiquid";
+            case "m_76333_()Z" -> "isSolid";
+            case "m_76334_()Z" -> "blocksMotion";
+            case "m_76335_()Z" -> "isFlammable";
+            case "m_76336_()Z" -> "isReplaceable";
+            case "m_76337_()Z" -> "isSolidBlocking";
+            case "m_76338_()Lnet/minecraft/world/level/material/PushReaction;" -> "getPushReaction";
+            case "m_76339_()Lnet/minecraft/world/level/material/MaterialColor;" -> "getColor";
+            default -> null;
+        };
+    }
+
     private static FieldInsnNode materialField(
             org.objectweb.asm.tree.AbstractInsnNode start, String owner, int maxRealInstructions) {
         FieldInsnNode match = null;
@@ -2041,19 +2108,55 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private static String legacyMaterialKind(String fieldName) {
         return switch (fieldName) {
-            case "f_76296_" -> "AIR";
-            case "f_76299_" -> "CLOTH_DECORATION";
-            case "f_76300_" -> "PLANT";
-            case "f_76310_" -> "DECORATION";
+            case "f_164530_" -> "MOSS";
+            case "f_164531_" -> "AMETHYST";
+            case "f_164532_" -> "POWDER_SNOW";
+            case "f_164533_" -> "SCULK";
+            case "f_230576_" -> "FROGSPAWN";
+            case "f_230577_" -> "FROGLIGHT";
+            case "f_76270_" -> "BAMBOO_SAPLING";
+            case "f_76271_" -> "BAMBOO";
             case "f_76272_" -> "WOOL";
             case "f_76273_" -> "EXPLOSIVE";
+            case "f_76274_" -> "LEAVES";
             case "f_76275_" -> "GLASS";
+            case "f_76276_" -> "ICE";
+            case "f_76277_" -> "CACTUS";
             case "f_76278_" -> "STONE";
             case "f_76279_" -> "METAL";
+            case "f_76280_" -> "SNOW";
+            case "f_76281_" -> "HEAVY_METAL";
+            case "f_76282_" -> "BARRIER";
             case "f_76283_" -> "PISTON";
+            case "f_76285_" -> "VEGETABLE";
+            case "f_76286_" -> "EGG";
             case "f_76287_" -> "CAKE";
+            case "f_76296_" -> "AIR";
+            case "f_76297_" -> "STRUCTURAL_AIR";
+            case "f_76298_" -> "PORTAL";
+            case "f_76299_" -> "CLOTH_DECORATION";
+            case "f_76300_" -> "PLANT";
+            case "f_76301_" -> "WATER_PLANT";
+            case "f_76302_" -> "REPLACEABLE_PLANT";
+            case "f_76303_" -> "REPLACEABLE_FIREPROOF_PLANT";
+            case "f_76304_" -> "REPLACEABLE_WATER_PLANT";
+            case "f_76305_" -> "WATER";
+            case "f_76306_" -> "BUBBLE_COLUMN";
+            case "f_76307_" -> "LAVA";
+            case "f_76308_" -> "TOP_SNOW";
+            case "f_76309_" -> "FIRE";
+            case "f_76310_" -> "DECORATION";
+            case "f_76311_" -> "WEB";
+            case "f_76312_" -> "BUILDABLE_GLASS";
+            case "f_76313_" -> "CLAY";
+            case "f_76314_" -> "DIRT";
+            case "f_76315_" -> "GRASS";
+            case "f_76316_" -> "ICE_SOLID";
             case "f_76317_" -> "SAND";
+            case "f_76318_" -> "SPONGE";
+            case "f_76319_" -> "SHULKER_SHELL";
             case "f_76320_" -> "WOOD";
+            case "f_76321_" -> "NETHER_WOOD";
             default -> null;
         };
     }

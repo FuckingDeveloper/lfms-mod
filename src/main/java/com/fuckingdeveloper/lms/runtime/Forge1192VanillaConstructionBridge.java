@@ -58,19 +58,55 @@ public final class Forge1192VanillaConstructionBridge {
 
     /** Source Material semantics consumed by the Minecraft 26.3 properties adapter. */
     public enum LegacyMaterial {
-        AIR(MapColor.NONE, false, false, false, false, true, false, PushReaction.PUSH_PULL),
-        CLOTH_DECORATION(MapColor.WOOL, false, false, false, true, false, false, PushReaction.POPPED),
-        PLANT(MapColor.PLANT, false, false, false, false, false, false, PushReaction.POPPED),
-        DECORATION(MapColor.NONE, false, false, false, false, false, false, PushReaction.POPPED),
-        WOOL(MapColor.WOOL, false, true, true, true, false, true, PushReaction.PUSH_PULL),
-        EXPLOSIVE(MapColor.FIRE, false, true, true, true, false, false, PushReaction.PUSH_PULL),
-        GLASS(MapColor.NONE, false, true, true, false, false, false, PushReaction.PUSH_PULL),
-        STONE(MapColor.STONE, false, true, true, false, false, true, PushReaction.PUSH_PULL),
-        METAL(MapColor.METAL, false, true, true, false, false, true, PushReaction.PUSH_PULL),
-        PISTON(MapColor.STONE, false, true, true, false, false, true, PushReaction.IMMOVEABLE),
-        CAKE(MapColor.NONE, false, true, true, false, false, true, PushReaction.POPPED),
-        SAND(MapColor.SAND, false, true, true, false, false, true, PushReaction.PUSH_PULL),
-        WOOD(MapColor.WOOD, false, true, true, true, false, true, PushReaction.PUSH_PULL);
+        AIR,
+        AMETHYST,
+        BAMBOO,
+        BAMBOO_SAPLING,
+        BARRIER,
+        BUBBLE_COLUMN,
+        BUILDABLE_GLASS,
+        CACTUS,
+        CAKE,
+        CLAY,
+        CLOTH_DECORATION,
+        DECORATION,
+        DIRT,
+        EGG,
+        EXPLOSIVE,
+        FIRE,
+        FROGLIGHT,
+        FROGSPAWN,
+        GLASS,
+        GRASS,
+        HEAVY_METAL,
+        ICE,
+        ICE_SOLID,
+        LAVA,
+        LEAVES,
+        METAL,
+        MOSS,
+        NETHER_WOOD,
+        PISTON,
+        PLANT,
+        PORTAL,
+        POWDER_SNOW,
+        REPLACEABLE_FIREPROOF_PLANT,
+        REPLACEABLE_PLANT,
+        REPLACEABLE_WATER_PLANT,
+        SAND,
+        SCULK,
+        SHULKER_SHELL,
+        SNOW,
+        SPONGE,
+        STONE,
+        STRUCTURAL_AIR,
+        TOP_SNOW,
+        VEGETABLE,
+        WATER,
+        WATER_PLANT,
+        WEB,
+        WOOD,
+        WOOL;
 
         private final MapColor color;
         private final boolean liquid;
@@ -81,18 +117,44 @@ public final class Forge1192VanillaConstructionBridge {
         private final boolean solidBlocking;
         private final PushReaction pushReaction;
 
-        LegacyMaterial(MapColor color, boolean liquid, boolean solid, boolean blocksMotion,
-                       boolean flammable, boolean replaceable, boolean solidBlocking,
-                       PushReaction pushReaction) {
-            this.color = color;
-            this.liquid = liquid;
-            this.solid = solid;
-            this.blocksMotion = blocksMotion;
-            this.flammable = flammable;
-            this.replaceable = replaceable;
-            this.solidBlocking = solidBlocking;
-            this.pushReaction = pushReaction;
+        LegacyMaterial() {
+            var source = com.fuckingdeveloper.lms.profile.Forge1192MaterialSnapshot.material(name());
+            this.color = MapColor.byId(source.colorId());
+            this.liquid = source.liquid();
+            this.solid = source.solid();
+            this.blocksMotion = source.blocksMotion();
+            this.flammable = source.flammable();
+            this.replaceable = source.replaceable();
+            this.solidBlocking = source.solidBlocking();
+            this.pushReaction = switch (source.pushReaction()) {
+                case "NORMAL" -> PushReaction.PUSH_PULL;
+                case "DESTROY" -> PushReaction.POPPED;
+                case "BLOCK" -> PushReaction.IMMOVEABLE;
+                default -> throw new IllegalStateException("Unknown source push reaction: " + source.pushReaction());
+            };
         }
+
+        public boolean isLiquid() { return liquid; }
+        public boolean isSolid() { return solid; }
+        public boolean blocksMotion() { return blocksMotion; }
+        public boolean isFlammable() { return flammable; }
+        public boolean isReplaceable() { return replaceable; }
+        public boolean isSolidBlocking() { return solidBlocking; }
+        public PushReaction getPushReaction() { return pushReaction; }
+        public MapColor getColor() { return color; }
+    }
+
+    /** Retain source identity, independently of target tags or tool behavior. */
+    public static LegacyMaterial getMaterial(net.minecraft.world.level.block.state.BlockState state) {
+        Block block = state.getBlock();
+        LegacyMaterial constructed = LEGACY_MATERIALS_BY_PROPERTIES.get(block.properties());
+        if (constructed != null) return constructed;
+        var id = BuiltInRegistries.BLOCK.getKey(block);
+        if (id == null) throw new IllegalStateException("Legacy material queried for an unregistered block");
+        String source = com.fuckingdeveloper.lms.profile.Forge1192MaterialSnapshot
+                .materialForBlock(id.toString()).orElseThrow(() -> new IllegalStateException(
+                        "No Forge 1.19.2 material evidence for block " + id + " (" + block.getClass().getName() + ")"));
+        return LegacyMaterial.valueOf(source);
     }
 
     /** Preserve the source Material contribution to BlockBehaviour.Properties. */

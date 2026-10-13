@@ -567,6 +567,20 @@ compatibility operations.
 
 ## Generic compatibility requirement
 
+When a target removes the source-generation gameplay `Material` identity,
+LMS MAY retain source material constants and their read-only property queries
+as source-profile semantic values. Native blocks shared with the source
+generation MUST obtain that identity from a version-scoped snapshot of the
+actual source registry, selected by exact registry identifier. Managed legacy
+blocks MUST retain the material supplied to their construction properties,
+including supported properties-copy operations. LMS MUST NOT infer material
+identity from modern tool tags, map colors, names, or class-name heuristics.
+Unknown native blocks and custom source material construction MUST fail
+explicitly until evidence-backed rules exist. Source material colors MUST
+retain their palette identities and push reactions MUST use a verified target
+value mapping. Supporting material reads MUST NOT be claimed as proof that
+tool energy use, harvesting, drops, or other consumers work.
+
 Reference mods are integration tests, not architectural namespaces.
 
 Production compatibility logic MUST NOT be selected by:
