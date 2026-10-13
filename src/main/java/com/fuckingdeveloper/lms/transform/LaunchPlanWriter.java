@@ -10,7 +10,7 @@ public final class LaunchPlanWriter {
     private LaunchPlanWriter() {}
 
     public static void write(Path path, List<TransformationSpec> specs) throws IOException {
-        StringBuilder out = new StringBuilder("LMSPLAN\t2\n");
+        StringBuilder out = new StringBuilder("LMSPLAN\t3\n");
         for (TransformationSpec spec : specs) {
             if (spec.readiness() != TransformationSpec.Readiness.READY) continue;
             if (spec.kind() == TransformationSpec.Kind.METHOD_CALL_REDIRECT) writeRedirect(out, spec);
@@ -52,6 +52,11 @@ public final class LaunchPlanWriter {
                     case METHOD_CALL -> {
                         var m = value.method();
                         line(out, "VAL", spec.id(), Integer.toString(index), "METHOD_CALL",
+                                m.owner(), m.name(), m.descriptor(), m.invocation().name());
+                    }
+                    case MANAGED_METHOD_CALL -> {
+                        var m = value.method();
+                        line(out, "VAL", spec.id(), Integer.toString(index), "MANAGED_METHOD_CALL",
                                 m.owner(), m.name(), m.descriptor(), m.invocation().name());
                     }
                     case SIMPLE_OPCODE -> line(out, "VAL", spec.id(), Integer.toString(index),

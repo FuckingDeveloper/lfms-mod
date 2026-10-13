@@ -15,7 +15,7 @@ final class LaunchPlanReader {
     static Plan read(Path path) throws IOException {
         if (!Files.isRegularFile(path)) return new Plan(List.of(), List.of());
         List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-        if (lines.isEmpty() || !lines.getFirst().equals("LMSPLAN\t2")) {
+        if (lines.isEmpty() || !lines.getFirst().equals("LMSPLAN\t3")) {
             throw new IOException("Unsupported LMS launch plan format");
         }
         List<GenericMethodCallRedirectProcessor.Spec> redirects = new ArrayList<>();
@@ -70,6 +70,16 @@ final class LaunchPlanReader {
                 if (p.length != 8) throw malformed(n, p);
                 value = new GenericInstructionEditProcessor.Value(
                         GenericInstructionEditProcessor.ValueKind.METHOD_CALL, editRef(p, 4), null, null, null);
+            }
+            case "MANAGED_METHOD_CALL" -> {
+                if (p.length != 8) throw malformed(n, p);
+                var method = editRef(p, 4);
+                if (method.opcode() != Opcodes.INVOKESTATIC) {
+                    throw new IOException("Managed hook is not static at line " + (n + 1));
+                }
+                value = new GenericInstructionEditProcessor.Value(
+                        GenericInstructionEditProcessor.ValueKind.MANAGED_METHOD_CALL,
+                        method, null, null, null);
             }
             case "SIMPLE_OPCODE" -> {
                 if (p.length != 5) throw malformed(n, p);

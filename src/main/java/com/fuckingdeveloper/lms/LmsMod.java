@@ -393,7 +393,8 @@ public final class LmsMod {
                                     plan.anchorResolutions(), plan.hooks(), plan.mutationKinds(),
                                     plan.mappingStatus(), plan.currentTarget());
                         }
-                        var transformationSpecs = new TransformationSpecPlanner().plan(compatibility);
+                        var transformationSpecs = new TransformationSpecPlanner().plan(compatibility, mod.modId());
+                        runtimeSession.bindCoremodHooks(transformationSpecs);
                         Path launchPlan = Path.of(System.getProperty("user.dir"), "lms", "launch-plan.tsv");
                         LaunchPlanWriter.write(launchPlan, transformationSpecs);
                         LOG.info("LMS launch plan written file={}", launchPlan.toAbsolutePath());

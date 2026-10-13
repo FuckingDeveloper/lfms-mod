@@ -193,6 +193,15 @@ MAY replace the exact comparison with the target damage-source key predicate.
 The source SRG/Mojang field identity and the unique target key declaration MUST
 both be verified; arbitrary DamageSource object equality MUST NOT be rewritten.
 
+When a translated source coremod injects a call to a hook owned by a managed
+legacy artifact into target-owned bytecode, the target call site MUST NOT
+directly reference the managed owner. LMS MUST route the call through an
+LMS-owned target-visible linkage point bound to the exact admitted runtime
+session and exact hook owner, name, descriptor, and invocation kind. Linkage
+MUST preserve the hook's argument, return, and exception semantics and MUST
+fail explicitly when the binding is absent, ambiguous, or type-incompatible.
+Descriptor coincidence alone MUST NOT select a hook or runtime session.
+
 When a source client debug option moves from a renderer-owned toggle to a
 named target debug-entry model, LMS MAY bridge the exact source toggle to the
 verified target entry. The bridge MUST preserve both the state transition and

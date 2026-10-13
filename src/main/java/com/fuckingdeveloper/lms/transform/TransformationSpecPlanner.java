@@ -16,22 +16,30 @@ import java.util.regex.Pattern;
  */
 public final class TransformationSpecPlanner {
     public List<TransformationSpec> plan(LegacyCompatibilityPlanner.Plan compatibility) {
+        return plan(compatibility, "legacy");
+    }
+
+    public List<TransformationSpec> plan(
+            LegacyCompatibilityPlanner.Plan compatibility, String runtimeSessionId) {
         List<TransformationSpec> result = new ArrayList<>();
         for (var plan : compatibility.coremodPlans()) {
-            result.add(toSpec(plan));
+            result.add(toSpec(plan, runtimeSessionId));
         }
         return List.copyOf(result);
     }
 
-    private static TransformationSpec toSpec(LegacyCompatibilityPlanner.CoremodTransformationPlan plan) {
-        String id = sanitize(plan.source());
+    private static TransformationSpec toSpec(
+            LegacyCompatibilityPlanner.CoremodTransformationPlan plan, String runtimeSessionId) {
+        String id = sanitize(runtimeSessionId) + "__" + sanitize(plan.source());
 
         boolean instructionEdit = plan.mutationKinds().stream().anyMatch(kind -> !"set".equals(kind));
         if (instructionEdit) {
-            var edits = parseInstructionEdits(plan.operations(), plan.values());
+            var edits = markManagedHookCalls(
+                    parseInstructionEdits(plan.operations(), plan.values()), plan.hooks());
             edits = remapArgumentSlots(edits, plan.canonicalLegacyTarget(), plan.currentTarget());
             var anchors = parseAnchorBindings(plan);
             String readinessProblem = executableMappingProblem(plan);
+            if (readinessProblem == null) readinessProblem = managedHookProblem(plan);
             if (readinessProblem == null) {
                 readinessProblem = instructionEditReadinessProblem(
                         plan.currentTarget(), edits, anchors);
@@ -82,6 +90,10 @@ public final class TransformationSpecPlanner {
         if (hookInvocation == TransformationSpec.Invocation.UNKNOWN) {
             return unresolved(id, "Unsupported hook invocation type: " + hook.invocationType());
         }
+        if (hookInvocation != TransformationSpec.Invocation.STATIC) {
+            return unresolved(id, "Managed coremod hooks currently require exact STATIC invocation; found "
+                    + hook.invocationType());
+        }
 
         var anchorInvocation = invocation(anchorResolution.anchor().invocationType());
         if (anchorInvocation == TransformationSpec.Invocation.UNKNOWN) {
@@ -109,6 +121,48 @@ public final class TransformationSpecPlanner {
                 List.of(),
                 TransformationSpec.Readiness.READY,
                 "Target, anchor, invocation opcode and replacement hook are resolved");
+    }
+
+    private static String managedHookProblem(
+            LegacyCompatibilityPlanner.CoremodTransformationPlan plan) {
+        var unsupported = plan.hooks().stream()
+                .filter(hook -> !"STATIC".equals(hook.invocationType()))
+                .toList();
+        return unsupported.isEmpty() ? null
+                : "Managed coremod hooks currently require exact STATIC invocation; found " + unsupported;
+    }
+
+    private static List<TransformationSpec.InstructionEdit> markManagedHookCalls(
+            List<TransformationSpec.InstructionEdit> edits,
+            List<LegacyInjectionAnalyzer.CoremodHookCall> hooks) {
+        var exactHooks = hooks.stream()
+                .filter(hook -> "STATIC".equals(hook.invocationType()))
+                .map(hook -> internal(hook.owner()) + "#" + hook.method() + hook.descriptor())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        List<TransformationSpec.InstructionEdit> result = new ArrayList<>();
+        for (var edit : edits) {
+            var value = markManagedHookCall(edit.value(), exactHooks);
+            var values = edit.values().stream()
+                    .map(candidate -> markManagedHookCall(candidate, exactHooks)).toList();
+            result.add(new TransformationSpec.InstructionEdit(
+                    edit.kind(), edit.location(), edit.locationReference(),
+                    edit.firstArgument(), edit.valueExpression(), value, values));
+        }
+        return List.copyOf(result);
+    }
+
+    private static TransformationSpec.InstructionSpec markManagedHookCall(
+            TransformationSpec.InstructionSpec spec, java.util.Set<String> exactHooks) {
+        if (spec == null || spec.kind() != TransformationSpec.InstructionKind.METHOD_CALL
+                || spec.method() == null) return spec;
+        var method = spec.method();
+        if (method.invocation() != TransformationSpec.Invocation.STATIC
+                || !exactHooks.contains(method.owner() + "#" + method.name() + method.descriptor())) {
+            return spec;
+        }
+        return new TransformationSpec.InstructionSpec(
+                TransformationSpec.InstructionKind.MANAGED_METHOD_CALL,
+                method, spec.opcode(), spec.variable(), spec.expression(), spec.target());
     }
 
     private static String executableMappingProblem(

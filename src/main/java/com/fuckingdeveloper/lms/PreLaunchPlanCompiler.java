@@ -50,7 +50,7 @@ public final class PreLaunchPlanCompiler {
             var compatibility = new LegacyCompatibilityPlanner().plan(
                     metadata, injections, srg.orElse(null),
                     mojmap.map(MappingFileLoader.LoadResult::index).orElse(null), runtime);
-            specs.addAll(new TransformationSpecPlanner().plan(compatibility));
+            specs.addAll(new TransformationSpecPlanner().plan(compatibility, mod.modId()));
             System.out.println("[LMS/prelaunch] stage=MOD_DONE id=" + mod.modId());
         }
 

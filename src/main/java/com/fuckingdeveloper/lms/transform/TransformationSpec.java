@@ -45,6 +45,7 @@ public record TransformationSpec(
 
     public enum InstructionKind {
         METHOD_CALL,
+        MANAGED_METHOD_CALL,
         SIMPLE_OPCODE,
         VARIABLE,
         JUMP,

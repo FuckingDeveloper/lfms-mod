@@ -6,9 +6,16 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 
 import java.lang.reflect.Constructor;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+
+import com.fuckingdeveloper.lms.transform.TransformationSpec;
 
 /**
  * Persistent runtime ownership boundary for one managed Forge 1.19.2 artifact.
@@ -26,6 +33,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     private volatile Object entrypoint;
     private volatile IEventBus modEventBus;
     private volatile ModContainer hostContainer;
+    private final Set<String> coremodHookBindings = new LinkedHashSet<>();
 
     public Forge1192RuntimeSession(String modId, Path artifact, ClassLoader parent, List<String> entrypoints)
             throws java.io.IOException, ClassNotFoundException {
@@ -74,9 +82,76 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
         }
     }
 
+    /** Bind exact managed coremod hooks to the target-visible early-launch bootstrap. */
+    public synchronized void bindCoremodHooks(List<TransformationSpec> specs) {
+        var bindings = specs.stream()
+                .filter(spec -> spec.readiness() == TransformationSpec.Readiness.READY)
+                .map(spec -> java.util.Map.entry(spec, managedHooks(spec)))
+                .filter(entry -> !entry.getValue().isEmpty())
+                .toList();
+        if (bindings.isEmpty()) return;
+        if (state != State.INITIALIZED) {
+            throw new IllegalStateException("Cannot bind coremod hooks in state " + state);
+        }
+        try {
+            Class<?> bootstrap = Class.forName(
+                    "com.fuckingdeveloper.lms.launch.ManagedLegacyHookBootstrap", true, loader.getParent());
+            var register = bootstrap.getMethod("register", String.class, String.class,
+                    String.class, String.class, MethodHandle.class);
+            for (var binding : bindings) {
+                TransformationSpec spec = binding.getKey();
+                Set<TransformationSpec.MethodRef> hooks = binding.getValue();
+                for (var hook : hooks) {
+                    if (hook.invocation() != TransformationSpec.Invocation.STATIC) {
+                        throw new IllegalStateException("Managed coremod hook is not static: " + hook);
+                    }
+                    String binaryOwner = hook.owner().replace('/', '.');
+                    if (!loader.owns(binaryOwner)) {
+                        throw new IllegalStateException("Coremod hook owner is not owned by runtime session "
+                                + modId + ": " + binaryOwner);
+                    }
+                    Class<?> owner = Class.forName(binaryOwner, false, loader);
+                    MethodType type = MethodType.fromMethodDescriptorString(hook.descriptor(), loader);
+                    MethodHandle handle = MethodHandles.privateLookupIn(owner, MethodHandles.lookup())
+                            .findStatic(owner, hook.name(), type);
+                    register.invoke(null, spec.id(), hook.owner(), hook.name(), hook.descriptor(), handle);
+                    coremodHookBindings.add(spec.id());
+                }
+            }
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("Cannot bind managed coremod hooks for " + modId, failure);
+        }
+    }
+
+    private static Set<TransformationSpec.MethodRef> managedHooks(TransformationSpec spec) {
+        Set<TransformationSpec.MethodRef> hooks = new LinkedHashSet<>();
+        if (spec.kind() == TransformationSpec.Kind.METHOD_CALL_REDIRECT
+                && spec.replacement() != null) {
+            hooks.add(spec.replacement());
+        }
+        for (var edit : spec.edits()) {
+            var values = edit.values().isEmpty()
+                    ? (edit.value() == null ? List.<TransformationSpec.InstructionSpec>of()
+                    : List.of(edit.value()))
+                    : edit.values();
+            for (var value : values) {
+                if (value.kind() == TransformationSpec.InstructionKind.MANAGED_METHOD_CALL
+                        && value.method() != null) hooks.add(value.method());
+            }
+        }
+        return hooks;
+    }
+
 
     @Override public synchronized void close() throws Exception {
         if (state == State.CLOSED) return;
+        if (!coremodHookBindings.isEmpty()) {
+            Class<?> bootstrap = Class.forName(
+                    "com.fuckingdeveloper.lms.launch.ManagedLegacyHookBootstrap", true, loader.getParent());
+            var unregister = bootstrap.getMethod("unregister", String.class);
+            for (String binding : coremodHookBindings) unregister.invoke(null, binding);
+            coremodHookBindings.clear();
+        }
         loader.close();
         entrypoint = null;
         state = State.CLOSED;

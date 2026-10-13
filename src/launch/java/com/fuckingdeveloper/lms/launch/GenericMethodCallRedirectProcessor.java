@@ -4,7 +4,9 @@ import net.neoforged.neoforgespi.transformation.ProcessorName;
 import net.neoforged.neoforgespi.transformation.SimpleClassProcessor;
 import net.neoforged.neoforgespi.transformation.SimpleTransformationContext;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.Opcodes;
 
 import java.util.Set;
 
@@ -53,12 +55,13 @@ public final class GenericMethodCallRedirectProcessor extends SimpleClassProcess
                 var next = instruction.getNext();
                 if (instruction instanceof MethodInsnNode call && matches(call, spec.anchor())) {
                     MethodRef replacement = spec.replacement();
-                    method.instructions.set(call, new MethodInsnNode(
-                            replacement.opcode(),
-                            replacement.owner(),
-                            replacement.name(),
-                            replacement.descriptor(),
-                            replacement.isInterface()));
+                    if (replacement.opcode() != Opcodes.INVOKESTATIC) {
+                        throw new IllegalStateException("Managed coremod hook must be static: " + replacement);
+                    }
+                    method.instructions.set(call, new InvokeDynamicInsnNode(
+                            replacement.name(), replacement.descriptor(),
+                            ManagedLegacyHookBootstrap.BOOTSTRAP_HANDLE,
+                            spec.id(), replacement.owner(), replacement.name(), replacement.descriptor()));
                     replacements++;
                 }
                 instruction = next;

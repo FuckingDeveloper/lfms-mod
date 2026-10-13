@@ -22,7 +22,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
     public record MethodRef(int opcode, String owner, String name, String descriptor, boolean isInterface) {}
     public record Reference(String variable, int relativeOffset, boolean label) {}
     public enum EditKind { REMOVE, INSERT_BEFORE, INSERT_AFTER, REPLACE }
-    public enum ValueKind { METHOD_CALL, SIMPLE_OPCODE, VARIABLE, JUMP }
+    public enum ValueKind { METHOD_CALL, MANAGED_METHOD_CALL, SIMPLE_OPCODE, VARIABLE, JUMP }
     public record Value(ValueKind kind, MethodRef method, Integer opcode, Integer variable, Reference target) {}
     public record Edit(EditKind kind, Reference location, List<Value> values) {}
     public record Anchor(String variable, MethodRef method) {}
@@ -140,7 +140,8 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         if (removeNext == null || insertAfter == null || removeAnchor == null) return spec.edits();
 
         List<Value> values = insertAfter.values();
-        if (values.size() < 6 || values.getFirst().kind() != ValueKind.METHOD_CALL) return spec.edits();
+        if (values.size() < 6 || (values.getFirst().kind() != ValueKind.METHOD_CALL
+                && values.getFirst().kind() != ValueKind.MANAGED_METHOD_CALL)) return spec.edits();
         MethodRef replacement = values.getFirst().method();
         MethodRef original = anchor.method();
         if (replacement == null
@@ -169,9 +170,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
 
         // Replace the migrated producer in-place. Its current consumer remains intact.
         anchorNode = bindings.get(anchor.variable());
-        MethodInsnNode replacementNode = new MethodInsnNode(
-                replacement.opcode(), replacement.owner(), replacement.name(),
-                replacement.descriptor(), replacement.isInterface());
+        AbstractInsnNode replacementNode = buildCall(values.getFirst());
         method.instructions.set(anchorNode, replacementNode);
 
         // The legacy slot belongs to the patch payload, not necessarily to the
@@ -337,7 +336,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         return materialized;
     }
 
-    private static InsnList build(MethodNode method, List<Value> values, Map<String, AbstractInsnNode> bindings) {
+    private InsnList build(MethodNode method, List<Value> values, Map<String, AbstractInsnNode> bindings) {
         InsnList result = new InsnList();
         for (Value value : values) {
             switch (value.kind()) {
@@ -345,6 +344,7 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
                     MethodRef m = value.method();
                     result.add(new MethodInsnNode(m.opcode(), m.owner(), m.name(), m.descriptor(), m.isInterface()));
                 }
+                case MANAGED_METHOD_CALL -> result.add(buildCall(value));
                 case SIMPLE_OPCODE -> result.add(new InsnNode(value.opcode()));
                 case VARIABLE -> result.add(new VarInsnNode(value.opcode(), value.variable()));
                 case JUMP -> {
@@ -358,17 +358,33 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         return result;
     }
 
+    private AbstractInsnNode buildCall(Value value) {
+        MethodRef method = Objects.requireNonNull(value.method(), "managed hook method");
+        if (value.kind() == ValueKind.METHOD_CALL) {
+            return new MethodInsnNode(method.opcode(), method.owner(), method.name(),
+                    method.descriptor(), method.isInterface());
+        }
+        if (value.kind() != ValueKind.MANAGED_METHOD_CALL || method.opcode() != Opcodes.INVOKESTATIC) {
+            throw new IllegalStateException("Unsupported managed hook invocation: " + method);
+        }
+        return new InvokeDynamicInsnNode(method.name(), method.descriptor(),
+                ManagedLegacyHookBootstrap.BOOTSTRAP_HANDLE,
+                spec.id(), method.owner(), method.name(), method.descriptor());
+    }
+
     private void dumpInsertedRegions(MethodNode method) {
         Set<MethodRef> hooks = new HashSet<>();
         for (Edit edit : spec.edits()) {
             for (Value value : edit.values()) {
-                if (value.kind() == ValueKind.METHOD_CALL && value.method() != null) hooks.add(value.method());
+                if ((value.kind() == ValueKind.METHOD_CALL
+                        || value.kind() == ValueKind.MANAGED_METHOD_CALL)
+                        && value.method() != null) hooks.add(value.method());
             }
         }
         Set<Integer> dumped = new HashSet<>();
         for (int i = 0; i < method.instructions.size(); i++) {
             AbstractInsnNode n = method.instructions.get(i);
-            if (n instanceof MethodInsnNode call && hooks.stream().anyMatch(hook -> matches(call, hook))) {
+            if (hooks.stream().anyMatch(hook -> matchesHook(n, hook))) {
                 int from = Math.max(0, i - 12);
                 int to = Math.min(method.instructions.size() - 1, i + 20);
                 if (dumped.add(i)) dumpWindow(method, from, to, "inserted-hook@" + i);
@@ -389,6 +405,8 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         if (n instanceof LineNumberNode line) return "LINE " + line.line + " -> " + indexOf(method, line.start);
         if (n instanceof FrameNode frame) return "FRAME type=" + frame.type + " locals=" + frame.local + " stack=" + frame.stack;
         if (n instanceof MethodInsnNode call) return "CALL op=" + call.getOpcode() + " " + call.owner + "#" + call.name + call.desc;
+        if (n instanceof InvokeDynamicInsnNode call) return "INDY " + call.name + call.desc
+                + " bootstrap=" + call.bsm.getOwner() + "#" + call.bsm.getName();
         if (n instanceof VarInsnNode var) return "VAR op=" + var.getOpcode() + " slot=" + var.var;
         if (n instanceof JumpInsnNode jump) return "JUMP op=" + jump.getOpcode() + " -> " + indexOf(method, jump.label);
         if (n instanceof InsnNode) return "INSN op=" + n.getOpcode();
@@ -436,14 +454,28 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         Set<MethodRef> hooks = new HashSet<>();
         for (Edit edit : spec.edits()) {
             for (Value value : edit.values()) {
-                if (value.kind() == ValueKind.METHOD_CALL && value.method() != null) hooks.add(value.method());
+                if ((value.kind() == ValueKind.METHOD_CALL
+                        || value.kind() == ValueKind.MANAGED_METHOD_CALL)
+                        && value.method() != null) hooks.add(value.method());
             }
         }
         int count = 0;
         for (AbstractInsnNode insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-            if (insn instanceof MethodInsnNode call && hooks.stream().anyMatch(hook -> matches(call, hook))) count++;
+            if (hooks.stream().anyMatch(hook -> matchesHook(insn, hook))) count++;
         }
         return count;
+    }
+
+    private boolean matchesHook(AbstractInsnNode insn, MethodRef hook) {
+        if (insn instanceof MethodInsnNode call) return matches(call, hook);
+        if (!(insn instanceof InvokeDynamicInsnNode call)
+                || !call.bsm.equals(ManagedLegacyHookBootstrap.BOOTSTRAP_HANDLE)
+                || call.bsmArgs.length != 4) return false;
+        return call.name.equals(hook.name()) && call.desc.equals(hook.descriptor())
+                && spec.id().equals(call.bsmArgs[0])
+                && hook.owner().equals(call.bsmArgs[1])
+                && hook.name().equals(call.bsmArgs[2])
+                && hook.descriptor().equals(call.bsmArgs[3]);
     }
 
     private static boolean containsMatchingCall(MethodNode method, MethodRef expected) {
