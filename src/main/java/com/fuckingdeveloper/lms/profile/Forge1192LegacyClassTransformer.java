@@ -4812,6 +4812,24 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Target 26.3 renamed the source Level day/night predicates
+                // while retaining their exact fixed-time and sky-darkness
+                // formulas. Match the mapped Forge 1.19.2 members as a pair.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/level/Level")
+                        && call.desc.equals("()Z")) {
+                    String targetName = switch (call.name) {
+                        case "m_46461_" -> "isBrightOutside";
+                        case "m_46462_" -> "isDarkOutside";
+                        default -> null;
+                    };
+                    if (targetName != null) {
+                        call.name = targetName;
+                        rewrites++;
+                        continue;
+                    }
+                }
+
                 // Attribute registry identities became Holder-backed. Migrate
                 // an exact source member only when its recovered Mojang name
                 // has one exact target overload with the Holder descriptor.
