@@ -84,6 +84,7 @@ public final class GameplayFamilyCheck {
         try { pass(transformer, "rewriteLegacyBlockUseCallbacks", block); throw new AssertionError("callback collision accepted"); }
         catch (InvocationTargetException expected) { check(expected.getCause() instanceof IllegalStateException, "wrong collision failure"); }
         auditExternalArtifact(transformer);
+        FollowupFamilyCheck.run(transformer);
         var map = callFixture(PLAYER, "m_21221_", "()Ljava/util/Map;");
         check(pass(transformer, "rewriteLegacyMobEffectQueries", map) == 1, "raw effect map boundary missed");
         verify(map);
