@@ -588,7 +588,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                                 || call.desc.equals("(Lnet/minecraft/world/item/enchantment/Enchantment;"
                                         + "Lnet/minecraft/world/entity/LivingEntity;"
                                         + "Ljava/util/function/Predicate;)Ljava/util/Map$Entry;"))) {
-                    String canonical = call.name.startsWith("m_")
+                    String canonical = isSrgMethodName(call.name)
                             ? SRG_RUNTIME_RESOLVER.get().canonicalMethodName(
                                     call.owner, call.name, call.desc).orElse(null)
                             : call.name;
@@ -4760,7 +4760,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (insn instanceof InvokeDynamicInsnNode indy) {
-                    if (indy.name.startsWith("m_")
+                    if (isSrgMethodName(indy.name)
                             && indy.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")
                             && indy.bsmArgs.length >= 1
                             && indy.bsmArgs[0] instanceof Type samType) {
@@ -4789,7 +4789,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             rewrites++;
                             continue;
                         }
-                        if (!handle.getName().startsWith("m_")) continue;
+                        if (!isSrgMethodName(handle.getName())) continue;
                         var resolved = handle.getOwner().startsWith("net/minecraft/")
                                 ? SRG_RUNTIME_RESOLVER.get().resolve(
                                         handle.getOwner(), handle.getName(), handle.getDesc())
@@ -5642,7 +5642,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 // calls. Walk the managed hierarchy to the declaring vanilla
                 // ancestor, resolve the exact SRG identity there, and retain
                 // the verified managed receiver for virtual dispatch.
-                if (!call.owner.startsWith("net/minecraft/") && call.name.startsWith("m_")) {
+                if (!call.owner.startsWith("net/minecraft/") && isSrgMethodName(call.name)) {
                     var inherited = resolveInheritedVanillaMethod(call.owner, call.name, call.desc);
                     if (inherited != null) {
                         call.name = inherited.name();
@@ -5679,7 +5679,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (resolved == null) {
                     resolved = SRG_RUNTIME_RESOLVER.get().resolve(call.owner, call.name, call.desc);
                 }
-                if (!resolved.resolved() && call.name.startsWith("m_")) {
+                if (!resolved.resolved() && isSrgMethodName(call.name)) {
                     var inherited = resolveInheritedVanillaMethod(call.owner, call.name, call.desc);
                     if (inherited != null) resolved = inherited;
                 }
@@ -5881,7 +5881,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private static Forge1192SrgRuntimeResolver.Resolution resolveRelocatedVanillaMethod(
             String targetOwner, String name, String targetDescriptor) {
-        if (!name.startsWith("m_") || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        if (!isSrgMethodName(name) || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
         var sources = EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet().stream()
                 .filter(relocation -> relocation.getValue().equals(targetOwner))
                 .toList();
@@ -6013,7 +6013,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private Forge1192SrgRuntimeResolver.Resolution resolveCanonicalBlockMethod(String name, String desc) {
-        if (!name.startsWith("m_") || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        if (!isSrgMethodName(name) || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
         var resolved = SRG_RUNTIME_RESOLVER.get().resolve(
                 "net/minecraft/world/level/block/Block", name, desc);
         return resolved.resolved()
@@ -7850,7 +7850,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private static String targetNumericMethod(String sourceName, String descriptor) {
         if (SRG_RUNTIME_RESOLVER.isEmpty()) return null;
-        String canonical = sourceName.startsWith("m_")
+        String canonical = isSrgMethodName(sourceName)
                 ? SRG_RUNTIME_RESOLVER.get().canonicalMethodName(
                         "net/minecraft/nbt/NumericTag", sourceName, descriptor).orElse(null)
                 : sourceName;
@@ -8198,7 +8198,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         java.util.HashMap<String, String> renamed = new java.util.HashMap<>();
         int rewrites = 0;
         for (var method : node.methods) {
-            if (!method.name.startsWith("m_") || !method.desc.equals(descriptor)
+            if (!isSrgMethodName(method.name) || !method.desc.equals(descriptor)
                     || (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0) continue;
             var resolved = SRG_RUNTIME_RESOLVER.get().resolve(
                     "net/minecraft/util/StringRepresentable", method.name, descriptor);
@@ -8243,7 +8243,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = 0;
         java.util.HashMap<String, String> renamed = new java.util.HashMap<>();
         for (var method : node.methods) {
-            if (!method.name.startsWith("m_")
+            if (!isSrgMethodName(method.name)
                     || (method.access & (org.objectweb.asm.Opcodes.ACC_STATIC
                             | org.objectweb.asm.Opcodes.ACC_PRIVATE)) != 0) continue;
             var resolved = resolveOverriddenVanillaMethod(node, method.name, method.desc);
@@ -9557,6 +9557,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     /** Descriptor projection must use the exact same namespace contract as runtime transformation. */
     public static String projectDescriptor(String descriptor) {
         return migrateDescriptor(descriptor);
+    }
+
+    private static boolean isSrgMethodName(String name) {
+        return name.startsWith("m_") || name.startsWith("f_");
     }
 
     private static String migrateInternalName(String value) {

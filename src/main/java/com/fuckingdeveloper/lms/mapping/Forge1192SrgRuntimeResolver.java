@@ -37,7 +37,7 @@ public final class Forge1192SrgRuntimeResolver {
     }
 
     public Resolution resolve(String internalOwner, String srgName, String descriptor) {
-        if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("m_")) {
+        if (!internalOwner.startsWith("net/minecraft/") || !isSrgMethodName(srgName)) {
             return unresolved(internalOwner, srgName, descriptor, "Not a vanilla SRG method call");
         }
         String owner = internalOwner.replace('/', '.');
@@ -85,7 +85,7 @@ public final class Forge1192SrgRuntimeResolver {
     public Resolution resolveRelocatedMethod(
             String sourceOwner, String srgName, String sourceDescriptor,
             String targetOwner, String targetDescriptor) {
-        if (!sourceOwner.startsWith("net/minecraft/") || !srgName.startsWith("m_")) {
+        if (!sourceOwner.startsWith("net/minecraft/") || !isSrgMethodName(srgName)) {
             return unresolved(sourceOwner, srgName, sourceDescriptor,
                     "Not a vanilla SRG method call");
         }
@@ -136,7 +136,7 @@ public final class Forge1192SrgRuntimeResolver {
      */
     public Resolution resolveCovariantReturn(
             String internalOwner, String srgName, String descriptor) {
-        if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("m_")) {
+        if (!internalOwner.startsWith("net/minecraft/") || !isSrgMethodName(srgName)) {
             return unresolved(internalOwner, srgName, descriptor,
                     "Not a vanilla SRG method call");
         }
@@ -203,7 +203,7 @@ public final class Forge1192SrgRuntimeResolver {
     /** Resolve only the exact 1.19.2 Mojang method identity. */
     public Optional<String> canonicalMethodName(
             String internalOwner, String srgName, String descriptor) {
-        if (!internalOwner.startsWith("net/minecraft/") || !srgName.startsWith("m_"))
+        if (!internalOwner.startsWith("net/minecraft/") || !isSrgMethodName(srgName))
             return Optional.empty();
         var legacy = srg.resolveWithNamedOwner(
                 internalOwner.replace('/', '.'), srgName, descriptor, mojmap);
@@ -247,6 +247,12 @@ public final class Forge1192SrgRuntimeResolver {
         var field = targetFields.getFirst();
         return new FieldResolution(field.owner().replace('.', '/'), field.name(), field.descriptor(), true,
                 "Verified SRG -> Mojang named -> target runtime field identity");
+    }
+
+    private static boolean isSrgMethodName(String name) {
+        // Forge 1.19.2 record accessors can share their backing field's f_* SRG
+        // identity even though the class-file member is a method.
+        return name.startsWith("m_") || name.startsWith("f_");
     }
 
     /** Resolve only the exact 1.19.2 Mojang field identity, without assuming it survives. */
