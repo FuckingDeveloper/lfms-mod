@@ -228,6 +228,12 @@ and position MUST be preserved, and source behavior MUST NOT be replaced with
 an arbitrary registry lookup. The removed hit value MAY be discarded only
 because the target operation has no equivalent input.
 
+When a source concrete block-state identity check moves to a target inherited
+typed-instance contract, LMS MAY adapt the exact source owner, member, block
+operand, and boolean result together. It MUST preserve registry object identity
+and MUST NOT replace the check with class, identifier-string, or descriptor-only
+comparison.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state

@@ -784,7 +784,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    /** Preserve player-sensitive clone-item semantics after hit context removal. */
+    /** Preserve exact block-state identity and player-sensitive clone semantics. */
     private static int rewriteLegacyBlockStateCloneItem(ClassNode node) {
         final String owner = "net/minecraft/world/level/block/state/BlockState";
         final String sourceDesc = "(Lnet/minecraft/world/phys/HitResult;"
@@ -795,15 +795,23 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        || !call.owner.equals(owner)
-                        || !call.name.equals("getCloneItemStack")
-                        || !call.desc.equals(sourceDesc)) continue;
-                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BlockStateBridge";
-                call.name = "getCloneItemStack";
-                call.desc = "(L" + owner + ";" + sourceDesc.substring(1);
-                call.itf = false;
-                rewrites++;
+                        || !call.owner.equals(owner)) continue;
+                if (call.name.equals("getCloneItemStack") && call.desc.equals(sourceDesc)) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BlockStateBridge";
+                    call.name = "getCloneItemStack";
+                    call.desc = "(L" + owner + ";" + sourceDesc.substring(1);
+                    call.itf = false;
+                    rewrites++;
+                } else if (call.name.equals("m_60713_")
+                        && call.desc.equals("(Lnet/minecraft/world/level/block/Block;)Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BlockStateBridge";
+                    call.name = "is";
+                    call.desc = "(L" + owner + ";Lnet/minecraft/world/level/block/Block;)Z";
+                    call.itf = false;
+                    rewrites++;
+                }
             }
         }
         return rewrites;
