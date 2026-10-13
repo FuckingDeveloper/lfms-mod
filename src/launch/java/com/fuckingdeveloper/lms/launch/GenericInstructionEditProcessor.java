@@ -461,7 +461,8 @@ public final class GenericInstructionEditProcessor extends SimpleClassProcessor 
         }
         int count = 0;
         for (AbstractInsnNode insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-            if (hooks.stream().anyMatch(hook -> matchesHook(insn, hook))) count++;
+            AbstractInsnNode candidate = insn;
+            if (hooks.stream().anyMatch(hook -> matchesHook(candidate, hook))) count++;
         }
         return count;
     }
