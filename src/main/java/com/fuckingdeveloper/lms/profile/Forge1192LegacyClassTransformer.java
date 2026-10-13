@@ -151,6 +151,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             Forge1192SrgRuntimeResolver.load(java.nio.file.Path.of(System.getProperty("user.dir")));
     private int transformedClasses;
     private int totalRewrites;
+    private final java.util.concurrent.atomic.LongAdder transformationNanos =
+            new java.util.concurrent.atomic.LongAdder();
     private volatile LegacyClassTransformer.ClassBytesLookup managedClassBytes;
     private final java.util.Map<String, Boolean> configuredFeatureInitializers =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -166,9 +168,19 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     public int transformedClasses() { return transformedClasses; }
     public int totalRewrites() { return totalRewrites; }
+    public long transformationMillis() { return transformationNanos.sum() / 1_000_000; }
 
     @Override
     public Result transform(String binaryName, byte[] original) {
+        long started = System.nanoTime();
+        try {
+            return transformClass(binaryName, original);
+        } finally {
+            transformationNanos.add(System.nanoTime() - started);
+        }
+    }
+
+    private Result transformClass(String binaryName, byte[] original) {
         ClassReader reader = new ClassReader(original);
         ClassNode node = new ClassNode();
         reader.accept(node, 0);

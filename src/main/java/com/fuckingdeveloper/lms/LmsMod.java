@@ -51,6 +51,14 @@ public final class LmsMod {
         modBus.addListener(this::onPayloadRegistration);
         modBus.addListener(Forge1192CreativeTabBridge::onRegister);
         modBus.addListener(AddPackFindersEvent.class, legacyResourcePacks::addPackFinders);
+        modBus.addListener(net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent.class, event -> {
+            for (var session : runtimeSessions) {
+                var transformer = session.transformer();
+                LOG.info("LMS startup-timing id={} state={} transformedClasses={} transformationTotalMs={}",
+                        session.modId(), session.state(), transformer.transformedClasses(),
+                        transformer.transformationMillis());
+            }
+        });
         if (FMLEnvironment.getDist() == Dist.CLIENT) {
             Target263ClientRuntimeBootstrap.register(modBus, () -> java.util.List.copyOf(runtimeSessions));
         }

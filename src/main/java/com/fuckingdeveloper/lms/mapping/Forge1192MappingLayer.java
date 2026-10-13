@@ -47,6 +47,38 @@ public final class Forge1192MappingLayer {
     private final Map<String, Mapping> mappings = new LinkedHashMap<>();
     private final ClassLoader runtimeLoader;
     private volatile RuntimeIndex runtimeIndex;
+    private volatile LookupIndex lookupIndex;
+    private record NamedQuery(String owner, String name) {}
+    private final java.util.concurrent.ConcurrentMap<NamedQuery, MethodSearch> namedSearches =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private record LookupIndex(Map<String, List<IndexedMethod>> methodsByName,
+                               Map<String, List<IndexedMethod>> methodsByOwner,
+                               Map<String, List<IndexedField>> fieldsByOwner,
+                               Map<String, List<String>> classesBySimpleName) {}
+
+    /** Target-only immutable metadata; no managed classes or classloader cache keys. */
+    private LookupIndex lookups() {
+        LookupIndex cached = lookupIndex;
+        if (cached != null) return cached;
+        synchronized (this) {
+            if (lookupIndex == null) {
+                var index = runtimeIndex();
+                lookupIndex = new LookupIndex(
+                        group(index.methods(), IndexedMethod::name),
+                        group(index.methods(), IndexedMethod::owner),
+                        group(index.fields(), IndexedField::owner),
+                        group(index.classes(), name -> name.substring(name.lastIndexOf('/') + 1)));
+            }
+            return lookupIndex;
+        }
+    }
+
+    private static <T> Map<String, List<T>> group(List<T> values, java.util.function.Function<T, String> key) {
+        Map<String, List<T>> grouped = new LinkedHashMap<>();
+        for (T value : values) grouped.computeIfAbsent(key.apply(value), ignored -> new ArrayList<>()).add(value);
+        grouped.replaceAll((ignored, list) -> List.copyOf(list));
+        return Map.copyOf(grouped);
+    }
 
     public record IndexedMethod(String owner, String name, String descriptor, int access) {}
     public record IndexedField(String owner, String name, String descriptor, int access) {}
@@ -70,9 +102,7 @@ public final class Forge1192MappingLayer {
                     "Exact class exists in target runtime");
         }
         String simple = legacyInternalName.substring(legacyInternalName.lastIndexOf('/') + 1);
-        var candidates = runtimeIndex().classes().stream()
-                .filter(name -> name.substring(name.lastIndexOf('/') + 1).equals(simple))
-                .toList();
+        var candidates = lookups().classesBySimpleName().getOrDefault(simple, List.of());
         if (candidates.size() == 1) {
             return new ClassRelocation(legacyInternalName, candidates.getFirst(), Status.VERIFIED_IDENTITY,
                     "Unique same-binary-name class in target runtime");
@@ -149,8 +179,7 @@ public final class Forge1192MappingLayer {
      */
     public MethodSearch searchExactIdentity(String method, String descriptor) {
         RuntimeIndex index = runtimeIndex();
-        List<MethodCandidate> candidates = index.methods().stream()
-                .filter(candidate -> candidate.name().equals(method))
+        List<MethodCandidate> candidates = lookups().methodsByName().getOrDefault(method, List.of()).stream()
                 .filter(candidate -> candidate.descriptor().equals(descriptor))
                 .map(candidate -> new MethodCandidate(
                         candidate.owner() + "#" + candidate.name() + candidate.descriptor(),
@@ -166,8 +195,7 @@ public final class Forge1192MappingLayer {
 
     public MethodSearch searchRuntimeByName(String method) {
         RuntimeIndex index = runtimeIndex();
-        List<MethodCandidate> candidates = index.methods().stream()
-                .filter(candidate -> candidate.name().equals(method))
+        List<MethodCandidate> candidates = lookups().methodsByName().getOrDefault(method, List.of()).stream()
                 .map(candidate -> new MethodCandidate(
                         candidate.owner() + "#" + candidate.name() + candidate.descriptor(),
                         candidate.descriptor()))
@@ -322,8 +350,7 @@ public final class Forge1192MappingLayer {
 
     public List<IndexedField> searchExactField(String owner, String name, String descriptor) {
         String binaryOwner = owner.replace('/', '.');
-        return runtimeIndex().fields().stream()
-                .filter(field -> field.owner().equals(binaryOwner))
+        return lookups().fieldsByOwner().getOrDefault(binaryOwner, List.of()).stream()
                 .filter(field -> field.name().equals(name))
                 .filter(field -> field.descriptor().equals(descriptor))
                 .toList();
@@ -351,9 +378,7 @@ public final class Forge1192MappingLayer {
 
     public List<IndexedMethod> methodsOf(String owner) {
         String binaryOwner = owner.replace('/', '.');
-        return runtimeIndex().methods().stream()
-                .filter(method -> method.owner().equals(binaryOwner))
-                .toList();
+        return lookups().methodsByOwner().getOrDefault(binaryOwner, List.of());
     }
 
     public MethodSemantics semantics(String symbol) {
@@ -443,6 +468,11 @@ public final class Forge1192MappingLayer {
      * Exact name is strong migration evidence; overloaded names remain ambiguous.
      */
     public MethodSearch searchNamedMethods(String owner, String method) {
+        return namedSearches.computeIfAbsent(new NamedQuery(owner, method),
+                query -> inspectNamedMethods(query.owner(), query.name()));
+    }
+
+    private MethodSearch inspectNamedMethods(String owner, String method) {
         String legacySymbol = owner + "#" + method;
         InputStream stream = openClass(owner);
         if (stream == null) {
