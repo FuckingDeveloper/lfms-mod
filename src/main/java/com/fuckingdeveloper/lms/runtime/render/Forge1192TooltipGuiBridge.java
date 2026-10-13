@@ -1,0 +1,56 @@
+package com.fuckingdeveloper.lms.runtime.render;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.ARGB;
+
+import java.util.function.Consumer;
+
+/** Scoped legacy GUI primitives recorded through the authoritative target extractor. */
+public final class Forge1192TooltipGuiBridge {
+    private static final ThreadLocal<Scope> ACTIVE = new ThreadLocal<>();
+    private static final class Scope {
+        final GuiGraphicsExtractor graphics;
+        final LegacyTooltipItemRenderer renderer = new LegacyTooltipItemRenderer();
+        Identifier texture;
+        int color = -1;
+        Scope(GuiGraphicsExtractor graphics) { this.graphics = graphics; }
+    }
+    private Forge1192TooltipGuiBridge() {}
+
+    static void extract(GuiGraphicsExtractor graphics, Consumer<LegacyTooltipItemRenderer> callback) {
+        if (ACTIVE.get() != null) throw new IllegalStateException("Nested legacy tooltip GUI extraction");
+        var scope = new Scope(graphics);
+        ACTIVE.set(scope);
+        try { callback.accept(scope.renderer); } finally { ACTIVE.remove(); }
+    }
+
+    private static Scope scope() {
+        Scope scope = ACTIVE.get();
+        if (scope == null) throw new IllegalStateException("Legacy tooltip GUI primitive outside extraction");
+        return scope;
+    }
+    static GuiGraphicsExtractor graphics(LegacyTooltipItemRenderer renderer) {
+        Scope scope = scope();
+        if (renderer != scope.renderer) throw new IllegalStateException("Foreign legacy tooltip item renderer");
+        return scope.graphics;
+    }
+    public static void shaderColor(float red, float green, float blue, float alpha) {
+        scope().color = ARGB.colorFromFloat(alpha, red, green, blue);
+    }
+    public static void shaderTexture(int unit, Identifier texture) {
+        if (unit != 0) throw new IllegalStateException("Unsupported legacy tooltip texture unit " + unit);
+        scope().texture = java.util.Objects.requireNonNull(texture, "tooltip texture");
+    }
+    public static void blit(PoseStack pose, int x, int y, int z, float u, float v,
+                            int width, int height, int textureWidth, int textureHeight) {
+        Scope scope = scope();
+        if (z != 0 || !pose.last().pose().equals(new org.joml.Matrix4f()))
+            throw new IllegalStateException("Unadapted legacy tooltip pose/depth transform");
+        if (scope.texture == null) throw new IllegalStateException("Legacy tooltip blit has no bound texture");
+        scope.graphics.blit(RenderPipelines.GUI_TEXTURED, scope.texture, x, y, u, v,
+                width, height, textureWidth, textureHeight, scope.color);
+    }
+}

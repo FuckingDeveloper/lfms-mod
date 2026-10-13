@@ -597,6 +597,15 @@ malformed category JSON MUST fail explicitly rather than silently lose names.
 
 ## Generic compatibility requirement
 
+Legacy graphical tooltip adapters MUST preserve measured source dimensions and
+execute source image callbacks through the target GUI extraction lifecycle.
+Supported texture blits and item/decorations MUST retain coordinates, UVs,
+texture dimensions, tint, source item state and item seed. Source global shader
+state MUST be scoped to that extraction and MUST NOT mutate target global GPU
+state. Unsupported text callbacks, nonzero depth and nonidentity source poses
+MUST fail explicitly rather than drop meaningful drawing. This primitive subset
+MUST NOT be described as general immediate GUI rendering compatibility.
+
 Forge 1.19.2 item-name defaults MUST create a fresh translatable component on
 each query and preserve virtual stack-description selection. A source subclass
 MUST NOT receive a shared target name component that it can mutate across

@@ -224,6 +224,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEarlyClientInitialization(node);
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
         rewrites += rewriteLegacyCachedMinecraftReads(node);
+        rewrites += rewriteLegacyTooltipComponent(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyStringRepresentableOverride(node);
         rewrites += rewriteVerifiedVanillaOverrides(node);
@@ -318,6 +319,44 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         byte[] verified = writer.toByteArray();
         return new Result(verified, rewrites > 0,
                 "forge-1.19.2 exact namespace migrations=" + rewrites);
+    }
+
+    /** Execute the source graphical-tooltip ABI during target GUI extraction. */
+    private int rewriteLegacyTooltipComponent(ClassNode node) {
+        String source = "net/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipComponent";
+        if (!isManagedSubtypeOf(node, source)) return 0;
+        String bridge = "com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipComponentBridge";
+        String gui = "com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge";
+        for (var method : node.methods) {
+            if (method.name.equals("m_142103_") && method.desc.equals("()I")) method.name = "legacyHeight";
+            if (method.name.equals("m_142069_") && method.desc.equals("(Lnet/minecraft/client/gui/Font;)I")) method.name = "legacyWidth";
+            if (method.name.equals("m_183452_") && method.desc.equals("(Lnet/minecraft/client/gui/Font;IILcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/entity/ItemRenderer;I)V")) method.name = "legacyImage";
+            if (method.name.equals("m_142440_")
+                    && method.desc.equals("(Lnet/minecraft/client/gui/Font;IILcom/mojang/math/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;)V"))
+                throw new IllegalStateException("Legacy tooltip text callback needs an extraction adapter: " + node.name);
+            for (var insn : method.instructions) {
+                if (!(insn instanceof MethodInsnNode call) || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC) continue;
+                if (call.owner.equals("com/mojang/blaze3d/systems/RenderSystem") && call.name.equals("m_157429_") && call.desc.equals("(FFFF)V")) {
+                    call.owner = gui; call.name = "shaderColor";
+                } else if (call.owner.equals("com/mojang/blaze3d/systems/RenderSystem") && call.name.equals("m_157456_") && call.desc.equals("(ILnet/minecraft/resources/ResourceLocation;)V")) {
+                    call.owner = gui; call.name = "shaderTexture";
+                } else if (call.owner.equals("net/minecraft/client/gui/GuiComponent") && call.name.equals("m_93143_") && call.desc.equals("(Lcom/mojang/blaze3d/vertex/PoseStack;IIIFFIIII)V")) {
+                    call.owner = gui; call.name = "blit";
+                }
+            }
+        }
+        var migrated = new ClassNode();
+        node.accept(new ClassRemapper(migrated, new Remapper(org.objectweb.asm.Opcodes.ASM9) {
+            @Override public String map(String name) {
+                if (name.equals(source)) return bridge;
+                if (name.equals("net/minecraft/client/renderer/entity/ItemRenderer")) return "com/fuckingdeveloper/lms/runtime/render/LegacyTooltipItemRenderer";
+                return name;
+            }
+        }));
+        node.interfaces = migrated.interfaces;
+        node.methods = migrated.methods;
+        node.fields = migrated.fields;
+        return 1;
     }
 
     /** Preserve the exact 1.19.2 Model constructor and abstract render ABI for
