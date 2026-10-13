@@ -252,6 +252,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
+        rewrites += rewriteLegacyNeighborUpdateFamily(node);
         rewrites += rewriteTargetInterfaceInvocationShapes(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -5056,6 +5057,80 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         call.itf = targetInterface.get();
                         rewrites++;
                     }
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Minecraft 26.3 replaced the source-position argument carried by direct
+     * 1.19.2 neighbour notifications with a nullable redstone
+     * {@code Orientation}. The target contract explicitly accepts
+     * {@code null} for notifications that do not originate in the target's
+     * experimental redstone ordering model. Preserve the notification and its
+     * changed-block identity while discarding only the source-generation
+     * position value that the target API no longer represents.
+     *
+     * <p>This rewrite is selected by the exact Forge 1.19.2 SRG member,
+     * descriptor and a verified {@code Level} inheritance relationship. A
+     * descriptor coincidence on an unrelated owner is deliberately
+     * insufficient.</p>
+     */
+    private int rewriteLegacyNeighborUpdateFamily(ClassNode node) {
+        final String level = "net/minecraft/world/level/Level";
+        final String blockPos = "Lnet/minecraft/core/BlockPos;";
+        final String block = "Lnet/minecraft/world/level/block/Block;";
+        final String direction = "Lnet/minecraft/core/Direction;";
+        final String state = "Lnet/minecraft/world/level/block/state/BlockState;";
+        final String orientation = "Lnet/minecraft/world/level/redstone/Orientation;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !isManagedSubtypeOf(call.owner, level)) continue;
+
+                if (call.name.equals("m_46672_")
+                        && call.desc.equals("(" + blockPos + block + ")V")) {
+                    method.instructions.insertBefore(call, new org.objectweb.asm.tree.InsnNode(
+                            org.objectweb.asm.Opcodes.ACONST_NULL));
+                    call.name = "updateNeighborsAt";
+                    call.desc = "(" + blockPos + block + orientation + ")V";
+                    rewrites++;
+                    continue;
+                }
+                if (call.name.equals("m_46590_")
+                        && call.desc.equals("(" + blockPos + block + direction + ")V")) {
+                    method.instructions.insertBefore(call, new org.objectweb.asm.tree.InsnNode(
+                            org.objectweb.asm.Opcodes.ACONST_NULL));
+                    call.name = "updateNeighborsAtExceptFromFacing";
+                    call.desc = "(" + blockPos + block + direction + orientation + ")V";
+                    rewrites++;
+                    continue;
+                }
+                if (call.name.equals("m_46586_")
+                        && call.desc.equals("(" + blockPos + block + blockPos + ")V")) {
+                    var adaptation = new org.objectweb.asm.tree.InsnList();
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.POP));
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ACONST_NULL));
+                    method.instructions.insertBefore(call, adaptation);
+                    call.name = "neighborChanged";
+                    call.desc = "(" + blockPos + block + orientation + ")V";
+                    rewrites++;
+                    continue;
+                }
+                if (call.name.equals("m_213960_")
+                        && call.desc.equals("(" + state + blockPos + block + blockPos + "Z)V")) {
+                    var adaptation = new org.objectweb.asm.tree.InsnList();
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.POP));
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ACONST_NULL));
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                    method.instructions.insertBefore(call, adaptation);
+                    call.name = "neighborChanged";
+                    call.desc = "(" + state + blockPos + block + orientation + "Z)V";
+                    rewrites++;
                 }
             }
         }
