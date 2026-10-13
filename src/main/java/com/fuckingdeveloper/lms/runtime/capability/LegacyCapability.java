@@ -8,14 +8,21 @@ package com.fuckingdeveloper.lms.runtime.capability;
  * here.</p>
  */
 public final class LegacyCapability<T> {
-    private final Class<?> tokenClass;
+    private final String typeName;
     private final boolean registering;
 
-    LegacyCapability(Class<?> tokenClass, boolean registering) {
-        this.tokenClass = tokenClass;
+    LegacyCapability(String typeName, boolean registering) {
+        this.typeName = typeName;
         this.registering = registering;
     }
 
-    public Class<?> tokenClass() { return tokenClass; }
+    public String getName() { return typeName; }
+    public boolean isRegistered() {
+        throw new IllegalStateException("Source capability registration state is not adapted: " + typeName);
+    }
+    public <R> LegacyLazyOptional<R> cast(LegacyLazyOptional<T> value) { return value.cast(); }
+    public <R> LegacyLazyOptional<R> orEmpty(LegacyCapability<R> requested, LegacyLazyOptional<T> value) {
+        return this == requested ? value.cast() : LegacyLazyOptional.empty();
+    }
     public boolean registering() { return registering; }
 }

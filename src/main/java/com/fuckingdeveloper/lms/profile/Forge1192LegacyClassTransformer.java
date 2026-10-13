@@ -10323,6 +10323,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "net/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent";
         if (value.equals("net/minecraftforge/common/capabilities/CapabilityToken"))
             return "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken";
+        if (value.equals("net/minecraftforge/common/capabilities/ForgeCapabilities"))
+            return "com/fuckingdeveloper/lms/runtime/capability/LegacyForgeCapabilities";
         if (value.equals("net/minecraftforge/common/capabilities/CapabilityManager"))
             return "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityManager";
         if (value.equals("net/minecraftforge/common/capabilities/Capability"))
@@ -10426,6 +10428,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
                 .replace("net/minecraftforge/common/capabilities/RegisterCapabilitiesEvent", "net/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent")
                 .replace("net/minecraftforge/common/capabilities/CapabilityToken", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken")
+                .replace("net/minecraftforge/common/capabilities/ForgeCapabilities", "com/fuckingdeveloper/lms/runtime/capability/LegacyForgeCapabilities")
                 .replace("net/minecraftforge/common/capabilities/CapabilityManager", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityManager")
                 .replace("net/minecraftforge/common/capabilities/Capability", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapability")
                 .replace("net/minecraftforge/common/util/LazyOptional", "com/fuckingdeveloper/lms/runtime/capability/LegacyLazyOptional")

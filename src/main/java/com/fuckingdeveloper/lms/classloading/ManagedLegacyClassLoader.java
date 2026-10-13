@@ -79,6 +79,11 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
         return null;
     }
 
+    /** Immutable pre-transformation evidence from this loader's admitted dependency graph. */
+    public byte[] originalClassBytes(String binaryName) throws IOException {
+        return readOwnedClassBytes(binaryName.replace('.', '/'));
+    }
+
     public boolean owns(String binaryName) {
         String entry = binaryName.replace('.', '/') + ".class";
         if (jar.getJarEntry(entry) != null) return true;
