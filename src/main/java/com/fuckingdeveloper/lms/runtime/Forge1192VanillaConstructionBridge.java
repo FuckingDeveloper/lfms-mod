@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -36,15 +35,12 @@ import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect;
 
 /** Exact construction adapters for vanilla constructors removed after 1.19.2. */
 public final class Forge1192VanillaConstructionBridge {
-    private static final org.slf4j.Logger LOG =
-            org.slf4j.LoggerFactory.getLogger(Forge1192VanillaConstructionBridge.class);
     private static final Map<Item.Properties, CreativeModeTab> LEGACY_TABS_BY_PROPERTIES =
             Collections.synchronizedMap(new WeakHashMap<>());
     private static final Map<net.minecraft.resources.Identifier, CreativeModeTab> LEGACY_TABS_BY_ITEM_ID =
             new ConcurrentHashMap<>();
     private static final Map<Item, Item.Properties> ITEM_PROPERTIES =
             Collections.synchronizedMap(new IdentityHashMap<>());
-    private static final AtomicBoolean CREATIVE_TAB_GAP_REPORTED = new AtomicBoolean();
     private static final Map<FoodProperties.Builder, LegacyFoodIntent> LEGACY_FOOD_BUILDERS =
             Collections.synchronizedMap(new IdentityHashMap<>());
     private static final Map<FoodProperties, LegacyFoodIntent> LEGACY_FOODS =
@@ -196,19 +192,10 @@ public final class Forge1192VanillaConstructionBridge {
                 Forge1192RegistrationContext.checkPrefix(legacyName, false)));
     }
 
-    /**
-     * Preserve legacy construction-time tab intent for a future modern
-     * creative-tab population bridge. This is deliberately not presented as
-     * completed tab support: custom legacy tabs do not have a proven 26.3
-     * lifecycle mapping yet.
-     */
+    /** Preserve legacy construction-time membership for target tab population. */
     public static Item.Properties recordLegacyCreativeTab(
             Item.Properties properties, CreativeModeTab legacyTab) {
         LEGACY_TABS_BY_PROPERTIES.put(properties, legacyTab);
-        if (CREATIVE_TAB_GAP_REPORTED.compareAndSet(false, true)) {
-            LOG.warn("LMS preserved legacy Item.Properties creative-tab membership, but modern creative-tab "
-                    + "population is not implemented yet; items will not be silently claimed as populated");
-        }
         return properties;
     }
 
@@ -313,6 +300,16 @@ public final class Forge1192VanillaConstructionBridge {
     public static Optional<CreativeModeTab> legacyCreativeTabIntent(
             net.minecraft.resources.Identifier itemId) {
         return Optional.ofNullable(LEGACY_TABS_BY_ITEM_ID.get(itemId));
+    }
+
+    /** Stable source order for items assigned to one legacy tab object. */
+    public static List<net.minecraft.resources.Identifier> legacyCreativeItemIds(
+            CreativeModeTab tab) {
+        return LEGACY_TABS_BY_ITEM_ID.entrySet().stream()
+                .filter(entry -> entry.getValue() == tab)
+                .map(Map.Entry::getKey)
+                .sorted(java.util.Comparator.comparing(net.minecraft.resources.Identifier::toString))
+                .toList();
     }
 
     /**

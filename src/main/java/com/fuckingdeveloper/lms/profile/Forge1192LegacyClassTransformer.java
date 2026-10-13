@@ -8920,6 +8920,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             "(Ljava/lang/String;)Lnet/minecraft/world/item/CreativeModeTab$Builder;",
                             false));
                     call.desc = "(Lnet/minecraft/world/item/CreativeModeTab$Builder;)V";
+                    var record = new org.objectweb.asm.tree.InsnList();
+                    record.add(new org.objectweb.asm.tree.VarInsnNode(
+                            org.objectweb.asm.Opcodes.ALOAD, 0));
+                    record.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192CreativeTabBridge",
+                            "recordConstructedTab",
+                            "(Lnet/minecraft/world/item/CreativeModeTab;)V", false));
+                    method.instructions.insert(call, record);
                     rewrites++;
                 }
 

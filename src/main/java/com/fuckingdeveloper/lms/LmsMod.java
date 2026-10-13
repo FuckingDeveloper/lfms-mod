@@ -16,6 +16,7 @@ import com.fuckingdeveloper.lms.runtime.Forge1192CompatibilitySurface;
 import com.fuckingdeveloper.lms.runtime.Forge1192NeoForgeApiVerifier;
 import com.fuckingdeveloper.lms.runtime.Target263LegacyResourcePackBridge;
 import com.fuckingdeveloper.lms.runtime.Target263ClientRuntimeBootstrap;
+import com.fuckingdeveloper.lms.runtime.Forge1192CreativeTabBridge;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 import com.fuckingdeveloper.lms.profile.Forge1192Profile;
@@ -48,6 +49,7 @@ public final class LmsMod {
 
     public LmsMod(IEventBus modBus, ModContainer hostContainer) {
         modBus.addListener(this::onPayloadRegistration);
+        modBus.addListener(Forge1192CreativeTabBridge::onRegister);
         modBus.addListener(AddPackFindersEvent.class, legacyResourcePacks::addPackFinders);
         if (FMLEnvironment.getDist() == Dist.CLIENT) {
             Target263ClientRuntimeBootstrap.register(modBus);

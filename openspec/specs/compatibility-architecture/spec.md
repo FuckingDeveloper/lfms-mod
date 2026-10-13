@@ -408,6 +408,16 @@ an arbitrary or effectively infinite target layer list.
 This adapter MUST NOT be claimed as general target data-driven tint-source
 registration for target-owned models.
 
+When a source generation constructs custom creative tabs as process-global
+objects and assigns item membership through item properties, LMS MAY preserve
+the tab object, source label, source icon override, and per-item enumeration
+until the target creative-tab registry and content-building phases. Target tab
+keys MUST be deterministic and scoped to the active legacy mod; membership
+MUST be selected by preserved tab-object identity. LMS MUST execute source item
+enumeration through its verified override contract, deduplicate only stacks
+that the target defines as identical, and fail explicitly when source output
+cannot satisfy target tab invariants.
+
 When source model baking is ordered after texture-stitch completion but the
 target uploads the prepared atlas only after it snapshots model dispatch,
 LMS MAY deliver the source texture-stitch completion against an immutable view
