@@ -242,6 +242,13 @@ query MUST NOT be treated as equivalent to the target cache solely because
 the returned types match: the source query can return a shape even when
 `canOcclude` is false, while the target cache stores an empty shape then.
 
+When a source public field survives with the same identity, type, ownership,
+and lifecycle but becomes non-public in the target, the target adapter MAY
+explicitly restore the source visibility for that exact verified member.
+Final-field invariants MUST remain intact. A direct field read MUST NOT become
+a virtual accessor invocation if an override could select a different value;
+source object identity and state lifetime MUST be preserved.
+
 When a source level sound operation excludes a nullable player from hearing a
 sound and the target widens that exclusion parameter to any entity, LMS MAY
 adapt the exact mapped level member to the widened target descriptor. The
