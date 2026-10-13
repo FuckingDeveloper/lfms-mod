@@ -103,6 +103,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/entity/vehicle/Minecart", "net/minecraft/world/entity/vehicle/minecart/Minecart"),
             java.util.Map.entry("net/minecraft/world/item/Tiers", "com/fuckingdeveloper/lms/runtime/item/LegacyTiers"),
             java.util.Map.entry("net/minecraft/ResourceLocationException", "net/minecraft/IdentifierException"),
+            java.util.Map.entry("net/minecraft/network/chat/HoverEvent$ItemStackInfo", "com/fuckingdeveloper/lms/runtime/chat/LegacyHoverItemStackInfo"),
             java.util.Map.entry("net/minecraftforge/client/event/TextureStitchEvent", "com/fuckingdeveloper/lms/runtime/event/LegacyTextureStitchEvent"),
             java.util.Map.entry("net/minecraftforge/client/event/TextureStitchEvent$Pre", "com/fuckingdeveloper/lms/runtime/event/LegacyTextureStitchEvent$Pre"),
             java.util.Map.entry("net/minecraftforge/client/event/TextureStitchEvent$Post", "com/fuckingdeveloper/lms/runtime/event/LegacyTextureStitchEvent$Post"),
@@ -183,6 +184,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
         rewrites += rewriteLegacyEntityLevelFieldAccess(node);
         rewrites += rewriteLegacyBlockPosConstruction(node);
+        rewrites += rewriteLegacyChatEventFamily(node);
         rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
         // superclass constructor is still visible. Later construction-shape
@@ -7130,6 +7132,164 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     method.instructions.set(constructor, factory);
                     next = factory.getNext();
                     rewrites++;
+                }
+                insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Target 26.3 split the source Action/String value object into typed click
+     * event records. Preserve the exact source constructor and accessor ABI
+     * through a factory that selects the corresponding target value type.
+     */
+    private static int rewriteLegacyChatEventFamily(ClassNode node) {
+        final String clickEvent = "net/minecraft/network/chat/ClickEvent";
+        final String clickAction = "net/minecraft/network/chat/ClickEvent$Action";
+        final String hoverEvent = "net/minecraft/network/chat/HoverEvent";
+        final String hoverAction = "net/minecraft/network/chat/HoverEvent$Action";
+        final String bridge = "com/fuckingdeveloper/lms/runtime/chat/Forge1192ChatEventBridge";
+        final String clickConstructor = "(L" + clickAction + ";Ljava/lang/String;)V";
+        final String hoverConstructor = "(L" + hoverAction + ";Ljava/lang/Object;)V";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (insn instanceof TypeInsnNode allocation
+                        && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                        && allocation.desc.equals(clickEvent)) {
+                    var duplicate = allocation.getNext();
+                    if (duplicate == null
+                            || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                        throw new IllegalStateException("Unsupported legacy ClickEvent allocation: "
+                                + node.name + "#" + method.name + method.desc);
+                    }
+                    MethodInsnNode constructor = null;
+                    int nested = 0;
+                    for (var cursor = duplicate.getNext(); cursor != null; cursor = cursor.getNext()) {
+                        if (cursor instanceof TypeInsnNode nestedType
+                                && nestedType.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                            nested++;
+                        } else if (cursor instanceof MethodInsnNode call
+                                && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                                && call.name.equals("<init>")) {
+                            if (nested > 0) {
+                                nested--;
+                            } else {
+                                if (call.owner.equals(clickEvent)
+                                        && call.desc.equals(clickConstructor)) {
+                                    constructor = call;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if (constructor == null) {
+                        throw new IllegalStateException("Cannot pair legacy ClickEvent constructor: "
+                                + node.name + "#" + method.name + method.desc);
+                    }
+                    method.instructions.remove(allocation);
+                    method.instructions.remove(duplicate);
+                    var factory = new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            bridge,
+                            "click",
+                            "(L" + clickAction + ";Ljava/lang/String;)L" + clickEvent + ";",
+                            false);
+                    method.instructions.set(constructor, factory);
+                    rewrites++;
+                    insn = factory.getNext();
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.owner.equals(clickEvent)
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL) {
+                    if (call.name.equals("m_130622_")
+                            && call.desc.equals("()L" + clickAction + ";")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "action";
+                        call.desc = "(L" + clickEvent + ";)L" + clickAction + ";";
+                        call.itf = false;
+                        rewrites++;
+                    } else if (call.name.equals("m_130623_")
+                            && call.desc.equals("()Ljava/lang/String;")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "value";
+                        call.desc = "(L" + clickEvent + ";)Ljava/lang/String;";
+                        call.itf = false;
+                        rewrites++;
+                    }
+                }
+                if (insn instanceof TypeInsnNode allocation
+                        && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW
+                        && allocation.desc.equals(hoverEvent)) {
+                    var duplicate = allocation.getNext();
+                    if (duplicate == null
+                            || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                        throw new IllegalStateException("Unsupported legacy HoverEvent allocation: "
+                                + node.name + "#" + method.name + method.desc);
+                    }
+                    MethodInsnNode constructor = null;
+                    int nested = 0;
+                    for (var cursor = duplicate.getNext(); cursor != null; cursor = cursor.getNext()) {
+                        if (cursor instanceof TypeInsnNode nestedType
+                                && nestedType.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                            nested++;
+                        } else if (cursor instanceof MethodInsnNode call
+                                && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                                && call.name.equals("<init>")) {
+                            if (nested > 0) {
+                                nested--;
+                            } else {
+                                if (call.owner.equals(hoverEvent)
+                                        && call.desc.equals(hoverConstructor)) {
+                                    constructor = call;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if (constructor == null) {
+                        throw new IllegalStateException("Cannot pair legacy HoverEvent constructor: "
+                                + node.name + "#" + method.name + method.desc);
+                    }
+                    method.instructions.remove(allocation);
+                    method.instructions.remove(duplicate);
+                    var factory = new MethodInsnNode(
+                            org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            bridge,
+                            "hover",
+                            "(L" + hoverAction + ";Ljava/lang/Object;)L" + hoverEvent + ";",
+                            false);
+                    method.instructions.set(constructor, factory);
+                    rewrites++;
+                    insn = factory.getNext();
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.owner.equals(hoverEvent)
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL) {
+                    if (call.name.equals("m_130820_")
+                            && call.desc.equals("()L" + hoverAction + ";")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "hoverAction";
+                        call.desc = "(L" + hoverEvent + ";)L" + hoverAction + ";";
+                        call.itf = false;
+                        rewrites++;
+                    } else if (call.name.equals("m_130823_")
+                            && call.desc.equals("(L" + hoverAction + ";)Ljava/lang/Object;")) {
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = bridge;
+                        call.name = "hoverValue";
+                        call.desc = "(L" + hoverEvent + ";L" + hoverAction
+                                + ";)Ljava/lang/Object;";
+                        call.itf = false;
+                        rewrites++;
+                    }
                 }
                 insn = next;
             }

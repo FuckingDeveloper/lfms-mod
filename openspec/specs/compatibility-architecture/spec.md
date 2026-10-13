@@ -239,6 +239,21 @@ same concrete gameplay role, LMS MAY map the exact source SRG/Mojang field to
 the exact target declaration only with verified source and target registry
 evidence. Similar field types or names alone are insufficient.
 
+When a source chat click event stores an action and string but the target uses
+action-specific value types, LMS MUST construct the exact target event type
+for values representable by the target and MUST preserve source action/value
+accessors. A source screen's non-numeric `CHANGE_PAGE` navigation token MAY be
+preserved as a local compatibility value only for source callbacks that consume
+that token themselves; LMS MUST NOT present it as a functional target book-page
+event.
+
+When a source hover event stores an action and erased value but the target uses
+action-specific records, LMS MUST validate the source value against the exact
+action contract and construct the corresponding target text, item, or entity
+hover event. Source item-stack hover carriers MAY be represented by an immutable
+target item-stack template, but source reads MUST reconstruct an equivalent
+stack value rather than exposing the target carrier type.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state
