@@ -273,6 +273,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyInteractionResultConstants(node);
         rewrites += rewriteLegacyPlacedBlockCriterion(node);
         rewrites += rewriteLegacyBlockStateCloneItem(node);
+        rewrites += rewriteLegacyBlockStateOcclusionQueries(node);
         rewrites += rewriteLegacyNeighborUpdateFamily(node);
         rewrites += rewriteLegacyVertexConsumerFamily(node);
         rewrites += rewriteTargetInterfaceInvocationShapes(node);
@@ -856,6 +857,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    private static int rewriteLegacyBlockStateOcclusionQueries(ClassNode node) {
+        final String state = "net/minecraft/world/level/block/state/BlockState";
+        final String arguments = "(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals(state)) continue;
+                String targetName = switch (call.name + call.desc) {
+                    case "m_60804_" + arguments + "Z" -> "isSolidRender";
+                    default -> null;
+                };
+                if (targetName == null) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192BlockStateBridge";
+                call.name = targetName;
+                call.desc = "(L" + state + ";" + call.desc.substring(1);
+                call.itf = false;
+                rewrites++;
             }
         }
         return rewrites;

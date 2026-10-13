@@ -230,6 +230,18 @@ MUST cover the verified channel-control family rather than only the first
 failing call. Unknown or changed channel operations MUST remain unresolved;
 an audio executor failure MUST NOT be hidden as successful playback.
 
+For legacy block-state occlusion queries, LMS MAY adapt source
+`isSolidRender(BlockGetter, BlockPos)` to the target's cached state-only
+predicate when source and target
+both use a position-independent occlusion shape. The full-cube predicate and
+the `canOcclude` decision MUST be preserved. A position-dependent shape or
+unmigrated legacy block occlusion override MUST fail explicitly until its
+source world/position semantics can be preserved; LMS MUST NOT silently
+discard those inputs for such a block. A direct source `getOcclusionShape`
+query MUST NOT be treated as equivalent to the target cache solely because
+the returned types match: the source query can return a shape even when
+`canOcclude` is false, while the target cache stores an empty shape then.
+
 When a source level sound operation excludes a nullable player from hearing a
 sound and the target widens that exclusion parameter to any entity, LMS MAY
 adapt the exact mapped level member to the widened target descriptor. The
