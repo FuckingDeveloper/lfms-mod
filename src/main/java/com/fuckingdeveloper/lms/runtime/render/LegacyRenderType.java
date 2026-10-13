@@ -11,7 +11,7 @@ import java.util.Objects;
 public class LegacyRenderType extends LegacyRenderStateShard {
     public enum Kind {
         SOLID, CUTOUT_MIPPED, CUTOUT, TRANSLUCENT, TRIPWIRE,
-        ENTITY_CUTOUT, ENTITY_TRANSLUCENT_CULL, ENTITY_TRANSLUCENT,
+        ENTITY_SOLID, ENTITY_CUTOUT, ENTITY_TRANSLUCENT_CULL, ENTITY_TRANSLUCENT,
         EYES, OUTLINE, CRUMBLING, TEXT, TEXT_SEE_THROUGH,
         LEASH, WATER_MASK, LIGHTNING, LINES, CUSTOM
     }
@@ -86,6 +86,7 @@ public class LegacyRenderType extends LegacyRenderStateShard {
     public static LegacyRenderType m_110466_() { return TRANSLUCENT; }
     public static LegacyRenderType m_110503_() { return TRIPWIRE; }
     public static List<LegacyRenderType> m_110506_() { return CHUNK_LAYERS; }
+    public static LegacyRenderType m_110446_(Identifier texture) { return textured(Kind.ENTITY_SOLID, texture); }
     public static LegacyRenderType m_110452_(Identifier texture) { return textured(Kind.ENTITY_CUTOUT, texture); }
     public static LegacyRenderType m_110470_(Identifier texture) { return textured(Kind.ENTITY_TRANSLUCENT_CULL, texture); }
     public static LegacyRenderType m_110473_(Identifier texture) { return textured(Kind.ENTITY_TRANSLUCENT, texture); }
@@ -106,6 +107,7 @@ public class LegacyRenderType extends LegacyRenderStateShard {
     /** Resolves only identities with a verified deferred-pipeline counterpart. */
     public RenderType requireTargetRenderType() {
         return switch (kind) {
+            case ENTITY_SOLID -> RenderTypes.entitySolid(texture);
             case ENTITY_CUTOUT -> RenderTypes.entityCutout(texture);
             case ENTITY_TRANSLUCENT_CULL -> RenderTypes.entityTranslucentCull(texture);
             case ENTITY_TRANSLUCENT -> RenderTypes.entityTranslucent(texture);

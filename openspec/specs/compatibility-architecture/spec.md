@@ -357,6 +357,9 @@ render-pipeline state but the target separates those concepts, LMS MUST retain
 source chunk layers as semantic identities until the model adapter selects the
 target chunk/material representation. It MUST NOT substitute an unrelated
 target render pipeline merely because both APIs use a class named RenderType.
+An exact source texture-bearing entity render-type factory MAY resolve to the
+target factory only when both factories retain the same named blend, culling,
+depth, and texture semantics.
 
 When the source renderer pre-registers render types in a mutable fixed-buffer
 map that the target no longer exposes, LMS MAY capture the exact registration
