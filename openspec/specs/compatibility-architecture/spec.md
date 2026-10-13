@@ -301,6 +301,13 @@ color member and its documented channel encoding. It MUST preserve channel
 order and normalization and MUST NOT reinterpret an unrelated packed color
 merely because it has the same primitive type.
 
+When a source operation consumes a process-global enchantment value and the
+target represents the same exact enchantment identity as a data-driven
+resource key, LMS MUST resolve that key through the active registration,
+server, or client-world registry at the consuming operation. LMS MUST fail
+explicitly when no authoritative registry context exists; it MUST NOT cache or
+fabricate a process-global enchantment instance.
+
 When the target snapshots or derives its block-state dispatch before the
 source-equivalent completion phase, LMS MAY execute a legacy baked-model
 registration callback during the target's final mutable baking phase. This

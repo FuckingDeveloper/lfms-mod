@@ -2,16 +2,23 @@ package com.fuckingdeveloper.lms.runtime;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.levelgen.feature.TreeFeature;
 import net.minecraft.world.level.levelgen.feature.stateproviders.SimpleStateProvider;
@@ -34,6 +41,53 @@ public final class Forge1192DynamicRegistryBridge {
 
     public static Registry<?> enchantments() {
         return resolve(Registries.ENCHANTMENT);
+    }
+
+    public static void enchant(
+            ItemStack stack, ResourceKey<Enchantment> enchantment, int level) {
+        Registry<Enchantment> registry = resolveTyped(Registries.ENCHANTMENT);
+        stack.enchant(registry.getOrThrow(enchantment), level);
+    }
+
+    public static int enchantmentMaxLevel(ResourceKey<Enchantment> enchantment) {
+        Registry<Enchantment> registry = resolveTyped(Registries.ENCHANTMENT);
+        return registry.getOrThrow(enchantment).value().getMaxLevel();
+    }
+
+    public static int itemEnchantmentLevel(
+            ResourceKey<Enchantment> enchantment, ItemStack stack) {
+        Registry<Enchantment> registry = resolveTyped(Registries.ENCHANTMENT);
+        return EnchantmentHelper.getItemEnchantmentLevel(
+                registry.getOrThrow(enchantment), stack);
+    }
+
+    public static int stackEnchantmentLevel(
+            ItemStack stack, ResourceKey<Enchantment> enchantment) {
+        return itemEnchantmentLevel(enchantment, stack);
+    }
+
+    public static Map.Entry<EquipmentSlot, ItemStack> randomItemWith(
+            ResourceKey<Enchantment> enchantment, LivingEntity entity) {
+        return randomItemWith(enchantment, entity, stack -> true);
+    }
+
+    public static Map.Entry<EquipmentSlot, ItemStack> randomItemWith(
+            ResourceKey<Enchantment> enchantment, LivingEntity entity,
+            Predicate<ItemStack> predicate) {
+        Registry<Enchantment> registry = resolveTyped(Registries.ENCHANTMENT);
+        var holder = registry.getOrThrow(enchantment);
+        var matches = new ArrayList<Map.Entry<EquipmentSlot, ItemStack>>();
+        for (EquipmentSlot slot : EquipmentSlot.VALUES) {
+            ItemStack stack = entity.getItemBySlot(slot);
+            if (!stack.isEmpty()
+                    && EnchantmentHelper.getItemEnchantmentLevel(holder, stack) > 0
+                    && holder.value().matchingSlot(slot)
+                    && predicate.test(stack)) {
+                matches.add(Map.entry(slot, stack));
+            }
+        }
+        return matches.isEmpty() ? null
+                : matches.get(entity.getRandom().nextInt(matches.size()));
     }
 
     public static Registry<?> paintingVariants() {
@@ -107,5 +161,10 @@ public final class Forge1192DynamicRegistryBridge {
 
         throw new IllegalStateException("Legacy access to data-driven registry "
                 + key.identifier() + " requires an active registration or world context");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Registry<T> resolveTyped(ResourceKey<Registry<T>> key) {
+        return (Registry<T>) resolve(key);
     }
 }

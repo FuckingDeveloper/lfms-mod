@@ -255,6 +255,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyTextureAtlasSpriteIdentity(node);
         rewrites += rewriteLegacyBoatRendererSubclass(node);
         rewrites += rewriteLegacyDyeColorValues(node);
+        rewrites += rewriteLegacyEnchantmentValues(node);
         rewrites += rewriteLegacyPlayerInteractionDecisions(node);
         rewrites += rewriteLegacyLevelSoundPlayback(node);
         rewrites += rewriteLegacyInteractionResultConstants(node);
@@ -435,6 +436,129 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 call.desc = "(Lnet/minecraft/world/item/DyeColor;)[F";
                 call.itf = false;
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /** Resolve source process-global enchantment values through the target's
+     * world-scoped data-driven registry at the exact consuming operation. */
+    private int rewriteLegacyEnchantmentValues(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/world/item/enchantment/Enchantments")
+                        && field.desc.equals(
+                                "Lnet/minecraft/world/item/enchantment/Enchantment;")) {
+                    String canonical = SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(field.owner, field.name, field.desc)
+                            .orElse(null);
+                    // Mojang renamed several Java constants while retaining
+                    // their exact minecraft registry identities. This table
+                    // covers the complete 1.19.2 constant family rather than
+                    // only the members reached by the current fixture.
+                    String targetName = switch (canonical == null ? "" : canonical) {
+                        case "ALL_DAMAGE_PROTECTION" -> "PROTECTION";
+                        case "FALL_PROTECTION" -> "FEATHER_FALLING";
+                        case "MOB_LOOTING" -> "LOOTING";
+                        case "BLOCK_EFFICIENCY" -> "EFFICIENCY";
+                        case "BLOCK_FORTUNE" -> "FORTUNE";
+                        case "POWER_ARROWS" -> "POWER";
+                        case "PUNCH_ARROWS" -> "PUNCH";
+                        case "FLAMING_ARROWS" -> "FLAME";
+                        case "INFINITY_ARROWS" -> "INFINITY";
+                        case "FISHING_LUCK" -> "LUCK_OF_THE_SEA";
+                        case "FISHING_SPEED" -> "LURE";
+                        default -> canonical;
+                    };
+                    if (targetName != null && !VANILLA_RELOCATIONS.searchExactField(
+                            "net.minecraft.world.item.enchantment.Enchantments",
+                            targetName, "Lnet/minecraft/resources/ResourceKey;").isEmpty()) {
+                        field.name = targetName;
+                        field.desc = "Lnet/minecraft/resources/ResourceKey;";
+                        rewrites++;
+                    }
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/enchantment/Enchantment")
+                        && (call.name.equals("m_6586_") || call.name.equals("getMaxLevel"))
+                        && call.desc.equals("()I")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192DynamicRegistryBridge";
+                    call.name = "enchantmentMaxLevel";
+                    call.desc = "(Lnet/minecraft/resources/ResourceKey;)I";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/ItemStack")
+                        && (call.name.equals("m_41663_") || call.name.equals("enchant"))
+                        && call.desc.equals("(Lnet/minecraft/world/item/enchantment/"
+                                + "Enchantment;I)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192DynamicRegistryBridge";
+                    call.name = "enchant";
+                    call.desc = "(Lnet/minecraft/world/item/ItemStack;"
+                            + "Lnet/minecraft/resources/ResourceKey;I)V";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/world/item/enchantment/EnchantmentHelper")
+                        && call.name.equals("getTagEnchantmentLevel")
+                        && call.desc.equals("(Lnet/minecraft/world/item/enchantment/Enchantment;"
+                                + "Lnet/minecraft/world/item/ItemStack;)I")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192DynamicRegistryBridge";
+                    call.name = "itemEnchantmentLevel";
+                    call.desc = "(Lnet/minecraft/resources/ResourceKey;"
+                            + "Lnet/minecraft/world/item/ItemStack;)I";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/ItemStack")
+                        && call.name.equals("getEnchantmentLevel")
+                        && call.desc.equals("(Lnet/minecraft/world/item/enchantment/Enchantment;)I")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192DynamicRegistryBridge";
+                    call.name = "stackEnchantmentLevel";
+                    call.desc = "(Lnet/minecraft/world/item/ItemStack;"
+                            + "Lnet/minecraft/resources/ResourceKey;)I";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/world/item/enchantment/EnchantmentHelper")
+                        && (call.desc.equals("(Lnet/minecraft/world/item/enchantment/Enchantment;"
+                                        + "Lnet/minecraft/world/entity/LivingEntity;)Ljava/util/Map$Entry;")
+                                || call.desc.equals("(Lnet/minecraft/world/item/enchantment/Enchantment;"
+                                        + "Lnet/minecraft/world/entity/LivingEntity;"
+                                        + "Ljava/util/function/Predicate;)Ljava/util/Map$Entry;"))) {
+                    String canonical = call.name.startsWith("m_")
+                            ? SRG_RUNTIME_RESOLVER.get().canonicalMethodName(
+                                    call.owner, call.name, call.desc).orElse(null)
+                            : call.name;
+                    if (!"getRandomItemWith".equals(canonical)) continue;
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192DynamicRegistryBridge";
+                    call.name = "randomItemWith";
+                    call.desc = call.desc.replace(
+                            "Lnet/minecraft/world/item/enchantment/Enchantment;",
+                            "Lnet/minecraft/resources/ResourceKey;");
+                    call.itf = false;
+                    rewrites++;
+                }
             }
         }
         return rewrites;
