@@ -282,6 +282,12 @@ When the target removes the source chat-format lookup by normalized display
 name, LMS MUST preserve its nullable result and source normalization rule. It
 MUST NOT substitute enum `valueOf`, whose case and separator semantics differ.
 
+When a source item-stack predicate tests specifically for the explicit custom
+display-name tag, LMS MUST test the target component that represents that same
+explicit naming intent. It MUST NOT substitute a broader target custom-name
+accessor whose result also includes unrelated item families such as written
+book titles.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state

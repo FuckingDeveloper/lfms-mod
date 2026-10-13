@@ -5411,6 +5411,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                         && call.owner.equals("net/minecraft/world/item/ItemStack")
+                        && call.name.equals("m_41788_")
+                        && call.desc.equals("()Z")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                    call.name = "hasCustomHoverName";
+                    call.desc = "(Lnet/minecraft/world/item/ItemStack;)Z";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/item/ItemStack")
                         && call.name.equals("m_41739_")
                         && call.desc.equals("(Lnet/minecraft/nbt/CompoundTag;)"
                                 + "Lnet/minecraft/nbt/CompoundTag;")) {

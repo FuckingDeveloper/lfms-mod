@@ -75,6 +75,16 @@ public final class Forge1192ItemBridge {
         }
     }
 
+    /**
+     * Forge 1.19.2 tested specifically for the stack's {@code display.Name}
+     * value. The target CUSTOM_NAME component is that same explicit naming
+     * intent; {@link ItemStack#getCustomName()} is deliberately broader for
+     * written-book titles and is therefore not equivalent here.
+     */
+    public static boolean hasCustomHoverName(ItemStack stack) {
+        return stack.has(DataComponents.CUSTOM_NAME);
+    }
+
     /** Store a source-era arbitrary stack tag in the target custom-data component. */
     public static void addTagElement(ItemStack stack, String key, Tag value) {
         getOrCreateTag(stack).put(key, value);
