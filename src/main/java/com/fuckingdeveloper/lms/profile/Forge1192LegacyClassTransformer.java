@@ -184,6 +184,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
         rewrites += rewriteLegacyEntityLevelFieldAccess(node);
         rewrites += rewriteLegacyBlockPosConstruction(node);
+        rewrites += rewriteLegacyChunkPosFamily(node);
         rewrites += rewriteLegacyChatEventFamily(node);
         rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
@@ -7446,6 +7447,95 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                 }
                 insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * ChunkPos became a record in target 26.3. Its removed BlockPos/packed-long
+     * constructors survive as exact factories, while its former public x/z
+     * fields survive as the corresponding record accessors.
+     */
+    private static int rewriteLegacyChunkPosFamily(ClassNode node) {
+        final String chunkPos = "net/minecraft/world/level/ChunkPos";
+        final String blockPos = "Lnet/minecraft/core/BlockPos;";
+        boolean containingAvailable = VANILLA_RELOCATIONS.classifyMethod(
+                "net.minecraft.world.level.ChunkPos", "containing",
+                "(" + blockPos + ")L" + chunkPos + ";").status()
+                == Forge1192MappingLayer.Status.VERIFIED_IDENTITY;
+        boolean unpackAvailable = VANILLA_RELOCATIONS.classifyMethod(
+                "net.minecraft.world.level.ChunkPos", "unpack", "(J)L" + chunkPos + ";")
+                .status() == Forge1192MappingLayer.Status.VERIFIED_IDENTITY;
+        boolean xAvailable = VANILLA_RELOCATIONS.classifyMethod(
+                "net.minecraft.world.level.ChunkPos", "x", "()I").status()
+                == Forge1192MappingLayer.Status.VERIFIED_IDENTITY;
+        boolean zAvailable = VANILLA_RELOCATIONS.classifyMethod(
+                "net.minecraft.world.level.ChunkPos", "z", "()I").status()
+                == Forge1192MappingLayer.Status.VERIFIED_IDENTITY;
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (!(insn instanceof TypeInsnNode allocation)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !allocation.desc.equals(chunkPos)) {
+                    insn = next;
+                    continue;
+                }
+                var duplicate = nextExecutable(allocation);
+                if (duplicate == null || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP) {
+                    insn = next;
+                    continue;
+                }
+                MethodInsnNode constructor = null;
+                int nested = 0;
+                for (var cursor = duplicate.getNext(); cursor != null; cursor = cursor.getNext()) {
+                    if (cursor instanceof TypeInsnNode nestedType
+                            && nestedType.getOpcode() == org.objectweb.asm.Opcodes.NEW) {
+                        nested++;
+                    } else if (cursor instanceof MethodInsnNode call
+                            && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                            && call.name.equals("<init>")) {
+                        if (nested > 0) nested--;
+                        else if (call.owner.equals(chunkPos)) {
+                            constructor = call;
+                            break;
+                        }
+                    }
+                }
+                String factory = constructor != null
+                        && constructor.desc.equals("(" + blockPos + ")V")
+                        && containingAvailable ? "containing"
+                        : constructor != null && constructor.desc.equals("(J)V")
+                        && unpackAvailable ? "unpack" : null;
+                if (factory != null) {
+                    String descriptor = constructor.desc.substring(0, constructor.desc.length() - 1)
+                            + "L" + chunkPos + ";";
+                    method.instructions.remove(allocation);
+                    method.instructions.remove(duplicate);
+                    var replacement = new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            chunkPos, factory, descriptor, false);
+                    method.instructions.set(constructor, replacement);
+                    next = replacement.getNext();
+                    rewrites++;
+                }
+                insn = next;
+            }
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var current = insn;
+                insn = insn.getNext();
+                if (!(current instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETFIELD
+                        || !field.owner.equals(chunkPos)
+                        || !field.desc.equals("I")) continue;
+                String accessor = field.name.equals("f_45578_") && xAvailable ? "x"
+                        : field.name.equals("f_45579_") && zAvailable ? "z" : null;
+                if (accessor == null) continue;
+                method.instructions.set(field, new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        chunkPos, accessor, "()I", false));
+                rewrites++;
             }
         }
         return rewrites;

@@ -294,6 +294,12 @@ the target biome precipitation-presence predicate. Uses that distinguish rain
 from snow MUST remain fail-closed unless the source call site also provides the
 position and sea-level context required by the target API.
 
+When a source coordinate value type exposes convenience constructors and
+public coordinate fields that the target replaces with exact factories and
+record accessors, LMS MAY migrate those operations as one value-contract
+family. The target factory and accessors MUST preserve the source coordinate
+conversion and value semantics; descriptor similarity alone is insufficient.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state
