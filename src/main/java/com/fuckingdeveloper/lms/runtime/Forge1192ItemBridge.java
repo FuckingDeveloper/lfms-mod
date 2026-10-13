@@ -115,6 +115,33 @@ public final class Forge1192ItemBridge {
         return net.minecraft.network.chat.Component.translatable(getDescriptionId(item, stack));
     }
 
+    public static net.minecraft.world.InteractionResult useResult(
+            com.fuckingdeveloper.lms.runtime.item.LegacyInteractionResultHolder<?> holder,
+            net.minecraft.world.entity.player.Player player, net.minecraft.world.InteractionHand hand) {
+        java.util.Objects.requireNonNull(holder, "legacy use result");
+        if (!(holder.m_19095_() instanceof ItemStack stack))
+            throw new IllegalStateException("Source Item.use returned a non-stack value");
+        var result = holder.m_19089_();
+        if (result instanceof net.minecraft.world.InteractionResult.Success success)
+            return success.heldItemTransformedTo(stack);
+        if (stack != player.getItemInHand(hand))
+            throw new IllegalStateException("Source non-success use result replaces the held stack; target migration is not established");
+        return result;
+    }
+
+    public static com.fuckingdeveloper.lms.runtime.item.LegacyInteractionResultHolder<ItemStack> baseUse(
+            Item item, net.minecraft.world.level.Level level, net.minecraft.world.entity.player.Player player,
+            net.minecraft.world.InteractionHand hand) {
+        ItemStack stack = player.getItemInHand(hand);
+        var consumable = stack.get(DataComponents.CONSUMABLE);
+        if (consumable == null) {
+            if (stack.has(DataComponents.FOOD)) throw new IllegalStateException("Source food has no target consumption intent");
+            return com.fuckingdeveloper.lms.runtime.item.LegacyInteractionResultHolder.m_19098_(stack);
+        }
+        return new com.fuckingdeveloper.lms.runtime.item.LegacyInteractionResultHolder<>(
+                consumable.startConsuming(player, stack, hand), stack);
+    }
+
     /** Preserve the source DiggerItem type family after target class removal. */
     public static boolean isDiggerItem(Object value) {
         if (!(value instanceof Item item)) return false;
@@ -146,7 +173,12 @@ public final class Forge1192ItemBridge {
 
     public static String getDescriptionId(Item item, ItemStack stack) {
         var legacy = LEGACY_DESCRIPTION_ID.get(item.getClass());
-        if (legacy.isEmpty()) return item.getDescriptionId();
+        if (legacy.isEmpty()) {
+            var stackless = LEGACY_STACKLESS_DESCRIPTION.get(item.getClass());
+            if (stackless.isEmpty()) return item.getDescriptionId();
+            try { return (String) stackless.get().invoke(item); }
+            catch (Throwable error) { throw new IllegalStateException("Legacy stackless description failed", error); }
+        }
         try {
             return (String) legacy.get().invoke(item, stack);
         } catch (Throwable error) {
@@ -154,6 +186,26 @@ public final class Forge1192ItemBridge {
                     + item.getClass().getName(), error);
         }
     }
+
+    private static final ClassValue<java.util.Optional<java.lang.invoke.MethodHandle>> LEGACY_STACKLESS_DESCRIPTION = new ClassValue<>() {
+        @Override protected java.util.Optional<java.lang.invoke.MethodHandle> computeValue(Class<?> type) {
+            for (Class<?> cursor = type; cursor != null; cursor = cursor.getSuperclass()) {
+                if (!(cursor.getClassLoader() instanceof com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader)) break;
+                for (String name : new String[]{"m_41466_", "m_41467_"}) {
+                    try {
+                        return java.util.Optional.of(java.lang.invoke.MethodHandles.privateLookupIn(cursor,
+                                java.lang.invoke.MethodHandles.lookup()).findVirtual(cursor, name,
+                                java.lang.invoke.MethodType.methodType(String.class)));
+                    } catch (NoSuchMethodException ignored) {
+                        // Continue only when this exact source override is absent.
+                    } catch (IllegalAccessException error) {
+                        throw new IllegalStateException("Cannot access legacy description override", error);
+                    }
+                }
+            }
+            return java.util.Optional.empty();
+        }
+    };
 
     /**
      * Forge 1.19.2 tested specifically for the stack's {@code display.Name}

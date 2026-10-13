@@ -597,6 +597,24 @@ malformed category JSON MUST fail explicitly rather than silently lose names.
 
 ## Generic compatibility requirement
 
+Forge 1.19.2 custom item-use callbacks MUST preserve the source action/value
+pair when the target returns an action with an optional transformed held stack.
+Success results MUST retain their swing semantics and exact returned stack.
+Non-success stack replacement MUST fail explicitly until its target update
+timing is established. Source duration callbacks MUST receive the original
+stack; the added target user parameter MUST NOT replace a source override.
+Source use-animation enum identity/order MUST remain source-owned and its
+target consumption mapping MUST use verified named animation identities.
+
+Source armor equipment adapters MUST retain the source equipment slot and equip
+sound. The Forge 1.19.2 base armor-use operation MUST equip only into an empty
+slot, copy the held stack, award the server-side use statistic, and clear the
+held stack with the source sided-success result. Slot linkage MUST NOT be
+claimed as armor-attribute, durability, repair, dispenser or worn-model support.
+Source stackless description overrides, including protected lazy-description
+operations, MUST participate in source default item-name selection even when
+the target captures a final construction-time description identifier.
+
 Legacy graphical tooltip adapters MUST preserve measured source dimensions and
 execute source image callbacks through the target GUI extraction lifecycle.
 Supported texture blits and item/decorations MUST retain coordinates, UVs,

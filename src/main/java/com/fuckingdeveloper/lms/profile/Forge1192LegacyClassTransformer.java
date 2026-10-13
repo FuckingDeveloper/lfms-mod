@@ -197,6 +197,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacySignItemConstruction(node);
         rewrites += rewriteLegacyItemNameDefaults(node);
+        rewrites += rewriteLegacyItemUseCallbacks(node);
         rewrites += rewriteLegacySignBlockConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
@@ -1898,6 +1899,64 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Bridge source action/value, duration and animation callbacks without discarding source behavior. */
+    private int rewriteLegacyItemUseCallbacks(ClassNode node) {
+        if (!isManagedSubtypeOf(node, "net/minecraft/world/item/Item")) return 0;
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        String stack = "Lnet/minecraft/world/item/ItemStack;";
+        String living = "Lnet/minecraft/world/entity/LivingEntity;";
+        String useArguments = "Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;";
+        String sourceUse = "(" + useArguments + ")Lnet/minecraft/world/InteractionResultHolder;";
+        if ((node.superName.equals("net/minecraft/world/item/Item") || node.superName.equals("net/minecraft/world/item/BlockItem"))
+                && node.methods.stream().noneMatch(m -> m.name.equals("m_7203_") && m.desc.equals(sourceUse))) {
+            var base = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC
+                    | org.objectweb.asm.Opcodes.ACC_SYNTHETIC, "m_7203_", sourceUse, null, null);
+            for (int i = 0; i <= 3; i++) base.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, i));
+            base.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge", "baseUse",
+                    "(Lnet/minecraft/world/item/Item;" + useArguments + ")Lcom/fuckingdeveloper/lms/runtime/item/LegacyInteractionResultHolder;", false));
+            base.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));
+            base.maxStack = 4; base.maxLocals = 4;
+            node.methods.add(base);
+        }
+        for (var source : node.methods) {
+            String targetName = null, targetDescriptor = null;
+            if (source.name.equals("m_7203_") && source.desc.equals("(" + useArguments + ")Lnet/minecraft/world/InteractionResultHolder;")) {
+                targetName = "use"; targetDescriptor = "(" + useArguments + ")Lnet/minecraft/world/InteractionResult;";
+            } else if (source.name.equals("m_8105_") && source.desc.equals("(" + stack + ")I")) {
+                targetName = "getUseDuration"; targetDescriptor = "(" + stack + living + ")I";
+            } else if (source.name.equals("m_6164_") && source.desc.equals("(" + stack + ")Lnet/minecraft/world/item/UseAnim;")) {
+                targetName = "getUseAnimation"; targetDescriptor = "(" + stack + ")Lnet/minecraft/world/item/ItemUseAnimation;";
+            }
+            if (targetName == null || (source.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0) continue;
+            String name = targetName, descriptor = targetDescriptor;
+            if (node.methods.stream().anyMatch(m -> m.name.equals(name) && m.desc.equals(descriptor)))
+                throw new IllegalStateException("Conflicting source/target item-use callbacks: " + node.name + "#" + name);
+            var adapter = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC
+                    | org.objectweb.asm.Opcodes.ACC_SYNTHETIC, name, descriptor, null, null);
+            adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+            int arguments = name.equals("use") ? 3 : 1;
+            for (int i = 1; i <= arguments; i++) adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, i));
+            adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL, node.name, source.name, source.desc, false));
+            if (name.equals("use")) {
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 2));
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 3));
+                adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge", "useResult",
+                        "(Lcom/fuckingdeveloper/lms/runtime/item/LegacyInteractionResultHolder;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResult;", false));
+            } else if (name.equals("getUseAnimation")) {
+                adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        "com/fuckingdeveloper/lms/runtime/item/LegacyUseAnimation", "target", "()Lnet/minecraft/world/item/ItemUseAnimation;", false));
+            }
+            adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(name.equals("getUseDuration") ? org.objectweb.asm.Opcodes.IRETURN : org.objectweb.asm.Opcodes.ARETURN));
+            adapter.maxLocals = name.equals("use") ? 4 : name.equals("getUseDuration") ? 3 : 2;
+            adapter.maxStack = 4;
+            adapters.add(adapter);
+        }
+        node.methods.addAll(adapters);
+        return adapters.size();
     }
 
     /** Preserve the source fresh-name default without replacing explicit source overrides. */
@@ -10204,6 +10263,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        if (value.equals("net/minecraft/world/InteractionResultHolder"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyInteractionResultHolder";
+        if (value.equals("net/minecraft/world/item/UseAnim"))
+            return "com/fuckingdeveloper/lms/runtime/item/LegacyUseAnimation";
         // DistExecutor was removed from current NeoForge. Keep the Forge 1.19.2
         // physical-side execution contract behind an LMS-owned runtime boundary
         // instead of migrating it into a non-existent NeoForge class.
@@ -10427,6 +10490,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/registries/tags/ITag", "com/fuckingdeveloper/lms/runtime/registry/LegacyTag")
                 .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
                 .replace("net/minecraftforge/common/capabilities/RegisterCapabilitiesEvent", "net/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent")
+                .replace("net/minecraft/world/InteractionResultHolder", "com/fuckingdeveloper/lms/runtime/item/LegacyInteractionResultHolder")
+                .replace("net/minecraft/world/item/UseAnim", "com/fuckingdeveloper/lms/runtime/item/LegacyUseAnimation")
                 .replace("net/minecraftforge/common/capabilities/CapabilityToken", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken")
                 .replace("net/minecraftforge/common/capabilities/ForgeCapabilities", "com/fuckingdeveloper/lms/runtime/capability/LegacyForgeCapabilities")
                 .replace("net/minecraftforge/common/capabilities/CapabilityManager", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityManager")
