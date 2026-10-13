@@ -19,6 +19,18 @@ public final class Forge1192RenderLivingEventBridge {
 
     private Forge1192RenderLivingEventBridge() {}
 
+    /**
+     * Captures the authoritative association while the target renderer still
+     * owns both the live entity and the extracted state. Target render events
+     * retain only the latter, so reconstructing identity afterwards is not
+     * always possible (two entities may have identical extracted properties).
+     */
+    public static void capture(LivingEntity entity, LivingEntityRenderState state) {
+        EXACT_EVENT_ENTITIES.put(
+                Objects.requireNonNull(state, "renderState"),
+                Objects.requireNonNull(entity, "entity"));
+    }
+
     public static LivingEntity entity(Object rawEvent) {
         if (!(rawEvent instanceof RenderLivingEvent<?, ?, ?> event)) {
             throw new IllegalArgumentException("Not a target render-living event: " + rawEvent);

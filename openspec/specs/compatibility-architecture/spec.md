@@ -188,11 +188,14 @@ the adapter MUST identify the last completed source-equivalent stage and
 document that earlier intermediate callbacks are unavailable.
 
 When a source render event exposes the rendered entity but the target event
-retains only an extracted render state, LMS MAY recover the source entity from
-the target client level only when target-authoritative type, interpolation
-time, position, and extracted entity-state properties identify exactly one
-entity. Missing or ambiguous matches MUST fail explicitly; an arbitrary nearby
-entity MUST NOT be substituted.
+retains only an extracted render state, a target adapter SHOULD capture the
+exact source-entity/render-state pair at the target state-extraction boundary
+when that boundary exposes both values. If that exact association is
+unavailable, LMS MAY recover the source entity from the target client level
+only when target-authoritative type, interpolation time, position, and
+extracted entity-state properties identify exactly one entity. Missing or
+ambiguous matches MUST fail explicitly; an arbitrary nearby entity MUST NOT be
+substituted.
 
 When a source player-interaction event expresses its block/item-use decision
 with Forge's three-valued `Event.Result`, a target adapter MAY translate that
