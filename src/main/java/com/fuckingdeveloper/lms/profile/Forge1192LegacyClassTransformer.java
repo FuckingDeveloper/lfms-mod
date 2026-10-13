@@ -232,6 +232,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyRenderLivingEventAccessors(node);
         rewrites += rewriteLegacyEntityRenderLayerOverride(node);
+        rewrites += rewriteLegacyBlockEntityRenderer(node);
         rewrites += rewriteLegacyModelSubclass(node);
         rewrites += rewriteLegacyRenderFrustumConstruction(node);
         rewrites += rewriteLegacyBufferedVertexCacheLifecycle(node);
@@ -640,6 +641,42 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /**
+     * A concrete Forge 1.19.2 block-entity renderer exposes its source render
+     * operation through a compiler-generated erased bridge method. Replace the
+     * source interface with an LMS semantic bridge and retain that exact erased
+     * operation as the extraction entry point. The later namespace pass maps
+     * MultiBufferSource to the recording facade used by the bridge.
+     */
+    private static int rewriteLegacyBlockEntityRenderer(ClassNode node) {
+        final String sourceInterface =
+                "net/minecraft/client/renderer/blockentity/BlockEntityRenderer";
+        int interfaceIndex = node.interfaces.indexOf(sourceInterface);
+        if (interfaceIndex < 0) return 0;
+
+        final String sourceRenderDescriptor =
+                "(Lnet/minecraft/world/level/block/entity/BlockEntity;F"
+                        + "Lcom/mojang/blaze3d/vertex/PoseStack;"
+                        + "Lnet/minecraft/client/renderer/MultiBufferSource;II)V";
+        var renderBridge = node.methods.stream()
+                .filter(method -> method.desc.equals(sourceRenderDescriptor))
+                .filter(method -> (method.access & org.objectweb.asm.Opcodes.ACC_BRIDGE) != 0)
+                .filter(method -> (method.access & org.objectweb.asm.Opcodes.ACC_SYNTHETIC) != 0)
+                .findFirst()
+                .orElse(null);
+        if (renderBridge == null) {
+            if ((node.access & org.objectweb.asm.Opcodes.ACC_ABSTRACT) != 0) return 0;
+            throw new IllegalStateException("Concrete Forge 1.19.2 block-entity renderer "
+                    + node.name + " has no verified erased render bridge "
+                    + sourceRenderDescriptor);
+        }
+
+        node.interfaces.set(interfaceIndex,
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192BlockEntityRendererBridge");
+        renderBridge.name = "lmsLegacyRender";
+        return 2;
     }
 
     /**

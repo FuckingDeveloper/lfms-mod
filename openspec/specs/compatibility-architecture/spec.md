@@ -459,6 +459,15 @@ model lookup or immediate tessellation through that facade MUST fail explicitly
 until a verified state-extraction/submission adapter exists; successful renderer
 construction alone MUST NOT be reported as functional block rendering.
 
+When a source block-entity renderer emits immediate vertex geometry but the
+target requires separate extraction and submission, LMS MAY invoke the exact
+source renderer during target extraction and preserve its completed geometry
+as immutable render state. Submission MUST consume that recorded geometry
+through target render nodes, MUST apply the target-authoritative block-position
+pose after source-local transforms, and MUST NOT retain the live block entity
+for later submission. Unsupported source render types or dispatcher operations
+MUST remain explicit fail-closed boundaries.
+
 When a source renderer separates CPU geometry construction from upload into a
 persistent GPU vertex buffer that the target removed, LMS MAY preserve the
 completed CPU-cache lifecycle without performing the obsolete upload. A later

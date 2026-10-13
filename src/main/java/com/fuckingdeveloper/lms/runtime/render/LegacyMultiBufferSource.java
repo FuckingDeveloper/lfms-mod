@@ -18,17 +18,31 @@ import java.util.function.Consumer;
 public class LegacyMultiBufferSource {
     private final SubmitNodeCollector submitter;
     private final PoseStack poseStack;
+    private final boolean recordingOnly;
     private final Map<LegacyRenderType, RecordingVertexConsumer> batches = new LinkedHashMap<>();
     private boolean flushed;
 
     protected LegacyMultiBufferSource() {
         this.submitter = null;
         this.poseStack = null;
+        this.recordingOnly = false;
     }
 
     public LegacyMultiBufferSource(SubmitNodeCollector submitter, PoseStack poseStack) {
         this.submitter = Objects.requireNonNull(submitter, "submitter");
         this.poseStack = Objects.requireNonNull(poseStack, "poseStack");
+        this.recordingOnly = false;
+    }
+
+    private LegacyMultiBufferSource(boolean recordingOnly) {
+        this.submitter = null;
+        this.poseStack = null;
+        this.recordingOnly = recordingOnly;
+    }
+
+    /** Begin an extraction-phase recording that can be submitted later. */
+    public static LegacyMultiBufferSource recording() {
+        return new LegacyMultiBufferSource(true);
     }
 
     /** Exact Forge 1.19.2 SRG ABI used by legacy bytecode. */
@@ -37,7 +51,7 @@ public class LegacyMultiBufferSource {
     }
 
     public VertexConsumer getBuffer(LegacyRenderType renderType) {
-        if (submitter == null) {
+        if (submitter == null && !recordingOnly) {
             throw new UnsupportedOperationException(
                     "Forge 1.19.2 immediate MultiBufferSource rendering has no direct Minecraft 26.3 target");
         }
@@ -53,18 +67,121 @@ public class LegacyMultiBufferSource {
         }
         if (flushed) throw new IllegalStateException("Legacy render buffer already flushed");
         flushed = true;
-        batches.forEach((renderType, recorder) -> {
-            List<Consumer<VertexConsumer>> operations = List.copyOf(recorder.operations);
-            if (!operations.isEmpty()) {
-                submitter.submitCustomGeometry(poseStack, renderType.requireTargetRenderType(),
-                        (pose, target) -> operations.forEach(operation -> operation.accept(target)));
-            }
-        });
+        snapshot().submit(submitter, poseStack, false);
+    }
+
+    /** Freeze extraction output into an immutable target-submittable value. */
+    public RecordedGeometry finishRecording() {
+        if (!recordingOnly) {
+            throw new IllegalStateException("Legacy buffer source is not extraction-phase recording");
+        }
+        if (flushed) throw new IllegalStateException("Legacy render buffer already finished");
+        flushed = true;
+        return snapshot();
     }
 
     public static LegacyBufferSource m_109898_(
             com.mojang.blaze3d.vertex.BufferBuilder ignoredBuilder) {
         return new LegacyBufferSource();
+    }
+
+    private RecordedGeometry snapshot() {
+        List<RecordedBatch> recorded = new ArrayList<>();
+        batches.forEach((renderType, recorder) -> {
+            List<Consumer<VertexConsumer>> operations = List.copyOf(recorder.operations);
+            if (!operations.isEmpty()) recorded.add(new RecordedBatch(renderType, operations));
+        });
+        return new RecordedGeometry(List.copyOf(recorded));
+    }
+
+    private record RecordedBatch(
+            LegacyRenderType renderType,
+            List<Consumer<VertexConsumer>> operations) {}
+
+    /** Immutable geometry extracted from one source renderer invocation. */
+    public static final class RecordedGeometry {
+        private final List<RecordedBatch> batches;
+
+        private RecordedGeometry(List<RecordedBatch> batches) {
+            this.batches = batches;
+        }
+
+        public void submit(SubmitNodeCollector submitter, PoseStack poseStack) {
+            submit(submitter, poseStack, true);
+        }
+
+        private void submit(SubmitNodeCollector submitter, PoseStack poseStack,
+                boolean applySubmissionPose) {
+            Objects.requireNonNull(submitter, "submitter");
+            Objects.requireNonNull(poseStack, "poseStack");
+            for (RecordedBatch batch : batches) {
+                submitter.submitCustomGeometry(poseStack,
+                        batch.renderType().requireTargetRenderType(), (pose, target) -> {
+                            VertexConsumer output = applySubmissionPose
+                                    ? new PoseTransformingVertexConsumer(pose, target)
+                                    : target;
+                            batch.operations().forEach(operation -> operation.accept(output));
+                        });
+            }
+        }
+    }
+
+    /** Applies the target block-position pose after source-local transforms. */
+    private record PoseTransformingVertexConsumer(
+            PoseStack.Pose pose, VertexConsumer delegate) implements VertexConsumer {
+        @Override
+        public VertexConsumer addVertex(float x, float y, float z) {
+            delegate.addVertex(pose, x, y, z);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setColor(int red, int green, int blue, int alpha) {
+            delegate.setColor(red, green, blue, alpha);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setColor(int color) {
+            delegate.setColor(color);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setUv(float u, float v) {
+            delegate.setUv(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setUv1(int u, int v) {
+            delegate.setUv1(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setUv2(int u, int v) {
+            delegate.setUv2(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setUv3(float u, float v) {
+            delegate.setUv3(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setNormal(float x, float y, float z) {
+            delegate.setNormal(pose, x, y, z);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer setLineWidth(float width) {
+            delegate.setLineWidth(width);
+            return this;
+        }
     }
 
     private static final class RecordingVertexConsumer implements VertexConsumer {
