@@ -253,6 +253,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteLegacyTextureAtlasSpriteIdentity(node);
+        rewrites += rewriteLegacyBoatRendererSubclass(node);
         rewrites += rewriteLegacyPlayerInteractionDecisions(node);
         rewrites += rewriteLegacyLevelSoundPlayback(node);
         rewrites += rewriteLegacyInteractionResultConstants(node);
@@ -365,6 +366,50 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         "()Lnet/minecraft/resources/Identifier;",
                         false));
                 rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Adapt the exact Forge 1.19.2 BoatRenderer subclass contract only when
+     * the legacy class overrides the live-entity texture decision. Target
+     * 26.3 moved that decision into extracted render state.
+     */
+    private static int rewriteLegacyBoatRendererSubclass(ClassNode node) {
+        final String sourceSuper = "net/minecraft/client/renderer/entity/BoatRenderer";
+        final String targetSuper =
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192BoatRendererBridge";
+        if (!node.superName.equals(sourceSuper)) return 0;
+        boolean textureOverride = node.methods.stream().anyMatch(method ->
+                method.name.equals("m_5478_")
+                        && method.desc.equals("(Lnet/minecraft/world/entity/vehicle/boat/Boat;)"
+                                + "Lnet/minecraft/resources/Identifier;"));
+        if (!textureOverride) return 0;
+        boolean sourceConstructor = node.methods.stream().anyMatch(method -> {
+            if (!method.name.equals("<init>")) return false;
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals(sourceSuper)
+                        && call.name.equals("<init>")
+                        && call.desc.equals("(Lnet/minecraft/client/renderer/entity/"
+                                + "EntityRendererProvider$Context;Z)V")) return true;
+            }
+            return false;
+        });
+        if (!sourceConstructor) return 0;
+
+        int rewrites = 1;
+        node.superName = targetSuper;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals(sourceSuper)) {
+                    call.owner = targetSuper;
+                    rewrites++;
+                }
             }
         }
         return rewrites;

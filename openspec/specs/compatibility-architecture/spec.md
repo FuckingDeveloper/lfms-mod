@@ -287,6 +287,14 @@ the identity from those exact contents. The containing atlas identity MUST NOT
 be substituted merely because it remains directly accessible from the target
 sprite.
 
+When a source entity renderer selects model or texture identity from the live
+entity but the target extracts immutable render state before submission, LMS
+MAY preserve the exact source override by capturing its result during target
+state extraction and consuming it during target submission. Such adaptation
+MUST be gated by the verified source superclass, override descriptor, and
+constructor shape; it MUST NOT choose a fixed target model or texture merely
+to make renderer construction succeed.
+
 When the target snapshots or derives its block-state dispatch before the
 source-equivalent completion phase, LMS MAY execute a legacy baked-model
 registration callback during the target's final mutable baking phase. This
