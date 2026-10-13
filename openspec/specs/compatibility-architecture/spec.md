@@ -281,6 +281,12 @@ retains those map identities. LMS MUST NOT cast or namespace-rename the legacy
 combined model into either unrelated target model interface. Unsupported
 legacy rendering operations MUST remain explicit fail-closed boundaries.
 
+When a source texture-atlas sprite exposes its own resource identity directly
+but the target moves that identity onto the sprite contents, LMS MUST recover
+the identity from those exact contents. The containing atlas identity MUST NOT
+be substituted merely because it remains directly accessible from the target
+sprite.
+
 When the target snapshots or derives its block-state dispatch before the
 source-equivalent completion phase, LMS MAY execute a legacy baked-model
 registration callback during the target's final mutable baking phase. This

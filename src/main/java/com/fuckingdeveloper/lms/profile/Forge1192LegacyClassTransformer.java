@@ -252,6 +252,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
+        rewrites += rewriteLegacyTextureAtlasSpriteIdentity(node);
         rewrites += rewriteLegacyPlayerInteractionDecisions(node);
         rewrites += rewriteLegacyLevelSoundPlayback(node);
         rewrites += rewriteLegacyInteractionResultConstants(node);
@@ -337,6 +338,36 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         node.fields = migrated.fields;
         node.methods = migrated.methods;
         return changed;
+    }
+
+    /**
+     * Minecraft 1.19.2 exposed a sprite's own resource identity directly on
+     * TextureAtlasSprite. Target 26.3 keeps that identity on SpriteContents;
+     * TextureAtlasSprite#atlasLocation names the containing atlas and is not
+     * source-equivalent.
+     */
+    private static int rewriteLegacyTextureAtlasSpriteIdentity(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals(
+                                "net/minecraft/client/renderer/texture/TextureAtlasSprite")
+                        || !call.name.equals("m_118413_")
+                        || !call.desc.equals("()Lnet/minecraft/resources/Identifier;")) continue;
+                call.name = "contents";
+                call.desc = "()Lnet/minecraft/client/renderer/texture/SpriteContents;";
+                method.instructions.insert(call, new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        "net/minecraft/client/renderer/texture/SpriteContents",
+                        "name",
+                        "()Lnet/minecraft/resources/Identifier;",
+                        false));
+                rewrites++;
+            }
+        }
+        return rewrites;
     }
 
     /**
