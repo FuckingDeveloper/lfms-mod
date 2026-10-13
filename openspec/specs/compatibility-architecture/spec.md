@@ -158,6 +158,11 @@ store them in the target's serializable custom-data component. Returning a
 detached copy from a source mutation API is forbidden. The adapter MUST NOT
 reinterpret component-owned target data as arbitrary legacy NBT.
 
+When the target changes source `CompoundTag` reads to optional-valued results,
+LMS MUST preserve the source generation's type-specific default values and
+numeric-tag matching rules. Source key enumeration MUST expose the target
+compound's actual key-set view rather than a detached or filtered collection.
+
 When source-generation saved data is registered by a runtime loader function,
 constructor and global string key, while the target requires a typed saved-data
 descriptor and codec, LMS MAY synthesize that target descriptor from the exact

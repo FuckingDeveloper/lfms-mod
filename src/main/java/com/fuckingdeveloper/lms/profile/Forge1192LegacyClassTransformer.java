@@ -5143,6 +5143,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         case "m_128437_(Ljava/lang/String;I)Lnet/minecraft/nbt/ListTag;" -> "getList";
                         case "m_128471_(Ljava/lang/String;)Z" -> "getBoolean";
                         case "m_128473_(Ljava/lang/String;)V" -> "remove";
+                        case "m_128431_()Ljava/util/Set;" -> "keySet";
                         default -> null;
                     };
                     if (bridgeName != null) {

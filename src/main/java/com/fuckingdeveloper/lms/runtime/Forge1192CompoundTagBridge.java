@@ -4,6 +4,8 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 
+import java.util.Set;
+
 /** Restores Forge 1.19.2's default-valued CompoundTag read contract. */
 public final class Forge1192CompoundTagBridge {
     private static final int ANY_NUMERIC_TAG = 99;
@@ -74,6 +76,10 @@ public final class Forge1192CompoundTagBridge {
 
     public static boolean getBoolean(CompoundTag tag, String key) {
         return tag.getBooleanOr(key, false);
+    }
+
+    public static Set<String> keySet(CompoundTag tag) {
+        return tag.keySet();
     }
 
     /** Forge 1.19.2 discarded the removed value. */
