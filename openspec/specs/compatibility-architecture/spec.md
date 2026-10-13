@@ -624,7 +624,12 @@ malformed category JSON MUST fail explicitly rather than silently lose names.
 The target mod-list presentation SHOULD include metadata from initialized
 managed legacy sessions, using their original artifact and admitted mod ID.
 Discovery candidates and blocked/uninitialized sessions MUST NOT be presented
-as loaded mods. A target adapter MAY reconstruct an immutable target screen
+as loaded mods. Blocked admitted sessions MAY appear as explicitly labelled
+diagnostic entries with their recorded initialization reason, excluded from
+the loaded count. A lifecycle gate rejection MUST update the session's actual
+state, not only its log output. The main-menu display count MUST distinguish
+initialized managed sessions from these blocked entries without changing
+native FML membership. A target adapter MAY reconstruct an immutable target screen
 with additional display records while preserving native entries and screen
 services. It MUST NOT mutate FML's loader lists or fabricate native containers,
 configuration factories or update-check results for managed sessions. Display

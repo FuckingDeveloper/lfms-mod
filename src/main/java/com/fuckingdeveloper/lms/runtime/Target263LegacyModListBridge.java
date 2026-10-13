@@ -23,16 +23,17 @@ public final class Target263LegacyModListBridge {
 
     public static void opening(ScreenEvent.Opening event, List<Forge1192RuntimeSession> sessions) {
         if (!(event.getNewScreen() instanceof ModListScreen screen)) return;
-        var loaded = sessions.stream().filter(s -> s.state() == Forge1192RuntimeSession.State.INITIALIZED).toList();
-        if (loaded.isEmpty()) return;
+        var visible = sessions.stream().filter(s -> s.state() == Forge1192RuntimeSession.State.INITIALIZED
+                || s.state() == Forge1192RuntimeSession.State.BLOCKED).toList();
+        if (visible.isEmpty()) return;
         try {
             @SuppressWarnings("unchecked")
             var original = (ImmutableList<ModDisplayInfo>) Access.MODS.get(screen);
             var ids = original.stream().map(ModDisplayInfo::id).collect(java.util.stream.Collectors.toSet());
             var mods = ImmutableList.<ModDisplayInfo>builder().addAll(original);
             int added = 0;
-            for (var session : loaded) if (ids.add(session.modId())) {
-                mods.add(readMetadata(session.artifact(), session.modId())); added++;
+            for (var session : visible) if (ids.add(session.modId())) {
+                mods.add(displayInfo(session)); added++;
             }
             if (added == 0) return;
             event.setNewScreen((Screen) Access.CONSTRUCTOR.newInstance(
@@ -41,6 +42,69 @@ public final class Target263LegacyModListBridge {
             com.mojang.logging.LogUtils.getLogger().info("LMS legacy-mod-list entriesAdded={}", added);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException("Cannot project managed legacy mods into target 26.3 mod list", failure);
+        }
+    }
+
+    public static ModDisplayInfo displayInfo(Forge1192RuntimeSession session) {
+        var display = readMetadata(session.artifact(), session.modId());
+        return switch (session.state()) {
+            case INITIALIZED -> display;
+            case BLOCKED -> new BlockedDisplay(display, session.blockReason().orElse("Initialization failed"));
+            default -> throw new IllegalStateException("Session is not a loaded or blocked display entry: " + session.state());
+        };
+    }
+
+    /** Update presentation caches only; FML's native membership remains authoritative. */
+    public static void refreshBranding(List<Forge1192RuntimeSession> sessions) {
+        var ids = net.neoforged.fml.ModList.get().getMods().stream()
+                .map(net.neoforged.neoforgespi.language.IModInfo::getModId)
+                .collect(java.util.stream.Collectors.toSet());
+        int loaded = ids.size(), blocked = 0;
+        for (var session : sessions) if (ids.add(session.modId())) {
+            if (session.state() == Forge1192RuntimeSession.State.INITIALIZED) loaded++;
+            else if (session.state() == Forge1192RuntimeSession.State.BLOCKED) blocked++;
+        }
+        var brandings = new java.util.ArrayList<String>();
+        net.neoforged.neoforge.internal.BrandingControl.forEachLine(true, false,
+                (index, text) -> brandings.add(text));
+        if (brandings.size() < 2) throw new IllegalStateException("Unexpected target 26.3 branding layout");
+        String count = net.neoforged.fml.i18n.FMLTranslations.parseMessage("fml.menu.branding",
+                net.neoforged.neoforge.internal.BrandingControl.BRANDING_NAME + " "
+                        + net.neoforged.neoforge.common.NeoForgeVersion.getVersion(), loaded);
+        if (blocked > 0) count += " — " + Component.translatable("lms.mods.blocked_count", blocked).getString();
+        brandings.set(1, count);
+        List<String> immutable = List.copyOf(brandings);
+        try {
+            BrandingAccess.ALL.set(null, immutable);
+            BrandingAccess.NO_MC.set(null, immutable.subList(1, immutable.size()));
+        } catch (IllegalAccessException failure) {
+            throw new IllegalStateException("Cannot update target mod-count presentation", failure);
+        }
+    }
+
+    private record BlockedDisplay(ModDisplayInfo original, String reason) implements ModDisplayInfo {
+        public String id() { return original.id(); }
+        public Component displayName() { return original.displayName().copy().append(" — ")
+                .append(Component.translatable("lms.mods.blocked")); }
+        public String version() { return original.version(); }
+        public Component authors() { return original.authors(); }
+        public Component credits() { return original.credits(); }
+        public Component description() { return Component.translatable("lms.mods.blocked_description")
+                .append("\n" + reason + "\n\n").append(original.description()); }
+        public Component license() { return original.license(); }
+        public ImageResource banner() { return original.banner(); }
+        public ImageResource icon() { return original.icon(); }
+        public java.net.URI displayUrl() { return original.displayUrl(); }
+        public java.net.URI issuesUrl() { return original.issuesUrl(); }
+    }
+
+    private static final class BrandingAccess {
+        static final Field ALL = field("brandings"), NO_MC = field("brandingsNoMC");
+        private static Field field(String name) {
+            try {
+                var field = net.neoforged.neoforge.internal.BrandingControl.class.getDeclaredField(name);
+                field.setAccessible(true); return field;
+            } catch (ReflectiveOperationException failure) { throw new ExceptionInInitializerError(failure); }
         }
     }
 

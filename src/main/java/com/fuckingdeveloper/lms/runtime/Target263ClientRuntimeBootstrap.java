@@ -21,5 +21,11 @@ public final class Target263ClientRuntimeBootstrap {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
                 net.neoforged.neoforge.client.event.ScreenEvent.Opening.class,
                 event -> Target263LegacyModListBridge.opening(event, sessions.get()));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                net.neoforged.neoforge.client.event.ScreenEvent.Init.Post.class,
+                event -> {
+                    if (event.getScreen() instanceof net.minecraft.client.gui.screens.TitleScreen)
+                        Target263LegacyModListBridge.refreshBranding(sessions.get());
+                });
     }
 }

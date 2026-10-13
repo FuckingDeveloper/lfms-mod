@@ -31,6 +31,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     private final Forge1192LegacyClassTransformer transformer;
     private final ManagedLegacyClassLoader loader;
     private volatile State state = State.LINKED;
+    private volatile String blockReason;
     private volatile Object entrypoint;
     private volatile IEventBus modEventBus;
     private volatile ModContainer hostContainer;
@@ -58,6 +59,13 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     public String modId() { return modId; }
     public Path artifact() { return artifact; }
     public State state() { return state; }
+    public java.util.Optional<String> blockReason() { return java.util.Optional.ofNullable(blockReason); }
+
+    public synchronized void blockInitialization(String reason) {
+        if (state != State.LINKED) throw new IllegalStateException("Cannot block initialization in state " + state);
+        blockReason = Objects.requireNonNull(reason);
+        state = State.BLOCKED;
+    }
     public Forge1192LegacyClassTransformer transformer() { return transformer; }
 
     public void bindModEventBus(IEventBus eventBus, ModContainer container) {
@@ -78,6 +86,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
             entrypoint = ctor.newInstance();
             state = State.INITIALIZED;
         } catch (Throwable t) {
+            blockReason = t.toString();
             state = State.BLOCKED;
             if (t instanceof Exception e) throw e;
             if (t instanceof Error e) throw e;

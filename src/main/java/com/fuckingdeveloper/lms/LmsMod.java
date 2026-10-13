@@ -331,6 +331,12 @@ public final class LmsMod {
                                         mod.modId(), initializationFailure.getClass().getName(),
                                         initializationFailure.getMessage(), initializationFailure);
                             }
+                        } else {
+                            runtimeSession.blockInitialization(lifecycleDecision.capabilities().stream()
+                                    .filter(capability -> capability.mandatory()
+                                            && capability.state() != LegacyLifecycleGate.State.SUPPORTED)
+                                    .map(capability -> capability.id() + ": " + capability.reason())
+                                    .collect(java.util.stream.Collectors.joining("\n")));
                         }
                         var injectionReport = new LegacyInjectionAnalyzer().analyze(mod.file(), metadata);
                         LOG.info("LMS injections id={} mixins={} coremods={}",
