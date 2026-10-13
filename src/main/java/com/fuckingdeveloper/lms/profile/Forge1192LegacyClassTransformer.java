@@ -4162,6 +4162,38 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 LegacyMixinAccessor accessor = legacyMixinAccessor(call.owner, call.name, call.desc);
                 if (accessor == null) continue;
+                String audioBridge = "com/fuckingdeveloper/lms/runtime/Forge1192SoundEngineBridge";
+                String audioMethod = null;
+                String audioDescriptor = null;
+                if (accessor.target().equals("net/minecraft/client/sounds/SoundManager")
+                        && accessor.member().equals("soundEngine")
+                        && call.desc.equals("()Lnet/minecraft/client/sounds/SoundEngine;")) {
+                    audioMethod = "soundEngine";
+                    audioDescriptor = "(Lnet/minecraft/client/sounds/SoundManager;)"
+                            + "Lnet/minecraft/client/sounds/SoundEngine;";
+                } else if (accessor.target().equals("net/minecraft/client/sounds/SoundEngine")
+                        && accessor.member().equals("channelAccess")
+                        && call.desc.equals("()Lnet/minecraft/client/sounds/ChannelAccess;")) {
+                    audioMethod = "channelAccess";
+                    audioDescriptor = "(Lnet/minecraft/client/sounds/SoundEngine;)"
+                            + "Lnet/minecraft/client/sounds/ChannelAccess;";
+                } else if (accessor.target().equals("net/minecraft/client/sounds/SoundEngine")
+                        && accessor.member().equals("soundBuffers")
+                        && call.desc.equals("()Lnet/minecraft/client/sounds/SoundBufferLibrary;")) {
+                    audioMethod = "soundBuffers";
+                    audioDescriptor = "(Lnet/minecraft/client/sounds/SoundEngine;)"
+                            + "Lnet/minecraft/client/sounds/SoundBufferLibrary;";
+                }
+                if (audioMethod != null) {
+                    rewrites += rewriteMixinReceiverCasts(method, call.owner, accessor.target());
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = audioBridge;
+                    call.name = audioMethod;
+                    call.desc = audioDescriptor;
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
                 if (accessor.target().equals("net/minecraft/world/level/chunk/LevelChunk")
                         && accessor.member().equals("loaded")
                         && call.desc.equals("()Z")) {
@@ -4216,38 +4248,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 boolean discardFluentResult;
                 if (accessor.target().equals("net/minecraft/world/level/block/state/BlockBehaviour")
                         && accessor.member().equals("properties")
-                String audioBridge = "com/fuckingdeveloper/lms/runtime/Forge1192SoundEngineBridge";
-                String audioMethod = null;
-                String audioDescriptor = null;
-                if (accessor.target().equals("net/minecraft/client/sounds/SoundManager")
-                        && accessor.member().equals("soundEngine")
-                        && call.desc.equals("()Lnet/minecraft/client/sounds/SoundEngine;")) {
-                    audioMethod = "soundEngine";
-                    audioDescriptor = "(Lnet/minecraft/client/sounds/SoundManager;)"
-                            + "Lnet/minecraft/client/sounds/SoundEngine;";
-                } else if (accessor.target().equals("net/minecraft/client/sounds/SoundEngine")
-                        && accessor.member().equals("channelAccess")
-                        && call.desc.equals("()Lnet/minecraft/client/sounds/ChannelAccess;")) {
-                    audioMethod = "channelAccess";
-                    audioDescriptor = "(Lnet/minecraft/client/sounds/SoundEngine;)"
-                            + "Lnet/minecraft/client/sounds/ChannelAccess;";
-                } else if (accessor.target().equals("net/minecraft/client/sounds/SoundEngine")
-                        && accessor.member().equals("soundBuffers")
-                        && call.desc.equals("()Lnet/minecraft/client/sounds/SoundBufferLibrary;")) {
-                    audioMethod = "soundBuffers";
-                    audioDescriptor = "(Lnet/minecraft/client/sounds/SoundEngine;)"
-                            + "Lnet/minecraft/client/sounds/SoundBufferLibrary;";
-                }
-                if (audioMethod != null) {
-                    rewrites += rewriteMixinReceiverCasts(method, call.owner, accessor.target());
-                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                    call.owner = audioBridge;
-                    call.name = audioMethod;
-                    call.desc = audioDescriptor;
-                    call.itf = false;
-                    rewrites++;
-                    continue;
-                }
                         && call.desc.equals(
                         "()Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;")) {
                     targetName = "properties";
@@ -5006,6 +5006,38 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Blaze3D is outside net/minecraft, so the general SRG resolver
+                // cannot see these methods. Forge 1.19.2 mappings and the
+                // target Channel ABI establish this exact audio-control family.
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("com/mojang/blaze3d/audio/Channel")) {
+                    String targetName = switch (call.name + call.desc) {
+                        case "m_166126_()Z" -> "playing";
+                        case "m_83650_(F)V" -> "setPitch";
+                        case "m_83654_(Lnet/minecraft/world/phys/Vec3;)V" -> "setSelfPosition";
+                        case "m_83656_(Lcom/mojang/blaze3d/audio/SoundBuffer;)V" -> "attachStaticBuffer";
+                        case "m_83658_(Lnet/minecraft/client/sounds/AudioStream;)V" -> "attachBufferStream";
+                        case "m_83663_(Z)V" -> "setLooping";
+                        case "m_83665_()V" -> "destroy";
+                        case "m_83666_(F)V" -> "setVolume";
+                        case "m_83670_(Z)V" -> "setRelative";
+                        case "m_83672_()V" -> "play";
+                        case "m_83673_(F)V" -> "linearAttenuation";
+                        case "m_83677_()V" -> "pause";
+                        case "m_83678_()V" -> "unpause";
+                        case "m_83679_()V" -> "stop";
+                        case "m_83680_()Z" -> "stopped";
+                        case "m_83681_()V" -> "disableAttenuation";
+                        case "m_83682_()V" -> "updateStream";
+                        default -> null;
+                    };
+                    if (targetName != null) {
+                        call.name = targetName;
+                        rewrites++;
+                        continue;
+                    }
+                }
+
                 // Target 26.3 renamed the source Level day/night predicates
                 // while retaining their exact fixed-time and sky-darkness
                 // formulas. Match the mapped Forge 1.19.2 members as a pair.
@@ -5060,38 +5092,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     rewrites++;
                     continue;
                 }
-                // Blaze3D is outside net/minecraft, so the general SRG resolver
-                // cannot see these methods. Forge 1.19.2 mappings and the
-                // target Channel ABI establish this exact audio-control family.
-                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        && call.owner.equals("com/mojang/blaze3d/audio/Channel")) {
-                    String targetName = switch (call.name + call.desc) {
-                        case "m_166126_()Z" -> "playing";
-                        case "m_83650_(F)V" -> "setPitch";
-                        case "m_83654_(Lnet/minecraft/world/phys/Vec3;)V" -> "setSelfPosition";
-                        case "m_83656_(Lcom/mojang/blaze3d/audio/SoundBuffer;)V" -> "attachStaticBuffer";
-                        case "m_83658_(Lnet/minecraft/client/sounds/AudioStream;)V" -> "attachBufferStream";
-                        case "m_83663_(Z)V" -> "setLooping";
-                        case "m_83665_()V" -> "destroy";
-                        case "m_83666_(F)V" -> "setVolume";
-                        case "m_83670_(Z)V" -> "setRelative";
-                        case "m_83672_()V" -> "play";
-                        case "m_83673_(F)V" -> "linearAttenuation";
-                        case "m_83677_()V" -> "pause";
-                        case "m_83678_()V" -> "unpause";
-                        case "m_83679_()V" -> "stop";
-                        case "m_83680_()Z" -> "stopped";
-                        case "m_83681_()V" -> "disableAttenuation";
-                        case "m_83682_()V" -> "updateStream";
-                        default -> null;
-                    };
-                    if (targetName != null) {
-                        call.name = targetName;
-                        rewrites++;
-                        continue;
-                    }
-                }
-
 
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
                         && call.owner.equals("net/minecraft/world/item/crafting/Recipe")
