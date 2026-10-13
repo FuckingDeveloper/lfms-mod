@@ -8,23 +8,37 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLivingEvent;
 
 import java.util.Objects;
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /** Restores the exact rendered-entity view removed from target render events. */
 public final class Forge1192RenderLivingEventBridge {
+    private static final Map<LivingEntityRenderState, LivingEntity> EXACT_EVENT_ENTITIES =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
     private Forge1192RenderLivingEventBridge() {}
 
     public static LivingEntity entity(Object rawEvent) {
         if (!(rawEvent instanceof RenderLivingEvent<?, ?, ?> event)) {
             throw new IllegalArgumentException("Not a target render-living event: " + rawEvent);
         }
-        LivingEntityRenderState state = Objects.requireNonNull(
-                event.getRenderState(), "renderState");
+        LivingEntityRenderState state = Objects.requireNonNull(event.getRenderState(), "renderState");
+        return entity(state, event.getPartialTick());
+    }
+
+    public static LivingEntity entity(LivingEntityRenderState state, float partialTick) {
+        Objects.requireNonNull(state, "renderState");
         var level = Objects.requireNonNull(Minecraft.getInstance().level, "client level");
+        LivingEntity exact = EXACT_EVENT_ENTITIES.get(state);
+        if (exact != null && exact.level() == level && exact.getType() == state.entityType) {
+            return exact;
+        }
         LivingEntity match = null;
         for (var candidate : level.entitiesForRendering()) {
             if (!(candidate instanceof LivingEntity living)
-                    || !matches(living, state, event.getPartialTick())) continue;
-            Vec3 position = living.getPosition(event.getPartialTick());
+                    || !matches(living, state, partialTick)) continue;
+            Vec3 position = living.getPosition(partialTick);
             if (Double.compare(position.x, state.x) != 0
                     || Double.compare(position.y, state.y) != 0
                     || Double.compare(position.z, state.z) != 0) continue;
@@ -38,6 +52,7 @@ public final class Forge1192RenderLivingEventBridge {
             throw new IllegalStateException("No source entity for target render state "
                     + state.entityType + " at " + state.x + "," + state.y + "," + state.z);
         }
+        EXACT_EVENT_ENTITIES.put(state, match);
         return match;
     }
 

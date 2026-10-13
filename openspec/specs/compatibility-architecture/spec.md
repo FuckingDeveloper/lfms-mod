@@ -180,6 +180,19 @@ time, position, and extracted entity-state properties identify exactly one
 entity. Missing or ambiguous matches MUST fail explicitly; an arbitrary nearby
 entity MUST NOT be substituted.
 
+When adapting a source entity-valued render-layer callback to a target
+render-state submission callback, LMS MAY reconstruct source animation inputs
+only from the uniquely matched entity and target-authoritative render-state
+fields. Immediate source geometry MUST be recorded and submitted through the
+target collector; unsupported source render types or ambiguous entity matches
+MUST remain explicit failures rather than silently dropping the layer.
+
+When source code compares a removed static damage-source singleton by identity
+and the target models that identity as a registry-backed damage-type key, LMS
+MAY replace the exact comparison with the target damage-source key predicate.
+The source SRG/Mojang field identity and the unique target key declaration MUST
+both be verified; arbitrary DamageSource object equality MUST NOT be rewritten.
+
 When a source client debug option moves from a renderer-owned toggle to a
 named target debug-entry model, LMS MAY bridge the exact source toggle to the
 verified target entry. The bridge MUST preserve both the state transition and

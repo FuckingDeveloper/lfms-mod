@@ -193,6 +193,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyVillagerProfessionConstants(node);
         rewrites += rewriteLegacySavedDataFamily(node);
         rewrites += rewriteLegacyLootContextFamily(node);
+        rewrites += rewriteLegacyDamageSourceSingletonComparisons(node);
         rewrites += rewriteLegacyRecipeViewFamily(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
@@ -225,6 +226,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyRenderLivingEventAccessors(node);
+        rewrites += rewriteLegacyEntityRenderLayerOverride(node);
         rewrites += rewriteLegacyRenderFrustumConstruction(node);
         rewrites += rewriteLegacyBufferedVertexCacheLifecycle(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
@@ -3856,6 +3858,106 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    /** Adapt the removed entity-valued RenderLayer override to target render states. */
+    private int rewriteLegacyEntityRenderLayerOverride(ClassNode node) {
+        final String sourceLayer = "net/minecraft/client/renderer/entity/layers/RenderLayer";
+        final String sourceDescriptor = "(Lcom/mojang/blaze3d/vertex/PoseStack;"
+                + "Lnet/minecraft/client/renderer/MultiBufferSource;I"
+                + "Lnet/minecraft/world/entity/Entity;FFFFFF)V";
+        if (!isManagedSubtypeOf(node, sourceLayer)) return 0;
+        org.objectweb.asm.tree.MethodNode legacy = null;
+        for (var method : node.methods) {
+            if (method.name.equals("m_6494_") && method.desc.equals(sourceDescriptor)) {
+                legacy = method;
+                break;
+            }
+        }
+        if (legacy == null) return 0;
+        legacy.name = "lmsLegacyRender";
+        final String adapter = "com/fuckingdeveloper/lms/runtime/render/LegacyEntityRenderLayer";
+        if (!node.interfaces.contains(adapter)) node.interfaces.add(adapter);
+
+        String targetDescriptor = "(Lcom/mojang/blaze3d/vertex/PoseStack;"
+                + "Lnet/minecraft/client/renderer/SubmitNodeCollector;I"
+                + "Lnet/minecraft/client/renderer/entity/state/EntityRenderState;FF)V";
+        boolean alreadyPresent = node.methods.stream()
+                .anyMatch(method -> method.name.equals("submit")
+                        && method.desc.equals(targetDescriptor));
+        if (alreadyPresent) return 1;
+        var submit = new org.objectweb.asm.tree.MethodNode(
+                org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                "submit", targetDescriptor, null, null);
+        submit.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.ALOAD, 0));
+        submit.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.ALOAD, 1));
+        submit.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.ALOAD, 2));
+        submit.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.ILOAD, 3));
+        submit.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.ALOAD, 4));
+        submit.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.FLOAD, 5));
+        submit.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.FLOAD, 6));
+        submit.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192EntityRenderLayerBridge",
+                "submit", "(L" + adapter + ";Lcom/mojang/blaze3d/vertex/PoseStack;"
+                        + "Lnet/minecraft/client/renderer/SubmitNodeCollector;I"
+                        + "Lnet/minecraft/client/renderer/entity/state/EntityRenderState;FF)V",
+                false));
+        submit.instructions.add(new org.objectweb.asm.tree.InsnNode(
+                org.objectweb.asm.Opcodes.RETURN));
+        node.methods.add(submit);
+        return 2;
+    }
+
+    /**
+     * Static DamageSource singletons became registry-backed DamageType keys.
+     * Adapt only the exact identity-comparison shape to DamageSource#is(key).
+     */
+    private int rewriteLegacyDamageSourceSingletonComparisons(ClassNode node) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()
+                || VANILLA_RELOCATIONS.classifyMethod(
+                        "net.minecraft.world.damagesource.DamageSource", "is",
+                        "(Lnet/minecraft/resources/ResourceKey;)Z").status()
+                        != Forge1192MappingLayer.Status.VERIFIED_IDENTITY) return 0;
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var current = insn;
+                insn = insn.getNext();
+                if (!(current instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals("net/minecraft/world/damagesource/DamageSource")
+                        || !field.desc.equals("Lnet/minecraft/world/damagesource/DamageSource;")) continue;
+                var comparison = nextExecutable(field);
+                if (!(comparison instanceof org.objectweb.asm.tree.JumpInsnNode jump)
+                        || (jump.getOpcode() != org.objectweb.asm.Opcodes.IF_ACMPEQ
+                        && jump.getOpcode() != org.objectweb.asm.Opcodes.IF_ACMPNE)) continue;
+                String canonical = SRG_RUNTIME_RESOLVER.get()
+                        .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+                if (canonical == null || VANILLA_RELOCATIONS.searchExactField(
+                        "net.minecraft.world.damagesource.DamageTypes", canonical,
+                        "Lnet/minecraft/resources/ResourceKey;").size() != 1) continue;
+                field.owner = "net/minecraft/world/damagesource/DamageTypes";
+                field.name = canonical;
+                field.desc = "Lnet/minecraft/resources/ResourceKey;";
+                method.instructions.insert(field, new MethodInsnNode(
+                        org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        "net/minecraft/world/damagesource/DamageSource", "is",
+                        "(Lnet/minecraft/resources/ResourceKey;)Z", false));
+                int opcode = jump.getOpcode() == org.objectweb.asm.Opcodes.IF_ACMPEQ
+                        ? org.objectweb.asm.Opcodes.IFNE : org.objectweb.asm.Opcodes.IFEQ;
+                method.instructions.set(jump, new org.objectweb.asm.tree.JumpInsnNode(
+                        opcode, jump.label));
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
     /**
      * Preserve the construction phase of a source persistent vertex cache
      * only when its field and finish/draw/delete methods prove the complete
@@ -5442,6 +5544,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private String renamedVanillaField(FieldInsnNode field) {
         if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
                 || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        if (field.owner.equals("net/minecraft/world/entity/EquipmentSlot$Type")
+                && field.name.equals("ARMOR")
+                && field.desc.equals("Lnet/minecraft/world/entity/EquipmentSlot$Type;")) {
+            var target = VANILLA_RELOCATIONS.searchExactField(
+                    "net.minecraft.world.entity.EquipmentSlot$Type", "HUMANOID_ARMOR",
+                    field.desc);
+            return target.size() == 1 ? "HUMANOID_ARMOR" : null;
+        }
         String canonical = SRG_RUNTIME_RESOLVER.get()
                 .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
         String targetName = switch (field.owner + "#" + (canonical == null ? "" : canonical)) {
