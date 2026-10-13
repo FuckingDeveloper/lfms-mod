@@ -361,6 +361,13 @@ An exact source texture-bearing entity render-type factory MAY resolve to the
 target factory only when both factories retain the same named blend, culling,
 depth, and texture semantics.
 
+When a direct source model subclass owns its geometry and implements the exact
+source immediate-render method, LMS MAY replace only its removed base-model
+constructor contract with a source-shaped bridge. The bridge MUST preserve the
+source render-type function and abstract render method; an empty target root
+used solely to satisfy target base-class bookkeeping MUST NOT be treated as the
+subclass's functional geometry or as proof of target render-state migration.
+
 When the source renderer pre-registers render types in a mutable fixed-buffer
 map that the target no longer exposes, LMS MAY capture the exact registration
 intent in an LMS-owned target adapter. It MUST NOT reflectively mutate a target

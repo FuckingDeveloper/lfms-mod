@@ -227,6 +227,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyRenderLivingEventAccessors(node);
         rewrites += rewriteLegacyEntityRenderLayerOverride(node);
+        rewrites += rewriteLegacyModelSubclass(node);
         rewrites += rewriteLegacyRenderFrustumConstruction(node);
         rewrites += rewriteLegacyBufferedVertexCacheLifecycle(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
@@ -298,6 +299,39 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         byte[] verified = writer.toByteArray();
         return new Result(verified, rewrites > 0,
                 "forge-1.19.2 exact namespace migrations=" + rewrites);
+    }
+
+    /** Preserve the exact 1.19.2 Model constructor and abstract render ABI for
+     * direct legacy subclasses; target-owned model classes are never widened. */
+    private static int rewriteLegacyModelSubclass(ClassNode node) {
+        if (!node.superName.equals("net/minecraft/client/model/Model")) return 0;
+        boolean sourceConstructor = node.methods.stream()
+                .filter(method -> method.name.equals("<init>"))
+                .flatMap(method -> java.util.stream.StreamSupport.stream(
+                        method.instructions.spliterator(), false))
+                .filter(MethodInsnNode.class::isInstance)
+                .map(MethodInsnNode.class::cast)
+                .anyMatch(call -> call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals("net/minecraft/client/model/Model")
+                        && call.name.equals("<init>")
+                        && call.desc.equals("(Ljava/util/function/Function;)V"));
+        if (!sourceConstructor) return 0;
+
+        node.superName = "com/fuckingdeveloper/lms/runtime/render/LegacyModel";
+        int rewrites = 1;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof MethodInsnNode call
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals("net/minecraft/client/model/Model")
+                        && call.name.equals("<init>")
+                        && call.desc.equals("(Ljava/util/function/Function;)V")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/LegacyModel";
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
     }
     /**
      * ASM's ClassRemapper covers the complete class-file surface: descriptors,
