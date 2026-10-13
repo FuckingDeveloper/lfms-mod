@@ -317,8 +317,12 @@ public final class Forge1192VanillaConstructionBridge {
      * intent to another item. This does not populate a modern creative tab.
      */
     public static CreativeModeTab legacyCreativeTab(Item item) {
-        net.minecraft.resources.Identifier id = Forge1192RegistrationContext.stagedIdentifier(item)
-                .or(() -> BuiltInRegistries.ITEM.getResourceKey(item).map(ResourceKey::identifier))
+        // Creative-tab population happens long after registration scopes close.
+        // At that point the target registry key is the authoritative identity;
+        // staged lookup is only a construction/registration-time fallback.
+        net.minecraft.resources.Identifier id = BuiltInRegistries.ITEM.getResourceKey(item)
+                .map(ResourceKey::identifier)
+                .or(() -> Forge1192RegistrationContext.stagedIdentifierIfActive(item))
                 .orElseThrow(() -> new IllegalStateException(
                         "Legacy creative-tab lookup has no authoritative item identifier"));
         CreativeModeTab tab = LEGACY_TABS_BY_ITEM_ID.get(id);

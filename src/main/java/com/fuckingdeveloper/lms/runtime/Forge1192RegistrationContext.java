@@ -126,6 +126,17 @@ public final class Forge1192RegistrationContext {
     public static java.util.Optional<Identifier> stagedIdentifier(Object value) {
         Objects.requireNonNull(value, "value");
         String modId = requireModId();
+        return stagedIdentifier(value, modId);
+    }
+
+    /** Read-only staged lookup for lifecycle callbacks that run after the mod scope closed. */
+    public static java.util.Optional<Identifier> stagedIdentifierIfActive(Object value) {
+        Objects.requireNonNull(value, "value");
+        String modId = CURRENT_MOD.get();
+        return modId == null ? java.util.Optional.empty() : stagedIdentifier(value, modId);
+    }
+
+    private static java.util.Optional<Identifier> stagedIdentifier(Object value, String modId) {
         synchronized (PENDING) {
             Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
             if (byRegistry == null) return java.util.Optional.empty();
