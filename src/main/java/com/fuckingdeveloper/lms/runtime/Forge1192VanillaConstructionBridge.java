@@ -151,8 +151,12 @@ public final class Forge1192VanillaConstructionBridge {
         if (constructed != null) return constructed;
         var id = BuiltInRegistries.BLOCK.getKey(block);
         if (id == null) throw new IllegalStateException("Legacy material queried for an unregistered block");
+        // Target DataFixers v3692 proves this exact native block rename.
+        // Keep the immutable source snapshot indexed by source identities.
+        String sourceId = id.toString().equals("minecraft:short_grass")
+                ? "minecraft:grass" : id.toString();
         String source = com.fuckingdeveloper.lms.profile.Forge1192MaterialSnapshot
-                .materialForBlock(id.toString()).orElseThrow(() -> new IllegalStateException(
+                .materialForBlock(sourceId).orElseThrow(() -> new IllegalStateException(
                         "No Forge 1.19.2 material evidence for block " + id + " (" + block.getClass().getName() + ")"));
         return LegacyMaterial.valueOf(source);
     }
