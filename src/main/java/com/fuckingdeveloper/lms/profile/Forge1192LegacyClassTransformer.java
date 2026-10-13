@@ -9565,6 +9565,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyIItemHandler";
         if (value.equals("net/minecraftforge/items/IItemHandlerModifiable"))
             return "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyIItemHandlerModifiable";
+        if (value.equals("net/minecraftforge/items/wrapper/EmptyHandler"))
+            return "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyEmptyHandler";
         if (value.equals("net/minecraft/world/item/Tier"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyTier";
         if (value.equals("net/minecraft/world/item/AxeItem"))
@@ -9678,6 +9680,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/energy/IEnergyStorage", "com/fuckingdeveloper/lms/runtime/energy/LegacyIEnergyStorage")
                 .replace("net/minecraftforge/items/IItemHandlerModifiable", "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyIItemHandlerModifiable")
                 .replace("net/minecraftforge/items/IItemHandler", "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyIItemHandler")
+                .replace("net/minecraftforge/items/wrapper/EmptyHandler", "com/fuckingdeveloper/lms/runtime/itemhandler/LegacyEmptyHandler")
                 .replace("net/minecraft/world/item/Tier", "com/fuckingdeveloper/lms/runtime/item/LegacyTier")
                 .replace("net/minecraft/world/item/AxeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyAxeItem")
                 .replace("net/minecraft/world/item/HoeItem", "com/fuckingdeveloper/lms/runtime/item/LegacyHoeItem")
