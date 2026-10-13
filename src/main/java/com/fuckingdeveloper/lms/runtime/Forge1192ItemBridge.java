@@ -88,10 +88,31 @@ public final class Forge1192ItemBridge {
 
     /** Forge 1.19.2 Item#isEdible was equivalent to having food properties. */
     public static boolean isEdible(Item item) {
+        var override = LEGACY_EDIBLE.get(item.getClass());
+        if (override.isPresent()) {
+            try { return (boolean) override.get().invoke(item); }
+            catch (Throwable error) { throw new IllegalStateException("Legacy edible predicate failed", error); }
+        }
         if (item.builtInRegistryHolder().areComponentsBound())
             return item.components().has(DataComponents.FOOD);
         return Forge1192EarlyItemStackBridge.create(item)
                 .getComponents().has(DataComponents.FOOD);
+    }
+
+    private static final ClassValue<java.util.Optional<java.lang.invoke.MethodHandle>> LEGACY_EDIBLE = new ClassValue<>() {
+        @Override protected java.util.Optional<java.lang.invoke.MethodHandle> computeValue(Class<?> type) {
+            try {
+                return java.util.Optional.of(java.lang.invoke.MethodHandles.publicLookup().findVirtual(
+                        type, "m_41472_", java.lang.invoke.MethodType.methodType(boolean.class)));
+            } catch (NoSuchMethodException | IllegalAccessException ignored) {
+                return java.util.Optional.empty();
+            }
+        }
+    };
+
+    /** Source Item#getName creates a fresh component and dispatches stack description virtually. */
+    public static net.minecraft.network.chat.Component baseName(Item item, ItemStack stack) {
+        return net.minecraft.network.chat.Component.translatable(getDescriptionId(item, stack));
     }
 
     /** Preserve the source DiggerItem type family after target class removal. */

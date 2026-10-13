@@ -196,6 +196,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // adapters may replace that owner and descriptor.
         rewrites += rewriteLegacyNamedBlockConstruction(node);
         rewrites += rewriteLegacySignItemConstruction(node);
+        rewrites += rewriteLegacyItemNameDefaults(node);
         rewrites += rewriteLegacySignBlockConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
@@ -1860,12 +1861,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    /**
-     * Normal signs no longer have a dedicated SignItem subclass. They use
-     * StandingAndWallBlockItem with a downward attachment direction and the
-     * sign-text item component. Reorder the legacy constructor operands and
-     * apply both pieces of the modern contract before namespace migration.
-     */
+    /** Preserve the source fresh-name default without replacing explicit source overrides. */
+    private static int rewriteLegacyItemNameDefaults(ClassNode node) {
+        if (!(node.superName.equals("net/minecraft/world/item/Item")
+                || node.superName.equals("net/minecraft/world/item/BlockItem"))) return 0;
+        String descriptor = "(Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/network/chat/Component;";
+        if (node.methods.stream().anyMatch(m -> (m.name.equals("m_7626_") || m.name.equals("getName"))
+                && m.desc.equals(descriptor))) return 0;
+        var method = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC
+                | org.objectweb.asm.Opcodes.ACC_SYNTHETIC, "getName", descriptor, null, null);
+        method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+        method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
+        method.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge", "baseName",
+                "(Lnet/minecraft/world/item/Item;Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/network/chat/Component;", false));
+        method.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));
+        method.maxStack = 2; method.maxLocals = 2;
+        node.methods.add(method);
+        return 1;
+    }
+
+    /** Adapt source sign construction to the target standing/wall item and sign-text component. */
     private static int rewriteLegacySignItemConstruction(ClassNode node) {
         int rewrites = 0;
         final String legacyOwner = "net/minecraft/world/item/SignItem";
@@ -1903,6 +1919,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
                             "withItemId",
                             "(Lnet/minecraft/world/item/Item$Properties;Ljava/lang/String;)"
+                                    + "Lnet/minecraft/world/item/Item$Properties;", false));
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, standingLocal));
+                    adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                            "withBlockItemDescription",
+                            "(Lnet/minecraft/world/item/Item$Properties;Lnet/minecraft/world/level/block/Block;)"
                                     + "Lnet/minecraft/world/item/Item$Properties;", false));
                 } else {
                     // this, properties, standing, wall -> this, standing, wall, properties
@@ -5724,13 +5746,38 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
                 // Item#isEdible read the legacy item's default food properties.
                 // In 26.3 that intent is represented by the bound FOOD component.
-                if (call.owner.equals("net/minecraft/world/item/Item")
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && isManagedSubtypeOf(call.owner, "net/minecraft/world/item/Item")
                         && call.name.equals("m_41472_")
                         && call.desc.equals("()Z")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
                     call.name = "isEdible";
                     call.desc = "(Lnet/minecraft/world/item/Item;)Z";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.name.equals("m_7626_")
+                        && call.desc.equals("(Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/network/chat/Component;")
+                        && inheritsSourceItemName(call.owner)) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                    call.name = "baseName";
+                    call.desc = "(Lnet/minecraft/world/item/Item;Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/network/chat/Component;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/network/chat/Component")
+                        && call.name.equals("m_237110_")
+                        && call.desc.equals("(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/chat/Forge1192TranslationBridge";
+                    call.name = "translatable";
                     call.itf = false;
                     rewrites++;
                     continue;
@@ -6462,6 +6509,28 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return resolved.resolved()
                 && resolved.owner().equals("net/minecraft/world/level/block/Block")
                 ? resolved : null;
+    }
+
+    private boolean inheritsSourceItemName(String owner) {
+        var seen = new java.util.HashSet<String>();
+        while (seen.add(owner)) {
+            if (owner.equals("net/minecraft/world/item/Item")
+                    || owner.equals("net/minecraft/world/item/BlockItem")) return true;
+            if (owner.startsWith("net/minecraft/")) return false;
+            try {
+                byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(owner);
+                if (bytes == null) return false;
+                var type = new ClassNode();
+                new ClassReader(bytes).accept(type, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                if (type.methods.stream().anyMatch(m -> (m.name.equals("m_7626_") || m.name.equals("getName"))
+                        && m.desc.equals("(Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/network/chat/Component;"))) return false;
+                owner = type.superName;
+                if (owner == null) return false;
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException("Cannot verify source item-name hierarchy: " + owner, e);
+            }
+        }
+        return false;
     }
 
     private Forge1192SrgRuntimeResolver.Resolution resolveInheritedVanillaMethod(

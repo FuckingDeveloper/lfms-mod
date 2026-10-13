@@ -588,7 +588,26 @@ NOT rewrite the artifact or reinterpret resource contents; parsing and semantic
 migration of individual resource families remain separate, fail-closed
 compatibility operations.
 
+If a source artifact divides one locale into category-prefixed JSON files
+beside its base `lang/<locale>.json`, LMS MAY expose a derived client pack that
+combines those translation entries under the target's canonical locale path.
+The original resource pack and artifact MUST remain unchanged. A base locale
+entry MUST take precedence over a category entry with the same key, and
+malformed category JSON MUST fail explicitly rather than silently lose names.
+
 ## Generic compatibility requirement
+
+Forge 1.19.2 item-name defaults MUST create a fresh translatable component on
+each query and preserve virtual stack-description selection. A source subclass
+MUST NOT receive a shared target name component that it can mutate across
+queries. Explicit source name overrides MUST retain dispatch, including
+explicit superclass overrides. Source translation arguments outside the
+target's accepted scalar/component types MUST preserve source rendering via
+`toString` (and the source literal `null`), without mutating the caller's array.
+
+Inherited source edible queries MUST be recognized by verified item hierarchy
+and exact source member identity. Source overrides MUST retain virtual dispatch;
+the source default maps to preserved food-component intent, not a constant.
 
 When a source item exposes a stackless correct-tool-for-drops predicate but
 the target requires a stack, LMS MAY query a native target item's complete
