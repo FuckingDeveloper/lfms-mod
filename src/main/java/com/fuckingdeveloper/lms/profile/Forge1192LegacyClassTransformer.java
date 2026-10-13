@@ -198,6 +198,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacySavedDataFamily(node);
         rewrites += rewriteLegacyLootContextFamily(node);
         rewrites += rewriteLegacyDamageSourceSingletonComparisons(node);
+        rewrites += rewriteLegacyBiomePrecipitationPresence(node);
         rewrites += rewriteLegacyRecipeViewFamily(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
@@ -4658,6 +4659,50 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         ? org.objectweb.asm.Opcodes.IFNE : org.objectweb.asm.Opcodes.IFEQ;
                 method.instructions.set(jump, new org.objectweb.asm.tree.JumpInsnNode(
                         opcode, jump.label));
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 exposed a position-independent precipitation enum. Target
+     * 26.3 can still answer the exact NONE/non-NONE question without inventing
+     * the position and sea-level context now required to distinguish rain
+     * from snow.
+     */
+    private static int rewriteLegacyBiomePrecipitationPresence(ClassNode node) {
+        if (VANILLA_RELOCATIONS.classifyMethod(
+                "net.minecraft.world.level.biome.Biome", "hasPrecipitation", "()Z")
+                .status() != Forge1192MappingLayer.Status.VERIFIED_IDENTITY) return 0;
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.owner.equals("net/minecraft/world/level/biome/Biome")
+                        || !call.name.equals("m_47530_")
+                        || !call.desc.equals("()Lnet/minecraft/world/level/biome/Biome$Precipitation;")) {
+                    continue;
+                }
+                var constant = nextExecutable(call);
+                var comparison = constant == null ? null : nextExecutable(constant);
+                if (!(constant instanceof FieldInsnNode field)
+                        || field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                        || !field.owner.equals("net/minecraft/world/level/biome/Biome$Precipitation")
+                        || !field.name.equals("NONE")
+                        || !field.desc.equals("Lnet/minecraft/world/level/biome/Biome$Precipitation;")
+                        || !(comparison instanceof org.objectweb.asm.tree.JumpInsnNode jump)
+                        || (jump.getOpcode() != org.objectweb.asm.Opcodes.IF_ACMPEQ
+                        && jump.getOpcode() != org.objectweb.asm.Opcodes.IF_ACMPNE)) {
+                    continue;
+                }
+                call.name = "hasPrecipitation";
+                call.desc = "()Z";
+                jump.setOpcode(jump.getOpcode() == org.objectweb.asm.Opcodes.IF_ACMPEQ
+                        ? org.objectweb.asm.Opcodes.IFEQ
+                        : org.objectweb.asm.Opcodes.IFNE);
+                method.instructions.remove(field);
                 rewrites++;
             }
         }

@@ -288,6 +288,12 @@ explicit naming intent. It MUST NOT substitute a broader target custom-name
 accessor whose result also includes unrelated item families such as written
 book titles.
 
+When source bytecode uses the removed position-independent biome precipitation
+enum only to compare against `NONE`, LMS MAY replace that exact comparison with
+the target biome precipitation-presence predicate. Uses that distinguish rain
+from snow MUST remain fail-closed unless the source call site also provides the
+position and sea-level context required by the target API.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state
