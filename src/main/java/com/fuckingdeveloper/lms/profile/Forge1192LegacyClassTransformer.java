@@ -270,7 +270,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockEntityTypeConstruction(node);
         rewrites += rewriteLegacyCraftingContainerConstruction(node);
         rewrites += rewriteSemanticAdapters(node);
-        rewrites += rewriteLegacyColorCallbackDescriptors(node);
         verifyNoRemovedForgeClientTypes(node);
         verifyUnresolvedForgeModAccesses(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -4075,19 +4074,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192RenderLayerBridge";
                 call.name = "register";
                 call.itf = false;
-                rewrites++;
-            }
-        }
-        return rewrites;
-    }
-
-    private static int rewriteLegacyColorCallbackDescriptors(ClassNode node) {
-        int rewrites = 0;
-        String legacy = "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;I)I";
-        String erased = "(Lnet/minecraft/world/level/block/state/BlockState;Ljava/lang/Object;Lnet/minecraft/core/BlockPos;I)I";
-        for (var method : node.methods) {
-            if (method.name.equals("m_92566_") && method.desc.equals(legacy)) {
-                method.desc = erased;
                 rewrites++;
             }
         }

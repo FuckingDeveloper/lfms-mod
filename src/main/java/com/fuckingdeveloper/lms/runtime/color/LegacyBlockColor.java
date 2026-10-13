@@ -1,5 +1,6 @@
 package com.fuckingdeveloper.lms.runtime.color;
 
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -10,5 +11,5 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 @FunctionalInterface
 public interface LegacyBlockColor {
-    int m_92566_(BlockState state, Object level, BlockPos pos, int tintIndex);
+    int m_92566_(BlockState state, BlockAndTintGetter level, BlockPos pos, int tintIndex);
 }
