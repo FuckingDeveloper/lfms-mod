@@ -6,12 +6,64 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.tags.ItemTags;
 
 /** Target adapter for item semantics that moved into default components. */
 public final class Forge1192ItemBridge {
     private Forge1192ItemBridge() {}
+
+    private static final ClassValue<java.util.Optional<java.lang.invoke.MethodHandle>>
+            LEGACY_CORRECT_TOOL = new ClassValue<>() {
+                @Override
+                protected java.util.Optional<java.lang.invoke.MethodHandle> computeValue(Class<?> type) {
+                    try {
+                        var method = type.getMethod("m_8096_", BlockState.class);
+                        if (method.getReturnType() != boolean.class)
+                            throw new IllegalStateException("Invalid source correct-tool return type: " + type.getName());
+                        return java.util.Optional.of(java.lang.invoke.MethodHandles
+                                .privateLookupIn(method.getDeclaringClass(), java.lang.invoke.MethodHandles.lookup())
+                                .unreflect(method));
+                    } catch (NoSuchMethodException absent) {
+                        return java.util.Optional.empty();
+                    } catch (IllegalAccessException inaccessible) {
+                        throw new IllegalStateException("Cannot access source correct-tool override: "
+                                + type.getName(), inaccessible);
+                    }
+                }
+            };
+
+    /** Source Item-only calls have no stack state; native target calls use exact defaults. */
+    public static boolean isCorrectToolForDrops(Item item, BlockState state) {
+        var legacy = LEGACY_CORRECT_TOOL.get(item.getClass());
+        if (legacy.isPresent()) {
+            try {
+                return (boolean) legacy.get().invoke(item, state);
+            } catch (Throwable error) {
+                throw new IllegalStateException("Source correct-tool predicate failed for "
+                        + item.getClass().getName(), error);
+            }
+        }
+        Class<?> base = item.getClass();
+        boolean managed = false;
+        while (base.getClassLoader() instanceof com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader) {
+            managed = true;
+            base = base.getSuperclass();
+        }
+        if (managed) {
+            // Verified 1.19.2 Item default: return false. Other source bases
+            // require their own proven predicate rather than empty components.
+            if (base == Item.class) return false;
+            throw new IllegalStateException("Source tool-base predicate is not adapted: " + base.getName());
+        }
+        return item.isCorrectToolForDrops(Forge1192EarlyItemStackBridge.create(item), state);
+    }
+
+    /** Exact source Item super implementation, deliberately without virtual dispatch. */
+    public static boolean baseCorrectToolForDrops(Item item, BlockState state) {
+        return false;
+    }
 
     private static final ClassValue<java.util.Optional<java.lang.invoke.MethodHandle>>
             LEGACY_DESCRIPTION_ID = new ClassValue<>() {

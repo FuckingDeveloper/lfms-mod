@@ -226,6 +226,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyStringRepresentableOverride(node);
         rewrites += rewriteVerifiedVanillaOverrides(node);
+        rewrites += rewriteLegacyStacklessToolPredicates(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
         rewrites += rewriteLegacyCreativeTabLookup(node);
         rewrites += rewriteLegacyCreativeTabEnumeration(node);
@@ -372,6 +373,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 return method == null ? name : method;
             }
             @Override public Object mapValue(Object value) {
+                if (value instanceof Handle handle
+                        && (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                            || handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESPECIAL)
+                        && handle.getOwner().equals("net/minecraft/world/item/Item")
+                        && handle.getName().equals("m_8096_")
+                        && handle.getDesc().equals("(Lnet/minecraft/world/level/block/state/BlockState;)Z")) {
+                    return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge",
+                            handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESPECIAL
+                                    ? "baseCorrectToolForDrops" : "isCorrectToolForDrops",
+                            "(Lnet/minecraft/world/item/Item;Lnet/minecraft/world/level/block/state/BlockState;)Z", false);
+                }
                 if (value instanceof Handle handle
                         && handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
                         && isLegacyBlockMaterialQuery(handle.getOwner(), handle.getName(), handle.getDesc())) {
@@ -910,6 +923,73 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Preserve source override dispatch when the target adds ItemStack context. */
+    private int rewriteLegacyStacklessToolPredicates(ClassNode node) {
+        final String item = "net/minecraft/world/item/Item";
+        final String state = "Lnet/minecraft/world/level/block/state/BlockState;";
+        final String sourceDescriptor = "(" + state + ")Z";
+        final String targetDescriptor = "(Lnet/minecraft/world/item/ItemStack;" + state + ")Z";
+        int rewrites = 0;
+        if (isManagedSubtypeOf(node, item)) {
+            var overrides = node.methods.stream().filter(method -> method.name.equals("m_8096_")
+                    && method.desc.equals(sourceDescriptor)
+                    && (method.access & (org.objectweb.asm.Opcodes.ACC_STATIC
+                        | org.objectweb.asm.Opcodes.ACC_PRIVATE)) == 0).toList();
+            if (!overrides.isEmpty() && !hasExplicitSourceStackAwareToolPredicate(node, targetDescriptor)) {
+                var adapter = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC
+                        | org.objectweb.asm.Opcodes.ACC_SYNTHETIC, "isCorrectToolForDrops", targetDescriptor, null, null);
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 2));
+                adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                        node.name, "m_8096_", sourceDescriptor, false));
+                adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));
+                adapter.maxLocals = 3;
+                adapter.maxStack = 2;
+                node.methods.add(adapter);
+                rewrites++;
+            }
+        }
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                            && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL)
+                        || !call.owner.equals(item) || !call.name.equals("m_8096_")
+                        || !call.desc.equals(sourceDescriptor)) continue;
+                boolean sourceBaseCall = call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192ItemBridge";
+                call.name = sourceBaseCall ? "baseCorrectToolForDrops" : "isCorrectToolForDrops";
+                call.desc = "(L" + item + ";" + state + ")Z";
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    private boolean hasExplicitSourceStackAwareToolPredicate(ClassNode node, String descriptor) {
+        ClassNode candidate = node;
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        while (candidate != null && seen.add(candidate.name)) {
+            if (candidate.methods.stream().anyMatch(method -> method.name.equals("isCorrectToolForDrops")
+                    && method.desc.equals(descriptor)
+                    && (method.access & (org.objectweb.asm.Opcodes.ACC_STATIC
+                        | org.objectweb.asm.Opcodes.ACC_PRIVATE)) == 0)) return true;
+            try {
+                byte[] bytes = managedClassBytes == null || candidate.superName == null
+                        ? null : managedClassBytes.find(candidate.superName);
+                if (bytes == null) return false;
+                candidate = new ClassNode();
+                new ClassReader(bytes).accept(candidate, ClassReader.SKIP_CODE
+                        | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            } catch (java.io.IOException error) {
+                throw new IllegalStateException("Cannot inspect source correct-tool hierarchy: " + node.name, error);
+            }
+        }
+        return false;
     }
 
     private static byte[] writeNode(ClassNode node) {

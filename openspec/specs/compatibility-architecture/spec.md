@@ -574,6 +574,16 @@ compatibility operations.
 
 ## Generic compatibility requirement
 
+When a source item exposes a stackless correct-tool-for-drops predicate but
+the target requires a stack, LMS MAY query a native target item's complete
+default stack, because the source call carries no per-stack state. A managed
+source override MUST retain dispatch to its exact stackless implementation;
+the source base `Item` result MUST remain false. A surviving target callback
+with an added stack parameter MAY delegate to a source stackless override,
+but MUST NOT replace an explicit source stack-aware override. Unadapted source
+tool-base predicates MUST fail explicitly rather than be inferred from an
+unconfigured component or reported as successful harvesting.
+
 When a target removes the source-generation gameplay `Material` identity,
 LMS MAY retain source material constants and their read-only property queries
 as source-profile semantic values. Native blocks shared with the source
