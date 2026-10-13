@@ -20,6 +20,12 @@ import java.util.List;
 public interface LegacyBakedModel {
     List<BakedQuad> m_213637_(BlockState state, Direction direction, RandomSource random);
 
+    default List<BakedQuad> getQuads(
+            BlockState state, Direction direction, RandomSource random,
+            ModelData data, LegacyRenderType renderType) {
+        return m_213637_(state, direction, random);
+    }
+
     boolean m_7541_();
 
     boolean m_7539_();

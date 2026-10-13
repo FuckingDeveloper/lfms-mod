@@ -4,6 +4,7 @@ import com.fuckingdeveloper.lms.runtime.Forge1192VanillaConstructionBridge;
 import com.fuckingdeveloper.lms.runtime.event.LegacyModelBakingCompletedEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.item.CuboidItemModelWrapper;
@@ -17,6 +18,7 @@ import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.client.resources.model.geometry.ItemQuads;
 import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -27,6 +29,8 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.model.DynamicBlockStateModel;
+import net.neoforged.neoforge.model.data.ModelData;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -244,10 +248,19 @@ public final class Forge1192ModelBakingBridge {
 
     private record LegacyBlockModel(
             LegacyBakedModel legacy, BlockState state, Material.Baked fallbackMaterial)
-            implements BlockStateModel {
+            implements DynamicBlockStateModel {
         @Override
         public void collectParts(RandomSource random, List<BlockStateModelPart> output) {
-            output.add(new LegacyBlockPart(legacy, state, random, fallbackMaterial));
+            output.add(new LegacyBlockPart(
+                    legacy, state, random, ModelData.EMPTY, fallbackMaterial));
+        }
+
+        @Override
+        public void collectParts(
+                BlockAndTintGetter level, BlockPos pos, BlockState state,
+                RandomSource random, List<BlockStateModelPart> output) {
+            output.add(new LegacyBlockPart(
+                    legacy, state, random, level.getModelData(pos), fallbackMaterial));
         }
 
         @Override
@@ -265,10 +278,11 @@ public final class Forge1192ModelBakingBridge {
 
     private record LegacyBlockPart(
             LegacyBakedModel legacy, BlockState state, RandomSource random,
-            Material.Baked fallbackMaterial) implements BlockStateModelPart {
+            ModelData modelData, Material.Baked fallbackMaterial) implements BlockStateModelPart {
         @Override
         public List<BakedQuad> getQuads(@Nullable Direction direction) {
-            return List.copyOf(legacy.m_213637_(state, direction, random));
+            return List.copyOf(legacy.getQuads(
+                    state, direction, random, modelData, null));
         }
 
         @Override

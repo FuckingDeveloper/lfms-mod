@@ -342,6 +342,13 @@ model-registration phase, LMS MUST derive its construction model identity from
 the exact preserved item properties or the proven target default; it MUST NOT
 force early global binding or read incomplete holder state.
 
+When a source baked block model consumes position-specific model data and the
+target exposes that data through its dynamic block-state model collection
+contract, LMS MUST pass the target-provided model-data snapshot for the exact
+render position into the source quad operation. LMS MUST NOT substitute empty
+model data for positioned block rendering or query a live block entity from a
+meshing worker to reconstruct the snapshot.
+
 When source model baking is ordered after texture-stitch completion but the
 target uploads the prepared atlas only after it snapshots model dispatch,
 LMS MAY deliver the source texture-stitch completion against an immutable view
