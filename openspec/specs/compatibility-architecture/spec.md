@@ -202,6 +202,13 @@ MUST preserve the hook's argument, return, and exception semantics and MUST
 fail explicitly when the binding is absent, ambiguous, or type-incompatible.
 Descriptor coincidence alone MUST NOT select a hook or runtime session.
 
+When a source static registry identity is exposed directly as a value but the
+target exposes the same mapped identity as a registry holder, LMS MAY migrate
+the field access to that holder when both the exact source SRG/Mojang identity
+and one exact target holder declaration are verified. Downstream member
+migrations MUST consume the holder according to the target ABI; LMS MUST NOT
+unwrap or substitute a different registry entry merely to satisfy a descriptor.
+
 When a source client debug option moves from a renderer-owned toggle to a
 named target debug-entry model, LMS MAY bridge the exact source toggle to the
 verified target entry. The bridge MUST preserve both the state transition and

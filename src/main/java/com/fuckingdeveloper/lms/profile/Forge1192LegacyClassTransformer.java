@@ -4176,6 +4176,29 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+                // Attribute registry identities became Holder-backed. Migrate
+                // an exact source member only when its recovered Mojang name
+                // has one exact target overload with the Holder descriptor.
+                if (call.desc.contains(
+                        "Lnet/minecraft/world/entity/ai/attributes/Attribute;")) {
+                    String canonical = SRG_RUNTIME_RESOLVER.get().canonicalMethodName(
+                            call.owner, call.name, call.desc).orElse(null);
+                    String holderDescriptor = call.desc.replace(
+                            "Lnet/minecraft/world/entity/ai/attributes/Attribute;",
+                            "Lnet/minecraft/core/Holder;");
+                    var candidates = canonical == null ? java.util.List
+                            .<Forge1192MappingLayer.MethodCandidate>of()
+                            : VANILLA_RELOCATIONS.searchNamedMethods(
+                                    call.owner.replace('/', '.'), canonical).candidates().stream()
+                                    .filter(candidate -> candidate.descriptor().equals(holderDescriptor))
+                                    .toList();
+                    if (candidates.size() == 1) {
+                        call.name = canonical;
+                        call.desc = holderDescriptor;
+                        rewrites++;
+                    }
+                }
+
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
                         && call.owner.equals("net/minecraft/world/item/crafting/Recipe")
                         && call.name.equals("m_8043_")
@@ -5366,6 +5389,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     method.instructions.insert(field, select);
                     rewrites++;
                     continue;
+                }
+                if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals("net/minecraft/world/entity/ai/attributes/Attributes")
+                        && field.desc.equals("Lnet/minecraft/world/entity/ai/attributes/Attribute;")) {
+                    String canonical = SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+                    if (canonical != null && VANILLA_RELOCATIONS.searchExactField(
+                            "net.minecraft.world.entity.ai.attributes.Attributes",
+                            canonical, "Lnet/minecraft/core/Holder;").size() == 1) {
+                        field.name = canonical;
+                        field.desc = "Lnet/minecraft/core/Holder;";
+                        rewrites++;
+                        continue;
+                    }
                 }
                 String renamedVanillaField = renamedVanillaField(field);
                 if (renamedVanillaField != null) {
