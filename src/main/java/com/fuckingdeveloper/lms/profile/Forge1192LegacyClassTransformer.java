@@ -70,6 +70,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/renderer/RenderType$CompositeRenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyCompositeRenderType"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType$CompositeState", "com/fuckingdeveloper/lms/runtime/render/LegacyCompositeState"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType$CompositeState$CompositeStateBuilder", "com/fuckingdeveloper/lms/runtime/render/LegacyCompositeState$Builder"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/BlockRenderDispatcher", "com/fuckingdeveloper/lms/runtime/render/LegacyBlockRenderDispatcher"),
+            java.util.Map.entry("net/minecraft/client/renderer/block/ModelBlockRenderer", "com/fuckingdeveloper/lms/runtime/render/LegacyModelBlockRenderer"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$CullStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$CullStateShard"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderStateShard$DepthTestStateShard", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderStateShard$DepthTestStateShard"),
@@ -257,6 +259,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBoatRendererSubclass(node);
         rewrites += rewriteLegacyDyeColorValues(node);
         rewrites += rewriteLegacyEnchantmentValues(node);
+        rewrites += rewriteLegacyBlockRenderDispatcherFamily(node);
         rewrites += rewriteLegacyPlayerInteractionDecisions(node);
         rewrites += rewriteLegacyLevelSoundPlayback(node);
         rewrites += rewriteLegacyInteractionResultConstants(node);
@@ -591,6 +594,43 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             "Lnet/minecraft/world/item/enchantment/Enchantment;",
                             "Lnet/minecraft/resources/ResourceKey;");
                     call.itf = false;
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    /** Retain the removed source dispatcher dependency as an explicit
+     * fail-closed facade; functional tessellation requires a later semantic
+     * migration to the target extracted block render-state pipeline. */
+    private static int rewriteLegacyBlockRenderDispatcherFamily(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL) continue;
+                if (call.owner.equals("net/minecraft/client/renderer/blockentity/"
+                                + "BlockEntityRendererProvider$Context")
+                        && call.name.equals("m_173584_")
+                        && call.desc.equals("()Lcom/fuckingdeveloper/lms/runtime/render/"
+                                + "LegacyBlockRenderDispatcher;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/LegacyBlockRenderDispatcher";
+                    call.name = "from";
+                    call.desc = "(Lnet/minecraft/client/renderer/blockentity/"
+                            + "BlockEntityRendererProvider$Context;)"
+                            + "Lcom/fuckingdeveloper/lms/runtime/render/LegacyBlockRenderDispatcher;";
+                    call.itf = false;
+                    rewrites++;
+                } else if (call.owner.equals(
+                                "com/fuckingdeveloper/lms/runtime/render/LegacyModelBlockRenderer")
+                        && call.name.equals("tesselateBlock")
+                        && call.desc.startsWith(
+                                "(Lnet/minecraft/world/level/BlockAndTintGetter;")) {
+                    call.desc = call.desc.replace(
+                            "(Lnet/minecraft/world/level/BlockAndTintGetter;",
+                            "(Lnet/minecraft/world/level/BlockGetter;");
                     rewrites++;
                 }
             }

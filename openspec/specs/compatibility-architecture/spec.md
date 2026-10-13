@@ -375,6 +375,13 @@ renderer's private buffers or treat captured intent as proof that the target
 render pipeline supports that type. Attempted functional use MUST remain
 fail-closed until a verified target rendering operation consumes the intent.
 
+When the target removes the source immediate block dispatcher in favor of an
+extracted block render-state pipeline, LMS MAY preserve constructor-time
+dispatcher dependency injection through a source-shaped facade. Any functional
+model lookup or immediate tessellation through that facade MUST fail explicitly
+until a verified state-extraction/submission adapter exists; successful renderer
+construction alone MUST NOT be reported as functional block rendering.
+
 When a source renderer separates CPU geometry construction from upload into a
 persistent GPU vertex buffer that the target removed, LMS MAY preserve the
 completed CPU-cache lifecycle without performing the obsolete upload. A later
