@@ -57,6 +57,13 @@ public final class Forge1192ItemBridge {
             if (base == Item.class) return false;
             throw new IllegalStateException("Source tool-base predicate is not adapted: " + base.getName());
         }
+        if (item instanceof com.fuckingdeveloper.lms.runtime.item.LegacyAxeItem
+                || item instanceof com.fuckingdeveloper.lms.runtime.item.LegacyHoeItem
+                || item instanceof com.fuckingdeveloper.lms.runtime.item.LegacyPickaxeItem
+                || item instanceof com.fuckingdeveloper.lms.runtime.item.LegacyShovelItem
+                || item instanceof com.fuckingdeveloper.lms.runtime.item.LegacySwordItem) {
+            throw new IllegalStateException("Source tool-base predicate is not adapted: " + item.getClass().getName());
+        }
         return item.isCorrectToolForDrops(Forge1192EarlyItemStackBridge.create(item), state);
     }
 
