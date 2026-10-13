@@ -137,6 +137,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/advancements/critereon/SerializationContext", "com/fuckingdeveloper/lms/runtime/advancement/Forge1192LegacySerializationContext"),
             java.util.Map.entry("net/minecraft/world/level/GameRules", "net/minecraft/world/level/gamerules/GameRules"),
             java.util.Map.entry("net/minecraft/world/level/chunk/ChunkStatus", "net/minecraft/world/level/chunk/status/ChunkStatus"),
+            java.util.Map.entry("net/minecraft/world/level/storage/loot/parameters/LootContextParam", "net/minecraft/util/context/ContextKey"),
             java.util.Map.entry("net/minecraft/world/level/material/MaterialColor", "net/minecraft/world/level/material/MapColor"),
             java.util.Map.entry("net/minecraft/world/level/material/MaterialColor$Brightness", "net/minecraft/world/level/material/MapColor$Brightness"));
     private static final java.util.Optional<Forge1192SrgRuntimeResolver> SRG_RUNTIME_RESOLVER =
@@ -191,6 +192,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyVillagerProfessionConstruction(node);
         rewrites += rewriteLegacyVillagerProfessionConstants(node);
         rewrites += rewriteLegacySavedDataFamily(node);
+        rewrites += rewriteLegacyLootContextFamily(node);
         rewrites += rewriteLegacyRecipeViewFamily(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
@@ -222,6 +224,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyDiggerItemChecks(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
+        rewrites += rewriteLegacyRenderLivingEventAccessors(node);
+        rewrites += rewriteLegacyRenderFrustumConstruction(node);
+        rewrites += rewriteLegacyBufferedVertexCacheLifecycle(node);
         rewrites += rewriteLegacyMultiBufferSource(node);
         rewrites += rewriteLegacyBlockRenderLayerRegistration(node);
         rewrites += rewriteLegacyDirectClientReloadRegistration(node);
@@ -2246,6 +2251,69 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    private int rewriteLegacyLootContextFamily(ClassNode node) {
+        if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
+        final String params = "net/minecraft/world/level/storage/loot/parameters/LootContextParams";
+        final String legacyKey =
+                "Lnet/minecraft/world/level/storage/loot/parameters/LootContextParam;";
+        final String targetKey = "Lnet/minecraft/util/context/ContextKey;";
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn instanceof FieldInsnNode field
+                        && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                        && field.owner.equals(params)
+                        && field.desc.equals(legacyKey)) {
+                    String sourceName = SRG_RUNTIME_RESOLVER.get()
+                            .canonicalFieldName(params, field.name, legacyKey).orElse(null);
+                    String targetName = switch (sourceName == null ? "" : sourceName) {
+                        case "THIS_ENTITY", "LAST_DAMAGE_PLAYER", "DAMAGE_SOURCE", "ORIGIN",
+                             "BLOCK_STATE", "BLOCK_ENTITY", "TOOL", "EXPLOSION_RADIUS" -> sourceName;
+                        case "KILLER_ENTITY" -> "ATTACKING_ENTITY";
+                        case "DIRECT_KILLER_ENTITY" -> "DIRECT_ATTACKING_ENTITY";
+                        default -> null;
+                    };
+                    if (targetName != null && VANILLA_RELOCATIONS.searchExactField(
+                            params, targetName, targetKey).size() == 1) {
+                        field.name = targetName;
+                        field.desc = targetKey;
+                        rewrites++;
+                    }
+                    continue;
+                }
+                if (!(insn instanceof MethodInsnNode call)) continue;
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/level/storage/loot/LootContext")) {
+                    if (call.name.equals("m_78936_")
+                            && call.desc.equals("(" + legacyKey + ")Z")) {
+                        call.name = "hasParameter";
+                        call.desc = "(" + targetKey + ")Z";
+                        rewrites++;
+                        continue;
+                    }
+                    if (call.name.equals("m_78953_")
+                            && call.desc.equals("(" + legacyKey + ")Ljava/lang/Object;")) {
+                        call.name = "getOptional";
+                        call.desc = "(" + targetKey + ")Ljava/lang/Object;";
+                        rewrites++;
+                        continue;
+                    }
+                }
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/world/level/storage/loot/parameters/"
+                                + "LootContextParam")
+                        && call.name.equals("m_81284_")
+                        && call.desc.equals("()Lnet/minecraft/resources/ResourceLocation;")) {
+                    call.owner = "net/minecraft/util/context/ContextKey";
+                    call.name = "name";
+                    call.desc = "()Lnet/minecraft/resources/Identifier;";
+                    rewrites++;
+                }
+            }
+        }
+        return rewrites;
+    }
+
     private int rewriteLegacyRecipeViewFamily(ClassNode node) {
         final String recipe = "net/minecraft/world/item/crafting/Recipe";
         if (!isManagedSubtypeOf(node, recipe)) return 0;
@@ -3671,6 +3739,189 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    /**
+     * Forge 1.19.2 render-stage events exposed model-view/projection matrices
+     * from which callers rebuilt the current culling frustum. Target 26.3
+     * already owns the authoritative prepared frustum in its camera render
+     * state. Replace only that exact constructor expression with a defensive
+     * copy, leaving unrelated legacy matrix consumers fail-closed.
+     */
+    private static int rewriteLegacyRenderFrustumConstruction(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null;) {
+                var next = insn.getNext();
+                if (!(insn instanceof MethodInsnNode constructor)
+                        || constructor.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        || !constructor.owner.equals("net/minecraft/client/renderer/culling/Frustum")
+                        || !constructor.name.equals("<init>")
+                        || !constructor.desc.equals("(Lcom/mojang/math/Matrix4f;"
+                                + "Lcom/mojang/math/Matrix4f;)V")) {
+                    insn = next;
+                    continue;
+                }
+                var projection = previousExecutable(constructor);
+                var eventLoad2 = projection == null ? null : previousExecutable(projection);
+                var pose = eventLoad2 == null ? null : previousExecutable(eventLoad2);
+                var last = pose == null ? null : previousExecutable(pose);
+                var getPoseStack = last == null ? null : previousExecutable(last);
+                var eventLoad1 = getPoseStack == null ? null : previousExecutable(getPoseStack);
+                var duplicate = eventLoad1 == null ? null : previousExecutable(eventLoad1);
+                var allocation = duplicate == null ? null : previousExecutable(duplicate);
+                if (!(projection instanceof MethodInsnNode projectionCall)
+                        || projectionCall.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !projectionCall.owner.equals(
+                                "net/minecraftforge/client/event/RenderLevelStageEvent")
+                        || !projectionCall.name.equals("getProjectionMatrix")
+                        || !projectionCall.desc.equals("()Lcom/mojang/math/Matrix4f;")
+                        || !(eventLoad2 instanceof org.objectweb.asm.tree.VarInsnNode load2)
+                        || load2.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
+                        || !(pose instanceof MethodInsnNode poseCall)
+                        || poseCall.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !poseCall.owner.equals("com/mojang/blaze3d/vertex/PoseStack$Pose")
+                        || !poseCall.name.equals("m_85861_")
+                        || !poseCall.desc.equals("()Lcom/mojang/math/Matrix4f;")
+                        || !(last instanceof MethodInsnNode lastCall)
+                        || lastCall.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !lastCall.owner.equals("com/mojang/blaze3d/vertex/PoseStack")
+                        || !lastCall.name.equals("m_85850_")
+                        || !lastCall.desc.equals(
+                                "()Lcom/mojang/blaze3d/vertex/PoseStack$Pose;")
+                        || !(getPoseStack instanceof MethodInsnNode poseStackCall)
+                        || poseStackCall.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !poseStackCall.owner.equals(
+                                "net/minecraftforge/client/event/RenderLevelStageEvent")
+                        || !poseStackCall.name.equals("getPoseStack")
+                        || !poseStackCall.desc.equals(
+                                "()Lcom/mojang/blaze3d/vertex/PoseStack;")
+                        || !(eventLoad1 instanceof org.objectweb.asm.tree.VarInsnNode load1)
+                        || load1.getOpcode() != org.objectweb.asm.Opcodes.ALOAD
+                        || load1.var != load2.var
+                        || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP
+                        || !(allocation instanceof TypeInsnNode type)
+                        || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                        || !type.desc.equals("net/minecraft/client/renderer/culling/Frustum")) {
+                    insn = next;
+                    continue;
+                }
+
+                var replacement = new org.objectweb.asm.tree.InsnList();
+                replacement.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, load1.var));
+                replacement.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/render/Forge1192RenderStageBridge",
+                        "frustum", "(Lnet/neoforged/neoforge/client/event/RenderLevelStageEvent;)"
+                                + "Lnet/minecraft/client/renderer/culling/Frustum;", false));
+                method.instructions.insertBefore(allocation, replacement);
+                method.instructions.remove(allocation);
+                method.instructions.remove(duplicate);
+                method.instructions.remove(eventLoad1);
+                method.instructions.remove(getPoseStack);
+                method.instructions.remove(last);
+                method.instructions.remove(pose);
+                method.instructions.remove(eventLoad2);
+                method.instructions.remove(projection);
+                method.instructions.remove(constructor);
+                rewrites++;
+                insn = next;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Forge 1.19.2 render-living events exposed the rendered entity directly,
+     * while the target event exposes only its extracted render state. Route
+     * the exact removed accessor through a target-aware semantic bridge.
+     */
+    private static int rewriteLegacyRenderLivingEventAccessors(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !call.name.equals("getEntity")
+                        || !call.desc.equals("()Lnet/minecraft/world/entity/LivingEntity;")) continue;
+                if (!call.owner.equals("net/minecraftforge/client/event/RenderLivingEvent$Pre")
+                        && !call.owner.equals("net/minecraftforge/client/event/RenderLivingEvent$Post")
+                        && !call.owner.equals("net/minecraftforge/client/event/RenderLivingEvent")) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192RenderLivingEventBridge";
+                call.name = "entity";
+                call.desc = "(Ljava/lang/Object;)Lnet/minecraft/world/entity/LivingEntity;";
+                call.itf = false;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Preserve the construction phase of a source persistent vertex cache
+     * only when its field and finish/draw/delete methods prove the complete
+     * Forge 1.19.2 VertexBuffer lifecycle shape. Functional drawing remains an
+     * explicit boundary in the runtime bridge.
+     */
+    private int rewriteLegacyBufferedVertexCacheLifecycle(ClassNode node) {
+        if (!isManagedSubtypeOf(node, "com/mojang/blaze3d/vertex/BufferVertexConsumer")) return 0;
+        var bufferFields = node.fields.stream()
+                .filter(field -> field.desc.equals("Lcom/mojang/blaze3d/vertex/VertexBuffer;"))
+                .toList();
+        if (bufferFields.size() != 1) return 0;
+        var finish = node.methods.stream()
+                .filter(method -> method.name.equals("finish") && method.desc.equals("()V")
+                        && containsMethodCall(method, org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                                "com/mojang/blaze3d/vertex/VertexBuffer", "m_231221_",
+                                "(Lcom/mojang/blaze3d/vertex/BufferBuilder$RenderedBuffer;)V"))
+                .findFirst().orElse(null);
+        var draw = node.methods.stream()
+                .filter(method -> method.name.equals("draw") && method.desc.equals("()V")
+                        && containsMethodCall(method, org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                                "com/mojang/blaze3d/vertex/VertexBuffer", "m_166867_",
+                                "(Lcom/mojang/math/Matrix4f;Lcom/mojang/math/Matrix4f;"
+                                        + "Lnet/minecraft/client/renderer/ShaderInstance;)V"))
+                .findFirst().orElse(null);
+        var delete = node.methods.stream()
+                .filter(method -> method.name.equals("delete") && method.desc.equals("()V")
+                        && containsMethodCall(method, org.objectweb.asm.Opcodes.INVOKEVIRTUAL,
+                                "com/mojang/blaze3d/vertex/VertexBuffer", "close", "()V"))
+                .findFirst().orElse(null);
+        if (finish == null || draw == null || delete == null) return 0;
+
+        var bufferField = bufferFields.getFirst();
+        bufferField.desc = "Ljava/lang/Object;";
+        bufferField.signature = null;
+        replaceVertexCacheLifecycleMethod(finish, "finish");
+        replaceVertexCacheLifecycleMethod(draw, "draw");
+        replaceVertexCacheLifecycleMethod(delete, "delete");
+        return 4;
+    }
+
+    private static boolean containsMethodCall(org.objectweb.asm.tree.MethodNode method,
+            int opcode, String owner, String name, String descriptor) {
+        for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof MethodInsnNode call
+                    && call.getOpcode() == opcode
+                    && call.owner.equals(owner)
+                    && call.name.equals(name)
+                    && call.desc.equals(descriptor)) return true;
+        }
+        return false;
+    }
+
+    private static void replaceVertexCacheLifecycleMethod(
+            org.objectweb.asm.tree.MethodNode method, String operation) {
+        method.instructions.clear();
+        method.tryCatchBlocks.clear();
+        if (method.localVariables != null) method.localVariables.clear();
+        method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(
+                org.objectweb.asm.Opcodes.ALOAD, 0));
+        method.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/render/LegacyBufferedVertexCacheBridge",
+                operation, "(Ljava/lang/Object;)V", false));
+        method.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));
+    }
+
     private static int rewriteLegacyMultiBufferSource(ClassNode node) {
         final String legacy = "net/minecraft/client/renderer/MultiBufferSource";
         final String adapted =
@@ -4056,6 +4307,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                         && call.owner.equals("com/mojang/blaze3d/vertex/PoseStack")) {
                     String targetName = switch (call.name + call.desc) {
+                        case "m_166856_()V" -> "setIdentity";
                         case "m_85836_()V" -> "pushPose";
                         case "m_85837_(DDD)V" -> "translate";
                         case "m_85841_(FFF)V" -> "scale";
@@ -4072,20 +4324,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         continue;
                     }
                 }
-                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        && call.owner.equals("com/mojang/blaze3d/vertex/PoseStack$Pose")) {
-                    String targetName = switch (call.name + call.desc) {
-                        case "m_85861_()Lorg/joml/Matrix4f;" -> "pose";
-                        case "m_85864_()Lorg/joml/Matrix3f;" -> "normal";
-                        default -> null;
-                    };
-                    if (targetName != null) {
-                        call.name = targetName;
-                        rewrites++;
-                        continue;
-                    }
-                }
-
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
                         && call.owner.equals("com/mojang/math/Quaternion")
                         && call.name.equals("m_175225_")
@@ -4864,6 +5102,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if (current.startsWith("net/minecraft/")) {
                 var resolved = SRG_RUNTIME_RESOLVER.get().resolve(current, name, desc);
                 if (resolved.resolved()) return resolved;
+                String targetOwner = migrateInternalName(current);
+                String targetDescriptor = migrateDescriptor(desc);
+                if (!targetOwner.equals(current) || !targetDescriptor.equals(desc)) {
+                    resolved = SRG_RUNTIME_RESOLVER.get().resolveRelocatedMethod(
+                            current, name, desc, targetOwner, targetDescriptor);
+                    if (resolved.resolved()) return resolved;
+                }
             }
             try {
                 byte[] bytes = hierarchyBytes(current);
@@ -5017,6 +5262,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     select.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,
                             "net/minecraft/world/level/block/Block"));
                     method.instructions.insert(field, select);
+                    rewrites++;
+                    continue;
+                }
+                String renamedVanillaField = renamedVanillaField(field);
+                if (renamedVanillaField != null) {
+                    field.name = renamedVanillaField;
                     rewrites++;
                     continue;
                 }
@@ -5182,6 +5433,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private record LegacyColorCollectionField(String collection, String color) {}
     private record LegacyCopperCollectionField(
             String collection, String track, String state, String valueType) {}
+
+    /**
+     * Exact Mojang identities occasionally survive with a new target name.
+     * Keep these migrations explicit: prove the source SRG identity and the
+     * unique target declaration instead of accepting descriptor coincidence.
+     */
+    private String renamedVanillaField(FieldInsnNode field) {
+        if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
+                || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String canonical = SRG_RUNTIME_RESOLVER.get()
+                .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
+        String targetName = switch (field.owner + "#" + (canonical == null ? "" : canonical)) {
+            case "net/minecraft/world/level/block/Blocks#GRASS" -> "SHORT_GRASS";
+            default -> null;
+        };
+        if (targetName == null) return null;
+        var target = VANILLA_RELOCATIONS.searchExactField(
+                field.owner.replace('/', '.'), targetName, field.desc);
+        return target.size() == 1 ? targetName : null;
+    }
 
     /**
      * NeoForge's common-tag convention renamed a small set of Forge 1.19.2

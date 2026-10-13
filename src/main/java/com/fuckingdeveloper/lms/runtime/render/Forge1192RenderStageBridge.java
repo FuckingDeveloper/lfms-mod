@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms.runtime.render;
 
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.minecraft.client.renderer.culling.Frustum;
 
 import java.util.Objects;
 
@@ -29,5 +30,13 @@ public final class Forge1192RenderStageBridge {
         if (event instanceof RenderLevelStageEvent.AfterWeather) return Stage.AFTER_WEATHER;
         throw new IllegalArgumentException("Target render stage has no Forge 1.19.2 equivalent: "
                 + event.getClass().getName());
+    }
+
+    /** Copy the target-authoritative, already prepared culling frustum. */
+    public static Frustum frustum(RenderLevelStageEvent event) {
+        Objects.requireNonNull(event, "event");
+        var levelState = Objects.requireNonNull(event.getLevelRenderState(), "levelRenderState");
+        var cameraState = Objects.requireNonNull(levelState.cameraRenderState, "cameraRenderState");
+        return new Frustum(Objects.requireNonNull(cameraState.cullFrustum, "cullFrustum"));
     }
 }

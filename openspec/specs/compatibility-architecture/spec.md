@@ -173,6 +173,13 @@ stages. If several source chunk-layer stages collapse into one target stage,
 the adapter MUST identify the last completed source-equivalent stage and
 document that earlier intermediate callbacks are unavailable.
 
+When a source render event exposes the rendered entity but the target event
+retains only an extracted render state, LMS MAY recover the source entity from
+the target client level only when target-authoritative type, interpolation
+time, position, and extracted entity-state properties identify exactly one
+entity. Missing or ambiguous matches MUST fail explicitly; an arbitrary nearby
+entity MUST NOT be substituted.
+
 When a source client debug option moves from a renderer-owned toggle to a
 named target debug-entry model, LMS MAY bridge the exact source toggle to the
 verified target entry. The bridge MUST preserve both the state transition and
@@ -200,6 +207,13 @@ intent in an LMS-owned target adapter. It MUST NOT reflectively mutate a target
 renderer's private buffers or treat captured intent as proof that the target
 render pipeline supports that type. Attempted functional use MUST remain
 fail-closed until a verified target rendering operation consumes the intent.
+
+When a source renderer separates CPU geometry construction from upload into a
+persistent GPU vertex buffer that the target removed, LMS MAY preserve the
+completed CPU-cache lifecycle without performing the obsolete upload. A later
+draw of that cache MUST fail explicitly until a verified target render-pass or
+submission adapter consumes the preserved geometry; construction compatibility
+MUST NOT be reported as functional rendering compatibility.
 
 Managed legacy artifacts remain immutable inputs, but their client and server
 resources MUST be exposed through the target generation's resource-pack
