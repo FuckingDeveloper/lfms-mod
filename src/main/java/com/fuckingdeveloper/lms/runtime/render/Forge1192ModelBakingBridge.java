@@ -2,6 +2,7 @@ package com.fuckingdeveloper.lms.runtime.render;
 
 import com.fuckingdeveloper.lms.runtime.Forge1192VanillaConstructionBridge;
 import com.fuckingdeveloper.lms.runtime.event.LegacyModelBakingCompletedEvent;
+import com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
@@ -22,6 +23,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.ItemOwner;
 import net.minecraft.world.item.Item;
@@ -30,6 +32,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.model.DynamicBlockStateModel;
+import net.neoforged.neoforge.client.model.quad.BakedColors;
 import net.neoforged.neoforge.model.data.ModelData;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -252,7 +255,7 @@ public final class Forge1192ModelBakingBridge {
         @Override
         public void collectParts(RandomSource random, List<BlockStateModelPart> output) {
             output.add(new LegacyBlockPart(
-                    legacy, state, random, ModelData.EMPTY, fallbackMaterial));
+                    legacy, state, random, ModelData.EMPTY, null, null, fallbackMaterial));
         }
 
         @Override
@@ -260,7 +263,7 @@ public final class Forge1192ModelBakingBridge {
                 BlockAndTintGetter level, BlockPos pos, BlockState state,
                 RandomSource random, List<BlockStateModelPart> output) {
             output.add(new LegacyBlockPart(
-                    legacy, state, random, level.getModelData(pos), fallbackMaterial));
+                    legacy, state, random, level.getModelData(pos), level, pos, fallbackMaterial));
         }
 
         @Override
@@ -278,11 +281,13 @@ public final class Forge1192ModelBakingBridge {
 
     private record LegacyBlockPart(
             LegacyBakedModel legacy, BlockState state, RandomSource random,
-            ModelData modelData, Material.Baked fallbackMaterial) implements BlockStateModelPart {
+            ModelData modelData, @Nullable BlockAndTintGetter level, @Nullable BlockPos pos,
+            Material.Baked fallbackMaterial) implements BlockStateModelPart {
         @Override
         public List<BakedQuad> getQuads(@Nullable Direction direction) {
-            return List.copyOf(legacy.getQuads(
-                    state, direction, random, modelData, null));
+            return legacy.getQuads(state, direction, random, modelData, null).stream()
+                    .map(quad -> applyLegacyBlockTint(quad, state, level, pos))
+                    .toList();
         }
 
         @Override
@@ -318,6 +323,13 @@ public final class Forge1192ModelBakingBridge {
             output.appendModelIdentityElement(this);
             ItemStackRenderState.LayerRenderState layer = output.newLayer();
             layer.setQuads(ItemQuads.split(quads));
+            int highestTintIndex = highestTintIndex(quads);
+            for (int tintIndex = 0; tintIndex <= highestTintIndex; tintIndex++) {
+                int targetColor = LegacyRegisterColorHandlersEvent.Item.targetColor(
+                        item, tintIndex);
+                layer.tintLayers().add(targetColor);
+                output.appendModelIdentityElement(targetColor);
+            }
             layer.setUsesBlockLight(selected.m_7547_());
             layer.setParticleMaterial(materialFor(quads, fallbackMaterial));
             layer.setItemTransform(transforms(selected).getTransform(displayContext));
@@ -363,6 +375,39 @@ public final class Forge1192ModelBakingBridge {
         int flags = 0;
         for (BakedQuad quad : quads) flags |= quad.materialInfo().flags();
         return flags;
+    }
+
+    private static int highestTintIndex(List<BakedQuad> quads) {
+        int highest = -1;
+        for (BakedQuad quad : quads) {
+            highest = Math.max(highest, quad.materialInfo().tintIndex());
+        }
+        return highest;
+    }
+
+    private static BakedQuad applyLegacyBlockTint(
+            BakedQuad quad, BlockState state, @Nullable BlockAndTintGetter level,
+            @Nullable BlockPos pos) {
+        BakedQuad.MaterialInfo material = quad.materialInfo();
+        int tintIndex = material.tintIndex();
+        if (tintIndex < 0) return quad;
+        int tint = LegacyRegisterColorHandlersEvent.Block.targetColor(
+                state, level, pos, tintIndex);
+        BakedQuad.MaterialInfo untinted = new BakedQuad.MaterialInfo(
+                material.sprite(), material.layer(), material.itemRenderType(),
+                material.itemGlintRenderType(), material.itemGlintSpecialRenderType(),
+                -1, material.shadeDirectionOverride(), material.lightEmission(),
+                material.ambientOcclusion());
+        BakedQuad result = new BakedQuad(
+                quad.position0(), quad.position1(), quad.position2(), quad.position3(),
+                quad.packedUV0(), quad.packedUV1(), quad.packedUV2(), quad.packedUV3(),
+                quad.direction(), untinted, quad.bakedNormals(), BakedColors.of(
+                        ARGB.multiply(quad.bakedColors().color(0), tint),
+                        ARGB.multiply(quad.bakedColors().color(1), tint),
+                        ARGB.multiply(quad.bakedColors().color(2), tint),
+                        ARGB.multiply(quad.bakedColors().color(3), tint)));
+        return Forge1192BakedQuadBridge.rememberShade(
+                result, Forge1192BakedQuadBridge.isShade(quad));
     }
 
     private record ModelSentinel(net.minecraft.client.renderer.texture.TextureAtlasSprite sprite)

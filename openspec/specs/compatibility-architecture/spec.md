@@ -379,6 +379,22 @@ render position into the source quad operation. LMS MUST NOT substitute empty
 model data for positioned block rendering or query a live block entity from a
 meshing worker to reconstruct the snapshot.
 
+When a source generation registers procedural block or item color handlers but
+the target consumes packed tint values during block tessellation or item render-
+state extraction, an LMS-owned legacy model adapter MAY evaluate the preserved
+source handler at that target consumption point. It MUST preserve the source
+quad tint index and source default-white result, convert source RGB values to
+the target's opaque packed-ARGB representation, and include dynamic item tint
+values in the target model identity when the target cache contract requires it.
+When the target requires a finite data-defined block tint-layer list but the
+source callback accepts arbitrary quad tint indices, the LMS-owned block model
+adapter MUST evaluate each actual tinted quad with its exact world and position
+context, multiply that color into the copied target quad, and clear the copied
+quad's target tint index. It MUST NOT represent an unbounded source callback as
+an arbitrary or effectively infinite target layer list.
+This adapter MUST NOT be claimed as general target data-driven tint-source
+registration for target-owned models.
+
 When source model baking is ordered after texture-stitch completion but the
 target uploads the prepared atlas only after it snapshots model dispatch,
 LMS MAY deliver the source texture-stitch completion against an immutable view
