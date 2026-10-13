@@ -15,7 +15,7 @@ import net.minecraft.client.resources.model.cuboid.ItemTransforms;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.client.resources.model.geometry.ItemQuads;
 import net.minecraft.client.resources.model.sprite.Material;
-import net.minecraft.client.resources.model.sprite.SpriteId;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -27,6 +27,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -40,13 +42,15 @@ import java.util.function.Function;
 
 /** Semantic bridge from the combined 1.19.2 baked-model registry to 26.3. */
 public final class Forge1192ModelBakingBridge {
+    private static final Identifier LEGACY_BLOCK_ATLAS =
+            Identifier.withDefaultNamespace("textures/atlas/blocks.png");
+    private static final Logger LOG = LoggerFactory.getLogger(Forge1192ModelBakingBridge.class);
     private static final ThreadLocal<Context> ACTIVE = new ThreadLocal<>();
 
     private Forge1192ModelBakingBridge() {}
 
-    public static Context context(
-            ModelEvent.ModifyBakingResult mutable, ModelEvent.BakingCompleted completed) {
-        return new Context(mutable, completed);
+    public static Context context(ModelEvent.ModifyBakingResult mutable) {
+        return new Context(mutable);
     }
 
     public static void invoke(Context context, Consumer<LegacyModelBakingCompletedEvent> listener) {
@@ -56,6 +60,8 @@ public final class Forge1192ModelBakingBridge {
         ACTIVE.set(context);
         try {
             listener.accept(new LegacyModelBakingCompletedEvent(context));
+            LOG.info("LMS legacy model-baking callback={} blockModels={} itemModels={}",
+                    listener.getClass().getName(), context.blockModels, context.itemModels);
         } finally {
             ACTIVE.remove();
         }
@@ -73,7 +79,10 @@ public final class Forge1192ModelBakingBridge {
             Object context, Item item, LegacyModelResourceLocation modelKey) {
         Context active = requireContext(context);
         Identifier itemId = BuiltInRegistries.ITEM.getKey(item);
-        if (itemId == null) throw new IllegalStateException("Unregistered legacy item model: " + item);
+        if (itemId == null || BuiltInRegistries.ITEM.getValue(itemId) != item) {
+            throw new IllegalStateException("Unregistered legacy item model: " + item
+                    + " resolvedId=" + itemId);
+        }
         active.registerItemModel(itemId, modelKey);
     }
 
@@ -82,8 +91,22 @@ public final class Forge1192ModelBakingBridge {
     }
 
     public static Function<Identifier, net.minecraft.client.renderer.texture.TextureAtlasSprite>
-            spriteLookup(Minecraft minecraft, Identifier atlasTexture) {
-        return texture -> minecraft.getAtlasManager().get(new SpriteId(atlasTexture, texture));
+            spriteLookup(Minecraft ignored, Identifier atlasTexture) {
+        Context context = requireActive();
+        if (!LEGACY_BLOCK_ATLAS.equals(atlasTexture)) {
+            throw new IllegalStateException(
+                    "Unsupported Forge 1.19.2 texture atlas during model baking: " + atlasTexture);
+        }
+        return texture -> {
+            var preparations = context.mutable.getBlockAtlasPreparations();
+            var sprite = preparations.getSprite(texture);
+            if (sprite != null) return sprite;
+            var missing = preparations.getSprite(MissingTextureAtlasSprite.getLocation());
+            if (missing == null) {
+                throw new IllegalStateException("Mutable target block atlas has no missing sprite");
+            }
+            return missing;
+        };
     }
 
     private static Context requireActive() {
@@ -104,18 +127,14 @@ public final class Forge1192ModelBakingBridge {
 
     public static final class Context {
         private final ModelEvent.ModifyBakingResult mutable;
-        private final ModelEvent.BakingCompleted completed;
         private final Map<Object, Object> models;
         private final Map<LegacyModelResourceLocation, LegacyBakedModel> legacyModels =
                 new java.util.HashMap<>();
+        private int blockModels;
+        private int itemModels;
 
-        private Context(
-                ModelEvent.ModifyBakingResult mutable, ModelEvent.BakingCompleted completed) {
+        private Context(ModelEvent.ModifyBakingResult mutable) {
             this.mutable = Objects.requireNonNull(mutable, "mutable baking event");
-            this.completed = Objects.requireNonNull(completed, "completed baking event");
-            if (mutable.getModelBakery() != completed.getModelBakery()) {
-                throw new IllegalStateException("Model-baking lifecycle contexts do not match");
-            }
             this.models = new LegacyModelMap(this);
         }
 
@@ -139,6 +158,7 @@ public final class Forge1192ModelBakingBridge {
             if (model != null) {
                 result().itemStackModels().put(itemId,
                         new LegacyItemModel(model, missingMaterial()));
+                itemModels++;
                 return;
             }
             // A source callback may deliberately retain a model that was
@@ -151,6 +171,7 @@ public final class Forge1192ModelBakingBridge {
                                 + itemId + " model=" + modelKey);
             }
             result().itemStackModels().put(itemId, baked);
+            itemModels++;
         }
     }
 
@@ -190,9 +211,11 @@ public final class Forge1192ModelBakingBridge {
             if (location.blockState() != null) {
                 context.result().blockStateModels().put(location.blockState(),
                         new LegacyBlockModel(model, location.blockState(), context.missingMaterial()));
+                context.blockModels++;
             } else if ("inventory".equals(location.getVariant())) {
                 context.result().itemStackModels().put(location.identifier(),
                         new LegacyItemModel(model, context.missingMaterial()));
+                context.itemModels++;
             } else {
                 throw new IllegalStateException("Unsupported legacy model variant: " + location);
             }

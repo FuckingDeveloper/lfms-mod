@@ -24,6 +24,10 @@ import net.neoforged.fml.event.lifecycle.ModLifecycleEvent;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
+import net.minecraft.client.renderer.texture.SpriteLoader;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.server.packs.resources.ReloadableResourceManager;
 import net.minecraft.world.item.ItemStack;
@@ -61,6 +65,8 @@ public final class Forge1192EventBusBridge {
             new CopyOnWriteArrayList<>();
     private static final java.util.Map<Identifier, java.util.Set<Identifier>> PREPARED_TEXTURE_SPRITES =
             new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Set<Identifier> EARLY_TEXTURE_STITCH_POST =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static boolean textureStitchDispatcherRegistered;
 
     private Forge1192EventBusBridge() {}
@@ -278,24 +284,10 @@ public final class Forge1192EventBusBridge {
     private static void registerLegacyModelBakingListener(
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
             Consumer<LegacyModelBakingCompletedEvent> listener) {
-        AtomicReference<ModelEvent.ModifyBakingResult> mutable = new AtomicReference<>();
         bus.addListener(priority, false, ModelEvent.ModifyBakingResult.class, event -> {
-            ModelEvent.ModifyBakingResult previous = mutable.getAndSet(event);
-            if (previous != null && previous.getModelBakery() == event.getModelBakery()) {
-                throw new IllegalStateException("Mutable model-baking result captured more than once");
-            }
-            // A failed resource reload has no BakingCompleted event. The target
-            // may immediately start a fallback reload, whose distinct bakery
-            // supersedes the abandoned mutable result.
-        });
-        bus.addListener(priority, false, ModelEvent.BakingCompleted.class, event -> {
-            ModelEvent.ModifyBakingResult captured = mutable.getAndSet(null);
-            if (captured == null) {
-                throw new IllegalStateException(
-                        "Legacy model-baking completion ran without a mutable target result");
-            }
+            dispatchPreparedLegacyTextureStitchPost(event);
             Forge1192ModelBakingBridge.invoke(
-                    Forge1192ModelBakingBridge.context(captured, event), listener);
+                    Forge1192ModelBakingBridge.context(event), listener);
         });
     }
 
@@ -332,6 +324,7 @@ public final class Forge1192EventBusBridge {
 
     public static java.util.Set<Identifier> collectLegacyTextureSprites(
             net.minecraft.client.renderer.texture.TextureAtlas atlas) {
+        EARLY_TEXTURE_STITCH_POST.remove(atlas.location());
         var pre = new LegacyTextureStitchEvent.Pre(atlas);
         ordered(TEXTURE_STITCH_PRE).forEach(listener -> listener.consumer().accept(pre));
         java.util.Set<Identifier> requested = pre.requestedSprites();
@@ -352,8 +345,30 @@ public final class Forge1192EventBusBridge {
         }
         pre.requireMaterialized();
 
-        var post = new LegacyTextureStitchEvent.Post(target.getAtlas());
-        ordered(TEXTURE_STITCH_POST).forEach(listener -> listener.consumer().accept(post));
+        if (!EARLY_TEXTURE_STITCH_POST.remove(target.getAtlas().location())) {
+            var post = new LegacyTextureStitchEvent.Post(target.getAtlas());
+            ordered(TEXTURE_STITCH_POST).forEach(listener -> listener.consumer().accept(post));
+        }
+    }
+
+    /**
+     * Target model dispatch is derived before atlas upload, while Forge 1.19.2
+     * model callbacks observed TextureStitchEvent.Post first. Recreate that
+     * ordering from the exact stitched preparations without uploading them.
+     */
+    private static void dispatchPreparedLegacyTextureStitchPost(
+            ModelEvent.ModifyBakingResult event) {
+        Identifier location = TextureAtlas.LOCATION_BLOCKS;
+        if (!EARLY_TEXTURE_STITCH_POST.add(location)) return;
+        try {
+            var atlas = new PreparedLegacyTextureAtlas(
+                    location, event.getBlockAtlasPreparations());
+            var post = new LegacyTextureStitchEvent.Post(atlas);
+            ordered(TEXTURE_STITCH_POST).forEach(listener -> listener.consumer().accept(post));
+        } catch (RuntimeException | Error failure) {
+            EARLY_TEXTURE_STITCH_POST.remove(location);
+            throw failure;
+        }
     }
 
     private static <T extends Event> List<PrioritizedListener<T>> ordered(
@@ -365,6 +380,50 @@ public final class Forge1192EventBusBridge {
 
     private record PrioritizedListener<T extends Event>(
             net.neoforged.bus.api.EventPriority priority, Consumer<T> consumer) {}
+
+    private static final class PreparedLegacyTextureAtlas extends TextureAtlas {
+        private final java.util.Map<Identifier, TextureAtlasSprite> sprites;
+        private final TextureAtlasSprite missing;
+
+        private PreparedLegacyTextureAtlas(
+                Identifier location, SpriteLoader.Preparations preparations) {
+            super(location);
+            this.sprites = java.util.Map.copyOf(preparations.regions());
+            this.missing = java.util.Objects.requireNonNull(
+                    preparations.getSprite(MissingTextureAtlasSprite.getLocation()),
+                    "Prepared target atlas has no missing sprite");
+        }
+
+        @Override
+        public TextureAtlasSprite getSprite(Identifier location) {
+            return sprites.getOrDefault(location, missing);
+        }
+
+        @Override
+        public TextureAtlasSprite missingSprite() {
+            return missing;
+        }
+
+        @Override
+        public java.util.Map<Identifier, TextureAtlasSprite> getTextures() {
+            return sprites;
+        }
+
+        @Override
+        public void upload(SpriteLoader.Preparations preparations) {
+            throw new UnsupportedOperationException("Prepared legacy atlas is read-only");
+        }
+
+        @Override
+        public void clearTextureData() {
+            throw new UnsupportedOperationException("Prepared legacy atlas is read-only");
+        }
+
+        @Override
+        public void close() {
+            throw new UnsupportedOperationException("Prepared legacy atlas is read-only");
+        }
+    }
 
     private static void registerLegacyBlockHighlightRenderer(
             ExtractBlockOutlineRenderStateEvent event,

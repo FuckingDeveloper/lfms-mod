@@ -209,6 +209,15 @@ and one exact target holder declaration are verified. Downstream member
 migrations MUST consume the holder according to the target ABI; LMS MUST NOT
 unwrap or substitute a different registry entry merely to satisfy a descriptor.
 
+When the target item constructor requires its registry identity before a
+legacy block-item subclass stores that identity, LMS MUST prefer an explicit
+source item-name operation proven in that constructor over the paired block's
+identifier. The block identifier is authoritative only when the source proves
+that the item derives its name from the block. Source `registerBlocks`
+overrides MUST remain authoritative for the block-to-item association; LMS
+MUST NOT eagerly install the base association for a subclass that overrides
+that operation.
+
 When a source client debug option moves from a renderer-owned toggle to a
 named target debug-entry model, LMS MAY bridge the exact source toggle to the
 verified target entry. The bridge MUST preserve both the state transition and
@@ -223,6 +232,38 @@ callback and mutated at the source-equivalent later phase when the target
 retains those map identities. LMS MUST NOT cast or namespace-rename the legacy
 combined model into either unrelated target model interface. Unsupported
 legacy rendering operations MUST remain explicit fail-closed boundaries.
+
+When the target snapshots or derives its block-state dispatch before the
+source-equivalent completion phase, LMS MAY execute a legacy baked-model
+registration callback during the target's final mutable baking phase. This
+timing migration is permitted only when the exposed source event view is
+restricted to registration operations backed by that exact mutable result and
+the callback's other transformed operations are valid in the target phase.
+Source event operations that require the completed model manager or other
+later state MUST remain fail-closed. LMS MUST NOT mutate a completed target
+model manager reflectively or claim that a late mutation of a detached baking
+map updates the target dispatch cache.
+
+When source model baking is ordered after texture-stitch completion but the
+target uploads the prepared atlas only after it snapshots model dispatch,
+LMS MAY deliver the source texture-stitch completion against an immutable view
+of the exact target atlas preparations. That view MUST preserve atlas identity,
+sprite lookup, missing-sprite fallback, and the source ordering before model
+registration. It MUST NOT upload GPU resources early, expose an unrelated live
+atlas, or replay the source completion callback a second time after upload.
+Operations outside the proven prepared-atlas view MUST remain unsupported.
+
+When a source fluid type registers immutable client texture/tint intent through
+an `initializeClient` callback that the target removed, the source profile MAY
+capture that exact callback result lazily before its first model-baking use.
+The captured object MUST remain associated with the originating fluid type,
+and its verified source accessors MUST be used in preference to uninitialized
+target model-manager state. LMS MUST NOT infer fluid textures from registry
+names or substitute the target missing-fluid model for absent source intent.
+For target-owned vanilla fluids whose baked model is computed but not yet
+published in this phase, LMS MAY expose a texture identity only when the exact
+target fluid registry identity and target model declaration prove it. This
+exception MUST NOT be generalized to custom fluids by identifier convention.
 
 When a source render-type class combines chunk-layer identity with immediate
 render-pipeline state but the target separates those concepts, LMS MUST retain

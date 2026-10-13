@@ -1781,6 +1781,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = 0;
         for (var method : node.methods) {
             if (!method.name.equals("<init>")) continue;
+            RegistryNameEvidence namedItem = legacyRegistryNameEvidence(node, method);
             BlockItemRegistryLookupEvidence registryLookup = legacyBlockItemRegistryLookupEvidence(node, method);
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
@@ -1794,8 +1795,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, propertiesLocal));
                 adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
                 adaptation.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ASTORE, blockLocal));
-                adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
-                if (registryLookup != null) {
+                if (namedItem != null) {
+                    adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                            org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
+                    appendRegistryNameLoad(adaptation, namedItem);
+                    adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                            "withItemId",
+                            "(Lnet/minecraft/world/item/Item$Properties;Ljava/lang/String;)"
+                                    + "Lnet/minecraft/world/item/Item$Properties;", false));
+                } else if (registryLookup != null) {
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
                     adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
                             registryLookup.owner(), registryLookup.name(), registryLookup.desc(), false));
                     adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
@@ -1806,6 +1816,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             "(Lnet/minecraft/resources/ResourceLocation;Lnet/minecraft/world/item/Item$Properties;)"
                                     + "Lnet/minecraft/world/item/Item$Properties;", false));
                 } else {
+                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.DUP));
                     adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
                             org.objectweb.asm.Opcodes.ALOAD, propertiesLocal));
                     adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
@@ -1816,14 +1827,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 method.instructions.insertBefore(call, adaptation);
                 var association = new org.objectweb.asm.tree.InsnList();
-                association.add(new org.objectweb.asm.tree.VarInsnNode(
-                        org.objectweb.asm.Opcodes.ALOAD, blockLocal));
-                association.add(new org.objectweb.asm.tree.VarInsnNode(
-                        org.objectweb.asm.Opcodes.ALOAD, 0));
-                association.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
-                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
-                        "associateBlockItem",
-                        "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item;)V", false));
+                if (!declaresLegacyBlockItemMapOverride(node)) {
+                    association.add(new org.objectweb.asm.tree.VarInsnNode(
+                            org.objectweb.asm.Opcodes.ALOAD, blockLocal));
+                    association.add(new org.objectweb.asm.tree.VarInsnNode(
+                            org.objectweb.asm.Opcodes.ALOAD, 0));
+                    association.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                            "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                            "associateBlockItem",
+                            "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item;)V", false));
+                }
                 association.add(new org.objectweb.asm.tree.VarInsnNode(
                         org.objectweb.asm.Opcodes.ALOAD, 0));
                 association.add(new org.objectweb.asm.tree.VarInsnNode(
@@ -1837,6 +1850,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private static boolean declaresLegacyBlockItemMapOverride(ClassNode node) {
+        return node.methods.stream().anyMatch(method -> method.name.equals("m_6192_")
+                && method.desc.equals("(Ljava/util/Map;Lnet/minecraft/world/item/Item;)V")
+                && (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0);
     }
 
     /**
@@ -4526,9 +4545,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     if (next instanceof MethodInsnNode getter
                             && getter.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
                             && getter.owner.equals(call.owner)
-                            && getter.desc.equals("()Lnet/minecraft/resources/Identifier;")
+                            && (getter.desc.equals("()Lnet/minecraft/resources/Identifier;")
+                                || getter.desc.equals("()I"))
                             && (getter.name.equals("getStillTexture")
-                                || getter.name.equals("getFlowingTexture"))) {
+                                || getter.name.equals("getFlowingTexture")
+                                || getter.name.equals("getTintColor"))) {
                         String argument = switch (call.desc) {
                             case "(Lnet/minecraft/world/level/material/FluidState;)"
                                     + "Lnet/neoforged/neoforge/client/extensions/common/"
@@ -4544,7 +4565,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             call.owner = "com/fuckingdeveloper/lms/runtime/"
                                     + "Forge1192ClientFluidExtensionsBridge";
                             call.name = getter.name;
-                            call.desc = "(" + argument + ")Lnet/minecraft/resources/Identifier;";
+                            call.desc = "(" + argument + ")"
+                                    + (getter.name.equals("getTintColor")
+                                            ? "I" : "Lnet/minecraft/resources/Identifier;");
                             call.itf = false;
                             method.instructions.remove(getter);
                             rewrites++;

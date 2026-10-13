@@ -4,13 +4,21 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /** Preserves source-defined Forge 1.19.2 fluid client extension values. */
 public final class Forge1192ClientFluidExtensionsBridge {
+    private static final Map<net.neoforged.neoforge.fluids.FluidType, Object>
+            LEGACY_EXTENSIONS = Collections.synchronizedMap(new WeakHashMap<>());
     private static final ClassValue<Accessors> ACCESSORS = new ClassValue<>() {
         @Override
         protected Accessors computeValue(Class<?> type) {
@@ -29,11 +37,17 @@ public final class Forge1192ClientFluidExtensionsBridge {
     private Forge1192ClientFluidExtensionsBridge() {}
 
     public static Identifier getStillTexture(FluidState state) {
-        Object extensions = IClientFluidTypeExtensions.of(state);
+        Object extensions = sourceOrTargetExtensions(state);
         Method sourceAccessor = ACCESSORS.get(extensions.getClass()).still();
         if (sourceAccessor != null) return texture(extensions, sourceAccessor, "still");
-        return Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(state)
-                .stillMaterial().sprite().contents().name();
+        Identifier vanilla = vanillaTexture(state.getType(), true);
+        if (vanilla != null) return vanilla;
+        try {
+            return Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(state)
+                    .stillMaterial().sprite().contents().name();
+        } catch (NullPointerException unavailable) {
+            throw unavailableFluidModel("still", state, extensions, unavailable);
+        }
     }
 
     public static Identifier getStillTexture(Fluid fluid) {
@@ -41,15 +55,29 @@ public final class Forge1192ClientFluidExtensionsBridge {
     }
 
     public static Identifier getFlowingTexture(FluidState state) {
-        Object extensions = IClientFluidTypeExtensions.of(state);
+        Object extensions = sourceOrTargetExtensions(state);
         Method sourceAccessor = ACCESSORS.get(extensions.getClass()).flowing();
         if (sourceAccessor != null) return texture(extensions, sourceAccessor, "flowing");
-        return Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(state)
-                .flowingMaterial().sprite().contents().name();
+        Identifier vanilla = vanillaTexture(state.getType(), false);
+        if (vanilla != null) return vanilla;
+        try {
+            return Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(state)
+                    .flowingMaterial().sprite().contents().name();
+        } catch (NullPointerException unavailable) {
+            throw unavailableFluidModel("flowing", state, extensions, unavailable);
+        }
     }
 
     public static Identifier getFlowingTexture(Fluid fluid) {
         return getFlowingTexture(fluid.defaultFluidState());
+    }
+
+    public static int getTintColor(FluidState state) {
+        return getTintColor(sourceOrTargetExtensions(state));
+    }
+
+    public static int getTintColor(Fluid fluid) {
+        return getTintColor(fluid.defaultFluidState());
     }
 
     public static Identifier getStillTexture(Object extensions) {
@@ -127,6 +155,71 @@ public final class Forge1192ClientFluidExtensionsBridge {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Cannot invoke legacy fluid client extension", e);
         }
+    }
+
+    /** Recover the exact source initializeClient registration intent on demand. */
+    private static Object sourceOrTargetExtensions(FluidState state) {
+        var type = state.getType().getFluidType();
+        Object cached = LEGACY_EXTENSIONS.get(type);
+        if (cached != null) return cached;
+
+        Method initializer = findInitializer(type.getClass());
+        if (initializer == null) return IClientFluidTypeExtensions.of(state);
+
+        AtomicReference<Object> registered = new AtomicReference<>();
+        Consumer<Object> capture = value -> {
+            if (value == null || !registered.compareAndSet(null, value)) {
+                throw new IllegalStateException(
+                        "Legacy fluid initializeClient must register exactly one extension");
+            }
+        };
+        invoke(type, initializer, capture);
+        Object extension = registered.get();
+        if (extension == null) {
+            throw new IllegalStateException("Legacy fluid initializeClient registered no extension: "
+                    + type.getClass().getName());
+        }
+        LEGACY_EXTENSIONS.put(type, extension);
+        return extension;
+    }
+
+    private static Method findInitializer(Class<?> type) {
+        for (Class<?> current = type;
+                current != null && current != net.neoforged.neoforge.fluids.FluidType.class;
+                current = current.getSuperclass()) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (!method.getName().equals("initializeClient")
+                        || method.getReturnType() != void.class
+                        || method.getParameterCount() != 1
+                        || method.getParameterTypes()[0] != Consumer.class) continue;
+                if (!method.trySetAccessible()) {
+                    throw new IllegalStateException(
+                            "Cannot access legacy fluid client initializer " + method);
+                }
+                return method;
+            }
+        }
+        return null;
+    }
+
+    private static IllegalStateException unavailableFluidModel(
+            String kind, FluidState state, Object extensions, NullPointerException cause) {
+        return new IllegalStateException("Target fluid model is unavailable during legacy "
+                + kind + " texture lookup: fluid="
+                + net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(state.getType())
+                + " fluidClass=" + state.getType().getClass().getName()
+                + " fluidTypeClass=" + state.getType().getFluidType().getClass().getName()
+                + " extensionsClass=" + extensions.getClass().getName(), cause);
+    }
+
+    private static Identifier vanillaTexture(Fluid fluid, boolean still) {
+        if (fluid == Fluids.WATER || fluid == Fluids.FLOWING_WATER) {
+            return Identifier.withDefaultNamespace(still ? "block/water_still" : "block/water_flow");
+        }
+        if (fluid == Fluids.LAVA || fluid == Fluids.FLOWING_LAVA) {
+            return Identifier.withDefaultNamespace(still ? "block/lava_still" : "block/lava_flow");
+        }
+        return null;
     }
 
     private static Method find(Class<?> type, String name, int parameterCount) {
