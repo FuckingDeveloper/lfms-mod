@@ -54,6 +54,7 @@ public final class Forge1192ModelBakingBridge {
             Identifier.withDefaultNamespace("textures/atlas/blocks.png");
     private static final Logger LOG = LoggerFactory.getLogger(Forge1192ModelBakingBridge.class);
     private static final ThreadLocal<Context> ACTIVE = new ThreadLocal<>();
+    private static final Object ITEM_OVERRIDE_RESOLVER = new Object();
 
     private Forge1192ModelBakingBridge() {}
 
@@ -81,6 +82,19 @@ public final class Forge1192ModelBakingBridge {
 
     public static Object itemModelRegistration(Object context) {
         return requireContext(context);
+    }
+
+    public static Object itemOverrideResolver(Minecraft ignored) {
+        return ITEM_OVERRIDE_RESOLVER;
+    }
+
+    public static LegacyBakedModel resolveItemOverride(
+            Object resolver, ItemStack stack, net.minecraft.world.level.Level level,
+            net.minecraft.world.entity.LivingEntity entity, int seed) {
+        if (resolver != ITEM_OVERRIDE_RESOLVER) {
+            throw new IllegalStateException("Foreign legacy item override resolver");
+        }
+        return new ItemOverrideSelection(stack);
     }
 
     public static void registerItemModel(
@@ -318,6 +332,11 @@ public final class Forge1192ModelBakingBridge {
             LegacyBakedModel selected = legacy.m_7343_()
                     .m_173464_(legacy, item, level, living, seed);
             if (selected == null) selected = legacy;
+            if (selected instanceof ItemOverrideSelection selection) {
+                resolver.appendItemLayers(
+                        output, selection.stack(), displayContext, level, owner, seed);
+                return;
+            }
             List<BakedQuad> quads = List.copyOf(selected.m_213637_(
                     null, null, RandomSource.create(seed)));
             output.appendModelIdentityElement(this);
@@ -342,6 +361,26 @@ public final class Forge1192ModelBakingBridge {
                 output.setAnimated();
             }
         }
+    }
+
+    private record ItemOverrideSelection(ItemStack stack) implements LegacyBakedModel {
+        private IllegalStateException invalidUse() {
+            return new IllegalStateException(
+                    "Selected target item stack escaped legacy override resolution");
+        }
+
+        @Override public List<BakedQuad> m_213637_(
+                BlockState state, Direction direction, RandomSource random) { throw invalidUse(); }
+        @Override public boolean m_7541_() { throw invalidUse(); }
+        @Override public boolean m_7539_() { throw invalidUse(); }
+        @Override public boolean m_7547_() { throw invalidUse(); }
+        @Override public boolean m_7521_() { throw invalidUse(); }
+        @Override public net.minecraft.client.renderer.texture.TextureAtlasSprite m_6160_() {
+            throw invalidUse();
+        }
+        @Override public net.minecraft.client.renderer.texture.TextureAtlasSprite getParticleIcon(
+                ModelData data) { throw invalidUse(); }
+        @Override public LegacyItemOverrides m_7343_() { throw invalidUse(); }
     }
 
     private static ItemTransforms transforms(LegacyBakedModel model) {

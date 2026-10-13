@@ -3853,8 +3853,41 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = 0;
         for (var method : node.methods) {
             boolean modelCallback = method.desc.contains(event);
+            boolean itemOverrideLookup = hasLegacyItemOverrideLookup(method);
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)) continue;
+                if (itemOverrideLookup
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/Minecraft")
+                        && call.name.equals("m_91291_")
+                        && call.desc.equals("()Lnet/minecraft/client/renderer/entity/ItemRenderer;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "itemOverrideResolver";
+                    call.desc = "(Lnet/minecraft/client/Minecraft;)Ljava/lang/Object;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (itemOverrideLookup
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.owner.equals("net/minecraft/client/renderer/entity/ItemRenderer")
+                        && call.name.equals("m_174264_")
+                        && call.desc.equals("(Lnet/minecraft/world/item/ItemStack;"
+                                + "Lnet/minecraft/world/level/Level;"
+                                + "Lnet/minecraft/world/entity/LivingEntity;I)"
+                                + "Lnet/minecraft/client/resources/model/BakedModel;")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "resolveItemOverride";
+                    call.desc = "(Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;"
+                            + "Lnet/minecraft/world/level/Level;"
+                            + "Lnet/minecraft/world/entity/LivingEntity;I)"
+                            + "Lcom/fuckingdeveloper/lms/runtime/render/LegacyBakedModel;";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
                 if (modelCallback
                         && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                         && call.owner.equals("net/minecraft/client/Minecraft")
@@ -3926,6 +3959,30 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    private static boolean hasLegacyItemOverrideLookup(
+            org.objectweb.asm.tree.MethodNode method) {
+        boolean renderer = false;
+        boolean model = false;
+        for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (!(insn instanceof MethodInsnNode call)) continue;
+            if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                    && call.owner.equals("net/minecraft/client/Minecraft")
+                    && call.name.equals("m_91291_")
+                    && call.desc.equals("()Lnet/minecraft/client/renderer/entity/ItemRenderer;")) {
+                renderer = true;
+            } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                    && call.owner.equals("net/minecraft/client/renderer/entity/ItemRenderer")
+                    && call.name.equals("m_174264_")
+                    && call.desc.equals("(Lnet/minecraft/world/item/ItemStack;"
+                            + "Lnet/minecraft/world/level/Level;"
+                            + "Lnet/minecraft/world/entity/LivingEntity;I)"
+                            + "Lnet/minecraft/client/resources/model/BakedModel;")) {
+                model = true;
+            }
+        }
+        return renderer && model;
     }
 
     /**

@@ -437,6 +437,14 @@ registration. It MUST NOT upload GPU resources early, expose an unrelated live
 atlas, or replay the source completion callback a second time after upload.
 Operations outside the proven prepared-atlas view MUST remain unsupported.
 
+When a source dynamic item override selects the baked model of another item
+stack through the exact source item-renderer lookup contract, LMS MAY carry
+that selected stack back to the target item-model update and append its modern
+render layers through the target resolver. The target adapter MUST preserve
+the selected stack plus level, owner/entity, display context, and seed. It MUST
+NOT fabricate a legacy baked model for an unrelated modern model or generalize
+the migration from a return descriptor alone.
+
 When a source fluid type registers immutable client texture/tint intent through
 an `initializeClient` callback that the target removed, the source profile MAY
 capture that exact callback result lazily before its first model-baking use.
