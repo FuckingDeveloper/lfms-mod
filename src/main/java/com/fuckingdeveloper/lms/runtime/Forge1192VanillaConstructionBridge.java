@@ -297,6 +297,11 @@ public final class Forge1192VanillaConstructionBridge {
         return properties.setId(ResourceKey.create(Registries.ITEM, id));
     }
 
+    /** Source BlockItem names come from the block, not the item's registry key. */
+    public static Item.Properties withBlockItemDescription(Item.Properties properties, Block block) {
+        return properties.overrideDescription(block.getDescriptionId());
+    }
+
     /** Preserve Block#asItem during staged legacy registration. */
     public static void associateBlockItem(Block block, Item item) {
         Forge1192RegistrationContext.requireActive();

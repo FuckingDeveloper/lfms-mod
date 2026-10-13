@@ -36,7 +36,9 @@ public interface LegacyBakedModel {
 
     TextureAtlasSprite m_6160_();
 
-    TextureAtlasSprite getParticleIcon(ModelData data);
+    default TextureAtlasSprite getParticleIcon(ModelData data) {
+        return m_6160_();
+    }
 
     LegacyItemOverrides m_7343_();
 }

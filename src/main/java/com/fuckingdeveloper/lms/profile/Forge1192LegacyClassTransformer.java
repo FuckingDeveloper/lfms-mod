@@ -2580,6 +2580,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             "(Lnet/minecraft/world/level/block/Block;Lnet/minecraft/world/item/Item$Properties;)"
                                     + "Lnet/minecraft/world/item/Item$Properties;", false));
                 }
+                adaptation.add(new org.objectweb.asm.tree.VarInsnNode(
+                        org.objectweb.asm.Opcodes.ALOAD, blockLocal));
+                adaptation.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge",
+                        "withBlockItemDescription",
+                        "(Lnet/minecraft/world/item/Item$Properties;Lnet/minecraft/world/level/block/Block;)"
+                                + "Lnet/minecraft/world/item/Item$Properties;", false));
                 method.instructions.insertBefore(call, adaptation);
                 var association = new org.objectweb.asm.tree.InsnList();
                 if (!declaresLegacyBlockItemMapOverride(node)) {

@@ -282,8 +282,8 @@ public final class Forge1192ModelBakingBridge {
 
         @Override
         public Material.Baked particleMaterial() {
-            return materialFor(legacy.m_213637_(state, null, RandomSource.create(0L)),
-                    fallbackMaterial);
+            return new Material.Baked(legacy.getParticleIcon(ModelData.EMPTY),
+                    fallbackMaterial.forceTranslucent());
         }
 
         @Override
@@ -311,7 +311,8 @@ public final class Forge1192ModelBakingBridge {
 
         @Override
         public Material.Baked particleMaterial() {
-            return materialFor(getQuads(null), fallbackMaterial);
+            return new Material.Baked(legacy.getParticleIcon(modelData),
+                    fallbackMaterial.forceTranslucent());
         }
 
         @Override
@@ -337,8 +338,7 @@ public final class Forge1192ModelBakingBridge {
                         output, selection.stack(), displayContext, level, owner, seed);
                 return;
             }
-            List<BakedQuad> quads = List.copyOf(selected.m_213637_(
-                    null, null, RandomSource.create(seed)));
+            List<BakedQuad> quads = collectItemQuads(selected);
             output.appendModelIdentityElement(this);
             ItemStackRenderState.LayerRenderState layer = output.newLayer();
             layer.setQuads(ItemQuads.split(quads));
@@ -350,7 +350,8 @@ public final class Forge1192ModelBakingBridge {
                 output.appendModelIdentityElement(targetColor);
             }
             layer.setUsesBlockLight(selected.m_7547_());
-            layer.setParticleMaterial(materialFor(quads, fallbackMaterial));
+            layer.setParticleMaterial(new Material.Baked(selected.m_6160_(),
+                    fallbackMaterial.forceTranslucent()));
             layer.setItemTransform(transforms(selected).getTransform(displayContext));
             layer.setExtents(() -> CuboidItemModelWrapper.computeExtents(quads));
             if (item.hasFoil()) {
@@ -404,10 +405,17 @@ public final class Forge1192ModelBakingBridge {
         }
     }
 
-    private static Material.Baked materialFor(
-            List<BakedQuad> quads, Material.Baked fallback) {
-        return quads.isEmpty() ? fallback : new Material.Baked(
-                quads.getFirst().materialInfo().sprite(), fallback.forceTranslucent());
+    /** Match source ItemRenderer: six culled lists, then unculled, seed reset per list. */
+    private static List<BakedQuad> collectItemQuads(LegacyBakedModel model) {
+        var quads = new java.util.ArrayList<BakedQuad>();
+        RandomSource random = RandomSource.create(42L);
+        for (Direction direction : Direction.values()) {
+            random.setSeed(42L);
+            quads.addAll(model.m_213637_(null, direction, random));
+        }
+        random.setSeed(42L);
+        quads.addAll(model.m_213637_(null, null, random));
+        return List.copyOf(quads);
     }
 
     private static int aggregateMaterialFlags(List<BakedQuad> quads) {

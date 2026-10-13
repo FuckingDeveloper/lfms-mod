@@ -383,6 +383,19 @@ verified target entry. The bridge MUST preserve both the state transition and
 the returned post-transition value; it MUST NOT replace the operation with a
 constant merely because the option is diagnostic.
 
+Forge 1.19.2 block-item construction MUST preserve the paired block's exact
+description identity in target item properties before the target captures its
+default name component. The item's registry identity MUST remain independent;
+LMS MUST NOT derive the block description from the item identifier.
+
+When adapting Forge 1.19.2 baked models to target item geometry, LMS MUST
+collect all six directional quad lists followed by the unculled list, resetting
+the source random seed to 42 before each query as the source item renderer does.
+Quad geometry, UVs and tint indices MUST be preserved. Particle material MUST
+use the source particle accessor (with model data for block parts), including
+the source Forge default delegation, rather than an arbitrary first quad or
+missing material inferred from an empty unculled list.
+
 When a source generation exposes one combined baked-model contract but the
 target splits block-state and item rendering, LMS MUST preserve the legacy
 registration lifecycle and adapt the model independently into each target
