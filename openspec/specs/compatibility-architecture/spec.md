@@ -228,7 +228,10 @@ only when the exact source owner, name, and descriptor resolve to a public
 target method with the same channel-control semantics. The source profile
 MUST cover the verified channel-control family rather than only the first
 failing call. Unknown or changed channel operations MUST remain unresolved;
-an audio executor failure MUST NOT be hidden as successful playback.
+an audio executor failure MUST NOT be hidden as successful playback. These
+exact member migrations MUST cover direct invocations, method-reference
+handles, invokedynamic bootstrap arguments, and nested ConstantDynamic values
+without changing their invocation type or descriptor.
 
 For legacy block-state occlusion queries, LMS MAY adapt source
 `isSolidRender(BlockGetter, BlockPos)` to the target's cached state-only

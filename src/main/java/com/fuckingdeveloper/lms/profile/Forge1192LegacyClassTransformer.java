@@ -369,6 +369,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 return material == null ? name : material;
             }
             @Override public String mapMethodName(String owner, String name, String descriptor) {
+                String channel = legacyChannelMethod(owner, name, descriptor);
+                if (channel != null) return channel;
                 String method = owner.equals(SOURCE_MATERIAL) ? legacyMaterialMethod(name, descriptor) : null;
                 return method == null ? name : method;
             }
@@ -2152,6 +2154,32 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Shared by direct calls, method handles and nested ConstantDynamic values. */
+    private static String legacyChannelMethod(String owner, String name, String descriptor) {
+        if (!owner.equals("com/mojang/blaze3d/audio/Channel")) return null;
+        // Exact Forge 1.19.2 mappings and the actual target Channel ABI.
+        return switch (name + descriptor) {
+            case "m_166126_()Z" -> "playing";
+            case "m_83650_(F)V" -> "setPitch";
+            case "m_83654_(Lnet/minecraft/world/phys/Vec3;)V" -> "setSelfPosition";
+            case "m_83656_(Lcom/mojang/blaze3d/audio/SoundBuffer;)V" -> "attachStaticBuffer";
+            case "m_83658_(Lnet/minecraft/client/sounds/AudioStream;)V" -> "attachBufferStream";
+            case "m_83663_(Z)V" -> "setLooping";
+            case "m_83665_()V" -> "destroy";
+            case "m_83666_(F)V" -> "setVolume";
+            case "m_83670_(Z)V" -> "setRelative";
+            case "m_83672_()V" -> "play";
+            case "m_83673_(F)V" -> "linearAttenuation";
+            case "m_83677_()V" -> "pause";
+            case "m_83678_()V" -> "unpause";
+            case "m_83679_()V" -> "stop";
+            case "m_83680_()Z" -> "stopped";
+            case "m_83681_()V" -> "disableAttenuation";
+            case "m_83682_()V" -> "updateStream";
+            default -> null;
+        };
     }
 
     private static String legacyMaterialMethod(String name, String descriptor) {
@@ -5196,37 +5224,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
-                // Blaze3D is outside net/minecraft, so the general SRG resolver
-                // cannot see these methods. Forge 1.19.2 mappings and the
-                // target Channel ABI establish this exact audio-control family.
-                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        && call.owner.equals("com/mojang/blaze3d/audio/Channel")) {
-                    String targetName = switch (call.name + call.desc) {
-                        case "m_166126_()Z" -> "playing";
-                        case "m_83650_(F)V" -> "setPitch";
-                        case "m_83654_(Lnet/minecraft/world/phys/Vec3;)V" -> "setSelfPosition";
-                        case "m_83656_(Lcom/mojang/blaze3d/audio/SoundBuffer;)V" -> "attachStaticBuffer";
-                        case "m_83658_(Lnet/minecraft/client/sounds/AudioStream;)V" -> "attachBufferStream";
-                        case "m_83663_(Z)V" -> "setLooping";
-                        case "m_83665_()V" -> "destroy";
-                        case "m_83666_(F)V" -> "setVolume";
-                        case "m_83670_(Z)V" -> "setRelative";
-                        case "m_83672_()V" -> "play";
-                        case "m_83673_(F)V" -> "linearAttenuation";
-                        case "m_83677_()V" -> "pause";
-                        case "m_83678_()V" -> "unpause";
-                        case "m_83679_()V" -> "stop";
-                        case "m_83680_()Z" -> "stopped";
-                        case "m_83681_()V" -> "disableAttenuation";
-                        case "m_83682_()V" -> "updateStream";
-                        default -> null;
-                    };
-                    if (targetName != null) {
-                        call.name = targetName;
-                        rewrites++;
-                        continue;
-                    }
-                }
 
                 // Target 26.3 renamed the source Level day/night predicates
                 // while retaining their exact fixed-time and sky-darkness
