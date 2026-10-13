@@ -91,7 +91,7 @@ public final class Forge1192CriterionBridge {
 
         Class<?> bucketType = sourceCache.values().stream()
                 .filter(java.util.Objects::nonNull)
-                .map(Object::getClass)
+                .<Class<?>>map(Object::getClass)
                 .findFirst()
                 .orElseGet(() -> findBucketType(trigger.getClass()));
         try {
