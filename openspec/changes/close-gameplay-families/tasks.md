@@ -25,21 +25,36 @@ Do not run an interactive gameplay test in place of that workflow.
 - [x] Verify with `./gradlew compatibilityTest compileLaunchJava`, including
   compilation of main sources, actual transformed target access, synthetic ASM
   cases, immutable source artifacts and indexed-evidence comparisons.
-- [ ] User verifies canned food, custom mechanism menus, title/list status and
-  startup timing after restarting the client.
+- [x] User confirms canned food consumption and returned can; hunger is unverified.
+- [x] User screenshot confirms blocked dependency display and initialization reason.
+- [x] Fix gameplay network-channel provenance and deferred owner-context restoration.
+- [x] Adapt exact sided/unsided block capability queries, source overrides and
+  explicit source-super dispatch, including interface method references.
+- [x] Adapt native server item handlers with committed/aborted transactions;
+  retain native cache invalidation and fail explicitly for unsupported providers.
+- [x] Fix criterion bucket-class Optional inference using an explicit Class<?> map.
+- [x] Verify with `./gradlew compatibilityTest compileLaunchJava`: source optional
+  identity/default/super dispatch, negative owners, actual interface lambda linkage,
+  actual payload handler scheduling on another thread, forged equal channel tokens,
+  exception/context restoration and target item-handler transaction rollback/commit.
+  The isolated transfer fixture bootstraps target data with an empty FML loading
+  list and declared stone components; this is not a world reload/invalidation test.
+- [ ] User verifies furnace placement/ticking and generator open/slots/close/reopen
+  after these changes; no interactive client was launched by the agent.
 
 ## Remaining compatibility families
 
 | Family | Current evidence | Required work / acceptance |
 | --- | --- | --- |
-| Custom menu lifecycle and screens | The source block-use callback executed; opening failed on private `ServerPlayer.nextContainerCounter()` in `crash-2026-10-14_01.33.02-server.txt` | Verify opening, slot interaction, close/reopen and client/server state; diagnose the next first causal failure |
-| Food/drink completion | Coffee effect succeeded; canned food failed on coordinate sound overload in `crash-2026-10-14_01.40.51-server.txt` | Verify hunger, effects, returned container/count and audio after sound-family migration |
+| Custom menu lifecycle and screens | The source block-use callback executed; latest opening attempt failed in `Forge1192NetworkBridge.requireChannel`: gameplay incorrectly required an initialization scope | Provenance/scheduled-context regression tests pass; verify opening, slot interaction, close/reopen and client/server state; diagnose the next first causal failure |
+| Food/drink completion | Coffee effect succeeded; canned food consumption and returned can now confirmed by user | Verify hunger, effects, returned container/count and audio after sound-family migration |
 | Block neighbour callback delivery | Source container-block override takes the changed block's `BlockPos`; target callback takes nullable `Orientation` | Preserve the source origin through the target notification/queue lifecycle before adapting this callback; verify wires update after placement/removal |
-| Cable functionality | User reports disconnected cables; energy transport unverified | Establish callback delivery, model/connectivity synchronization, network membership and energy transfer separately |
+| Block capabilities | Furnace placement failed on missing `BlockEntity.getCapability(Capability, Direction)` in `crash-2026-10-14_02.07.47-server.txt` | Query family and transactional native item adapter tests pass; user placement/tick check pending. Native client lookup, custom attachment, native energy direction flags/fluid operations, nested transactions and direct slot replacement remain gaps |
+| Cable functionality | Latest wording appears to report connections between cables and generator; confirmation and energy transport remain unverified | Establish callback delivery, model/connectivity synchronization, network membership and energy transfer separately |
 | Armor behavior | User confirmed equipment, reported absent worn textures | Adapt worn equipment assets/models, attributes, durability and repair using source contracts; verify actual protection and per-stack/custom overrides |
 | Item energy | Prior user report: chainsaw charge does not decrease | Trace gameplay callback delivery, mutable per-stack state and synchronization; verify charge delta in survival and persistence separately |
 | Independent dependency-mod lifecycle | CarbonConfig is admitted but its entrypoint is blocked on 14 source API boundaries; its classes are also used as a managed dependency | Adapt loader extension/metadata/ordered-container/reflection and client registration boundaries; prevent duplicate independent/dependency initialization before claiming this mod loaded |
-| Startup performance | Previous user run spent about two minutes between discovery and initial resource reload completion; indexed lookup checks now pass | Measure the next run, separating build/target artifact regeneration, source transformation, registration and resource loading |
+| Startup performance | Latest transformation timing: 1089 reference classes, 84090 ms cumulative transformation; indexed lookup checks pass | Measure the next run, separating build/target artifact regeneration, source transformation, registration and resource loading |
 | World-entry resource replay | Source setup is deferred until target dynamic data/component lifecycle; LMS requests an ordinary client-resource reload afterwards | Preserve listener state, registry context and reload ordering; any reduction in reload scope requires evidence that all dependent state remains correct |
 
 Original legacy JARs and all pre-existing uncommitted edits remain immutable

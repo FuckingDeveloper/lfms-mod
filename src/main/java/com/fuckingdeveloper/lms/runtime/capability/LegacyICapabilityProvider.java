@@ -6,4 +6,9 @@ package com.fuckingdeveloper.lms.runtime.capability;
  * independently; this contract exists only to preserve legacy type shape.
  */
 public interface LegacyICapabilityProvider {
+    <T> LegacyLazyOptional<T> getCapability(LegacyCapability<T> capability, net.minecraft.core.Direction side);
+
+    default <T> LegacyLazyOptional<T> getCapability(LegacyCapability<T> capability) {
+        return getCapability(capability, null);
+    }
 }

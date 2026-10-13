@@ -85,6 +85,7 @@ public final class GameplayFamilyCheck {
         catch (InvocationTargetException expected) { check(expected.getCause() instanceof IllegalStateException, "wrong collision failure"); }
         auditExternalArtifact(transformer);
         FollowupFamilyCheck.run(transformer);
+        CapabilityNetworkFamilyCheck.run();
         var map = callFixture(PLAYER, "m_21221_", "()Ljava/util/Map;");
         check(pass(transformer, "rewriteLegacyMobEffectQueries", map) == 1, "raw effect map boundary missed");
         verify(map);

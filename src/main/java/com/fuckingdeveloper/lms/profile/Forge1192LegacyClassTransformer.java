@@ -285,6 +285,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
+        rewrites += rewriteLegacyBlockCapabilityQueries(node);
         rewrites += rewriteLegacyTextureAtlasSpriteIdentity(node);
         rewrites += rewriteLegacyBoatRendererSubclass(node);
         rewrites += rewriteLegacyDyeColorValues(node);
@@ -873,7 +874,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     /** A captured receiver can be narrower than an invokevirtual handle owner. */
     private String capturedBridgeReceiver(InvokeDynamicInsnNode indy, Object value) {
         if (!(value instanceof Handle handle)
-                || handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                || (handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                    && handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKEINTERFACE)
                 || !indy.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) return null;
         Type[] captured = Type.getArgumentTypes(indy.desc);
         if (captured.length == 0 || captured[0].getSort() != Type.OBJECT) return null;
@@ -7562,6 +7564,76 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Exact provider member identity, with independent virtual and source-super dispatch. */
+    private int rewriteLegacyBlockCapabilityQueries(ClassNode node) {
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        int rewrites = 0;
+        for (var method : node.methods) for (var insn : method.instructions) {
+            if (insn instanceof MethodInsnNode call) {
+                boolean special = call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL;
+                if (!special && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE) continue;
+                Handle adapted = legacyBlockCapabilityMember(call.owner, call.name, call.desc, special);
+                if (adapted != null) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = adapted.getOwner(); call.name = adapted.getName();
+                    call.desc = adapted.getDesc(); call.itf = false; rewrites++;
+                }
+            } else if (insn instanceof InvokeDynamicInsnNode indy) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    Object adapted = adaptLegacyBlockCapabilityConstant(node, indy.bsmArgs[i], adapters,
+                            capturedBridgeReceiver(indy, indy.bsmArgs[i]));
+                    if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
+                }
+            } else if (insn instanceof LdcInsnNode ldc) {
+                Object adapted = adaptLegacyBlockCapabilityConstant(node, ldc.cst, adapters, null);
+                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+            }
+        }
+        node.methods.addAll(adapters);
+        return rewrites;
+    }
+
+    private Handle legacyBlockCapabilityMember(String owner, String name, String descriptor, boolean special) {
+        if (!name.equals("getCapability")) return null;
+        String cap = "Lcom/fuckingdeveloper/lms/runtime/capability/LegacyCapability;";
+        String result = "Lcom/fuckingdeveloper/lms/runtime/capability/LegacyLazyOptional;";
+        boolean sided = descriptor.equals("(" + cap + "Lnet/minecraft/core/Direction;)" + result);
+        if (!sided && !descriptor.equals("(" + cap + ")" + result)) return null;
+        String blockEntity = "net/minecraft/world/level/block/entity/BlockEntity";
+        String provider = "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider";
+        if (special && !owner.equals(blockEntity)) return null;
+        if (!owner.equals(provider) && !isManagedSubtypeOf(owner, blockEntity)
+                && !isManagedSubtypeOf(owner, provider)) return null;
+        // The source unsided default bounces through the virtual sided query.
+        boolean base = special && sided;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Forge1192BlockCapabilityBridge",
+                base ? "baseGetCapability" : special ? "sourceDefaultGetCapability" : "getCapability",
+                "(" + (base ? "L" + blockEntity + ";" : "Ljava/lang/Object;")
+                        + descriptor.substring(1), false);
+    }
+
+    private Object adaptLegacyBlockCapabilityConstant(ClassNode node, Object value,
+            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String capturedReceiver) {
+        if (value instanceof Handle handle && (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                || handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEINTERFACE)) {
+            Handle adapted = legacyBlockCapabilityMember(handle.getOwner(), handle.getName(), handle.getDesc(), false);
+            return adapted == null ? value : preserveBridgeHandleType(node, handle, adapted, capturedReceiver, adapters);
+        }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
+            boolean changed = false;
+            for (int i = 0; i < args.length; i++) {
+                Object original = dynamic.getBootstrapMethodArgument(i);
+                args[i] = adaptLegacyBlockCapabilityConstant(node, original, adapters, null);
+                changed |= args[i] != original;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
+        }
+        return value;
     }
 
     /** Holder migration requires source member identity AND verified receiver ancestry. */
