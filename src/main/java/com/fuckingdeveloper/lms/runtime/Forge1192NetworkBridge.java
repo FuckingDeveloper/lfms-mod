@@ -145,6 +145,7 @@ public final class Forge1192NetworkBridge {
 
     private static final ConcurrentHashMap<LegacyChannel, ConcurrentHashMap<Integer, LegacyMessage>> MESSAGES =
             new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Identifier, LegacyChannel> CHANNELS = new ConcurrentHashMap<>();
 
     public record LegacyPayload(
             LegacyChannel channel, LegacyMessage registration, Object message)
@@ -285,6 +286,8 @@ public final class Forge1192NetworkBridge {
         LegacyChannel channel = new LegacyChannel(modId, name, protocolVersion,
                 clientAcceptedVersions, serverAcceptedVersions,
                 new CustomPacketPayload.Type<>(name));
+        if (CHANNELS.putIfAbsent(name, channel) != null)
+            throw new IllegalStateException("Duplicate legacy network channel " + name);
         MESSAGES.put(channel, new ConcurrentHashMap<>());
         return channel;
     }
@@ -292,10 +295,8 @@ public final class Forge1192NetworkBridge {
     public static LegacyChannel requireChannel(Object token) {
         if (!(token instanceof LegacyChannel channel))
             throw new IllegalStateException("Legacy SimpleChannel token escaped or has an invalid provenance");
-        String activeMod = Forge1192LifecycleBridge.requireActive().modId();
-        if (!channel.modId().equals(activeMod))
-            throw new IllegalStateException("Legacy SimpleChannel belongs to " + channel.modId()
-                    + " but active legacy mod is " + activeMod);
+        if (CHANNELS.get(channel.name()) != channel || !MESSAGES.containsKey(channel))
+            throw new IllegalStateException("Legacy SimpleChannel token has no registered provenance");
         return channel;
     }
 
@@ -303,6 +304,9 @@ public final class Forge1192NetworkBridge {
     public static Object registerMessage(Object token, int discriminator, Class messageType,
                                          BiConsumer encoder, Function decoder, BiConsumer consumer) {
         LegacyChannel channel = requireChannel(token);
+        String activeMod = Forge1192LifecycleBridge.requireActive().modId();
+        if (!channel.modId().equals(activeMod))
+            throw new IllegalStateException("Cannot register messages on another legacy mod's channel");
         Objects.requireNonNull(messageType, "messageType");
         Objects.requireNonNull(encoder, "encoder");
         Objects.requireNonNull(decoder, "decoder");
@@ -427,13 +431,26 @@ public final class Forge1192NetworkBridge {
     private static void handlePayload(LegacyPayload payload, IPayloadContext context) {
         ServerPlayer sender = context.flow() == PacketFlow.SERVERBOUND
                 ? requirePlayer(context) : null;
-        LegacyContext legacyContext = new LegacyContext(sender, context::enqueueWork);
+        LegacyContext legacyContext = new LegacyContext(sender, work -> context.enqueueWork(
+                () -> runInChannelScope(payload.channel(), work)));
         try (var ignored = Forge1192LifecycleBridge.enterRecorded(payload.channel().modId())) {
             payload.registration().consumer().accept(payload.message(), () -> legacyContext);
         } catch (RuntimeException | Error failure) {
             throw failure;
         } catch (Exception impossible) {
             throw new IllegalStateException("Failed to close legacy network lifecycle scope", impossible);
+        }
+    }
+
+    public static void runInChannelScope(LegacyChannel channel, Runnable work) {
+        requireChannel(channel);
+        Objects.requireNonNull(work, "work");
+        try (var ignored = Forge1192LifecycleBridge.enterRecorded(channel.modId())) {
+            work.run();
+        } catch (RuntimeException | Error failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException("Failed to close legacy packet work scope", failure);
         }
     }
 

@@ -19,3 +19,12 @@ main-thread context semantics. It MUST validate that both source version
 predicates accept the locally advertised protocol. Support for broader
 predicate-based negotiation MUST be tracked separately from same-LMS protocol
 operation and MUST NOT be inferred from exact target version matching.
+
+Channel creation and message registration MUST retain source initialization
+ownership checks. Use of a previously registered channel during gameplay MUST
+be authorized by that exact channel's recorded provenance, not by requiring
+a currently active initialization thread scope. Duplicate channel identifiers
+and fabricated/stale channel tokens MUST fail explicitly. Payload handlers
+and their enqueued work MUST retain the channel owner's recorded source context
+on the target execution thread, and MUST restore any prior same-owner context
+when they finish or fail. Unrelated thread context MUST NOT be overwritten.
