@@ -200,6 +200,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyLootContextFamily(node);
         rewrites += rewriteLegacyDamageSourceSingletonComparisons(node);
         rewrites += rewriteLegacyBiomePrecipitationPresence(node);
+        rewrites += rewriteLegacyChunkUnsavedMarks(node);
         rewrites += rewriteLegacyRecipeViewFamily(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
@@ -4704,6 +4705,38 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         ? org.objectweb.asm.Opcodes.IFEQ
                         : org.objectweb.asm.Opcodes.IFNE);
                 method.instructions.remove(field);
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Source setUnsaved(true) became target markUnsaved(), which also performs
+     * the target-required LevelChunk listener notification. The unobserved
+     * source false branch remains unresolved rather than guessing save-state
+     * transition semantics.
+     */
+    private static int rewriteLegacyChunkUnsavedMarks(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        || !(call.owner.equals("net/minecraft/world/level/chunk/ChunkAccess")
+                        || call.owner.equals("net/minecraft/world/level/chunk/LevelChunk"))
+                        || !call.name.equals("m_8092_")
+                        || !call.desc.equals("(Z)V")
+                        || VANILLA_RELOCATIONS.classifyMethod(
+                                call.owner.replace('/', '.'), "markUnsaved", "()V").status()
+                                != Forge1192MappingLayer.Status.VERIFIED_IDENTITY) {
+                    continue;
+                }
+                var value = previousExecutable(call);
+                if (value == null || value.getOpcode() != org.objectweb.asm.Opcodes.ICONST_1) continue;
+                method.instructions.remove(value);
+                call.name = "markUnsaved";
+                call.desc = "()V";
                 rewrites++;
             }
         }

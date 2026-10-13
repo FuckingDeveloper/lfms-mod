@@ -300,6 +300,12 @@ record accessors, LMS MAY migrate those operations as one value-contract
 family. The target factory and accessors MUST preserve the source coordinate
 conversion and value semantics; descriptor similarity alone is insufficient.
 
+When a source chunk dirty-state setter is replaced by target mark/save
+transitions, LMS MAY migrate the exact constant-true operation to the target
+dirty-mark operation. The target-required dirty-listener notification MUST be
+preserved. Source calls that can clear dirty state MUST remain unresolved until
+their target transition semantics are proven separately.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state
