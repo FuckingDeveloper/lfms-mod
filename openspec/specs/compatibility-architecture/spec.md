@@ -265,6 +265,10 @@ hover event. Source item-stack hover carriers MAY be represented by an immutable
 target item-stack template, but source reads MUST reconstruct an equivalent
 stack value rather than exposing the target carrier type.
 
+When the target removes the source chat-format lookup by normalized display
+name, LMS MUST preserve its nullable result and source normalization rule. It
+MUST NOT substitute enum `valueOf`, whose case and separator semantics differ.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state

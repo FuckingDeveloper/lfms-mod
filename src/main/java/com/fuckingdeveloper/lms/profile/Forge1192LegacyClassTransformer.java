@@ -5157,6 +5157,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
 
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.owner.equals("net/minecraft/ChatFormatting")
+                        && call.name.equals("m_126657_")
+                        && call.desc.equals("(Ljava/lang/String;)Lnet/minecraft/ChatFormatting;")) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/chat/Forge1192ChatFormattingBridge";
+                    call.name = "byName";
+                    rewrites++;
+                    continue;
+                }
+
                 // Item#isEdible read the legacy item's default food properties.
                 // In 26.3 that intent is represented by the bound FOOD component.
                 if (call.owner.equals("net/minecraft/world/item/Item")
