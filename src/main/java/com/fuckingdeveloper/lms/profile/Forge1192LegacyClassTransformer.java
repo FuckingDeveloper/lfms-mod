@@ -253,6 +253,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteLegacyNeighborUpdateFamily(node);
+        rewrites += rewriteLegacyVertexConsumerFamily(node);
         rewrites += rewriteTargetInterfaceInvocationShapes(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -5132,6 +5133,62 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.desc = "(" + state + blockPos + block + orientation + "Z)V";
                     rewrites++;
                 }
+            }
+        }
+        return rewrites;
+    }
+
+    /**
+     * Adapt the source-generation fluent vertex writer to the target 26.3
+     * channel names. Position narrows from double to the target's float ABI;
+     * the bridge performs that conversion explicitly. Target BufferBuilder
+     * finalizes a vertex when the next position starts or the mesh is built,
+     * so the removed source endVertex operation has no additional target-side
+     * action after all channels have been written.
+     */
+    private static int rewriteLegacyVertexConsumerFamily(ClassNode node) {
+        final String owner = "com/mojang/blaze3d/vertex/VertexConsumer";
+        final String result = "L" + owner + ";";
+        final String bridge =
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192VertexConsumerBridge";
+        final java.util.Map<String, String> directNames = java.util.Map.ofEntries(
+                java.util.Map.entry("m_6122_(IIII)" + result, "setColor"),
+                java.util.Map.entry("m_193479_(I)" + result, "setColor"),
+                java.util.Map.entry("m_85950_(FFFF)" + result, "setColor"),
+                java.util.Map.entry("m_7421_(FF)" + result, "setUv"),
+                java.util.Map.entry("m_7122_(II)" + result, "setUv1"),
+                java.util.Map.entry("m_7120_(II)" + result, "setUv2"),
+                java.util.Map.entry("m_85969_(I)" + result, "setLight"),
+                java.util.Map.entry("m_86008_(I)" + result, "setOverlay"),
+                java.util.Map.entry("m_5601_(FFF)" + result, "setNormal"));
+        int rewrites = 0;
+        for (var method : node.methods) {
+            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (!(insn instanceof MethodInsnNode call)
+                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                        || !call.owner.equals(owner)) continue;
+                if (call.name.equals("m_5483_") && call.desc.equals("(DDD)" + result)) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "addVertex";
+                    call.desc = "(" + result + "DDD)" + result;
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                if (call.name.equals("m_5752_") && call.desc.equals("()V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge;
+                    call.name = "endVertex";
+                    call.desc = "(" + result + ")V";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
+                String targetName = directNames.get(call.name + call.desc);
+                if (targetName == null) continue;
+                call.name = targetName;
+                rewrites++;
             }
         }
         return rewrites;
