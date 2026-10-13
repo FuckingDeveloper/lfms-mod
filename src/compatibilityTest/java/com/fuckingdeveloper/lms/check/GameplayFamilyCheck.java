@@ -86,6 +86,7 @@ public final class GameplayFamilyCheck {
         auditExternalArtifact(transformer);
         FollowupFamilyCheck.run(transformer);
         CapabilityNetworkFamilyCheck.run();
+        LivingFallFamilyCheck.run();
         var map = callFixture(PLAYER, "m_21221_", "()Ljava/util/Map;");
         check(pass(transformer, "rewriteLegacyMobEffectQueries", map) == 1, "raw effect map boundary missed");
         verify(map);

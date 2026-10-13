@@ -19,3 +19,15 @@ Client-only legacy lifecycle behavior MUST NOT execute on a dedicated server. Se
 
 ### Failure
 A fatal lifecycle adaptation failure MUST identify the artifact, lifecycle stage and failed compatibility capability.
+
+### Living fall-event precision boundary
+
+Forge 1.19.2 fall-distance reads MUST expose source float precision from the
+same authoritative target event. Source writes and construction MUST widen the
+float distance to the target double without replacing the damage multiplier,
+cancellation state, entity, side or dispatch timing. Getter/setter calls,
+method references, nested dynamic constants and source constructors MUST use
+verified event ancestry and exact source descriptors. Source float-distance
+overrides remain fail-fast until override dispatch can be preserved. A read
+followed by a write intentionally applies source float rounding; merely
+observing the event MUST NOT round or otherwise mutate its target distance.

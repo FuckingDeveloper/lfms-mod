@@ -286,6 +286,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteLegacyBlockCapabilityQueries(node);
+        rewrites += rewriteLegacyLivingFallFamily(node);
         rewrites += rewriteLegacyTextureAtlasSpriteIdentity(node);
         rewrites += rewriteLegacyBoatRendererSubclass(node);
         rewrites += rewriteLegacyDyeColorValues(node);
@@ -7564,6 +7565,90 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Target widened fall distance, while multiplier, cancellation and event timing survived. */
+    private int rewriteLegacyLivingFallFamily(ClassNode node) {
+        String event = "net/neoforged/neoforge/event/entity/living/LivingFallEvent";
+        String constructor = "(Lnet/minecraft/world/entity/LivingEntity;FF)V";
+        String bridge = "com/fuckingdeveloper/lms/runtime/Forge1192LivingEventBridge";
+        if (isManagedSubtypeOf(node, event) && node.methods.stream().anyMatch(method ->
+                (method.name.equals("getDistance") && method.desc.equals("()F"))
+                || (method.name.equals("setDistance") && method.desc.equals("(F)V"))))
+            throw new IllegalStateException("Source float-distance event override requires an adapter: " + node.name);
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        int rewrites = 0;
+        for (var method : node.methods) for (var instruction : method.instructions.toArray()) {
+            if (instruction instanceof MethodInsnNode call) {
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                        && call.owner.equals(event) && call.name.equals("<init>") && call.desc.equals(constructor)) {
+                    // Keep NEW/DUP and initialized-this rules intact: spill only the final multiplier.
+                    int multiplier = method.maxLocals++;
+                    var conversion = new org.objectweb.asm.tree.InsnList();
+                    conversion.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FSTORE, multiplier));
+                    conversion.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.F2D));
+                    conversion.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD, multiplier));
+                    method.instructions.insertBefore(call, conversion);
+                    call.desc = "(Lnet/minecraft/world/entity/LivingEntity;DF)V";
+                    method.maxStack += 1; rewrites++; continue;
+                }
+                if (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL) continue;
+                Handle adapted = legacyLivingFallMember(call.owner, call.name, call.desc);
+                if (adapted != null) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = bridge; call.name = adapted.getName(); call.desc = adapted.getDesc(); call.itf = false;
+                    rewrites++;
+                }
+            } else if (instruction instanceof InvokeDynamicInsnNode indy) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    Object adapted = adaptLegacyLivingFallConstant(node, indy.bsmArgs[i], adapters,
+                            capturedBridgeReceiver(indy, indy.bsmArgs[i]));
+                    if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
+                }
+            } else if (instruction instanceof LdcInsnNode ldc) {
+                Object adapted = adaptLegacyLivingFallConstant(node, ldc.cst, adapters, null);
+                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+            }
+        }
+        node.methods.addAll(adapters);
+        return rewrites;
+    }
+
+    private Handle legacyLivingFallMember(String owner, String name, String descriptor) {
+        String event = "net/neoforged/neoforge/event/entity/living/LivingFallEvent";
+        if (!((name.equals("getDistance") && descriptor.equals("()F"))
+                || (name.equals("setDistance") && descriptor.equals("(F)V"))))
+            return null;
+        if (!isManagedSubtypeOf(owner, event)) return null;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Forge1192LivingEventBridge", name,
+                "(L" + event + ";" + descriptor.substring(1), false);
+    }
+
+    private Object adaptLegacyLivingFallConstant(ClassNode node, Object value,
+            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String capturedReceiver) {
+        if (value instanceof Handle handle) {
+            if (handle.getTag() == org.objectweb.asm.Opcodes.H_NEWINVOKESPECIAL
+                    && handle.getOwner().equals("net/neoforged/neoforge/event/entity/living/LivingFallEvent")
+                    && handle.getDesc().equals("(Lnet/minecraft/world/entity/LivingEntity;FF)V"))
+                return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192LivingEventBridge", "newFallEvent",
+                        "(Lnet/minecraft/world/entity/LivingEntity;FF)L" + handle.getOwner() + ";", false);
+            if (handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL) return value;
+            Handle adapted = legacyLivingFallMember(handle.getOwner(), handle.getName(), handle.getDesc());
+            return adapted == null ? value : preserveBridgeHandleType(node, handle, adapted, capturedReceiver, adapters);
+        }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
+            boolean changed = false;
+            for (int i = 0; i < args.length; i++) {
+                Object original = dynamic.getBootstrapMethodArgument(i);
+                args[i] = adaptLegacyLivingFallConstant(node, original, adapters, null);
+                changed |= args[i] != original;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
+        }
+        return value;
     }
 
     /** Exact provider member identity, with independent virtual and source-super dispatch. */
