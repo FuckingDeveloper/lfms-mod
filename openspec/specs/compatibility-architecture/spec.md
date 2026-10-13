@@ -234,6 +234,11 @@ operand, and boolean result together. It MUST preserve registry object identity
 and MUST NOT replace the check with class, identifier-string, or descriptor-only
 comparison.
 
+When a target version renames a built-in block identity while retaining the
+same concrete gameplay role, LMS MAY map the exact source SRG/Mojang field to
+the exact target declaration only with verified source and target registry
+evidence. Similar field types or names alone are insufficient.
+
 When adapting a source entity-valued render-layer callback to a target
 render-state submission callback, LMS MAY reconstruct source animation inputs
 only from the uniquely matched entity and target-authoritative render-state

@@ -6225,6 +6225,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
         String targetName = switch (field.owner + "#" + (canonical == null ? "" : canonical)) {
             case "net/minecraft/world/level/block/Blocks#GRASS" -> "SHORT_GRASS";
+            case "net/minecraft/world/level/block/Blocks#CHAIN" -> "IRON_CHAIN";
             default -> null;
         };
         if (targetName == null) return null;
