@@ -9603,6 +9603,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // surface (including lambda metafactory descriptors and handles).
         if (value.equals("net/minecraftforge/common/util/NonNullSupplier"))
             return "java/util/function/Supplier";
+        if (value.equals("net/minecraftforge/common/util/NonNullConsumer"))
+            return "java/util/function/Consumer";
         if (value.equals("net/minecraftforge/fluids/capability/IFluidHandler"))
             return "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler";
         if (value.equals("net/minecraftforge/fluids/IFluidTank"))
@@ -9695,6 +9697,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/common/capabilities/Capability", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapability")
                 .replace("net/minecraftforge/common/util/LazyOptional", "com/fuckingdeveloper/lms/runtime/capability/LegacyLazyOptional")
                 .replace("net/minecraftforge/common/util/NonNullSupplier", "java/util/function/Supplier")
+                .replace("net/minecraftforge/common/util/NonNullConsumer", "java/util/function/Consumer")
                 .replace("net/minecraftforge/fluids/capability/IFluidHandler", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler")
                 .replace("net/minecraftforge/fluids/IFluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidTank")
                 .replace("net/minecraftforge/fluids/capability/templates/FluidTank", "com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank")
