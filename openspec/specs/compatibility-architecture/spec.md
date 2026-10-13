@@ -203,6 +203,16 @@ defer-to-normal-processing meanings respectively. LMS MUST rewrite both the
 method descriptor and the corresponding enum constants as one compatibility
 family; it MUST NOT generalize this conversion from an enum descriptor alone.
 
+When a source Mixin interface exposes an accessor or invoker for exactly one
+source target class, LMS MAY replace the interface cast and invocation with a
+target-runtime adapter only when the Mixin annotation, accessor/invoker
+annotation, member descriptor, mappings, and actual target implementation
+prove the same member identity and semantics. Any required target access
+widening MUST name that verified member explicitly. LMS MUST NOT apply this
+migration from the interface method descriptor alone, guess a target from the
+Mixin interface name, or silently skip an accessor/invoker whose target
+equivalence is unproven.
+
 When a source level sound operation excludes a nullable player from hearing a
 sound and the target widens that exclusion parameter to any entity, LMS MAY
 adapt the exact mapped level member to the widened target descriptor. The

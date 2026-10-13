@@ -4046,8 +4046,49 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE) continue;
+                LegacyMixinInvoker invoker = legacyMixinInvoker(call.owner, call.name, call.desc);
+                if (invoker != null
+                        && invoker.target().equals("net/minecraft/world/level/chunk/LevelChunk")) {
+                    String bridgeName = null;
+                    String bridgeDescriptor = null;
+                    if (invoker.member().equals("removeBlockEntityTicker")
+                            && call.desc.equals("(Lnet/minecraft/core/BlockPos;)V")) {
+                        bridgeName = "removeBlockEntityTicker";
+                        bridgeDescriptor = "(Lnet/minecraft/world/level/chunk/LevelChunk;"
+                                + "Lnet/minecraft/core/BlockPos;)V";
+                    } else if (invoker.member().equals("updateBlockEntityTicker")
+                            && call.desc.equals("(Lnet/minecraft/world/level/block/entity/BlockEntity;)V")) {
+                        bridgeName = "updateBlockEntityTicker";
+                        bridgeDescriptor = "(Lnet/minecraft/world/level/chunk/LevelChunk;"
+                                + "Lnet/minecraft/world/level/block/entity/BlockEntity;)V";
+                    }
+                    if (bridgeName != null) {
+                        rewrites += rewriteMixinReceiverCasts(
+                                method, call.owner, invoker.target());
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                        call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LevelChunkBridge";
+                        call.name = bridgeName;
+                        call.desc = bridgeDescriptor;
+                        call.itf = false;
+                        rewrites++;
+                        continue;
+                    }
+                }
                 LegacyMixinAccessor accessor = legacyMixinAccessor(call.owner, call.name, call.desc);
                 if (accessor == null) continue;
+                if (accessor.target().equals("net/minecraft/world/level/chunk/LevelChunk")
+                        && accessor.member().equals("loaded")
+                        && call.desc.equals("()Z")) {
+                    rewrites += rewriteMixinReceiverCasts(
+                            method, call.owner, accessor.target());
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LevelChunkBridge";
+                    call.name = "isLoaded";
+                    call.desc = "(Lnet/minecraft/world/level/chunk/LevelChunk;)Z";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
                 if (accessor.target().equals("net/minecraft/client/renderer/LevelRenderer")
                         && accessor.member().equals("renderBuffers")
                         && call.desc.equals("()Lnet/minecraft/client/renderer/RenderBuffers;")) {
@@ -4179,6 +4220,22 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private record LegacyMixinAccessor(String target, String member) {}
 
+    private record LegacyMixinInvoker(String target, String member) {}
+
+    private static int rewriteMixinReceiverCasts(
+            org.objectweb.asm.tree.MethodNode method, String mixinOwner, String target) {
+        int rewrites = 0;
+        for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof TypeInsnNode type
+                    && type.getOpcode() == org.objectweb.asm.Opcodes.CHECKCAST
+                    && type.desc.equals(mixinOwner)) {
+                type.desc = target;
+                rewrites++;
+            }
+        }
+        return rewrites;
+    }
+
     private LegacyMixinAccessor legacyMixinAccessor(String owner, String name, String descriptor) {
         try {
             byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(owner);
@@ -4203,6 +4260,35 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             Object member = annotationValue(accessor, "value");
             if (!(member instanceof String field) || field.isBlank()) return null;
             return new LegacyMixinAccessor(target.getInternalName(), field);
+        } catch (java.io.IOException | RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private LegacyMixinInvoker legacyMixinInvoker(String owner, String name, String descriptor) {
+        try {
+            byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(owner);
+            if (bytes == null) return null;
+            ClassNode mixin = new ClassNode();
+            new ClassReader(bytes).accept(mixin, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            org.objectweb.asm.tree.AnnotationNode mixinAnnotation = annotation(
+                    mixin.visibleAnnotations, mixin.invisibleAnnotations,
+                    "Lorg/spongepowered/asm/mixin/Mixin;");
+            if (mixinAnnotation == null) return null;
+            Object targets = annotationValue(mixinAnnotation, "value");
+            if (!(targets instanceof java.util.List<?> list) || list.size() != 1
+                    || !(list.getFirst() instanceof Type target)) return null;
+            var methods = mixin.methods.stream()
+                    .filter(method -> method.name.equals(name) && method.desc.equals(descriptor))
+                    .toList();
+            if (methods.size() != 1) return null;
+            org.objectweb.asm.tree.AnnotationNode invoker = annotation(
+                    methods.getFirst().visibleAnnotations, methods.getFirst().invisibleAnnotations,
+                    "Lorg/spongepowered/asm/mixin/gen/Invoker;");
+            if (invoker == null) return null;
+            Object member = annotationValue(invoker, "value");
+            if (!(member instanceof String method) || method.isBlank()) return null;
+            return new LegacyMixinInvoker(target.getInternalName(), method);
         } catch (java.io.IOException | RuntimeException ignored) {
             return null;
         }
