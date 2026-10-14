@@ -51,7 +51,7 @@ public final class Forge1192SrgRuntimeResolver {
         }
 
         List<ProguardMappingReader.MethodMapping> named = mojmap
-                .findByObfuscated(match.owners().getFirst(), match.sourceName()).stream()
+                .findByObfuscated(match.owners().getFirst().replace('/','.'), match.sourceName()).stream()
                 .filter(candidate -> parametersMatch(candidate.parameters(), descriptor))
                 .toList();
         if (named.size() != 1) {
@@ -102,7 +102,7 @@ public final class Forge1192SrgRuntimeResolver {
                     "Legacy mapping has no declaring owner");
         }
         List<ProguardMappingReader.MethodMapping> named = mojmap
-                .findByObfuscated(match.owners().getFirst(), match.sourceName()).stream()
+                .findByObfuscated(match.owners().getFirst().replace('/','.'), match.sourceName()).stream()
                 .filter(candidate -> parametersMatch(candidate.parameters(), sourceDescriptor))
                 .toList();
         if (named.size() != 1) {
@@ -150,7 +150,7 @@ public final class Forge1192SrgRuntimeResolver {
         }
         var match = legacy.matches().getFirst();
         List<ProguardMappingReader.MethodMapping> named = mojmap
-                .findByObfuscated(match.owners().getFirst(), match.sourceName()).stream()
+                .findByObfuscated(match.owners().getFirst().replace('/','.'), match.sourceName()).stream()
                 .filter(candidate -> parametersMatch(candidate.parameters(), descriptor))
                 .toList();
         if (named.size() != 1) {
@@ -203,16 +203,19 @@ public final class Forge1192SrgRuntimeResolver {
     /** Resolve only the exact 1.19.2 Mojang method identity. */
     public Optional<String> canonicalMethodName(
             String internalOwner, String srgName, String descriptor) {
-        if (!internalOwner.startsWith("net/minecraft/") || !isSrgMethodName(srgName))
+        if ((!internalOwner.startsWith("net/minecraft/") && !internalOwner.startsWith("com/mojang/")) || !isSrgMethodName(srgName))
             return Optional.empty();
-        var legacy = srg.resolveWithNamedOwner(
-                internalOwner.replace('/', '.'), srgName, descriptor, mojmap);
-        if (legacy.status() != LegacySrgIndex.ResolutionStatus.RESOLVED
-                || legacy.matches().size() != 1
-                || legacy.matches().getFirst().owners().isEmpty()) return Optional.empty();
-        var match = legacy.matches().getFirst();
+        var owner=mojmap.obfuscatedClass(internalOwner.replace('/', '.'));
+        if(owner.isEmpty())return Optional.empty();
+        String sourceDescriptor=mojmap.obfuscateDescriptor(descriptor);
+        var exact=srg.findBySrgName(srgName).stream()
+                .filter(match -> !match.owners().isEmpty()
+                        && match.owners().getFirst().replace('/', '.').equals(owner.get().replace('/', '.'))
+                        && match.sourceDescriptor().equals(sourceDescriptor)).toList();
+        if(exact.size()!=1)return Optional.empty();
+        var match=exact.getFirst();
         List<ProguardMappingReader.MethodMapping> named = mojmap
-                .findByObfuscated(match.owners().getFirst(), match.sourceName()).stream()
+                .findByObfuscated(match.owners().getFirst().replace('/','.'), match.sourceName()).stream()
                 .filter(candidate -> parametersMatch(candidate.parameters(), descriptor))
                 .toList();
         return named.size() == 1 ? Optional.of(named.getFirst().namedName()) : Optional.empty();
