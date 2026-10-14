@@ -259,6 +259,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteSourceRecipeIdCalls(node);
         rewrites += rewriteRecipeInformationFamily(node);
         rewrites += rewriteInteractionResultInformation(node);
+        rewrites += rewriteColorCollectionConstants(node);
         rewrites += rewriteBonemealCallbacks(node);
         rewrites += rewriteContainerGraphicsPhases(node);
         rewrites += rewriteGuiBatchOperations(node);
@@ -7844,7 +7845,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             "net/minecraft/world/level/block/ColorCollection", "pick",
                             "(Lnet/minecraft/world/item/DyeColor;)Ljava/lang/Object;", false));
                     select.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,
-                            "net/minecraft/world/level/block/Block"));
+                            colored.valueType()));
                     method.instructions.insert(field, select);
                     rewrites++;
                     continue;
@@ -8185,7 +8186,49 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,node.name,name,descriptor,false);
     }
 
-    private record LegacyColorCollectionField(String collection, String color) {}
+    private int rewriteColorCollectionConstants(ClassNode node) {
+        int count = 0;
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        var handles = new java.util.HashMap<Handle, Handle>();
+        for (var method : node.methods) for (var insn : method.instructions) {
+            if (insn instanceof LdcInsnNode ldc) {
+                Object adapted = colorCollectionConstant(node, ldc.cst, adapters, handles);
+                if (adapted != ldc.cst) { ldc.cst = adapted; count++; }
+            } else if (insn instanceof InvokeDynamicInsnNode dynamic) {
+                for (int i=0; i<dynamic.bsmArgs.length; i++) {
+                    Object adapted = colorCollectionConstant(node, dynamic.bsmArgs[i], adapters, handles);
+                    if (adapted != dynamic.bsmArgs[i]) { dynamic.bsmArgs[i] = adapted; count++; }
+                }
+            }
+        }
+        node.methods.addAll(adapters);
+        return count;
+    }
+
+    private Object colorCollectionConstant(ClassNode node, Object value,
+            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, java.util.Map<Handle, Handle> handles) {
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed=false;
+            for (int i=0; i<args.length; i++) { Object old=dynamic.getBootstrapMethodArgument(i); args[i]=colorCollectionConstant(node, old, adapters, handles); changed|=args[i]!=old; }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
+        }
+        if (!(value instanceof Handle handle) || handle.getTag()!=org.objectweb.asm.Opcodes.H_GETSTATIC) return value;
+        Handle cached=handles.get(handle); if (cached!=null) return cached;
+        var color=legacyColorCollectionField(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,handle.getOwner(),handle.getName(),handle.getDesc()));
+        if (color==null) return value;
+        String name="lms$colorField$"+(node.methods.size()+adapters.size()), descriptor="()"+handle.getDesc();
+        while (hasMethod(node,adapters,name,descriptor)) name+="$";
+        var getter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_STATIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,name,descriptor,null,null);
+        getter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,handle.getOwner(),color.collection(),"Lnet/minecraft/world/level/block/ColorCollection;"));
+        getter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,"net/minecraft/world/item/DyeColor",color.color(),"Lnet/minecraft/world/item/DyeColor;"));
+        getter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,"net/minecraft/world/level/block/ColorCollection","pick","(Lnet/minecraft/world/item/DyeColor;)Ljava/lang/Object;",false));
+        getter.instructions.add(new TypeInsnNode(org.objectweb.asm.Opcodes.CHECKCAST,color.valueType()));
+        getter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));
+        getter.maxStack=2; getter.maxLocals=0; adapters.add(getter);
+        var result=new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,node.name,name,descriptor,false);handles.put(handle,result);return result;
+    }
+
+    private record LegacyColorCollectionField(String collection, String color, String valueType) {}
     private record LegacyCopperCollectionField(
             String collection, String track, String state, String valueType) {}
 
@@ -8453,8 +8496,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     /** Minecraft 26.3 consolidated exact color-specific block fields. */
     private LegacyColorCollectionField legacyColorCollectionField(FieldInsnNode field) {
         if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
-                || !field.owner.equals("net/minecraft/world/level/block/Blocks")
-                || !field.desc.equals("Lnet/minecraft/world/level/block/Block;")
+                || !(field.owner.equals("net/minecraft/world/level/block/Blocks") && field.desc.equals("Lnet/minecraft/world/level/block/Block;")
+                    || field.owner.equals("net/minecraft/world/item/Items") && field.desc.equals("Lnet/minecraft/world/item/Item;"))
                 || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
         String canonical = SRG_RUNTIME_RESOLVER.get()
                 .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
@@ -8472,7 +8515,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
         if (color == null) return null;
         String collection = switch (suffix) {
-            case "BED", "WOOL", "STAINED_GLASS", "STAINED_GLASS_PANE", "CARPET",
+            case "DYE", "BED", "WOOL", "STAINED_GLASS", "STAINED_GLASS_PANE", "CARPET",
                     "BANNER", "WALL_BANNER", "GLAZED_TERRACOTTA", "CONCRETE",
                     "CONCRETE_POWDER" -> suffix;
             case "TERRACOTTA" -> "DYED_TERRACOTTA";
@@ -8483,9 +8526,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         };
         if (collection == null) return null;
         var target = VANILLA_RELOCATIONS.searchExactField(
-                "net.minecraft.world.level.block.Blocks", collection,
+                field.owner.replace('/', '.'), collection,
                 "Lnet/minecraft/world/level/block/ColorCollection;");
-        return target.size() == 1 ? new LegacyColorCollectionField(collection, color) : null;
+        return target.size() == 1 ? new LegacyColorCollectionField(collection, color, org.objectweb.asm.Type.getType(field.desc).getInternalName()) : null;
     }
 
     /** Resolve an SRG field whose bytecode owner is a managed subclass. */
