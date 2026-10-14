@@ -84,6 +84,14 @@ public final class SmithingFamilyCheck {
         method.instructions.add(new TypeInsnNode(Opcodes.NEW, source)); method.instructions.add(new InsnNode(Opcodes.DUP));
         for (int i=0;i<4;i++) method.instructions.add(new VarInsnNode(Opcodes.ALOAD,i));
         method.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, source, "<init>", args + "V", false)); method.instructions.add(new InsnNode(Opcodes.ARETURN)); node.methods.add(method);
+        var idRead = new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC, "sourceId",
+                "(Lnet/minecraft/world/item/crafting/Recipe;)Lnet/minecraft/resources/ResourceLocation;",null,null);
+        idRead.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));
+        idRead.instructions.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE,"net/minecraft/world/item/crafting/Recipe","m_6423_","()Lnet/minecraft/resources/ResourceLocation;",true));
+        idRead.instructions.add(new InsnNode(Opcodes.ARETURN));node.methods.add(idRead);
+        var idHandle = new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"idHandle","()Ljava/lang/invoke/MethodHandle;",null,null);
+        idHandle.instructions.add(new LdcInsnNode(new Handle(Opcodes.H_INVOKEINTERFACE,"net/minecraft/world/item/crafting/Recipe","m_6423_","()Lnet/minecraft/resources/ResourceLocation;",true)));
+        idHandle.instructions.add(new InsnNode(Opcodes.ARETURN));node.methods.add(idHandle);
         var writer = new ClassWriter(ClassWriter.COMPUTE_MAXS); node.accept(writer);
         var path = Files.createTempFile("lms-source-upgrade", ".jar");
         try (var jar = new JarOutputStream(Files.newOutputStream(path))) { jar.putNextEntry(new JarEntry(node.name+".class")); jar.write(writer.toByteArray()); jar.closeEntry(); }
@@ -92,6 +100,10 @@ public final class SmithingFamilyCheck {
             var type = loader.linkOwnedClass(node.name.replace('/','.'));
             var adapted = (Forge1192UpgradeRecipe)type.getMethod("create", Identifier.class, Ingredient.class, Ingredient.class, ItemStack.class).invoke(null,id,ingredient,ingredient,result);
             check(adapted.m_8043_() == result && adapted.matches(input,null), "transformed source allocation does not implement actual native contract");
+            check(type.getMethod("sourceId",Recipe.class).invoke(null,adapted).equals(id),"source Recipe interface identifier call not bridged");
+            var idGetter=(java.lang.invoke.MethodHandle)type.getMethod("idHandle").invoke(null);
+            try {check(idGetter.invoke(adapted).equals(id),"source Recipe identity handle lost receiver/result");}
+            catch(Throwable failure){throw new IllegalStateException("Recipe identifier handle failed",failure);}
         }
         check(Arrays.equals(immutable, Files.readAllBytes(path)), "source smithing fixture modified");
         System.out.println("PASS: source two-slot/native template mapping, NBT identity/copy/absence, result/count/id, source queries/direct overrides, explicit native subclass boundary, native JSON/stream codecs and immutable transformed constructor; gameplay not asserted");

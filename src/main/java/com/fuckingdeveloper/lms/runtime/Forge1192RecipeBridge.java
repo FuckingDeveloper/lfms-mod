@@ -37,6 +37,13 @@ public final class Forge1192RecipeBridge {
         return java.util.List.copyOf(recipes);
     }
 
+    public static net.minecraft.resources.Identifier legacyId(Recipe<?> recipe) {
+        Objects.requireNonNull(recipe, "recipe");
+        if (recipe instanceof com.fuckingdeveloper.lms.runtime.recipe.LegacyRecipeIdentity legacy)
+            return Objects.requireNonNull(legacy.lms$legacyId(), "Source recipe returned null identifier");
+        throw new UnsupportedOperationException("Source recipe identifier requires its source identity view or authoritative native RecipeHolder context: " + recipe.getClass().getName());
+    }
+
     public static ItemStack legacyResult(Recipe<?> recipe) {
         Objects.requireNonNull(recipe, "recipe");
         if (recipe instanceof LegacyRecipeResult legacy) return legacy.lms$legacyResult();

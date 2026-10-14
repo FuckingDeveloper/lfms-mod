@@ -255,6 +255,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBiomePrecipitationPresence(node);
         rewrites += rewriteLegacyChunkUnsavedMarks(node);
         rewrites += rewriteLegacyRecipeViewFamily(node);
+        rewrites += rewriteSourceRecipeIdCalls(node);
+        rewrites += rewriteRecipeRewardKeys(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
         rewrites += rewriteLegacyMaterialQueries(node);
@@ -3788,6 +3790,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         if (!isManagedSubtypeOf(node, recipe)) return 0;
         int rewrites = 0;
         for (var source : java.util.List.of(
+                new String[] {"m_6423_", "()Lnet/minecraft/resources/ResourceLocation;",
+                        "com/fuckingdeveloper/lms/runtime/recipe/LegacyRecipeIdentity",
+                        "lms$legacyId"},
                 new String[] {"m_8043_", "()Lnet/minecraft/world/item/ItemStack;",
                         "com/fuckingdeveloper/lms/runtime/recipe/LegacyRecipeResult",
                         "lms$legacyResult"},
@@ -3813,6 +3818,68 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             adapter.maxLocals = 1;
             node.methods.add(adapter);
             rewrites++;
+        }
+        return rewrites;
+    }
+
+    private static Handle sourceRecipeIdHandle(Handle handle) {
+        if (handle.getTag()!=org.objectweb.asm.Opcodes.H_INVOKEINTERFACE
+                || !handle.getOwner().equals("net/minecraft/world/item/crafting/Recipe")
+                || !handle.getName().equals("m_6423_")
+                || !handle.getDesc().equals("()Lnet/minecraft/resources/ResourceLocation;")) return null;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Forge1192RecipeBridge", "legacyId",
+                "(Lnet/minecraft/world/item/crafting/Recipe;)Lnet/minecraft/resources/ResourceLocation;", false);
+    }
+    private static Object sourceRecipeIdConstant(Object value) {
+        if(value instanceof Handle handle) { var adapted=sourceRecipeIdHandle(handle); return adapted==null?value:adapted; }
+        if(value instanceof ConstantDynamic dynamic) {
+            Object[] args=new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed=false;
+            for(int i=0;i<args.length;i++){Object old=dynamic.getBootstrapMethodArgument(i);args[i]=sourceRecipeIdConstant(old);changed|=args[i]!=old;}
+            return changed?new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args):value;
+        }
+        return value;
+    }
+    private static int rewriteSourceRecipeIdCalls(ClassNode node) {
+        int rewrites=0;
+        for(var method:node.methods)for(var instruction:method.instructions) {
+            if(instruction instanceof MethodInsnNode call) {
+                int tag=call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEINTERFACE?org.objectweb.asm.Opcodes.H_INVOKEINTERFACE:-1;
+                if(tag==-1)continue;
+                var adapted=sourceRecipeIdHandle(new Handle(tag,call.owner,call.name,call.desc,call.itf));
+                if(adapted!=null){call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;rewrites++;}
+            } else if(instruction instanceof LdcInsnNode ldc){Object adapted=sourceRecipeIdConstant(ldc.cst);if(adapted!=ldc.cst){ldc.cst=adapted;rewrites++;}}
+            else if(instruction instanceof InvokeDynamicInsnNode dynamic) for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=sourceRecipeIdConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;rewrites++;}}
+        }
+        return rewrites;
+    }
+
+    private static Handle recipeRewardHandle(Handle handle) {
+        final String owner="net/minecraft/advancements/AdvancementRewards$Builder";
+        if(!handle.getOwner().equals(owner) || !handle.getDesc().equals("(Lnet/minecraft/resources/ResourceLocation;)L"+owner+";")
+                || SRG_RUNTIME_RESOLVER.isEmpty())return null;
+        String canonical=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,handle.getName(),handle.getDesc()).orElse(null);
+        boolean instance=handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL && "addRecipe".equals(canonical);
+        boolean factory=handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKESTATIC && "recipe".equals(canonical);
+        if(!instance&&!factory)return null;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/advancement/Forge1192RecipeRewardsBridge",
+                canonical,"("+(instance?"L"+owner+";":"")+"Lnet/minecraft/resources/ResourceLocation;)L"+owner+";",false);
+    }
+    private static Object recipeRewardConstant(Object value) {
+        if(value instanceof Handle handle){var adapted=recipeRewardHandle(handle);return adapted==null?value:adapted;}
+        if(value instanceof ConstantDynamic dynamic){Object[] args=new Object[dynamic.getBootstrapMethodArgumentCount()];boolean changed=false;
+            for(int i=0;i<args.length;i++){Object old=dynamic.getBootstrapMethodArgument(i);args[i]=recipeRewardConstant(old);changed|=args[i]!=old;}
+            return changed?new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args):value;}
+        return value;
+    }
+    private static int rewriteRecipeRewardKeys(ClassNode node) {
+        int rewrites=0;
+        for(var method:node.methods)for(var instruction:method.instructions) {
+            if(instruction instanceof MethodInsnNode call){int tag=call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL?org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL:call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC?org.objectweb.asm.Opcodes.H_INVOKESTATIC:-1;
+                if(tag==-1)continue;var adapted=recipeRewardHandle(new Handle(tag,call.owner,call.name,call.desc,call.itf));
+                if(adapted!=null){call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;rewrites++;}}
+            else if(instruction instanceof LdcInsnNode ldc){Object adapted=recipeRewardConstant(ldc.cst);if(adapted!=ldc.cst){ldc.cst=adapted;rewrites++;}}
+            else if(instruction instanceof InvokeDynamicInsnNode dynamic)for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=recipeRewardConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;rewrites++;}}
         }
         return rewrites;
     }

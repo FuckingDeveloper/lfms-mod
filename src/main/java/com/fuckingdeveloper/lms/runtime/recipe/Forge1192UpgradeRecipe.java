@@ -22,7 +22,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /** Source two-slot smithing, distinct from native component-transmutation semantics. */
-public class Forge1192UpgradeRecipe extends SimpleSmithingRecipe implements LegacyRecipeResult, LegacyRecipeIngredients {
+public class Forge1192UpgradeRecipe extends SimpleSmithingRecipe implements LegacyRecipeResult, LegacyRecipeIngredients, LegacyRecipeIdentity {
     public final Ingredient f_44518_, f_44519_;
     public final ItemStack f_44520_;
     private final Identifier f_44521_;
@@ -71,6 +71,7 @@ public class Forge1192UpgradeRecipe extends SimpleSmithingRecipe implements Lega
     public RecipeType<?> m_6671_() { return RecipeType.SMITHING; }
     public LegacyRecipeSerializer<?> m_7707_() { throw new UnsupportedOperationException("Source UpgradeRecipe serializer/network protocol requires explicit Forge 1.19.2 adaptation"); }
     public NonNullList<Ingredient> m_7527_() { return NonNullList.create(); }
+    @Override public Identifier lms$legacyId() { return m_6423_(); }
     @Override public ItemStack lms$legacyResult() { return m_8043_(); }
     @Override public NonNullList<Ingredient> lms$legacyIngredients() { return m_7527_(); }
     @Override public Optional<Ingredient> templateIngredient() { return Optional.empty(); }
