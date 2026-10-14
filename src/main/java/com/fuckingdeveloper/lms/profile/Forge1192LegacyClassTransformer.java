@@ -158,6 +158,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private final java.util.Map<String, java.util.Optional<byte[]>> hierarchyEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private record SubtypeEvidence(String candidate, String ancestor) {}
     private final java.util.Map<SubtypeEvidence, Boolean> subtypeEvidence = new java.util.concurrent.ConcurrentHashMap<>();
+    private record FieldDeclaration(String name, String descriptor) {}
+    private record FieldHierarchy(java.util.Set<FieldDeclaration> fields, java.util.List<String> interfaces, String parent) {}
+    private final java.util.Map<String, java.util.Optional<FieldHierarchy>> fieldHierarchyEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, Boolean> configuredFeatureInitializers =
             new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, Boolean> itemComponentInitializers =
@@ -179,6 +182,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 return (previous == null ? evidence : previous).orElse(null);
             };
             hierarchyEvidence.clear(); subtypeEvidence.clear();
+            fieldHierarchyEvidence.clear();
             configuredFeatureInitializers.clear(); itemComponentInitializers.clear(); legacyUnitMapCodecFields.clear();
         } finally { evidenceLock.writeLock().unlock(); }
     }
@@ -4693,6 +4697,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 LegacyMixinAccessor accessor = legacyMixinAccessor(call.owner, call.name, call.desc);
                 if (accessor == null) continue;
+                if (accessor.target().equals("net/minecraft/world/inventory/Slot")
+                        && accessor.mutable() && (accessor.member().equals("x") || accessor.member().equals("y"))
+                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE && call.desc.equals("(I)V")) {
+                    rewrites += rewriteMixinReceiverCasts(method, call.owner, accessor.target());
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192SlotBridge";
+                    call.name = accessor.member().equals("x") ? "setX" : "setY";
+                    call.desc = "(Lnet/minecraft/world/inventory/Slot;I)V";
+                    call.itf = false;
+                    rewrites++;
+                    continue;
+                }
                 String audioBridge = "com/fuckingdeveloper/lms/runtime/Forge1192SoundEngineBridge";
                 String audioMethod = null;
                 String audioDescriptor = null;
@@ -4867,7 +4883,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
-    private record LegacyMixinAccessor(String target, String member) {}
+    private record LegacyMixinAccessor(String target, String member, boolean mutable) {}
 
     private record LegacyMixinInvoker(String target, String member) {}
 
@@ -4908,7 +4924,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if (accessor == null) return null;
             Object member = annotationValue(accessor, "value");
             if (!(member instanceof String field) || field.isBlank()) return null;
-            return new LegacyMixinAccessor(target.getInternalName(), field);
+            boolean mutable = annotation(methods.getFirst().visibleAnnotations, methods.getFirst().invisibleAnnotations,
+                    "Lorg/spongepowered/asm/mixin/Mutable;") != null;
+            return new LegacyMixinAccessor(target.getInternalName(), field, mutable);
         } catch (java.io.IOException | RuntimeException ignored) {
             return null;
         }
@@ -6886,12 +6904,19 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     private int rewriteVerifiedSrgFieldAccesses(ClassNode node) {
         if (SRG_RUNTIME_RESOLVER.isEmpty()) return 0;
+        FieldHierarchy ownFields = fieldHierarchy(node);
         int rewrites = 0;
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null;) {
                 var current = insn;
                 insn = insn.getNext();
                 if (!(current instanceof FieldInsnNode field)) continue;
+                boolean sourceLookup = field.name.startsWith("f_") && !field.owner.startsWith("net/minecraft/");
+                String declaration = sourceLookup
+                        ? sourceFieldOwner(node.name, ownFields, field.owner, field.name, field.desc, new java.util.HashSet<>()) : null;
+                // SRG-looking names can belong to the mod itself. In particular,
+                // a source subclass can hide a private vanilla field legitimately.
+                if (sourceLookup && (declaration == null || !declaration.startsWith("net/minecraft/"))) continue;
                 if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
                         && field.owner.equals("net/minecraft/world/level/chunk/status/ChunkStatus")
                         && field.name.equals("f_62326_")
@@ -6903,7 +6928,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
                         && field.name.equals("f_19853_")
                         && field.desc.equals("Lnet/minecraft/world/level/Level;")) {
-                    String sourceOwner = resolveInheritedLegacyVanillaFieldOwner(
+                    String sourceOwner = declaration != null ? declaration : resolveInheritedLegacyVanillaFieldOwner(
                             field.owner, field.name, field.desc);
                     String canonical = sourceOwner == null ? null : SRG_RUNTIME_RESOLVER.get()
                             .canonicalFieldName(sourceOwner, field.name, field.desc).orElse(null);
@@ -7068,7 +7093,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (field.getOpcode() == org.objectweb.asm.Opcodes.GETFIELD
                         && field.name.equals("f_40377_")
                         && field.desc.equals("Lnet/minecraft/world/entity/EquipmentSlot;")) {
-                    String sourceOwner = resolveInheritedLegacyVanillaFieldOwner(
+                    String sourceOwner = declaration != null ? declaration : resolveInheritedLegacyVanillaFieldOwner(
                             field.owner, field.name, field.desc);
                     String canonical = sourceOwner == null ? null : SRG_RUNTIME_RESOLVER.get()
                             .canonicalFieldName(sourceOwner, field.name, field.desc).orElse(null);
@@ -7087,7 +7112,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
                         && field.name.equals("f_51181_")
                         && field.desc.equals("[Lnet/minecraft/world/phys/shapes/VoxelShape;")) {
-                    String sourceOwner = resolveInheritedLegacyVanillaFieldOwner(
+                    String sourceOwner = declaration != null ? declaration : resolveInheritedLegacyVanillaFieldOwner(
                             field.owner, field.name, field.desc);
                     String canonical = sourceOwner == null ? null : SRG_RUNTIME_RESOLVER.get()
                             .canonicalFieldName(sourceOwner, field.name, field.desc).orElse(null);
@@ -7135,8 +7160,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         continue;
                     }
                 }
-                var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(field.owner, field.name, field.desc);
-                if (!resolved.resolved()) {
+                var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(
+                        declaration != null ? declaration : field.owner, field.name, field.desc);
+                if (!resolved.resolved() && declaration == null) {
                     // javac may encode an inherited static field with the
                     // receiver subclass as its constant-pool owner. Resolve
                     // the exact SRG identity along the verified hierarchy for
@@ -7423,26 +7449,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     /** Resolve an SRG field whose bytecode owner is a managed subclass. */
     private Forge1192SrgRuntimeResolver.FieldResolution resolveInheritedVanillaField(
             String receiver, String name, String desc) {
-        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
-        java.util.HashSet<String> seen = new java.util.HashSet<>();
-        pending.add(receiver);
-        while (!pending.isEmpty()) {
-            String current = pending.removeFirst();
-            if (!seen.add(current)) continue;
-            if (current.startsWith("net/minecraft/")) {
-                var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(current, name, desc);
-                if (resolved.resolved()) return resolved;
-            }
-            try {
-                byte[] bytes = hierarchyBytes(current);
-                if (bytes == null) continue;
-                ClassReader reader = new ClassReader(bytes);
-                if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
-                java.util.Collections.addAll(pending, reader.getInterfaces());
-            } catch (java.io.IOException | LinkageError | RuntimeException ignored) {
-                // Incomplete hierarchy evidence fails closed.
-            }
-        }
+        String declaration = resolveInheritedLegacyVanillaFieldOwner(receiver, name, desc);
+        if (declaration != null) return SRG_RUNTIME_RESOLVER.get().resolveField(declaration, name, desc);
         return new Forge1192SrgRuntimeResolver.FieldResolution(
                 receiver, name, desc, false, "No inherited vanilla field identity resolved");
     }
@@ -7455,27 +7463,44 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      */
     private String resolveInheritedLegacyVanillaFieldOwner(
             String receiver, String name, String desc) {
-        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
-        java.util.HashSet<String> seen = new java.util.HashSet<>();
-        pending.add(receiver);
-        while (!pending.isEmpty()) {
-            String current = pending.removeFirst();
-            if (!seen.add(current)) continue;
-            if (current.startsWith("net/minecraft/")
-                    && SRG_RUNTIME_RESOLVER.get().canonicalFieldName(current, name, desc).isPresent()) {
-                return current;
-            }
-            try {
-                byte[] bytes = hierarchyBytes(current);
-                if (bytes == null) continue;
-                ClassReader reader = new ClassReader(bytes);
-                if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
-                java.util.Collections.addAll(pending, reader.getInterfaces());
-            } catch (java.io.IOException | LinkageError | RuntimeException ignored) {
-                // Incomplete hierarchy evidence fails closed.
-            }
+        String declaration = sourceFieldOwner(null, null, receiver, name, desc, new java.util.HashSet<>());
+        return declaration != null && declaration.startsWith("net/minecraft/") ? declaration : null;
+    }
+
+    /** JVMS 5.4.3.2: declarations, recursively interfaces, then superclass. */
+    private String sourceFieldOwner(String activeName, FieldHierarchy active, String owner, String name, String desc, java.util.Set<String> seen) {
+        if (!seen.add(owner)) return null;
+        FieldHierarchy evidence;
+        if (owner.equals(activeName)) {
+            evidence = active;
+        } else {
+            evidence = fieldHierarchyEvidence.computeIfAbsent(owner, key -> {
+                try {
+                    byte[] bytes = hierarchyBytes(key);
+                    if (bytes == null) return java.util.Optional.empty();
+                    var type = new ClassNode();
+                    new ClassReader(bytes).accept(type, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                    return java.util.Optional.of(fieldHierarchy(type));
+                } catch (java.io.IOException failure) {
+                    throw new java.io.UncheckedIOException("Cannot inspect field declarations: " + key, failure);
+                }
+            }).orElse(null);
         }
-        return null;
+        if (evidence != null && evidence.fields().contains(new FieldDeclaration(name, migrateDescriptor(desc)))) return owner;
+        if (owner.startsWith("net/minecraft/") && SRG_RUNTIME_RESOLVER.isPresent()
+                && SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner, name, desc).isPresent()) return owner;
+        if (evidence == null) return null;
+        for (String iface : evidence.interfaces()) {
+            String declaration = sourceFieldOwner(activeName, active, iface, name, desc, seen);
+            if (declaration != null) return declaration;
+        }
+        return evidence.parent() == null ? null : sourceFieldOwner(activeName, active, evidence.parent(), name, desc, seen);
+    }
+
+    private static FieldHierarchy fieldHierarchy(ClassNode node) {
+        var fields = new java.util.HashSet<FieldDeclaration>();
+        for (var field : node.fields) fields.add(new FieldDeclaration(field.name, migrateDescriptor(field.desc)));
+        return new FieldHierarchy(java.util.Set.copyOf(fields), java.util.List.copyOf(node.interfaces), node.superName);
     }
 
     /** Exact 1.19.2 SRG identities for MobEffects' migration to Holder fields. */

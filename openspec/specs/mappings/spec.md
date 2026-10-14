@@ -37,3 +37,18 @@ The target-runtime index SHOULD enumerate classes without loading/initializing t
 Method migrations MUST validate invocation opcode, static/instance access, argument and return types, owner hierarchy, and call-site receiver semantics. Descriptor changes MUST carry explicit argument/result adaptation rules. Field-to-method or method-to-field migration is semantic adaptation, not a simple rename.
 
 Mapping evidence and decisions SHOULD be serializable for reproducible offline tests; mapping decisions MUST NOT depend on classpath enumeration order.
+
+Field resolution MUST honor source declarations before mapping inherited vanilla
+members. An exact name/descriptor declaration in a managed class hides a matching
+ancestor field, even when the name resembles an SRG symbol. The lookup order MUST
+be the declaring class, its superinterfaces, then its superclass, as defined by
+JVM field resolution. LMS MUST NOT redirect source-owned field reads/writes to a
+native field merely because an ancestor has the same mapped identity. Declaration
+indexes MUST be invalidated when the managed source graph is rebound, and a
+currently transformed class MUST use its current declarations and ancestry.
+
+For Forge 1.19.2 Slot coordinate mixin accessors, a target adapter MAY preserve
+post-construction writes to the same native x/y coordinates when the exact
+target, field, descriptor and source @Mutable annotation are verified. This
+MUST NOT grant access to unrelated private Slot fields or infer that changed
+slot background-icon or screen-rendering contracts are equivalent.
