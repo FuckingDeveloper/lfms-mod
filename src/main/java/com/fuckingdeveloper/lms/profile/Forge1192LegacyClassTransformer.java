@@ -191,7 +191,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             fieldHierarchyEvidence.clear();
             blockDataHierarchyEvidence.clear();
             buttonPressHierarchyEvidence.clear();
-            configuredFeatureInitializers.clear(); itemComponentInitializers.clear(); legacyUnitMapCodecFields.clear();
+            guiItemUtilityEvidence.clear(); configuredFeatureInitializers.clear(); itemComponentInitializers.clear(); legacyUnitMapCodecFields.clear();
         } finally { evidenceLock.writeLock().unlock(); }
     }
 
@@ -265,6 +265,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteItemWireFamily(node);
         rewrites += rewriteEarlyFluidConstruction(node);
         rewrites += rewriteBonemealCallbacks(node);
+        rewrites += rewriteGuiItemUtilityCalls(node);
         rewrites += rewriteWidgetGraphics(node);
         rewrites += rewriteWidgetPrimitiveFamily(node);
         rewrites += rewriteContainerGraphicsPhases(node);
@@ -4235,6 +4236,47 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             wrapper.instructions.add(new org.objectweb.asm.tree.InsnNode(descriptor.endsWith("Z") ? org.objectweb.asm.Opcodes.IRETURN : org.objectweb.asm.Opcodes.RETURN));
             wrapper.maxStack = 6; wrapper.maxLocals = valid ? 5 : 6;
             node.methods.add(wrapper); count++;
+        }
+        return count;
+    }
+
+    private final java.util.Map<String,Boolean> guiItemUtilityEvidence = new java.util.concurrent.ConcurrentHashMap<>();
+    private boolean isProvenGuiItemUtility(MethodInsnNode call) {
+        String descriptor="(Lnet/minecraft/client/renderer/entity/ItemRenderer;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/item/ItemStack;FF)V";
+        if(call.getOpcode()!=org.objectweb.asm.Opcodes.INVOKESTATIC || !call.desc.equals(descriptor))return false;
+        return guiItemUtilityEvidence.computeIfAbsent(call.owner+'#'+call.name+call.desc,key->{
+            try{
+                byte[] bytes=managedClassBytes==null?null:managedClassBytes.find(call.owner);if(bytes==null)return false;
+                var source=new ClassNode();new ClassReader(bytes).accept(source,0);
+                var matches=source.methods.stream().filter(m->m.name.equals(call.name)&&m.desc.equals(call.desc)&&(m.access&org.objectweb.asm.Opcodes.ACC_STATIC)!=0).toList();
+                return matches.size()==1 && "81e953fb5143b0326ff8da6893de84340ce57d16da0adcfdec12a33438c23720".equals(Forge1192GuiItemShape.fingerprint(matches.getFirst()));
+            }catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}
+        });
+    }
+    private int rewriteGuiItemUtilityCalls(ClassNode node) {
+        int count=0;String bridge="com/fuckingdeveloper/lms/runtime/render/Forge1192GuiItemExtractionBridge";
+        for(var method:node.methods){
+            var calls=java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).filter(i->i instanceof MethodInsnNode c && isProvenGuiItemUtility(c)).map(i->(MethodInsnNode)i).toList();
+            if(calls.isEmpty())continue;
+            try{
+                var frames=new org.objectweb.asm.tree.analysis.Analyzer<>(new org.objectweb.asm.tree.analysis.SourceInterpreter()).analyze(node.name,method);
+                for(var call:calls){
+                    var frame=frames[method.instructions.indexOf(call)];if(frame==null)continue;
+                    var producer=frame.getStack(frame.getStackSize()-5).insns;
+                    if(producer.size()!=1 || !(producer.iterator().next() instanceof MethodInsnNode getter)
+                            || getter.getOpcode()!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL || !getter.owner.equals("net/minecraft/client/Minecraft")
+                            || !getter.name.equals("m_91291_") || !getter.desc.equals("()Lnet/minecraft/client/renderer/entity/ItemRenderer;"))continue;
+                    getter.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);getter.owner=bridge;getter.name="context";
+                    getter.desc="(Lnet/minecraft/client/Minecraft;)Lcom/fuckingdeveloper/lms/runtime/render/LegacyTooltipItemRenderer;";getter.itf=false;
+                    call.owner=bridge;call.name="item";call.desc=call.desc.replace("net/minecraft/client/renderer/entity/ItemRenderer","com/fuckingdeveloper/lms/runtime/render/LegacyTooltipItemRenderer");call.itf=false;count++;
+                    var next=call.getNext();while(next!=null&&next.getOpcode()<0)next=next.getNext();
+                    if(next instanceof MethodInsnNode restore && restore.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC
+                            && restore.owner.equals("com/mojang/blaze3d/systems/RenderSystem") && restore.desc.equals("()V")
+                            && SRG_RUNTIME_RESOLVER.isPresent() && SRG_RUNTIME_RESOLVER.get().canonicalMethodName(restore.owner,restore.name,restore.desc).orElse(restore.name).equals("disableDepthTest")) {
+                        restore.owner=bridge;restore.name="restoreFlatGuiDepth";restore.itf=false;count++;
+                    }
+                }
+            }catch(org.objectweb.asm.tree.analysis.AnalyzerException failure){throw new IllegalStateException("Cannot prove source GUI item receiver flow: "+node.name+'#'+method.name,failure);}
         }
         return count;
     }
