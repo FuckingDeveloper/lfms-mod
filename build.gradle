@@ -224,3 +224,12 @@ tasks.register('compatibilityTest', JavaExec) {
     mainClass = 'com.fuckingdeveloper.lms.check.GameplayFamilyCheck'
     workingDir = layout.projectDirectory.dir('run')
 }
+
+tasks.register('compatibilityAudit', JavaExec) {
+    group = 'verification'
+    description = 'Inventory unresolved members in transformed legacy binaries without starting Minecraft'
+    dependsOn tasks.named('classes'), tasks.named('compatibilityTestClasses')
+    classpath = sourceSets.compatibilityTest.runtimeClasspath
+    mainClass = 'com.fuckingdeveloper.lms.check.TransformedLinkageAudit'
+    workingDir = layout.projectDirectory.dir('run')
+}

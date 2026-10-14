@@ -85,6 +85,7 @@ public final class GameplayFamilyCheck {
         catch (InvocationTargetException expected) { check(expected.getCause() instanceof IllegalStateException, "wrong collision failure"); }
         auditExternalArtifact(transformer);
         FollowupFamilyCheck.run(transformer);
+        HierarchyEvidenceCheck.run();
         CapabilityNetworkFamilyCheck.run();
         LivingFallFamilyCheck.run();
         var map = callFixture(PLAYER, "m_21221_", "()Ljava/util/Map;");

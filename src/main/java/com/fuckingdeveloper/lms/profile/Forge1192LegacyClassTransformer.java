@@ -149,11 +149,15 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/world/level/material/MaterialColor$Brightness", "net/minecraft/world/level/material/MapColor$Brightness"));
     private static final java.util.Optional<Forge1192SrgRuntimeResolver> SRG_RUNTIME_RESOLVER =
             Forge1192SrgRuntimeResolver.load(java.nio.file.Path.of(System.getProperty("user.dir")));
-    private int transformedClasses;
-    private int totalRewrites;
+    private final java.util.concurrent.atomic.AtomicInteger transformedClasses = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicInteger totalRewrites = new java.util.concurrent.atomic.AtomicInteger();
     private final java.util.concurrent.atomic.LongAdder transformationNanos =
             new java.util.concurrent.atomic.LongAdder();
     private volatile LegacyClassTransformer.ClassBytesLookup managedClassBytes;
+    private final java.util.concurrent.locks.ReentrantReadWriteLock evidenceLock = new java.util.concurrent.locks.ReentrantReadWriteLock();
+    private final java.util.Map<String, java.util.Optional<byte[]>> hierarchyEvidence = new java.util.concurrent.ConcurrentHashMap<>();
+    private record SubtypeEvidence(String candidate, String ancestor) {}
+    private final java.util.Map<SubtypeEvidence, Boolean> subtypeEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, Boolean> configuredFeatureInitializers =
             new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, Boolean> itemComponentInitializers =
@@ -163,20 +167,35 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     @Override
     public void bindManagedClassBytes(LegacyClassTransformer.ClassBytesLookup lookup) {
-        this.managedClassBytes = java.util.Objects.requireNonNull(lookup, "lookup");
+        java.util.Objects.requireNonNull(lookup, "lookup");
+        evidenceLock.writeLock().lock();
+        try {
+            var raw = new java.util.concurrent.ConcurrentHashMap<String, java.util.Optional<byte[]>>();
+            this.managedClassBytes = name -> {
+                var cached = raw.get(name);
+                if (cached != null) return cached.orElse(null);
+                var evidence = java.util.Optional.ofNullable(lookup.find(name));
+                var previous = raw.putIfAbsent(name, evidence);
+                return (previous == null ? evidence : previous).orElse(null);
+            };
+            hierarchyEvidence.clear(); subtypeEvidence.clear();
+            configuredFeatureInitializers.clear(); itemComponentInitializers.clear(); legacyUnitMapCodecFields.clear();
+        } finally { evidenceLock.writeLock().unlock(); }
     }
 
-    public int transformedClasses() { return transformedClasses; }
-    public int totalRewrites() { return totalRewrites; }
+    public int transformedClasses() { return transformedClasses.get(); }
+    public int totalRewrites() { return totalRewrites.get(); }
     public long transformationMillis() { return transformationNanos.sum() / 1_000_000; }
 
     @Override
     public Result transform(String binaryName, byte[] original) {
+        evidenceLock.readLock().lock();
         long started = System.nanoTime();
         try {
             return transformClass(binaryName, original);
         } finally {
             transformationNanos.add(System.nanoTime() - started);
+            evidenceLock.readLock().unlock();
         }
     }
 
@@ -323,8 +342,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         verifyNoUnadaptedLifecycleCalls(node);
         verifyNoEscapingLegacyNetworkFacade(node);
         if (rewrites > 0) {
-            transformedClasses++;
-            totalRewrites += rewrites;
+            transformedClasses.incrementAndGet();
+            totalRewrites.addAndGet(rewrites);
         }
 
         // Semantic adapters may change descriptors and local/stack types.
@@ -6836,19 +6855,29 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private byte[] hierarchyBytes(String internalName) throws java.io.IOException {
+        var cached = hierarchyEvidence.get(internalName);
+        if (cached != null) return cached.orElse(null);
         byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(internalName);
-        if (bytes != null) return bytes;
-        if (!SafeFrameClassWriter.isParentRuntimeType(internalName)) return null;
-        try (var stream = Forge1192LegacyClassTransformer.class.getClassLoader()
-                .getResourceAsStream(internalName + ".class")) {
-            return stream == null ? null : stream.readAllBytes();
+        if (bytes == null && SafeFrameClassWriter.isParentRuntimeType(internalName)) {
+            try (var stream = Forge1192LegacyClassTransformer.class.getClassLoader()
+                    .getResourceAsStream(internalName + ".class")) {
+                bytes = stream == null ? null : stream.readAllBytes();
+            }
         }
+        var evidence = java.util.Optional.ofNullable(bytes);
+        var previous = hierarchyEvidence.putIfAbsent(internalName, evidence);
+        return (previous == null ? evidence : previous).orElse(null);
     }
 
     private boolean isManagedSubtypeOf(String candidate, String target) {
         java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        var key = new SubtypeEvidence(candidate, target);
+        var cached = subtypeEvidence.get(key);
+        if (cached != null) return cached;
         pending.add(candidate);
-        return hierarchyContains(pending, target);
+        boolean result = hierarchyContains(pending, target);
+        subtypeEvidence.putIfAbsent(key, result);
+        return result;
     }
 
     private boolean isManagedSubtypeOf(ClassNode candidate, String target) {

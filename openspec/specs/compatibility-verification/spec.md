@@ -100,3 +100,14 @@ Before releasing LMS for a new target runtime generation:
 - at least one representative integration artifact for each claimed source generation SHOULD be exercised;
 - known semantic gaps MUST be documented;
 - the achieved compatibility level MUST be recorded.
+
+## Whole-artifact linkage inventory
+
+An offline diagnostic MAY transform every class in the admitted artifact graph
+and inventory unresolved method/field/type references, including callable handles
+and nested dynamic constants, without defining or initializing legacy classes.
+Results MUST be grouped by exact owner/member/descriptor and retain call sites.
+Transformation failures MUST remain visible. Optional integration classes and
+unreached references MUST not be reported as proven runtime failures. Inventory
+completion MUST not imply functional compatibility, complete verifier coverage,
+or successful application of separate target launch/mixin transformations.
