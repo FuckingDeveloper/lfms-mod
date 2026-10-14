@@ -261,6 +261,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteInteractionResultInformation(node);
         rewrites += rewriteComponentJsonInformation(node);
         rewrites += rewriteColorCollectionConstants(node);
+        rewrites += rewriteEarlyFluidConstruction(node);
         rewrites += rewriteBonemealCallbacks(node);
         rewrites += rewriteContainerGraphicsPhases(node);
         rewrites += rewriteGuiBatchOperations(node);
@@ -4089,6 +4090,40 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (adapted!=null) { call.owner=adapted.getOwner();call.name=adapted.getName();call.itf=false;count++; }
             } else if (instruction instanceof LdcInsnNode ldc) { Object adapted=componentJsonConstant(ldc.cst);if (adapted!=ldc.cst){ldc.cst=adapted;count++;} }
             else if (instruction instanceof InvokeDynamicInsnNode dynamic) for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=componentJsonConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;count++;}}
+        }
+        return count;
+    }
+
+    private static MethodInsnNode findPairedConstructor(TypeInsnNode allocation, String owner) {
+        var allocations=new java.util.ArrayDeque<String>(); allocations.push(owner);
+        for(var cursor=nextExecutable(allocation);cursor!=null;cursor=cursor.getNext()) {
+            if(cursor instanceof org.objectweb.asm.tree.JumpInsnNode || cursor instanceof org.objectweb.asm.tree.TableSwitchInsnNode || cursor instanceof org.objectweb.asm.tree.LookupSwitchInsnNode) return null;
+            if(cursor instanceof TypeInsnNode type && type.getOpcode()==org.objectweb.asm.Opcodes.NEW) allocations.push(type.desc);
+            else if(cursor instanceof MethodInsnNode call && call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESPECIAL && call.name.equals("<init>")) {
+                if(allocations.isEmpty() || !allocations.peek().equals(call.owner))return null;
+                allocations.pop();if(allocations.isEmpty())return call;
+            }
+        }
+        return null;
+    }
+
+    private static int rewriteEarlyFluidConstruction(ClassNode node) {
+        String owner="net/minecraftforge/fluids/FluidStack";
+        int count=0;
+        for(var method:node.methods)for(var instruction=method.instructions.getFirst();instruction!=null;) {
+            var next=instruction.getNext();
+            if(instruction instanceof TypeInsnNode allocation && allocation.getOpcode()==org.objectweb.asm.Opcodes.NEW && allocation.desc.equals(owner)) {
+                var duplicate=nextExecutable(allocation);
+                if(duplicate==null || duplicate.getOpcode()!=org.objectweb.asm.Opcodes.DUP){instruction=next;continue;}
+                var constructor=findPairedConstructor(allocation,owner);
+                if(constructor!=null && constructor.desc.equals("(Lnet/minecraft/world/level/material/Fluid;I)V")) {
+                    var resume=duplicate.getNext();
+                    method.instructions.remove(allocation); method.instructions.remove(duplicate);
+                    var factory=new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192EarlyFluidStackBridge","create","(Lnet/minecraft/world/level/material/Fluid;I)Lnet/neoforged/neoforge/fluids/FluidStack;",false);
+                    method.instructions.set(constructor,factory);next=resume;count++;
+                }
+            }
+            instruction=next;
         }
         return count;
     }

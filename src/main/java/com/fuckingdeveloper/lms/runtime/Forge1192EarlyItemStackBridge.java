@@ -77,26 +77,7 @@ public final class Forge1192EarlyItemStackBridge {
                             "No pending target components for early ItemStack "
                                     + key.identifier()));
         }
-        java.util.concurrent.atomic.AtomicReference<DataComponentMap> result =
-                new java.util.concurrent.atomic.AtomicReference<>();
-        for (var pending : BuiltInRegistries.DATA_COMPONENT_INITIALIZERS.build(context)) {
-            if (!pending.key().equals(Registries.ITEM)) continue;
-            var itemComponents = (DataComponentInitializers.PendingComponents<Item>) pending;
-            itemComponents.forEach((candidate, components) -> {
-                if (candidate == holder || candidate.unwrapKey().filter(key::equals).isPresent()) {
-                    if (!result.compareAndSet(null, components)) {
-                        throw new IllegalStateException("Duplicate target defaults for early ItemStack "
-                                + key.identifier());
-                    }
-                }
-            });
-        }
-        DataComponentMap defaults = result.get();
-        if (defaults == null) {
-            throw new IllegalStateException("No target component initializer for early ItemStack "
-                    + key.identifier());
-        }
-        return defaults;
+        return Target263PendingComponentDefaults.materialize(holder, context);
     }
 
     static ItemStack create(Item item, int count, DataComponentMap defaults) {
