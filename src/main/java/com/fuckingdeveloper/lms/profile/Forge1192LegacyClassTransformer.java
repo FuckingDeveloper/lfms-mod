@@ -343,6 +343,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
+        rewrites += rewritePairedVanillaTags(node);
         rewrites += rewriteCommonTagReferences(node);
         rewrites += rewriteWidgetCoordinateFieldsAndFieldHandles(node);
         rewrites += rewriteLegacyMobEffectInstanceConstruction(node);
@@ -7623,6 +7624,98 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         else adapter.instructions.add(new FieldInsnNode(opcode, owner, name, descriptor));
         adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(Type.getReturnType(methodDescriptor).getOpcode(org.objectweb.asm.Opcodes.IRETURN))); adapters.add(adapter);
         return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, node.name, adapterName, methodDescriptor, false);
+    }
+
+    private record PairedVanillaTag(String member, String location, String projection) {}
+    private final java.util.Map<String, java.util.Optional<PairedVanillaTag>> pairedTagEvidence = new java.util.concurrent.ConcurrentHashMap<>();
+    private PairedVanillaTag pairedVanillaTag(String owner, String name, String descriptor, int opcode) {
+        if (opcode != org.objectweb.asm.Opcodes.GETSTATIC || !descriptor.equals("Lnet/minecraft/tags/TagKey;")
+                || !(owner.equals("net/minecraft/tags/ItemTags") || owner.equals("net/minecraft/tags/BlockTags"))) return null;
+        return pairedTagEvidence.computeIfAbsent(owner + "#" + name, ignored -> {
+            String canonical = SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalFieldName(owner, name, descriptor)).orElse(name);
+            String location = Forge1192VanillaTagIndex.location(owner, canonical);
+            if (location == null) return java.util.Optional.empty();
+            if (VANILLA_RELOCATIONS.searchExactField(owner.replace('/', '.'), canonical, descriptor).size() == 1)
+                return java.util.Optional.empty(); // Existing scalar declarations keep their native identity.
+            var target = VANILLA_RELOCATIONS.searchExactField("net.minecraft.tags.BlockItemTags", canonical,
+                    "Lnet/minecraft/tags/BlockItemTagId;");
+            boolean item = owner.equals("net/minecraft/tags/ItemTags");
+            String[] projected = targetPairTagLocations().get(canonical);
+            if (projected == null || !location.equals(projected[item ? 1 : 0])) return java.util.Optional.empty();
+            return target.size() == 1 ? java.util.Optional.of(new PairedVanillaTag(canonical, location,
+                    owner.equals("net/minecraft/tags/ItemTags") ? "item" : "block")) : java.util.Optional.empty();
+        }).orElse(null);
+    }
+    private volatile java.util.Map<String, String[]> targetPairTagLocations;
+    private java.util.Map<String, String[]> targetPairTagLocations() {
+        var cached = targetPairTagLocations; if (cached != null) return cached;
+        synchronized (pairedTagEvidence) {
+            if (targetPairTagLocations != null) return targetPairTagLocations;
+            var result = new java.util.HashMap<String,String[]>();
+            try {
+                byte[] bytes = targetAbiBytes("net/minecraft/tags/BlockItemTags");
+                if (bytes != null) {
+                    var type = new ClassNode(); new ClassReader(bytes).accept(type, ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);
+                    for (var method:type.methods) if(method.name.equals("<clinit>")) for(var instruction:method.instructions)
+                        if(instruction instanceof FieldInsnNode field && field.getOpcode()==org.objectweb.asm.Opcodes.PUTSTATIC
+                                && field.owner.equals("net/minecraft/tags/BlockItemTags") && field.desc.equals("Lnet/minecraft/tags/BlockItemTagId;")) {
+                            var previous=previousExecutable(field);
+                            if(!(previous instanceof MethodInsnNode factory) || !factory.owner.equals("net/minecraft/tags/BlockItemTagId")
+                                    || !factory.name.equals("create") || factory.getOpcode()!=org.objectweb.asm.Opcodes.INVOKESTATIC) continue;
+                            var last=previousExecutable(factory);
+                            if(!(last instanceof LdcInsnNode right) || !(right.cst instanceof String rightId)) continue;
+                            String leftId=rightId;
+                            if(factory.desc.equals("(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/tags/BlockItemTagId;")) {
+                                var first=previousExecutable(last);
+                                if(!(first instanceof LdcInsnNode left) || !(left.cst instanceof String))continue;
+                                leftId=(String)left.cst;
+                            } else if(!factory.desc.equals("(Ljava/lang/String;)Lnet/minecraft/tags/BlockItemTagId;"))continue;
+                            result.put(field.name,new String[]{leftId.contains(":")?leftId:"minecraft:"+leftId,rightId.contains(":")?rightId:"minecraft:"+rightId});
+                        }
+                }
+            } catch(java.io.IOException failure) { throw new java.io.UncheckedIOException("Cannot inspect target paired tag identities",failure); }
+            return targetPairTagLocations=java.util.Map.copyOf(result);
+        }
+    }
+    private static void emitPairedTag(org.objectweb.asm.tree.InsnList instructions, PairedVanillaTag tag) {
+        instructions.add(new LdcInsnNode(tag.member())); instructions.add(new LdcInsnNode(tag.location()));
+        instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Target263VanillaTagBridge", tag.projection(),
+                "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/tags/TagKey;", false));
+    }
+    private int rewritePairedVanillaTags(ClassNode node) {
+        int rewrites = 0;
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        for (var method : node.methods) for (var insn = method.instructions.getFirst(); insn != null;) {
+            var current = insn; insn = insn.getNext();
+            if (current instanceof FieldInsnNode field) {
+                var tag = pairedVanillaTag(field.owner, field.name, field.desc, field.getOpcode());
+                if (tag != null) { var replacement = new org.objectweb.asm.tree.InsnList(); emitPairedTag(replacement, tag);
+                    method.instructions.insertBefore(field, replacement); method.instructions.remove(field); rewrites++; }
+            } else if (current instanceof LdcInsnNode ldc) {
+                Object adapted = pairedTagConstant(node, ldc.cst, adapters);
+                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+            } else if (current instanceof InvokeDynamicInsnNode dynamic) {
+                for (int i=0;i<dynamic.bsmArgs.length;i++) { Object adapted=pairedTagConstant(node,dynamic.bsmArgs[i],adapters);
+                    if(adapted!=dynamic.bsmArgs[i]) { dynamic.bsmArgs[i]=adapted; rewrites++; } }
+            }
+        }
+        node.methods.addAll(adapters); return rewrites;
+    }
+    private Object pairedTagConstant(ClassNode node, Object value, java.util.List<org.objectweb.asm.tree.MethodNode> adapters) {
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed=false;
+            for(int i=0;i<args.length;i++) { Object old=dynamic.getBootstrapMethodArgument(i); args[i]=pairedTagConstant(node,old,adapters); changed|=args[i]!=old; }
+            return changed ? new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args) : value;
+        }
+        if(!(value instanceof Handle handle) || handle.getTag()!=org.objectweb.asm.Opcodes.H_GETSTATIC) return value;
+        var tag=pairedVanillaTag(handle.getOwner(),handle.getName(),handle.getDesc(),org.objectweb.asm.Opcodes.GETSTATIC);
+        if(tag==null)return value;
+        String descriptor="()"+handle.getDesc(), name="lms$pairedTag$"+(node.methods.size()+adapters.size());
+        while(hasMethod(node,adapters,name,descriptor))name+="$";
+        var adapter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_STATIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,name,descriptor,null,null);
+        emitPairedTag(adapter.instructions,tag); adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN)); adapters.add(adapter);
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,node.name,name,descriptor,false);
     }
 
     private record LegacyColorCollectionField(String collection, String color) {}
