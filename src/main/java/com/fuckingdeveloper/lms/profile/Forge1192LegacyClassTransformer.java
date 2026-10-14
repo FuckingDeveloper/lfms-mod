@@ -259,6 +259,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteSourceRecipeIdCalls(node);
         rewrites += rewriteRecipeInformationFamily(node);
         rewrites += rewriteInteractionResultInformation(node);
+        rewrites += rewriteBonemealCallbacks(node);
         rewrites += rewriteContainerGraphicsPhases(node);
         rewrites += rewriteGuiBatchOperations(node);
         rewrites += rewriteRecipeRewardKeys(node);
@@ -4055,6 +4056,50 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     && field.desc.equals("Lnet/minecraft/world/InteractionResult;")) {field.owner="com/fuckingdeveloper/lms/runtime/Forge1192InteractionResultBridge";rewrites++;}
         }
         return rewrites;
+    }
+
+    private int rewriteBonemealCallbacks(ClassNode node) {
+        String owner = "net/minecraft/world/level/block/BonemealableBlock";
+        if (!isManagedSubtypeOf(node.name, owner)) return 0;
+        String pos = "Lnet/minecraft/core/BlockPos;", state = "Lnet/minecraft/world/level/block/state/BlockState;";
+        String random = "Lnet/minecraft/util/RandomSource;", origin = "Lnet/minecraft/world/level/block/BonemealSource;";
+        String helper = "com/fuckingdeveloper/lms/runtime/Forge1192BonemealBridge";
+        int count = 0;
+        for (var method : java.util.List.copyOf(node.methods)) {
+            String name = null, descriptor = null;
+            boolean valid = method.name.equals("m_7370_") && method.desc.equals("(Lnet/minecraft/world/level/BlockGetter;" + pos + state + "Z)Z");
+            if (valid) {
+                name = "isValidBonemealTarget";
+                descriptor = "(Lnet/minecraft/world/level/LevelReader;" + pos + state + origin + ")Z";
+            } else if (method.name.equals("m_214167_") && method.desc.equals("(Lnet/minecraft/world/level/Level;" + random + pos + state + ")Z")) {
+                name = "isBonemealSuccess";
+                descriptor = method.desc.substring(0, method.desc.indexOf(')')) + origin + ")Z";
+            } else if (method.name.equals("m_214148_") && method.desc.equals("(Lnet/minecraft/server/level/ServerLevel;" + random + pos + state + ")V")) {
+                name = "performBonemeal";
+                descriptor = method.desc.substring(0, method.desc.indexOf(')')) + origin + ")V";
+            }
+            if (name == null || (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0) continue;
+            final String targetName = name, targetDescriptor = descriptor;
+            if (node.methods.stream().anyMatch(m -> m.name.equals(targetName) && m.desc.equals(targetDescriptor)))
+                throw new IllegalStateException("Source/native bonemeal callback collision: " + node.name + "#" + name);
+            var wrapper = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC, name, descriptor, null, null);
+            if (!valid) {
+                wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 5));
+                wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, helper, "requireInteraction", "(" + origin + ")V", false));
+            }
+            wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+            for (int i = 1; i <= (valid ? 3 : 4); i++) wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, i));
+            if (valid) {
+                wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
+                wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 4));
+                wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, helper, "clientSide", "(Lnet/minecraft/world/level/LevelReader;" + origin + ")Z", false));
+            }
+            wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL, node.name, method.name, method.desc, false));
+            wrapper.instructions.add(new org.objectweb.asm.tree.InsnNode(descriptor.endsWith("Z") ? org.objectweb.asm.Opcodes.IRETURN : org.objectweb.asm.Opcodes.RETURN));
+            wrapper.maxStack = 6; wrapper.maxLocals = valid ? 5 : 6;
+            node.methods.add(wrapper); count++;
+        }
+        return count;
     }
 
     private int rewriteContainerGraphicsPhases(ClassNode node) {
