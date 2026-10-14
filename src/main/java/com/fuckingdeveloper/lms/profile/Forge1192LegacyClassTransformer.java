@@ -258,6 +258,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyRecipeViewFamily(node);
         rewrites += rewriteSourceRecipeIdCalls(node);
         rewrites += rewriteRecipeInformationFamily(node);
+        rewrites += rewriteInteractionResultInformation(node);
         rewrites += rewriteRecipeRewardKeys(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
@@ -3998,6 +3999,58 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if(adapted!=null){call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;rewrites++;}
             }else if(instruction instanceof LdcInsnNode ldc){Object adapted=recipeInformationConstant(ldc.cst);if(adapted!=ldc.cst){ldc.cst=adapted;rewrites++;}}
             else if(instruction instanceof InvokeDynamicInsnNode dynamic)for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=recipeInformationConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;rewrites++;}}
+        }
+        return rewrites;
+    }
+
+    private static Handle interactionResultInformationHandle(Handle handle) {
+        String owner="net/minecraft/world/InteractionResult", bridge="com/fuckingdeveloper/lms/runtime/Forge1192InteractionResultBridge", result="L"+owner+";";
+        if (!handle.getOwner().equals(owner)) return null;
+        String name=handle.getName();
+        if (SRG_RUNTIME_RESOLVER.isPresent()) name=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,handle.getDesc()).orElse(name);
+        if (handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKESTATIC) {
+            if ((name.equals("values") && handle.getDesc().equals("()["+result))
+                    || (name.equals("valueOf") && handle.getDesc().equals("(Ljava/lang/String;)"+result))
+                    || (name.equals("sidedSuccess") && handle.getDesc().equals("(Z)"+result)))
+                return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,bridge,name,handle.getDesc(),false);
+        } else if (handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL || handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKEINTERFACE) {
+            String returnType=switch(name) {
+                case "ordinal" -> "I";
+                case "name", "toString" -> "Ljava/lang/String;";
+                case "consumesAction", "shouldSwing", "shouldAwardStats" -> "Z";
+                default -> null;
+            };
+            if (returnType!=null && handle.getDesc().equals("()"+returnType))
+                return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,bridge,name.equals("toString")?"name":name,"("+result+")"+returnType,false);
+        }
+        return null;
+    }
+    private static Object interactionResultInformationConstant(Object value) {
+        if(value instanceof Handle handle) {var adapted=interactionResultInformationHandle(handle);return adapted==null?value:adapted;}
+        if(value instanceof ConstantDynamic dynamic) {
+            Object[] args=new Object[dynamic.getBootstrapMethodArgumentCount()];boolean changed=false;
+            for(int i=0;i<args.length;i++){Object old=dynamic.getBootstrapMethodArgument(i);args[i]=interactionResultInformationConstant(old);changed|=args[i]!=old;}
+            return changed?new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args):value;
+        }
+        return value;
+    }
+    private static int rewriteInteractionResultInformation(ClassNode node) {
+        int rewrites=0;
+        for(var method:node.methods)for(var instruction:method.instructions) {
+            if(instruction instanceof MethodInsnNode call) {
+                int tag=switch(call.getOpcode()) {
+                    case org.objectweb.asm.Opcodes.INVOKESTATIC -> org.objectweb.asm.Opcodes.H_INVOKESTATIC;
+                    case org.objectweb.asm.Opcodes.INVOKEVIRTUAL -> org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL;
+                    case org.objectweb.asm.Opcodes.INVOKEINTERFACE -> org.objectweb.asm.Opcodes.H_INVOKEINTERFACE;
+                    default -> -1;
+                };
+                if(tag==-1)continue;var adapted=interactionResultInformationHandle(new Handle(tag,call.owner,call.name,call.desc,call.itf));
+                if(adapted!=null){call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;rewrites++;}
+            }else if(instruction instanceof LdcInsnNode ldc){Object adapted=interactionResultInformationConstant(ldc.cst);if(adapted!=ldc.cst){ldc.cst=adapted;rewrites++;}}
+            else if(instruction instanceof InvokeDynamicInsnNode dynamic)for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=interactionResultInformationConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;rewrites++;}}
+            else if(instruction instanceof FieldInsnNode field && field.getOpcode()==org.objectweb.asm.Opcodes.GETSTATIC
+                    && field.owner.equals("net/minecraft/world/InteractionResult") && field.name.equals("CONSUME_PARTIAL")
+                    && field.desc.equals("Lnet/minecraft/world/InteractionResult;")) {field.owner="com/fuckingdeveloper/lms/runtime/Forge1192InteractionResultBridge";rewrites++;}
         }
         return rewrites;
     }
