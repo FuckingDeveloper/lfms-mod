@@ -259,6 +259,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteSourceRecipeIdCalls(node);
         rewrites += rewriteRecipeInformationFamily(node);
         rewrites += rewriteInteractionResultInformation(node);
+        rewrites += rewriteContainerGraphicsPhases(node);
+        rewrites += rewriteGuiBatchOperations(node);
         rewrites += rewriteRecipeRewardKeys(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
         rewrites += rewriteLegacyMaterialBlockProperties(node);
@@ -4051,6 +4053,158 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             else if(instruction instanceof FieldInsnNode field && field.getOpcode()==org.objectweb.asm.Opcodes.GETSTATIC
                     && field.owner.equals("net/minecraft/world/InteractionResult") && field.name.equals("CONSUME_PARTIAL")
                     && field.desc.equals("Lnet/minecraft/world/InteractionResult;")) {field.owner="com/fuckingdeveloper/lms/runtime/Forge1192InteractionResultBridge";rewrites++;}
+        }
+        return rewrites;
+    }
+
+    private int rewriteContainerGraphicsPhases(ClassNode node) {
+        String screen="net/minecraft/client/gui/screens/inventory/AbstractContainerScreen";
+        if (!screen.equals(node.superName)) return 0;
+        String pose="Lcom/mojang/blaze3d/vertex/PoseStack;",graphics="Lnet/minecraft/client/gui/GuiGraphicsExtractor;";
+        String bridge="com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge",view="com/fuckingdeveloper/lms/runtime/render/LegacyContainerGraphics";
+        if (node.methods.stream().anyMatch(m->(m.name.equals("extractBackground")||m.name.equals("extractLabels"))&&m.desc.contains(graphics)))
+            throw new IllegalStateException("Native GUI phase collision in source screen " + node.name);
+        boolean hasBackground=node.methods.stream().anyMatch(m->m.name.equals("m_7286_")&&m.desc.equals("("+pose+"FII)V"));
+        if (!hasBackground && (node.access&org.objectweb.asm.Opcodes.ACC_ABSTRACT)==0) return 0;
+        node.interfaces.add(view);
+        if(!hasBackground){
+            node.methods.add(new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PROTECTED|org.objectweb.asm.Opcodes.ACC_ABSTRACT,"m_7286_","("+pose+"FII)V",null,null));
+        }
+        if(node.methods.stream().noneMatch(m->m.name.equals("m_7027_")&&m.desc.equals("("+pose+"II)V"))){
+            var defaults=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PROTECTED|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_7027_","("+pose+"II)V",null,null);
+            defaults.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));defaults.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,1));
+            defaults.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,2));defaults.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,3));
+            defaults.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,bridge,"defaultLabels","(L"+screen+";"+pose+"II)V",false));defaults.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));defaults.maxStack=4;defaults.maxLocals=4;node.methods.add(defaults);
+        }
+        if(node.methods.stream().noneMatch(m->m.name.equals("m_7333_")&&m.desc.equals("("+pose+")V"))){
+            var defaults=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_7333_","("+pose+")V",null,null);
+            defaults.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,1));defaults.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,bridge,"defaultBackground","("+pose+")V",false));defaults.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));defaults.maxStack=1;defaults.maxLocals=2;node.methods.add(defaults);
+        }
+        for(boolean background:new boolean[]{true,false}) {
+            var callback=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,background?"lms$background":"lms$labels",background?"("+pose+"FII)V":"("+pose+"II)V",null,null);
+            callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,1));
+            if(background)callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD,2));
+            callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,background?3:2));callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,background?4:3));
+            callback.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,node.name,background?"m_7286_":"m_7027_",callback.desc,false));callback.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));callback.maxStack=5;callback.maxLocals=5;node.methods.add(callback);
+            var target=new org.objectweb.asm.tree.MethodNode((background?org.objectweb.asm.Opcodes.ACC_PUBLIC:org.objectweb.asm.Opcodes.ACC_PROTECTED)|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,background?"extractBackground":"extractLabels",background?"("+graphics+"IIF)V":"("+graphics+"II)V",null,null);
+            if(background){for(int i=0;i<4;i++)target.instructions.add(new org.objectweb.asm.tree.VarInsnNode(i<2?org.objectweb.asm.Opcodes.ALOAD:org.objectweb.asm.Opcodes.ILOAD,i));target.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD,4));target.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESPECIAL,screen,"extractBackground",target.desc,false));}
+            for(int i=0;i<4;i++)target.instructions.add(new org.objectweb.asm.tree.VarInsnNode(i<2?org.objectweb.asm.Opcodes.ALOAD:org.objectweb.asm.Opcodes.ILOAD,i));
+            if(background)target.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD,4));
+            target.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,bridge,background?"background":"labels","(L"+view+";"+graphics+(background?"IIF)V":"II)V"),false));target.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));target.maxStack=5;target.maxLocals=5;node.methods.add(target);
+        }
+        // Exact source GuiComponent depth storage, distinct from native extracted layer ordering.
+        if(node.methods.stream().noneMatch(m->m.name.equals("m_93252_")&&m.desc.equals("()I"))){
+            node.fields.add(new org.objectweb.asm.tree.FieldNode(org.objectweb.asm.Opcodes.ACC_PRIVATE,"lms$guiBlitOffset","I",null,null));
+            var getter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93252_","()I",null,null);
+            getter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));getter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETFIELD,node.name,"lms$guiBlitOffset","I"));getter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));getter.maxStack=1;getter.maxLocals=1;node.methods.add(getter);
+            if(node.methods.stream().noneMatch(m->m.name.equals("m_93250_")&&m.desc.equals("(I)V"))){
+                var setter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93250_","(I)V",null,null);
+                setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));setter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.PUTFIELD,node.name,"lms$guiBlitOffset","I"));setter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));setter.maxStack=2;setter.maxLocals=2;node.methods.add(setter);
+            }
+        }
+        return 1;
+    }
+    private static Handle guiShaderHandle(Handle handle) {
+        if (handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKESTATIC
+                || !handle.getOwner().equals("net/minecraft/client/renderer/GameRenderer")
+                || !handle.getDesc().equals("()Lnet/minecraft/client/renderer/ShaderInstance;")
+                || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String canonical = SRG_RUNTIME_RESOLVER.get().canonicalMethodName(handle.getOwner(), handle.getName(), handle.getDesc()).orElse(handle.getName());
+        String shader = switch (canonical) {
+            case "getPositionColorShader" -> "positionColorShader";
+            case "getPositionTexShader" -> "positionTexShader";
+            case "getPositionTexColorShader" -> "positionTexColorShader";
+            default -> null;
+        };
+        return shader == null ? null : new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge", shader,
+                "()Lcom/fuckingdeveloper/lms/runtime/render/LegacyGuiShader;", false);
+    }
+
+    private static Object guiShaderConstant(Object value) {
+        if (value instanceof Handle handle) {
+            var adapted = guiShaderHandle(handle);
+            return adapted == null ? value : adapted;
+        }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
+            boolean changed = false;
+            for (int i = 0; i < args.length; i++) {
+                Object old = dynamic.getBootstrapMethodArgument(i);
+                args[i] = guiShaderConstant(old);
+                changed |= args[i] != old;
+            }
+            Handle bootstrap = guiShaderHandle(dynamic.getBootstrapMethod());
+            changed |= bootstrap != null;
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(),
+                    bootstrap == null ? dynamic.getBootstrapMethod() : bootstrap, args) : value;
+        }
+        return value;
+    }
+
+    private int rewriteGuiBatchOperations(ClassNode node) {
+        if(SRG_RUNTIME_RESOLVER.isEmpty())return 0;
+        int rewrites=0;
+        String render="com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge";
+        for(var method:node.methods){
+            for(var instruction=method.instructions.getFirst();instruction!=null;){
+                var next=instruction.getNext();
+                if(instruction instanceof MethodInsnNode getter&&getter.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        &&getter.owner.equals("net/minecraft/client/renderer/texture/AbstractTexture")&&getter.desc.equals("()I")
+                        &&SRG_RUNTIME_RESOLVER.get().canonicalMethodName(getter.owner,getter.name,getter.desc).orElse(getter.name).equals("getId")){
+                    var consumer=next;while(consumer!=null&&consumer.getOpcode()<0)consumer=consumer.getNext();
+                    if(consumer instanceof MethodInsnNode binding&&binding.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC
+                            &&binding.owner.equals("com/mojang/blaze3d/systems/RenderSystem")&&binding.desc.equals("(II)V")
+                            &&SRG_RUNTIME_RESOLVER.get().canonicalMethodName(binding.owner,binding.name,binding.desc).orElse(binding.name).equals("setShaderTexture")){
+                        method.instructions.remove(getter);binding.owner="com/fuckingdeveloper/lms/runtime/render/LegacyGuiTextureHandles";binding.name="setShaderTexture";binding.desc="(ILnet/minecraft/client/renderer/texture/AbstractTexture;)V";binding.itf=false;rewrites++;
+                    }
+                }
+                instruction=next;
+            }
+            boolean tessellator=java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).anyMatch(insn->insn instanceof MethodInsnNode c && c.owner.equals("com/mojang/blaze3d/vertex/Tesselator") && c.name.equals("m_85913_"));
+            boolean declaredEscape=method.desc.contains("Lcom/mojang/blaze3d/vertex/Tesselator;")||method.desc.contains("Lcom/mojang/blaze3d/vertex/BufferBuilder;");
+            boolean escape=declaredEscape||java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).anyMatch(insn->insn instanceof MethodInsnNode c && c.desc.contains("Lcom/mojang/blaze3d/vertex/BufferBuilder;")&&!c.owner.equals("com/mojang/blaze3d/vertex/Tesselator"));
+            escape |= java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).anyMatch(insn -> {
+                if(insn instanceof FieldInsnNode field)return field.desc.contains("Lcom/mojang/blaze3d/vertex/Tesselator;")||field.desc.contains("Lcom/mojang/blaze3d/vertex/BufferBuilder;");
+                if(insn instanceof TypeInsnNode type)return type.desc.equals("com/mojang/blaze3d/vertex/Tesselator")||type.desc.equals("com/mojang/blaze3d/vertex/BufferBuilder");
+                if(insn instanceof MethodInsnNode call)return call.owner.equals("java/util/function/BiConsumer")||call.owner.equals("java/util/function/Consumer");
+                return false;
+            });
+            for(var insn:method.instructions){
+                if (insn instanceof LdcInsnNode ldc) {
+                    Object adapted = guiShaderConstant(ldc.cst);
+                    if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+                } else if (insn instanceof InvokeDynamicInsnNode dynamic) {
+                    for (int i = 0; i < dynamic.bsmArgs.length; i++) {
+                        Object adapted = guiShaderConstant(dynamic.bsmArgs[i]);
+                        if (adapted != dynamic.bsmArgs[i]) { dynamic.bsmArgs[i] = adapted; rewrites++; }
+                    }
+                }
+                if(!(insn instanceof MethodInsnNode call))continue;
+                if(!call.owner.equals("net/minecraft/client/renderer/GameRenderer")&&!call.owner.equals("com/mojang/blaze3d/systems/RenderSystem")&&!call.owner.equals("net/minecraft/client/gui/Font")&&!call.owner.equals("com/mojang/blaze3d/vertex/Tesselator")&&!call.owner.equals("com/mojang/blaze3d/vertex/BufferBuilder")&&!call.owner.equals("net/minecraft/client/renderer/texture/AbstractTexture")&&!call.owner.equals("com/mojang/blaze3d/vertex/PoseStack$Pose"))continue;
+                String canonical=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(call.owner,call.name,call.desc).orElse(call.name);
+                if(tessellator&&!escape&&call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL&&call.owner.equals("com/mojang/blaze3d/vertex/PoseStack$Pose")&&call.name.equals("m_85861_")&&call.desc.equals("()Lcom/mojang/math/Matrix4f;")){
+                    call.name="pose";call.desc="()Lorg/joml/Matrix4f;";rewrites++;
+                }else if(call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC&&call.owner.equals("net/minecraft/client/renderer/GameRenderer")&&call.desc.equals("()Lnet/minecraft/client/renderer/ShaderInstance;")){
+                    var adapted = guiShaderHandle(new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, call.owner, call.name, call.desc, call.itf));
+                    if(adapted!=null){call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;rewrites++;}
+                }else if(call.owner.equals("com/mojang/blaze3d/systems/RenderSystem")){
+                    if(canonical.equals("setShader")&&call.desc.equals("(Ljava/util/function/Supplier;)V")) {call.owner=render;call.name="setShader";call.itf=false;rewrites++;}
+                    else if(call.desc.equals("()V")&&java.util.Set.of("enableBlend","disableBlend","defaultBlendFunc","enableTexture","disableTexture").contains(canonical)){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
+                }else if(call.owner.equals("net/minecraft/client/gui/Font")&&call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        &&(canonical.equals("draw")||canonical.equals("drawShadow")) && call.desc.startsWith("(Lcom/mojang/blaze3d/vertex/PoseStack;")&&call.desc.endsWith("FFI)I")){
+                    var parameters=org.objectweb.asm.Type.getArgumentTypes(call.desc);
+                    if(parameters.length==5&&java.util.Set.of("Ljava/lang/String;","Lnet/minecraft/network/chat/Component;","Lnet/minecraft/util/FormattedCharSequence;").contains(parameters[1].getDescriptor())){
+                        call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner=render;call.name=canonical;call.desc="(Lnet/minecraft/client/gui/Font;"+call.desc.substring(1);call.itf=false;rewrites++;
+                    }
+                }else if(tessellator&&!escape&&call.owner.equals("com/mojang/blaze3d/vertex/Tesselator")){
+                    String name=switch(call.name){case "m_85913_"->"getInstance";case "m_85915_"->"getBuffer";case "m_85914_"->"end";default->null;};
+                    if(name!=null){call.owner="com/fuckingdeveloper/lms/runtime/render/LegacyGuiTesselator";call.name=name;call.desc=call.desc.replace("com/mojang/blaze3d/vertex/Tesselator","com/fuckingdeveloper/lms/runtime/render/LegacyGuiTesselator").replace("com/mojang/blaze3d/vertex/BufferBuilder","com/fuckingdeveloper/lms/runtime/render/LegacyGuiBuffer");call.itf=false;rewrites++;}
+                }else if(tessellator&&!escape&&call.owner.equals("com/mojang/blaze3d/vertex/BufferBuilder")){
+                    String name=switch(call.name){case "m_166779_"->"begin";case "m_85982_"->"vertex";default->null;};
+                    if(name!=null){call.owner="com/fuckingdeveloper/lms/runtime/render/LegacyGuiBuffer";call.name=name;if(name.equals("vertex"))call.desc=call.desc.replace("com/mojang/math/Matrix4f","org/joml/Matrix4f");call.itf=false;rewrites++;}
+                }
+            }
         }
         return rewrites;
     }
@@ -11667,6 +11821,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/event/LegacyAttachCapabilitiesEvent";
         if (value.equals("net/minecraftforge/common/util/INBTSerializable"))
             return "com/fuckingdeveloper/lms/runtime/capability/LegacyINBTSerializable";
+        if (value.equals("net/minecraft/client/renderer/ShaderInstance"))
+            return "com/fuckingdeveloper/lms/runtime/render/LegacyGuiShader";
         if (value.equals("net/minecraft/world/InteractionResultHolder"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyInteractionResultHolder";
         if (value.equals("net/minecraft/world/item/UseAnim"))
@@ -11894,6 +12050,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .replace("net/minecraftforge/registries/tags/ITag", "com/fuckingdeveloper/lms/runtime/registry/LegacyTag")
                 .replace("net/minecraftforge/common/capabilities/ICapabilityProvider", "com/fuckingdeveloper/lms/runtime/capability/LegacyICapabilityProvider")
                 .replace("net/minecraftforge/common/capabilities/RegisterCapabilitiesEvent", "net/neoforged/neoforge/capabilities/RegisterCapabilitiesEvent")
+                .replace("net/minecraft/client/renderer/ShaderInstance", "com/fuckingdeveloper/lms/runtime/render/LegacyGuiShader")
                 .replace("net/minecraft/world/InteractionResultHolder", "com/fuckingdeveloper/lms/runtime/item/LegacyInteractionResultHolder")
                 .replace("net/minecraft/world/item/UseAnim", "com/fuckingdeveloper/lms/runtime/item/LegacyUseAnimation")
                 .replace("net/minecraftforge/common/capabilities/CapabilityToken", "com/fuckingdeveloper/lms/runtime/capability/LegacyCapabilityToken")

@@ -11,11 +11,18 @@ import java.util.function.Consumer;
 /** Scoped legacy GUI primitives recorded through the authoritative target extractor. */
 public final class Forge1192TooltipGuiBridge {
     private static final ThreadLocal<Scope> ACTIVE = new ThreadLocal<>();
-    private static final class Scope {
+    enum Phase { TOOLTIP, BACKGROUND, LABELS }
+    static final class Scope {
         final GuiGraphicsExtractor graphics;
         final LegacyTooltipItemRenderer renderer = new LegacyTooltipItemRenderer();
         Identifier texture;
+        net.minecraft.client.renderer.texture.AbstractTexture textureObject;
         int color = -1;
+        boolean blend = true;
+        boolean textureEnabled = true;
+        Phase phase=Phase.TOOLTIP;
+        LegacyGuiShader shader;
+        LegacyGuiBuffer buffer;
         Scope(GuiGraphicsExtractor graphics) { this.graphics = graphics; }
     }
     private Forge1192TooltipGuiBridge() {}
@@ -27,10 +34,14 @@ public final class Forge1192TooltipGuiBridge {
         try { callback.accept(scope.renderer); } finally { ACTIVE.remove(); }
     }
 
-    private static Scope scope() {
+    static Scope scope() {
         Scope scope = ACTIVE.get();
         if (scope == null) throw new IllegalStateException("Legacy tooltip GUI primitive outside extraction");
         return scope;
+    }
+    static void extractGui(GuiGraphicsExtractor graphics, Phase phase, Runnable callback) {
+        var previous=ACTIVE.get();var scope=new Scope(java.util.Objects.requireNonNull(graphics));scope.phase=phase; ACTIVE.set(scope);
+        try {callback.run();} finally {if(previous==null)ACTIVE.remove();else ACTIVE.set(previous);}
     }
     static GuiGraphicsExtractor graphics(LegacyTooltipItemRenderer renderer) {
         Scope scope = scope();
@@ -43,6 +54,7 @@ public final class Forge1192TooltipGuiBridge {
     public static void shaderTexture(int unit, Identifier texture) {
         if (unit != 0) throw new IllegalStateException("Unsupported legacy tooltip texture unit " + unit);
         scope().texture = java.util.Objects.requireNonNull(texture, "tooltip texture");
+        scope().textureObject = null;
     }
     public static void blit(PoseStack pose, int x, int y, int z, float u, float v,
                             int width, int height, int textureWidth, int textureHeight) {
