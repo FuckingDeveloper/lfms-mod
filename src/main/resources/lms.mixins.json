@@ -11,7 +11,8 @@
     "Target263MutableStackTagMixin",
     "Target263ItemResourceSnapshotMixin",
     "Target263VillagerTradeMixin",
-    "Target263WanderingTraderTradeMixin"
+    "Target263WanderingTraderTradeMixin",
+    "Target263SingleRecipeResultAccess"
   ],
   "client": [
     "Target263EntityRenderStateMixin"

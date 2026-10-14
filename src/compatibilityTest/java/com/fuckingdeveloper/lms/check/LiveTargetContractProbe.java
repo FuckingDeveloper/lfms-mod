@@ -134,6 +134,7 @@ public final class LiveTargetContractProbe {
         RecipeRewardsCheck.run();
         FuelQueryFamilyCheck.run();
         StackComparisonFamilyCheck.run();
+        CookingRecipeInformationCheck.run();
         System.out.println("PASS: real FML/mixins, pre-subclass gather/lazy provider/removal/unload/NBT, live stack/copy/resource snapshot ownership, queue/instant transformation, retained origin, actual injected dispatch and native render-invalidation range/receiver semantics; no world/window/legacy entrypoint initialization");
     }
 

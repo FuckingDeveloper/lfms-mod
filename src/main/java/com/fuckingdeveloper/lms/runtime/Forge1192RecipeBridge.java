@@ -19,6 +19,45 @@ import java.util.Collection;
 public final class Forge1192RecipeBridge {
     private Forge1192RecipeBridge() {}
 
+    private static final java.lang.ref.ReferenceQueue<Recipe<?>> ID_QUEUE = new java.lang.ref.ReferenceQueue<>();
+    private static final java.util.Map<RecipeReference, RecipeIdentity> NATIVE_IDS = new java.util.HashMap<>();
+    private record RecipeIdentity(net.minecraft.resources.Identifier id, boolean ambiguous) {}
+    private static final class RecipeReference extends java.lang.ref.WeakReference<Recipe<?>> {
+        private final int hash;
+        RecipeReference(Recipe<?> recipe, java.lang.ref.ReferenceQueue<Recipe<?>> queue) { super(recipe,queue); hash=System.identityHashCode(recipe); }
+        @Override public int hashCode() { return hash; }
+        @Override public boolean equals(Object other) {
+            return this==other || (other instanceof RecipeReference ref && get()!=null && get()==ref.get());
+        }
+    }
+    private static void cleanIdentities() {
+        java.lang.ref.Reference<? extends Recipe<?>> ref;
+        while ((ref=ID_QUEUE.poll())!=null) NATIVE_IDS.remove(ref);
+    }
+    public static synchronized void recordRecipeIdentity(RecipeHolder<?> holder) {
+        cleanIdentities();
+        var key=new RecipeReference(holder.value(),ID_QUEUE);
+        var id=holder.id().identifier();
+        var previous=NATIVE_IDS.putIfAbsent(key,new RecipeIdentity(id,false));
+        if (previous!=null && (previous.ambiguous() || !previous.id().equals(id))) {
+            NATIVE_IDS.put(key,new RecipeIdentity(previous.id(),true));
+            throw new IllegalStateException("Native recipe has ambiguous holder identifiers: " + previous.id() + " / " + id);
+        }
+    }
+    private static synchronized net.minecraft.resources.Identifier nativeId(Recipe<?> recipe) {
+        cleanIdentities();
+        var id=NATIVE_IDS.get(new RecipeReference(recipe,null));
+        if (id==null) throw new UnsupportedOperationException("Source identifier requires source ownership or an enumerated authoritative RecipeHolder: " + recipe.getClass().getName());
+        if (id.ambiguous()) throw new IllegalStateException("Native recipe holder identity is ambiguous");
+        return id.id();
+    }
+    public static RecipeManager serverRecipeManager(net.minecraft.server.MinecraftServer server) {
+        return Objects.requireNonNull(server,"server").getRecipeManager();
+    }
+    public static int cookingTime(net.minecraft.world.item.crafting.AbstractCookingRecipe recipe) { return recipe instanceof com.fuckingdeveloper.lms.runtime.recipe.LegacyCookingTime source ? source.lms$cookingTime() : recipe.cookingTime(); }
+    public static float cookingExperience(net.minecraft.world.item.crafting.AbstractCookingRecipe recipe) { return recipe instanceof com.fuckingdeveloper.lms.runtime.recipe.LegacyCookingExperience source ? source.lms$cookingExperience() : recipe.experience(); }
+
+
     public static RecipeManager clientRecipeManager(ClientPacketListener connection) {
         Objects.requireNonNull(connection, "connection");
         var server = ServerLifecycleHooks.getCurrentServer();
@@ -33,7 +72,7 @@ public final class Forge1192RecipeBridge {
     public static Collection<Recipe<?>> legacyRecipes(RecipeManager manager) {
         Objects.requireNonNull(manager, "manager");
         java.util.ArrayList<Recipe<?>> recipes = new java.util.ArrayList<>();
-        for (RecipeHolder<?> holder : manager.getRecipes()) recipes.add(holder.value());
+        for (RecipeHolder<?> holder : manager.getRecipes()) { recordRecipeIdentity(holder); recipes.add(holder.value()); }
         return java.util.List.copyOf(recipes);
     }
 
@@ -41,12 +80,17 @@ public final class Forge1192RecipeBridge {
         Objects.requireNonNull(recipe, "recipe");
         if (recipe instanceof com.fuckingdeveloper.lms.runtime.recipe.LegacyRecipeIdentity legacy)
             return Objects.requireNonNull(legacy.lms$legacyId(), "Source recipe returned null identifier");
-        throw new UnsupportedOperationException("Source recipe identifier requires its source identity view or authoritative native RecipeHolder context: " + recipe.getClass().getName());
+        return nativeId(recipe);
     }
 
     public static ItemStack legacyResult(Recipe<?> recipe) {
         Objects.requireNonNull(recipe, "recipe");
         if (recipe instanceof LegacyRecipeResult legacy) return legacy.lms$legacyResult();
+        if (recipe instanceof net.minecraft.world.item.crafting.SingleItemRecipe) {
+            if (!(recipe instanceof com.fuckingdeveloper.lms.mixin.Target263SingleRecipeResultAccess access))
+                throw new IllegalStateException("Native single-input result accessor is not installed");
+            return access.lms$nativeResult().create();
+        }
         var server = Objects.requireNonNull(ServerLifecycleHooks.getCurrentServer(),
                 "Cannot resolve a target recipe display without a co-resident server");
         var context = SlotDisplayContext.fromLevel(server.overworld());
