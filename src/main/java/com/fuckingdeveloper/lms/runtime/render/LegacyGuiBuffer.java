@@ -19,6 +19,16 @@ import java.util.*;
 public final class LegacyGuiBuffer implements VertexConsumer {
     private static final RenderPipeline COLOR_OPAQUE=RenderPipeline.builder(RenderPipelines.GUI_SNIPPET).withLocation(net.minecraft.resources.Identifier.fromNamespaceAndPath("lms","legacy_gui_color_opaque")).withColorTargetState(ColorTargetState.DEFAULT).build();
     private static final RenderPipeline TEXTURE_OPAQUE=RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET).withLocation(net.minecraft.resources.Identifier.fromNamespaceAndPath("lms","legacy_gui_texture_opaque")).withColorTargetState(ColorTargetState.DEFAULT).build();
+    private static final java.util.concurrent.ConcurrentMap<Integer,RenderPipeline> MASKED_PIPELINES=new java.util.concurrent.ConcurrentHashMap<>();
+    public static RenderPipeline pipeline(boolean texture,boolean blend,int writeMask) {
+        if((writeMask & ~ColorTargetState.WRITE_ALL)!=0)throw new IllegalArgumentException("Invalid GUI color-write mask");
+        var base=texture?(blend?RenderPipelines.GUI_TEXTURED:TEXTURE_OPAQUE):(blend?RenderPipelines.GUI:COLOR_OPAQUE);
+        if(writeMask==ColorTargetState.WRITE_ALL)return base;
+        int key=writeMask|(texture?16:0)|(blend?32:0);
+        return MASKED_PIPELINES.computeIfAbsent(key,unused->{var state=base.getColorTargetStates().getFirst();return base.toBuilder()
+                .withLocation(net.minecraft.resources.Identifier.fromNamespaceAndPath("lms","legacy_gui_mask/"+key))
+                .withColorTargetState(new ColorTargetState(state.blendFunction(),state.format(),writeMask)).build();});
+    }
     public record Point(float x,float y,float z,float u,float v,int color) {}
     private boolean building,texture,color,current;
     private float x,y,z,u,v;private int argb=-1;
@@ -57,7 +67,7 @@ public final class LegacyGuiBuffer implements VertexConsumer {
         for(var point:points){var xy=transform.transformPosition(new Vector2f(point.x,point.y));if(point.z!=0)throw new IllegalStateException("Source GUI depth transform is unproven");snapshot.add(new Point(xy.x,xy.y,0,point.u,point.v,ARGB.multiply(point.color,scope.color)));}
         TextureSetup textures=TextureSetup.noTexture();
         if(texture){if(scope.texture==null && scope.textureObject==null)throw new IllegalStateException("No source GUI texture bound");var nativeTexture=scope.textureObject!=null?scope.textureObject:Minecraft.getInstance().getTextureManager().getTexture(scope.texture);textures=TextureSetup.singleTexture(nativeTexture.getTextureView(),nativeTexture.getSampler());}
-        RenderPipeline pipeline=texture?(scope.blend?RenderPipelines.GUI_TEXTURED:TEXTURE_OPAQUE):(scope.blend?RenderPipelines.GUI:COLOR_OPAQUE);
+        RenderPipeline pipeline=pipeline(texture,scope.blend,scope.colorWriteMask);
         var clip=graphics.peekScissorStack();
         graphics.submitGuiElementRenderState(new QuadState(List.copyOf(snapshot),pipeline,textures,clip,bounds(snapshot)));
         points.clear();

@@ -140,6 +140,7 @@ public final class LiveTargetContractProbe {
         WidgetExtractionFamilyCheck.run();
         PendingFluidAndMappingCheck.run();
         GuiItemOperationCheck.run();
+        GuiConsumerFamilyCheck.run();
         BonemealFamilyCheck.run();
         ComponentJsonCheck.run();
         ItemWireFamilyCheck.run();

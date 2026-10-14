@@ -41,6 +41,18 @@ public final class Forge1192ContainerGraphicsBridge {
     public static LegacyGuiShader positionTexShader(){return LegacyGuiShader.POSITION_TEX;}
     public static LegacyGuiShader positionTexColorShader(){return LegacyGuiShader.POSITION_TEX_COLOR;}
     public static void setShader(Supplier<LegacyGuiShader> supplier) {Forge1192TooltipGuiBridge.scope().shader=java.util.Objects.requireNonNull(supplier.get());}
+    // Native GUI item atlas selects ITEMS_3D/ITEMS_FLAT from each model's usesBlockLight.
+    // Flat source GUI quads have no lighting input; retain intent locally, never mutate GPU state.
+    public static void setupFor3DItems(){Forge1192TooltipGuiBridge.scope().flatItemLighting=false;}
+    public static void setupForFlatItems(){Forge1192TooltipGuiBridge.scope().flatItemLighting=true;}
+    public static void enableDepthTest(){Forge1192TooltipGuiBridge.scope().depthTest=true;}
+    public static void disableDepthTest(){Forge1192TooltipGuiBridge.scope().depthTest=false;}
+    public static void colorMask(boolean red,boolean green,boolean blue,boolean alpha) {
+        Forge1192TooltipGuiBridge.scope().colorWriteMask=(red?com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_RED:0)
+                |(green?com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_GREEN:0)
+                |(blue?com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_BLUE:0)
+                |(alpha?com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALPHA:0);
+    }
     public static void enableBlend(){Forge1192TooltipGuiBridge.scope().blend=true;}
     public static void disableBlend(){Forge1192TooltipGuiBridge.scope().blend=false;}
     public static void enableTexture(){Forge1192TooltipGuiBridge.scope().textureEnabled=true;}
@@ -57,7 +69,10 @@ public final class Forge1192ContainerGraphicsBridge {
         if(font.getClass().getClassLoader() instanceof com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader)
             throw new UnsupportedOperationException("Source custom font draw callbacks are not adapted");
         color=sourceTextColor(color);
-        var graphics=Forge1192TooltipGuiBridge.scope().graphics;
+        var state=Forge1192TooltipGuiBridge.scope();
+        if(state.colorWriteMask!=com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALL)
+            throw new UnsupportedOperationException("Masked source GUI text is not adapted");
+        var graphics=state.graphics;
         graphics.pose().pushMatrix();
         try {
             graphics.pose().mul(planar(pose));graphics.pose().translate(x,y);

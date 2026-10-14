@@ -19,6 +19,9 @@ public final class Forge1192TooltipGuiBridge {
         net.minecraft.client.renderer.texture.AbstractTexture textureObject;
         int color = -1;
         boolean blend = true;
+        boolean depthTest = true;
+        boolean flatItemLighting;
+        int colorWriteMask = com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALL;
         boolean textureEnabled = true;
         Phase phase=Phase.TOOLTIP;
         LegacyGuiShader shader;
@@ -46,6 +49,8 @@ public final class Forge1192TooltipGuiBridge {
     static GuiGraphicsExtractor graphics(LegacyTooltipItemRenderer renderer) {
         Scope scope = scope();
         if (renderer != scope.renderer) throw new IllegalStateException("Foreign legacy tooltip item renderer");
+        if(scope.colorWriteMask!=com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALL)
+            throw new UnsupportedOperationException("Masked source GUI item/decorations are not adapted");
         return scope.graphics;
     }
     public static void shaderColor(float red, float green, float blue, float alpha) {
@@ -59,6 +64,8 @@ public final class Forge1192TooltipGuiBridge {
     public static void blit(PoseStack pose, int x, int y, int z, float u, float v,
                             int width, int height, int textureWidth, int textureHeight) {
         Scope scope = scope();
+        if(scope.colorWriteMask!=com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALL)
+            throw new UnsupportedOperationException("Masked source direct GUI blit is not adapted");
         if (z != 0 || !pose.last().pose().equals(new org.joml.Matrix4f()))
             throw new IllegalStateException("Unadapted legacy tooltip pose/depth transform");
         if (scope.texture == null) throw new IllegalStateException("Legacy tooltip blit has no bound texture");

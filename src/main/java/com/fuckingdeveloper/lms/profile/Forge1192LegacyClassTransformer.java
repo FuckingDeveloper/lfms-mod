@@ -191,7 +191,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             fieldHierarchyEvidence.clear();
             blockDataHierarchyEvidence.clear();
             buttonPressHierarchyEvidence.clear();
-            guiItemUtilityEvidence.clear(); configuredFeatureInitializers.clear(); itemComponentInitializers.clear(); legacyUnitMapCodecFields.clear();
+            guiItemGetterEvidence.clear(); guiItemUtilityEvidence.clear(); configuredFeatureInitializers.clear(); itemComponentInitializers.clear(); legacyUnitMapCodecFields.clear();
         } finally { evidenceLock.writeLock().unlock(); }
     }
 
@@ -265,6 +265,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteItemWireFamily(node);
         rewrites += rewriteEarlyFluidConstruction(node);
         rewrites += rewriteBonemealCallbacks(node);
+        rewrites += rewriteDirectGuiItemCalls(node);
         rewrites += rewriteGuiItemUtilityCalls(node);
         rewrites += rewriteWidgetGraphics(node);
         rewrites += rewriteWidgetPrimitiveFamily(node);
@@ -4240,6 +4241,69 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return count;
     }
 
+    private final java.util.Map<String,Boolean> guiItemGetterEvidence = new java.util.concurrent.ConcurrentHashMap<>();
+    private boolean isSourceScreenRendererField(ClassNode active,FieldInsnNode field) {
+        return field.getOpcode()==org.objectweb.asm.Opcodes.GETFIELD && field.name.equals("f_96542_")
+                && field.desc.equals("Lnet/minecraft/client/renderer/entity/ItemRenderer;")
+                && "net/minecraft/client/gui/screens/Screen".equals(sourceFieldOwner(active.name,fieldHierarchy(active),field.owner,field.name,field.desc,new java.util.HashSet<>()));
+    }
+    private boolean isProvenScreenRendererGetter(MethodInsnNode call) {
+        if(call.getOpcode()!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL || !call.desc.equals("()Lnet/minecraft/client/renderer/entity/ItemRenderer;"))return false;
+        return guiItemGetterEvidence.computeIfAbsent(call.owner+'#'+call.name,key->{
+            try {
+                byte[] bytes=managedClassBytes==null?null:managedClassBytes.find(call.owner);if(bytes==null)return false;
+                var source=new ClassNode();new ClassReader(bytes).accept(source,0);
+                var methods=source.methods.stream().filter(m->m.name.equals(call.name)&&m.desc.equals(call.desc)).toList();
+                if(methods.size()!=1 || !methods.getFirst().tryCatchBlocks.isEmpty())return false;
+                var code=java.util.stream.StreamSupport.stream(methods.getFirst().instructions.spliterator(),false).filter(i->i.getOpcode()>=0).toList();
+                return code.size()==3 && code.get(0) instanceof org.objectweb.asm.tree.VarInsnNode load && load.getOpcode()==org.objectweb.asm.Opcodes.ALOAD && load.var==0
+                        && code.get(1) instanceof FieldInsnNode field && isSourceScreenRendererField(source,field) && code.get(2).getOpcode()==org.objectweb.asm.Opcodes.ARETURN;
+            }catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}
+        });
+    }
+    private int rewriteDirectGuiItemCalls(ClassNode node) {
+        int count=0;String renderer="net/minecraft/client/renderer/entity/ItemRenderer",view="com/fuckingdeveloper/lms/runtime/render/LegacyTooltipItemRenderer",bridge="com/fuckingdeveloper/lms/runtime/render/Forge1192GuiItemExtractionBridge";
+        String stack="Lnet/minecraft/world/item/ItemStack;",font="Lnet/minecraft/client/gui/Font;";
+        if(SRG_RUNTIME_RESOLVER.isEmpty())return 0;
+        for(var method:node.methods){
+            var consumers=new java.util.ArrayList<MethodInsnNode>();
+            for(var instruction:method.instructions)if(instruction instanceof MethodInsnNode call && call.owner.equals(renderer) && call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL){
+                String canonical=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(renderer,call.name,call.desc).orElse(call.name);
+                boolean supported=canonical.equals("renderGuiItem")&&call.desc.equals("("+stack+"II)V")
+                        || canonical.equals("renderAndDecorateItem")&&java.util.Set.of("("+stack+"II)V","("+stack+"III)V","(Lnet/minecraft/world/entity/LivingEntity;"+stack+"III)V").contains(call.desc)
+                        || canonical.equals("renderAndDecorateFakeItem")&&call.desc.equals("("+stack+"II)V")
+                        || canonical.equals("renderGuiItemDecorations")&&java.util.Set.of("("+font+stack+"II)V","("+font+stack+"IILjava/lang/String;)V").contains(call.desc);
+                if(supported)consumers.add(call);
+            }
+            if(consumers.isEmpty())continue;
+            try{
+                var frames=new org.objectweb.asm.tree.analysis.Analyzer<>(new org.objectweb.asm.tree.analysis.SourceInterpreter()).analyze(node.name,method);
+                var producers=new java.util.IdentityHashMap<org.objectweb.asm.tree.AbstractInsnNode,MethodInsnNode>();
+                for(var call:consumers){
+                    var frame=frames[method.instructions.indexOf(call)];if(frame==null)continue;
+                    var source=frame.getStack(frame.getStackSize()-org.objectweb.asm.Type.getArgumentTypes(call.desc).length-1).insns;
+                    if(source.size()!=1)continue;var producer=source.iterator().next();
+                    boolean known=producer instanceof FieldInsnNode field && isSourceScreenRendererField(node,field)
+                            || producer instanceof MethodInsnNode getter && (isProvenScreenRendererGetter(getter)
+                            || getter.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL && getter.owner.equals("net/minecraft/client/Minecraft")&&getter.name.equals("m_91291_")&&getter.desc.equals("()L"+renderer+";"));
+                    if(!known)continue;
+                    producers.putIfAbsent(producer,call);
+                    call.name=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(renderer,call.name,call.desc).orElse(call.name);call.owner=view;call.itf=false;count++;
+                }
+                for(var producer:producers.keySet()){
+                    if(producer instanceof MethodInsnNode getter && isProvenScreenRendererGetter(getter)) {
+                        var metadata=new org.objectweb.asm.tree.InsnList();metadata.add(new LdcInsnNode(Type.getObjectType(getter.owner)));metadata.add(new LdcInsnNode(getter.name));method.instructions.insertBefore(getter,metadata);
+                        getter.owner=bridge;getter.name="screenRenderer";getter.desc="(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;)L"+view+";";getter.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);getter.itf=false;
+                    }else if(producer instanceof MethodInsnNode getter){getter.owner=bridge;getter.name="context";getter.desc="(Lnet/minecraft/client/Minecraft;)L"+view+";";getter.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);getter.itf=false;}
+                    else method.instructions.set(producer,new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,bridge,"screenContext","(Ljava/lang/Object;)L"+view+";",false));
+                }
+                // The generated getter metadata may be consumed by later source-flow passes before frame recomputation.
+                if(!producers.isEmpty())method.maxStack+=2;
+            }catch(org.objectweb.asm.tree.analysis.AnalyzerException failure){throw new IllegalStateException("Cannot prove GUI item consumer receiver flow",failure);}
+        }
+        return count;
+    }
+
     private final java.util.Map<String,Boolean> guiItemUtilityEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private boolean isProvenGuiItemUtility(MethodInsnNode call) {
         String descriptor="(Lnet/minecraft/client/renderer/entity/ItemRenderer;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/item/ItemStack;FF)V";
@@ -4536,6 +4600,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 if(!(insn instanceof MethodInsnNode call))continue;
+                if(call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC && call.owner.equals("com/mojang/blaze3d/platform/Lighting") && call.desc.equals("()V")) {
+                    String lighting=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(call.owner,call.name,call.desc).orElse(call.name);
+                    if(lighting.equals("setupFor3DItems")||lighting.equals("setupForFlatItems")){call.owner=render;call.name=lighting;call.itf=false;rewrites++;continue;}
+                }
                 if(!call.owner.equals("net/minecraft/client/renderer/GameRenderer")&&!call.owner.equals("com/mojang/blaze3d/systems/RenderSystem")&&!call.owner.equals("net/minecraft/client/gui/Font")&&!call.owner.equals("com/mojang/blaze3d/vertex/Tesselator")&&!call.owner.equals("com/mojang/blaze3d/vertex/BufferBuilder")&&!call.owner.equals("net/minecraft/client/renderer/texture/AbstractTexture")&&!call.owner.equals("com/mojang/blaze3d/vertex/PoseStack$Pose"))continue;
                 String canonical=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(call.owner,call.name,call.desc).orElse(call.name);
                 if(tessellator&&!escape&&call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL&&call.owner.equals("com/mojang/blaze3d/vertex/PoseStack$Pose")&&call.name.equals("m_85861_")&&call.desc.equals("()Lcom/mojang/math/Matrix4f;")){
@@ -4546,7 +4614,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }else if(call.owner.equals("com/mojang/blaze3d/systems/RenderSystem")){
                     var stateCall=guiShaderHandle(new Handle(call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC?org.objectweb.asm.Opcodes.H_INVOKESTATIC:org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL,call.owner,call.name,call.desc,call.itf));
                     if(stateCall!=null){call.owner=stateCall.getOwner();call.name=stateCall.getName();call.desc=stateCall.getDesc();call.itf=false;rewrites++;continue;}
-                    if(canonical.equals("setShader")&&call.desc.equals("(Ljava/util/function/Supplier;)V")) {call.owner=render;call.name="setShader";call.itf=false;rewrites++;}
+                    if(java.util.Set.of("enableDepthTest","disableDepthTest").contains(canonical)&&call.desc.equals("()V")){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
+                    else if(canonical.equals("colorMask")&&call.desc.equals("(ZZZZ)V")){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
+                    else if(canonical.equals("setShader")&&call.desc.equals("(Ljava/util/function/Supplier;)V")) {call.owner=render;call.name="setShader";call.itf=false;rewrites++;}
                     else if(call.desc.equals("()V")&&java.util.Set.of("enableBlend","disableBlend","defaultBlendFunc","enableTexture","disableTexture").contains(canonical)){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
                 }else if(call.owner.equals("net/minecraft/client/gui/Font")&&call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                         &&(canonical.equals("draw")||canonical.equals("drawShadow")) && call.desc.startsWith("(Lcom/mojang/blaze3d/vertex/PoseStack;")&&call.desc.endsWith("FFI)I")){

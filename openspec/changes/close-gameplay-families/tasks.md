@@ -171,3 +171,14 @@ seed zero and the caller's planar/fractional pose. Full instruction evidence and
 changed-light/cache-rebinding negatives pass native smoke tests. The client/world
 and macerator main screen load after this fix. Arbitrary widget activation remains
 human acceptance, not a completed automated check. See proven-gui-item-operations.
+
+Filter follow-up: the reported screen crash identified source setupFor3DItems.
+The inspected callback also consumes the inherited screen ItemRenderer getter,
+ordinary GUI items/decorations and RGB-only hover highlights. These now project
+as one scoped GUI consumer family. Tests transform the actual immutable external
+callback and require all inspected lighting/item/mask/depth sites to project;
+independent fixtures verify native mask pipelines and reject custom getter
+virtual overrides. Compilation, compatibilityTest, nativeCompatibilitySmoke and
+compileLaunchJava pass. Filter activation and hover remain human acceptance because
+MCP does not expose arbitrary GUI widget activation; no full-filter claim is made.
+See scoped-gui-item-consumers. Nonzero/3D source drawing remains a diagnosed gap.
