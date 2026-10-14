@@ -9717,23 +9717,40 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     /** Source instance sameItem became the target static item-identity test. */
+    private static Handle stackComparisonHandle(Handle handle) {
+        String owner="net/minecraft/world/item/ItemStack", stack="L"+owner+";";
+        if (!handle.getOwner().equals(owner) || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String canonical=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,handle.getName(),handle.getDesc()).orElse(null);
+        if (canonical==null) return null;
+        String name=null;
+        if (handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKESTATIC && handle.getDesc().equals("("+stack+stack+")Z")) {
+            name=switch(canonical) { case "tagMatches", "matches", "isSame", "isSameItemSameTags" -> canonical;
+                case "isSameIgnoreDurability" -> "isSame"; default -> null; };
+        } else if (handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL && handle.getDesc().equals("("+stack+")Z")
+                && (canonical.equals("sameItem") || canonical.equals("sameItemStackIgnoreDurability"))) name="sameItem";
+        return name==null?null:new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Forge1192StackComparisonBridge",name,"("+stack+stack+")Z",false);
+    }
+    private static Object stackComparisonConstant(Object value) {
+        if (value instanceof Handle handle) { var adapted=stackComparisonHandle(handle);return adapted==null?value:adapted; }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args=new Object[dynamic.getBootstrapMethodArgumentCount()];boolean changed=false;
+            for(int i=0;i<args.length;i++){Object old=dynamic.getBootstrapMethodArgument(i);args[i]=stackComparisonConstant(old);changed|=args[i]!=old;}
+            return changed?new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args):value;
+        }
+        return value;
+    }
     private static int rewriteLegacyItemStackComparison(ClassNode node) {
-        int rewrites = 0;
-        for (var method : node.methods) {
-            for (var insn = method.instructions.getFirst(); insn != null;
-                    insn = insn.getNext()) {
-                if (!(insn instanceof MethodInsnNode call)
-                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        || !call.owner.equals("net/minecraft/world/item/ItemStack")
-                        || !call.name.equals("m_41656_")
-                        || !call.desc.equals("(Lnet/minecraft/world/item/ItemStack;)Z")) continue;
-                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                call.name = "isSameItem";
-                call.desc = "(Lnet/minecraft/world/item/ItemStack;"
-                        + "Lnet/minecraft/world/item/ItemStack;)Z";
-                call.itf = false;
-                rewrites++;
-            }
+        int rewrites=0;
+        for(var method:node.methods)for(var instruction:method.instructions) {
+            if(instruction instanceof MethodInsnNode call) {
+                int tag=call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC?org.objectweb.asm.Opcodes.H_INVOKESTATIC:
+                        call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL?org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL:-1;
+                if(tag==-1)continue;
+                var adapted=stackComparisonHandle(new Handle(tag,call.owner,call.name,call.desc,call.itf));
+                if(adapted!=null){call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;rewrites++;}
+            }else if(instruction instanceof LdcInsnNode ldc){Object adapted=stackComparisonConstant(ldc.cst);if(adapted!=ldc.cst){ldc.cst=adapted;rewrites++;}}
+            else if(instruction instanceof InvokeDynamicInsnNode dynamic)for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=stackComparisonConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;rewrites++;}}
         }
         return rewrites;
     }
