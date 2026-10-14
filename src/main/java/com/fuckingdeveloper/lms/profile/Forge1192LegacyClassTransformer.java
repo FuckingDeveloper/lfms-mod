@@ -7599,7 +7599,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         };
         if (opcode == -1) return value;
         String owner = handle.getOwner(), name = handle.getName(), descriptor = handle.getDesc();
-        if (name.startsWith("f_") && SRG_RUNTIME_RESOLVER.isPresent()) {
+        String renamed = renamedVanillaField(new FieldInsnNode(opcode, owner, name, descriptor));
+        if (renamed != null) {
+            name = renamed;
+        } else if (name.startsWith("f_") && SRG_RUNTIME_RESOLVER.isPresent()) {
             String declaration = sourceFieldOwner(node.name, own, owner, name, descriptor, new java.util.HashSet<>());
             if (declaration == null || !declaration.startsWith("net/minecraft/")) return value;
             var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(declaration, name, descriptor);
@@ -7645,8 +7648,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         String canonical = SRG_RUNTIME_RESOLVER.get()
                 .canonicalFieldName(field.owner, field.name, field.desc).orElse(null);
         String targetName = switch (field.owner + "#" + (canonical == null ? "" : canonical)) {
-            case "net/minecraft/world/level/block/Blocks#GRASS" -> "SHORT_GRASS";
-            case "net/minecraft/world/level/block/Blocks#CHAIN" -> "IRON_CHAIN";
+            case "net/minecraft/world/level/block/Blocks#GRASS", "net/minecraft/world/item/Items#GRASS" -> "SHORT_GRASS";
+            case "net/minecraft/world/level/block/Blocks#CHAIN", "net/minecraft/world/item/Items#CHAIN" -> "IRON_CHAIN";
+            case "net/minecraft/world/item/Items#SCUTE" -> "TURTLE_SCUTE";
             default -> null;
         };
         if (targetName == null) return null;
