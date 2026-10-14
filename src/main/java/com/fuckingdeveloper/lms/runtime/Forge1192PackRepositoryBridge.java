@@ -66,7 +66,7 @@ public final class Forge1192PackRepositoryBridge {
 
             @Override
             public Stream<PackResources> openResources(PackLocationInfo ignored, Pack.Metadata ignoredMetadata) {
-                return Stream.of(adapt(location, legacyResources, metadata));
+                return Stream.of(new Target263LegacyTagResources(adapt(location, legacyResources, metadata)));
             }
         };
         return new Pack(location, resources, targetMetadata,

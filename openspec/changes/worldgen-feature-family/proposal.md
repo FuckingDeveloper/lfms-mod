@@ -114,9 +114,12 @@ is to be introduced solely to move the next crash to another call.
 ## Current observed status
 
 Overall milestone remains 6 with previously observed level-7 gameplay subpaths.
-Latest last successful milestone: loaded world and normal machine GUI; latest
-first causal blocker: source FeatureConfiguration linkage during sapling growth.
-No runtime Java change or new test run is part of this evidence/proposal update.
+Latest successful milestones: native worldgen definitions loaded, actual bone-meal
+growth and registered stone/deepslate ore replacement, plus persisted ores on
+world re-entry. The sapling FeatureConfiguration linkage blocker is removed.
+Runtime acceptance exposed missing source tag-resource path projection: intact
+trees lose leaves because source logs never enter native tag loading. See
+legacy-tag-resource-paths/design.md; full stable-tree acceptance remains pending.
 CarbonConfig, copper tags, loot-list migration and other existing gaps stay open.
 
 Evidence was read from the exact configured target source artifact, the mapped

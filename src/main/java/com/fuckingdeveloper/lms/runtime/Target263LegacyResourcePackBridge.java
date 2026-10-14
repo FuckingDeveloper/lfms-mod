@@ -93,7 +93,7 @@ public final class Target263LegacyResourcePackBridge {
                 FeatureFlagSet.of(),
                 List.of());
         PackSelectionConfig selection = new PackSelectionConfig(true, Pack.Position.TOP, false);
-        return new Pack(location, new FilePackResources.FileResourcesSupplier(artifact), metadata, selection);
+        return new Pack(location, Target263LegacyTagResources.wrap(new FilePackResources.FileResourcesSupplier(artifact)), metadata, selection);
     }
 
     private static Pack createAtlasExtensionPack() {
