@@ -4410,6 +4410,14 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return 1;
     }
     private static Handle guiShaderHandle(Handle handle) {
+        if (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESTATIC
+                && handle.getOwner().equals("com/mojang/blaze3d/systems/RenderSystem") && SRG_RUNTIME_RESOLVER.isPresent()) {
+            String operation = SRG_RUNTIME_RESOLVER.get().canonicalMethodName(handle.getOwner(),handle.getName(),handle.getDesc()).orElse(handle.getName());
+            String projected = operation.equals("setShaderTexture") && handle.getDesc().equals("(ILnet/minecraft/resources/ResourceLocation;)V") ? "shaderTexture"
+                    : operation.equals("setShaderColor") && handle.getDesc().equals("(FFFF)V") ? "shaderColor" : null;
+            if (projected != null) return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge",projected,handle.getDesc(),false);
+        }
         if (handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKESTATIC
                 || !handle.getOwner().equals("net/minecraft/client/renderer/GameRenderer")
                 || !handle.getDesc().equals("()Lnet/minecraft/client/renderer/ShaderInstance;")
@@ -4494,6 +4502,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     var adapted = guiShaderHandle(new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, call.owner, call.name, call.desc, call.itf));
                     if(adapted!=null){call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;rewrites++;}
                 }else if(call.owner.equals("com/mojang/blaze3d/systems/RenderSystem")){
+                    var stateCall=guiShaderHandle(new Handle(call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC?org.objectweb.asm.Opcodes.H_INVOKESTATIC:org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL,call.owner,call.name,call.desc,call.itf));
+                    if(stateCall!=null){call.owner=stateCall.getOwner();call.name=stateCall.getName();call.desc=stateCall.getDesc();call.itf=false;rewrites++;continue;}
                     if(canonical.equals("setShader")&&call.desc.equals("(Ljava/util/function/Supplier;)V")) {call.owner=render;call.name="setShader";call.itf=false;rewrites++;}
                     else if(call.desc.equals("()V")&&java.util.Set.of("enableBlend","disableBlend","defaultBlendFunc","enableTexture","disableTexture").contains(canonical)){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
                 }else if(call.owner.equals("net/minecraft/client/gui/Font")&&call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL

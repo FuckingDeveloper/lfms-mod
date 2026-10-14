@@ -23,3 +23,7 @@ identifier, optionally read from an explicit source-client archive; it MUST NOT
 replace modern vanilla assets or synthesize missing pixels. Missing assets fail
 at their first rendering consumption. Child callbacks inherit receiver-owned depth
 storage from the first projected ancestor rather than creating divergent storage.
+
+Source RenderSystem texture-unit/color setters feed the same scoped GUI extraction
+state for ordinary calls and callable handles/constants. This includes hovered
+widget branches; it does not equate arbitrary source GL state with target rendering.
