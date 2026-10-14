@@ -26,6 +26,11 @@ public interface LegacyBakedModel {
         return m_213637_(state, direction, random);
     }
 
+    default ModelData getModelData(net.minecraft.client.renderer.block.BlockAndTintGetter level,
+            net.minecraft.core.BlockPos pos, BlockState state, ModelData modelData) {
+        return modelData;
+    }
+
     boolean m_7541_();
 
     boolean m_7539_();

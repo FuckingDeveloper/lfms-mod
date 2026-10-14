@@ -277,7 +277,9 @@ public final class Forge1192ModelBakingBridge {
                 BlockAndTintGetter level, BlockPos pos, BlockState state,
                 RandomSource random, List<BlockStateModelPart> output) {
             output.add(new LegacyBlockPart(
-                    legacy, state, random, level.getModelData(pos), level, pos, fallbackMaterial));
+                    legacy, state, random, java.util.Objects.requireNonNull(
+                            legacy.getModelData(level, pos, state, level.getModelData(pos)),
+                            "Legacy baked model returned null model data"), level, pos, fallbackMaterial));
         }
 
         @Override

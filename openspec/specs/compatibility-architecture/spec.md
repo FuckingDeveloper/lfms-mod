@@ -489,6 +489,23 @@ render position into the source quad operation. LMS MUST NOT substitute empty
 model data for positioned block rendering or query a live block entity from a
 meshing worker to reconstruct the snapshot.
 
+The positioned source model-data refinement callback MUST receive that snapshot
+before source quad collection. Its returned data MUST be used for that collection;
+LMS MUST preserve overrides and MUST NOT silently replace a null result with empty
+data. For the Forge 1.19.2 render-invalidation family, the target 26.3 adapter MAY
+delegate the verified block/section dirty operations to the native level extractor
+bound to the same active renderer. It MUST retain conditional state comparison,
+inclusive bounds and neighbor padding. An unrelated or detached renderer MUST fail
+explicitly rather than updating the active world through a substituted receiver.
+
+When source screen-transition ownership moves from the Minecraft client to a
+target GUI owner, LMS MAY delegate the verified source transition operation to
+that same client's native GUI owner. It MUST preserve the supplied screen,
+including null, and native opening/cancellation, closing/removal, input and
+initialization lifecycle. It MUST NOT replace a screen with its parent, synthesize
+duplicate lifecycle events or infer source GUI-rendering/input compatibility from
+successful screen transitions.
+
 When the source render-shape enum distinguishes block-entity-only rendering
 from fully invisible blocks but the target chunk compiler handles block
 entities independently, LMS MAY map the exact source block-entity-only enum

@@ -113,7 +113,77 @@ public final class LiveTargetContractProbe {
             catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
         });
         check(field.get(nativeOnly[0]) == null, "native notification guessed the active callback's source origin");
-        System.out.println("PASS: real FML/mixins, pre-subclass gather/lazy provider/removal/unload/NBT, live stack/copy/resource snapshot ownership, queue/instant transformation, retained origin and actual injected dispatch; no world/window/legacy entrypoint initialization");
+        renderInvalidation();
+        var slot = new net.minecraft.world.inventory.Slot(null, 7, 3, 4);
+        Forge1192SlotBridge.setX(slot, -1000); Forge1192SlotBridge.setY(slot, 1000);
+        check(slot.x == -1000 && slot.y == 1000 && slot.getContainerSlot() == 7,
+                "actual native mutable slot coordinates changed inventory identity");
+        check(!Modifier.isFinal(slot.getClass().getDeclaredField("x").getModifiers())
+                && !Modifier.isFinal(slot.getClass().getDeclaredField("y").getModifiers()), "native mutable coordinate access transforms not applied");
+        SlotRenderFamilyCheck.run();
+        System.out.println("PASS: real FML/mixins, pre-subclass gather/lazy provider/removal/unload/NBT, live stack/copy/resource snapshot ownership, queue/instant transformation, retained origin, actual injected dispatch and native render-invalidation range/receiver semantics; no world/window/legacy entrypoint initialization");
+    }
+
+    static final class ProbeExtractor extends net.minecraft.client.renderer.extract.LevelExtractor {
+        Set<BlockPos> dirtied = new HashSet<>();
+        BlockPos block; BlockState oldState; BlockState newState;
+        ProbeExtractor() { super(null, null, null); }
+        @Override public void setSectionDirty(int x, int y, int z) { dirtied.add(new BlockPos(x, y, z)); }
+        @Override public void setBlockDirty(BlockPos pos, BlockState oldState, BlockState newState) {
+            this.block = pos; this.oldState = oldState; this.newState = newState;
+        }
+    }
+    static final class ProbeGui extends net.minecraft.client.gui.Gui {
+        net.minecraft.client.gui.screens.Screen supplied;
+        int transitions;
+        ProbeGui() { super(null, null, null); }
+        @Override public void setScreen(net.minecraft.client.gui.screens.Screen screen) { supplied = screen; transitions++; }
+    }
+    static final class ProbeScreen extends net.minecraft.client.gui.screens.Screen {
+        ProbeScreen() { super(net.minecraft.network.chat.Component.literal("source transition fixture")); }
+    }
+    /** Isolated binding fixture; neither native Minecraft nor GPU constructors run. */
+    private static void renderInvalidation() throws Exception {
+        Class<?> unsafeType = Class.forName("sun.misc.Unsafe");
+        var unsafeField = unsafeType.getDeclaredField("theUnsafe"); unsafeField.setAccessible(true);
+        Object unsafe = unsafeField.get(null);
+        var allocate = unsafeType.getMethod("allocateInstance", Class.class);
+        var client = (net.minecraft.client.Minecraft)allocate.invoke(unsafe, net.minecraft.client.Minecraft.class);
+        var renderer = (net.minecraft.client.renderer.LevelRenderer)allocate.invoke(unsafe, net.minecraft.client.renderer.LevelRenderer.class);
+        var extractor = (ProbeExtractor)allocate.invoke(unsafe, ProbeExtractor.class);
+        extractor.dirtied = new HashSet<>();
+        var rendererField = net.minecraft.client.Minecraft.class.getDeclaredField("levelRenderer"); rendererField.setAccessible(true); rendererField.set(client, renderer);
+        var extractorField = net.minecraft.client.Minecraft.class.getDeclaredField("levelExtractor"); extractorField.setAccessible(true); extractorField.set(client, extractor);
+        var instance = net.minecraft.client.Minecraft.class.getDeclaredField("instance"); instance.setAccessible(true);
+        Object previous = instance.get(null);
+        instance.set(null, client);
+        try {
+            var gui = (ProbeGui)allocate.invoke(unsafe, ProbeGui.class);
+            var guiField = net.minecraft.client.Minecraft.class.getDeclaredField("gui"); guiField.setAccessible(true); guiField.set(client, gui);
+            var screen = new ProbeScreen();
+            com.fuckingdeveloper.lms.runtime.render.Forge1192MinecraftClientBridge.setScreen(client, screen);
+            check(gui.supplied == screen && gui.transitions == 1, "source screen transition did not use the receiver's native GUI");
+            com.fuckingdeveloper.lms.runtime.render.Forge1192MinecraftClientBridge.setScreen(client, null);
+            check(gui.supplied == null && gui.transitions == 2, "source null screen transition was replaced or skipped");
+            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setBlocksDirty(renderer, 15, -1, 15, 16, 0, 16);
+            Set<BlockPos> expected = new HashSet<>();
+            for (int x : new int[]{0, 1}) for (int y : new int[]{-1, 0}) for (int z : new int[]{0, 1}) expected.add(new BlockPos(x, y, z));
+            check(extractor.dirtied.equals(expected), "native block dirty padding/negative section boundary");
+            extractor.dirtied.clear();
+            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirtyWithNeighbors(renderer, 0, -1, 2);
+            expected.clear();
+            for (int x = -1; x <= 1; x++) for (int y = -2; y <= 0; y++) for (int z = 1; z <= 3; z++) expected.add(new BlockPos(x, y, z));
+            check(extractor.dirtied.equals(expected), "native neighbor-section padding/inclusive range");
+            extractor.dirtied.clear();
+            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirty(renderer, 5, -4, 3);
+            check(extractor.dirtied.equals(Set.of(new BlockPos(5, -4, 3))), "native exact section dirty operation");
+            var old = Blocks.STONE.defaultBlockState(); var updated = Blocks.DIRT.defaultBlockState();
+            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setBlockDirty(renderer, BlockPos.ZERO, old, updated);
+            check(extractor.block == BlockPos.ZERO && extractor.oldState == old && extractor.newState == updated, "conditional native block invalidation changed operands");
+            var detached = (net.minecraft.client.renderer.LevelRenderer)allocate.invoke(unsafe, net.minecraft.client.renderer.LevelRenderer.class);
+            try { com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirty(detached, 0, 0, 0); throw new AssertionError("detached renderer silently updated active world"); }
+            catch (IllegalStateException expectedFailure) {}
+        } finally { instance.set(null, previous); }
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
 }

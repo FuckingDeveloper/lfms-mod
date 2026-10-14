@@ -43,11 +43,12 @@ hook after the migrated fall-distance getter; it failed on ItemStack.m_41622_.
 
 ## Pending human acceptance and explicit gaps
 
-- [ ] Load the same world, wait, jump/fall with the same footwear.
+- [x] User confirms jumping no longer crashes; broader fall variants are unverified.
 - [ ] Place/remove mechanisms; open generator, change slots, close/reopen.
 - [ ] Tin cables with first insulation: visual connections and updates after removal.
 - [ ] Charged chainsaw in survival: charge delta and independent copied-stack state.
-- [ ] Food completion/hunger/can return.
+- [x] User confirms canned food consumption and can return.
+- [ ] Hunger recovery after consumption.
 
 CarbonConfig remains blocked on input event/key registration semantics, managed
 container iteration and source reflection mapping. GLFW and SDL integer key/scancode
@@ -69,3 +70,8 @@ client; dedicated-server functionality is not claimed.
 
 Original artifacts and the pre-existing 8-file tracked diff (345 additions/11 deletions)
 plus the user's untracked container-screen bridge must remain unchanged/excluded.
+
+The 09:42 user run reached source Slot construction on both sides and failed on
+an incorrectly migrated source-owned field. Cable field updates reached native
+model-data refresh but failed at the removed LevelRenderer dirty-range method.
+Follow-up batch: `openspec/changes/restore-menu-and-model-updates/tasks.md`.

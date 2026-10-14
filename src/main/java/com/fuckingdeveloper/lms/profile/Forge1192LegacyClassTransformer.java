@@ -319,6 +319,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockRenderDispatcherFamily(node);
         rewrites += rewriteLegacyPlayerInteractionDecisions(node);
         rewrites += rewriteLegacyLevelSoundPlayback(node);
+        rewrites += rewriteLegacyRenderInvalidationFamily(node);
+        rewrites += rewriteLegacyScreenTransitions(node);
         rewrites += rewriteLegacyInteractionResultConstants(node);
         rewrites += rewriteLegacyPlacedBlockCriterion(node);
         rewrites += rewriteLegacyBlockStateCloneItem(node);
@@ -938,6 +940,50 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
         return rewriteSemanticInstanceCalls(node, (opcode, owner, name, descriptor) ->
                 opcode == org.objectweb.asm.Opcodes.INVOKEVIRTUAL ? legacyLevelSoundMember(owner, name, descriptor) : null);
+    }
+
+    /** Source dirty operations moved from LevelRenderer into target extraction. */
+    private int rewriteLegacyRenderInvalidationFamily(ClassNode node) {
+        String renderer = "net/minecraft/client/renderer/LevelRenderer";
+        if (isManagedSubtypeOf(node, renderer) && node.methods.stream().anyMatch(method ->
+                legacyRenderInvalidationMember(renderer, method.name, method.desc) != null)) {
+            throw new IllegalStateException("Unadapted source render-invalidation override: " + node.name);
+        }
+        return rewriteSemanticInstanceCalls(node, (opcode, owner, name, descriptor) ->
+                opcode == org.objectweb.asm.Opcodes.INVOKEVIRTUAL && isManagedSubtypeOf(owner, renderer)
+                        ? legacyRenderInvalidationMember(renderer, name, descriptor) : null);
+    }
+
+    private static Handle legacyRenderInvalidationMember(String renderer, String name, String desc) {
+        String canonical = SRG_RUNTIME_RESOLVER.flatMap(resolver -> resolver.canonicalMethodName(renderer, name, desc)).orElse(name);
+        boolean verified = switch (canonical) {
+            case "setBlocksDirty" -> desc.equals("(IIIIII)V");
+            case "setSectionDirty", "setSectionDirtyWithNeighbors" -> desc.equals("(III)V");
+            case "setBlockDirty" -> desc.equals("(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/state/BlockState;)V");
+            default -> false;
+        };
+        return verified ? new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192RenderInvalidationBridge", canonical,
+                "(L" + renderer + ";" + desc.substring(1), false) : null;
+    }
+
+    /** Source screen transitions remain native transitions after ownership moved. */
+    private int rewriteLegacyScreenTransitions(ClassNode node) {
+        String client = "net/minecraft/client/Minecraft";
+        if (isManagedSubtypeOf(node, client) && node.methods.stream().anyMatch(method ->
+                legacyScreenTransitionMember(client, method.name, method.desc) != null))
+            throw new IllegalStateException("Unadapted source client screen-transition override: " + node.name);
+        return rewriteSemanticInstanceCalls(node, (opcode, owner, name, desc) ->
+                opcode == org.objectweb.asm.Opcodes.INVOKEVIRTUAL && isManagedSubtypeOf(owner, client)
+                        ? legacyScreenTransitionMember(client, name, desc) : null);
+    }
+
+    private static Handle legacyScreenTransitionMember(String client, String name, String desc) {
+        if (!desc.equals("(Lnet/minecraft/client/gui/screens/Screen;)V")) return null;
+        String canonical = SRG_RUNTIME_RESOLVER.flatMap(resolver -> resolver.canonicalMethodName(client, name, desc)).orElse(name);
+        return canonical.equals("setScreen") ? new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/render/Forge1192MinecraftClientBridge", "setScreen",
+                "(L" + client + ";" + desc.substring(1), false) : null;
     }
 
     /** A captured receiver can be narrower than an invokevirtual handle owner. */

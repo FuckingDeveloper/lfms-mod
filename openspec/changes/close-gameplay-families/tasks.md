@@ -46,7 +46,7 @@ Do not run an interactive gameplay test in place of that workflow.
 - [x] Verify fall family with `./gradlew compatibilityTest compileLaunchJava`:
   actual transformed getter/setter/constructor/lambda/constructor-reference calls,
   cancellation/multiplier/read precision, nested constants and negative owners.
-- [ ] User verifies repeated jumps/short falls with the same equipped footwear.
+- [x] User confirms jumping no longer crashes in the 2026-10-14 09:42 test.
 - [ ] User verifies furnace placement/ticking and generator open/slots/close/reopen
   after these changes; no interactive client was launched by the agent.
 
@@ -54,12 +54,12 @@ Do not run an interactive gameplay test in place of that workflow.
 
 | Family | Current evidence | Required work / acceptance |
 | --- | --- | --- |
-| Fall event | `crash-2026-10-14_02.37.27-client.txt`: source `getDistance(): float` links against target `getDistance(): double`; handler executes on client as the target event does | Distance getter no longer blocks: latest crash reaches source ItemStack.m_41622_ damage callback. Distance and durability family checks pass; user verification pending. Source float-distance overrides remain fail-fast |
-| Custom menu lifecycle and screens | The source block-use callback executed; latest opening attempt failed in `Forge1192NetworkBridge.requireChannel`: gameplay incorrectly required an initialization scope | Provenance/scheduled-context regression tests pass; verify opening, slot interaction, close/reopen and client/server state; diagnose the next first causal failure |
+| Fall event | `crash-2026-10-14_02.37.27-client.txt`: source `getDistance(): float` links against target `getDistance(): double`; handler executes on client as the target event does | Distance getter no longer blocks: latest crash reaches source ItemStack.m_41622_ damage callback. Distance and durability family checks pass; the user now confirms jumping no longer crashes. Broader fall variants remain unverified. Source float-distance overrides remain fail-fast |
+| Custom menu lifecycle and screens | Gameplay channel provenance is restored; `crash-2026-10-14_09.42.56-server.txt` fails constructing a source slot because its own field was incorrectly redirected to native private `Slot.slot` | Source field declaration/hiding resolution now corrected generically; actual target Slot fixtures and mutable x/y accessors pass. Opening/slots/close/reopen and source screen rendering still require acceptance |
 | Food/drink completion | Coffee effect succeeded; canned food consumption and returned can now confirmed by user | Verify hunger, effects, returned container/count and audio after sound-family migration |
 | Block neighbour callback delivery | Source container-block override takes the changed block's `BlockPos`; target callback takes nullable `Orientation` | Source-position delivery now survives queued/multi/instant dispatch; actual FML/mixin scope probes pass. Verify visual wire updates after placement/removal and keep native unknown-origin calls fail-fast |
 | Block capabilities | Missing query ABI no longer appears; `crash-2026-10-14_02.33.15-server.txt` now fails explicitly on a custom token during scheduled `onLoaded` of a mechanism, after user broke a furnace | Eager block attachment gathering, ordered queries, genuine absence, invalidation and ForgeCaps save/load now pass unit and actual FML/mixin probes; gameplay verification pending. Native client lookup, item/entity attachment, native energy direction flags/fluid operations, nested transactions and direct slot replacement remain gaps |
-| Cable functionality | User confirms tin cables with first insulation still have no visual connections; energy transport unverified | Establish callback delivery, model/connectivity synchronization, network membership and energy transfer separately |
+| Cable functionality | User confirms improved connections, but broken/gapped geometry remains. Client field-update packets fail on the source render-dirty ABI; energy transport unverified | Four native extraction invalidation operations and positioned source model-data refinement are now adapted. Verify visual updates and geometry separately from energy transport |
 | Armor behavior | User confirmed equipment, reported absent worn textures | Adapt worn equipment assets/models, attributes, durability and repair using source contracts; verify actual protection and per-stack/custom overrides |
 | Item energy | Prior user report: chainsaw charge does not decrease | Source damage callbacks and mutable tag copy/resource ownership now adapted; native comparison snapshots detect tag changes. Verify gameplay callback delivery, charge delta and persistence separately |
 | Independent dependency-mod lifecycle | CarbonConfig is admitted but its entrypoint now has 6 remaining source API boundaries (previously 14); its classes are also used as a managed dependency | Adapt loader extension/metadata/ordered-container/reflection and client registration boundaries; prevent duplicate independent/dependency initialization before claiming this mod loaded |
@@ -72,3 +72,5 @@ evidence, never production transformation selectors.
 
 Latest batch implementation and verification details:
 `openspec/changes/batch-runtime-semantics/tasks.md`.
+
+Menu/model batch evidence and verification: `openspec/changes/restore-menu-and-model-updates/tasks.md`.

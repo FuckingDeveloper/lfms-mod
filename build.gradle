@@ -239,7 +239,7 @@ def nativeSmokeJar = tasks.register('nativeSmokeJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
     archiveClassifier = 'native-smoke'
     from(sourceSets.compatibilityTest.output) {
-        include '**/NativeLifecycleSmokeLauncher*.class', '**/LiveTargetContractProbe*.class'
+        include '**/NativeLifecycleSmokeLauncher*.class', '**/LiveTargetContractProbe*.class', '**/SlotRenderFamilyCheck*.class'
     }
     manifest { attributes('FMLModType': 'GAMELIBRARY', 'Automatic-Module-Name': 'lms.compatibility.smoke') }
 }
