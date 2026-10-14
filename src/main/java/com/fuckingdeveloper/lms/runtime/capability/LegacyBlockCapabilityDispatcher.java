@@ -12,6 +12,7 @@ public final class LegacyBlockCapabilityDispatcher {
     private List<Runnable> listeners = List.of();
     private boolean initialized;
     private boolean valid = true;
+    public boolean hasProviders() { return !providers.isEmpty(); }
     public void complete(LegacyAttachCapabilitiesEvent<?> event) {
         if (initialized) throw new IllegalStateException("Source attachments gathered twice");
         providers = Collections.unmodifiableMap(new LinkedHashMap<>(event.getCapabilities()));

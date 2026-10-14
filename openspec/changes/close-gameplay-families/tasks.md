@@ -10,6 +10,14 @@ Interactive client verification belongs to the user: provide concrete actions
 and an exact log collection command, then use their result as runtime evidence.
 Do not run an interactive gameplay test in place of that workflow.
 
+Latest user acceptance (11:33, 2026-10-14): generator opening crashes and cable
+connections regress. The first generator cause is eager subscriber discovery
+linking an unrelated removed ItemRenderer utility signature; the subsequent
+missing-button NPE follows aborted initialization. Selective subscriber linkage
+is now fixture-verified. Source block NBT/update callbacks also had a verified
+native lifecycle gap; restoring them does not yet prove the reported wire visuals
+or energy transport work. Both gameplay acceptance items remain open.
+
 ## Implemented, awaiting the next user run
 
 - [x] Cover the five source positional/seeded level-sound overloads, inherited
@@ -56,10 +64,12 @@ Do not run an interactive gameplay test in place of that workflow.
 | --- | --- | --- |
 | Fall event | `crash-2026-10-14_02.37.27-client.txt`: source `getDistance(): float` links against target `getDistance(): double`; handler executes on client as the target event does | Distance getter no longer blocks: latest crash reaches source ItemStack.m_41622_ damage callback. Distance and durability family checks pass; the user now confirms jumping no longer crashes. Broader fall variants remain unverified. Source float-distance overrides remain fail-fast |
 | Custom menu lifecycle and screens | Gameplay channel provenance is restored; `crash-2026-10-14_09.42.56-server.txt` fails constructing a source slot because its own field was incorrectly redirected to native private `Slot.slot` | Source field declaration/hiding resolution now corrected generically; actual target Slot fixtures and mutable x/y accessors pass. Opening/slots/close/reopen and source screen rendering still require acceptance |
+| Event subscriber linkage/lifetime | The 11:33 generator run aborts init while reflection eagerly links an unrelated ItemRenderer method signature | Exact defined-byte indexes link applicable handlers selectively; actual FML fixtures preserve inheritance, cancellation, duplicate prevention, unregister/reopen and rollback. Generator gameplay acceptance remains pending |
 | Food/drink completion | Coffee effect succeeded; canned food consumption and returned can now confirmed by user | Verify hunger, effects, returned container/count and audio after sound-family migration |
 | Block neighbour callback delivery | Source container-block override takes the changed block's `BlockPos`; target callback takes nullable `Orientation` | Source-position delivery now survives queued/multi/instant dispatch; actual FML/mixin scope probes pass. Verify visual wire updates after placement/removal and keep native unknown-origin calls fail-fast |
 | Block capabilities | Missing query ABI no longer appears; `crash-2026-10-14_02.33.15-server.txt` now fails explicitly on a custom token during scheduled `onLoaded` of a mechanism, after user broke a furnace | Eager block attachment gathering, ordered queries, genuine absence, invalidation and ForgeCaps save/load now pass unit and actual FML/mixin probes; gameplay verification pending. Native client lookup, item/entity attachment, native energy direction flags/fluid operations, nested transactions and direct slot replacement remain gaps |
 | Cable functionality | User confirms improved connections, but broken/gapped geometry remains. Client field-update packets fail on the source render-dirty ABI; energy transport unverified | Four native extraction invalidation operations and positioned source model-data refinement are now adapted. Verify visual updates and geometry separately from energy transport |
+| Block data persistence/initial synchronization | Native target ValueInput/ValueOutput and lookup-bearing update callbacks do not enter old CompoundTag overrides | Adapt the complete load/save/update/handle family, inherited defaults, explicit super order, ForgeData identity and once-only ForgeCaps persistence. Fixtures use real FML storage operations. Verify fresh cable connections and world re-entry; erased historical values cannot be reconstructed |
 | Armor behavior | User confirmed equipment, reported absent worn textures | Adapt worn equipment assets/models, attributes, durability and repair using source contracts; verify actual protection and per-stack/custom overrides |
 | Item energy | Prior user report: chainsaw charge does not decrease | Source damage callbacks and mutable tag copy/resource ownership now adapted; native comparison snapshots detect tag changes. Verify gameplay callback delivery, charge delta and persistence separately |
 | Independent dependency-mod lifecycle | CarbonConfig is admitted but its entrypoint now has 6 remaining source API boundaries (previously 14); its classes are also used as a managed dependency | Adapt loader extension/metadata/ordered-container/reflection and client registration boundaries; prevent duplicate independent/dependency initialization before claiming this mod loaded |
@@ -74,3 +84,6 @@ Latest batch implementation and verification details:
 `openspec/changes/batch-runtime-semantics/tasks.md`.
 
 Menu/model batch evidence and verification: `openspec/changes/restore-menu-and-model-updates/tasks.md`.
+
+Subscriber/data follow-up evidence: `openspec/changes/selective-subscriber-linkage/tasks.md`
+and `openspec/changes/restore-subscriber-and-block-data/tasks.md`.

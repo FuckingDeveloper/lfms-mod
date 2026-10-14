@@ -3,6 +3,8 @@
   "package": "com.fuckingdeveloper.lms.mixin",
   "mixins": [
     "Target263BlockCapabilityMixin",
+    "Target263TagValueOutputAccess",
+    "Target263TagValueInputAccess",
     "Target263MultiNeighborOriginMixin",
     "Target263QueuedNeighborOriginMixin",
     "Target263InstantNeighborOriginMixin",

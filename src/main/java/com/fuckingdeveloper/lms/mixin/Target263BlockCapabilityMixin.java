@@ -14,7 +14,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Exact source gather/removal/NBT timing on the native target base entity. */
 @Mixin(BlockEntity.class)
-abstract class Target263BlockCapabilityMixin implements LegacyBlockCapabilityCarrier {
+abstract class Target263BlockCapabilityMixin implements LegacyBlockCapabilityCarrier, com.fuckingdeveloper.lms.runtime.LegacyBlockPersistentDataCarrier {
+    @Shadow private CompoundTag customPersistentData;
+    @Override public void lms$sourcePersistentData(CompoundTag tag) { customPersistentData = tag; }
+    @Override public CompoundTag lms$sourcePersistentData() { return customPersistentData; }
     @Unique private LegacyBlockCapabilityDispatcher lms$capabilities;
     @Override public LegacyBlockCapabilityDispatcher lms$sourceCapabilities() {
         if (lms$capabilities == null) throw new IllegalStateException("Source block capability constructor hook has not run");
@@ -34,10 +37,12 @@ abstract class Target263BlockCapabilityMixin implements LegacyBlockCapabilityCar
     public void onChunkUnloaded() { invalidateCaps(); }
     @Inject(method = "loadAdditional", at = @At("TAIL"))
     private void lms$load(ValueInput input, CallbackInfo callback) {
+        if (com.fuckingdeveloper.lms.runtime.Forge1192BlockDataBridge.sourceCallbackActive((BlockEntity)(Object)this)) return;
         input.read("ForgeCaps", CompoundTag.CODEC).ifPresent(lms$sourceCapabilities()::deserialize);
     }
     @Inject(method = "saveAdditional", at = @At("TAIL"))
     private void lms$save(ValueOutput output, CallbackInfo callback) {
+        if (com.fuckingdeveloper.lms.runtime.Forge1192BlockDataBridge.sourceCallbackActive((BlockEntity)(Object)this)) return;
         CompoundTag data = lms$sourceCapabilities().serialize();
         if (!data.isEmpty()) output.store("ForgeCaps", CompoundTag.CODEC, data);
     }
