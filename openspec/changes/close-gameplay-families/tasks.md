@@ -102,3 +102,14 @@ Menu/model batch evidence and verification: `openspec/changes/restore-menu-and-m
 
 Subscriber/data follow-up evidence: `openspec/changes/selective-subscriber-linkage/tasks.md`
 and `openspec/changes/restore-subscriber-and-block-data/tasks.md`.
+
+
+17:35 follow-up: the latest gameplay run crashed in water-driven block loot
+generation on missing Tags.Items.SHEARS; earlier deferred setup failed on
+Tags.Biomes.IS_WATER. Source metadata had shadowed target ABI evidence and
+disabled existing aliases. Separately, synchronous reload callbacks lacked the
+target lookupWithUpdatedTags provider, causing early-stack fire-resistance
+initializers to fail on minecraft:is_fire. Details and verification:
+`openspec/changes/separate-source-and-target-evidence/tasks.md`.
+The forge:global_loot_modifiers list JSON format remains a resource-migration
+gap. No new generator gameplay success or energy transport/use is inferred.

@@ -84,6 +84,8 @@ public final class Target263DataComponentBindingBridge {
 
     public static Optional<HolderLookup.Provider> currentRegistries() {
         if (Forge1192BlockDataBridge.dataContextActive()) return Forge1192BlockDataBridge.currentLookup();
+        var reload = Target263ReloadLookupBridge.currentRegistries();
+        if (CURRENT.get() == null && reload.isPresent()) return reload;
         Context context = CURRENT.get();
         return context == null ? Optional.empty() : Optional.of(context.registries);
     }

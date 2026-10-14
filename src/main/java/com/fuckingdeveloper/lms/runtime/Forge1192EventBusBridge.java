@@ -659,6 +659,9 @@ public final class Forge1192EventBusBridge {
                 } catch (Exception e) {
                     throw new IllegalStateException("Failed to close legacy registration scope", e);
                 }
+            } else if (event instanceof net.neoforged.neoforge.event.AddServerReloadListenersEvent reload) {
+                Target263ReloadLookupBridge.run(
+                        reload.getServerResources().getRegistryLookup(), () -> listener.accept(event));
             } else {
                 listener.accept(event);
             }
