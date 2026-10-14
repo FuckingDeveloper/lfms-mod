@@ -129,6 +129,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/renderer/MultiBufferSource$BufferSource", "com/fuckingdeveloper/lms/runtime/render/LegacyBufferSource"),
             java.util.Map.entry("net/minecraft/util/LazyLoadedValue", "com/fuckingdeveloper/lms/runtime/LegacyLazyLoadedValue"),
             java.util.Map.entry("net/minecraft/util/Tuple", "com/fuckingdeveloper/lms/runtime/Forge1192Tuple"),
+            java.util.Map.entry("net/minecraft/world/item/crafting/UpgradeRecipe", "com/fuckingdeveloper/lms/runtime/recipe/Forge1192UpgradeRecipe"),
             java.util.Map.entry("net/minecraft/world/item/crafting/RecipeSerializer", "com/fuckingdeveloper/lms/runtime/recipe/LegacyRecipeSerializer"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterial", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterial"),
             java.util.Map.entry("net/minecraft/world/item/ArmorMaterials", "com/fuckingdeveloper/lms/runtime/item/LegacyArmorMaterials"),
