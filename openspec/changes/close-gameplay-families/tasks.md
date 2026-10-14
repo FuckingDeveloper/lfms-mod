@@ -214,3 +214,15 @@ Empty-hand use opened the macerator main GUI; targeted visual confirmation showe
 its slots, title, widgets and item tooltip without a new crash. The main GUI was
 opened again successfully after closing. Comparator activation remains untested.
 The existing forge:global_loot_modifiers reload error is still present.
+
+
+2026-10-15 02:13:55 follow-up: the latest crash is server-side rubber-sapling
+growth, not GUI rendering. Source FeatureConfiguration cannot link. Inspection
+also establishes that source FEATURES currently maps to target data registry
+FEATURE rather than static FEATURE_TYPE; the corresponding source initialization
+branch is not delivered in the required phase. Correcting that key alone is not
+a fix: configuration, codecs, custom placers/providers and data-definition
+lifecycle must migrate together. Source and target base soil/replacement rules
+are observably different. worldgen-feature-family/proposal.md records the
+concrete native-versus-source policy decision requested under AGENTS.md section
+22. No runtime fix or new gameplay acceptance is claimed for this report.
