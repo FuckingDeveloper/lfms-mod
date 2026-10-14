@@ -28,3 +28,8 @@ and fabricated/stale channel tokens MUST fail explicitly. Payload handlers
 and their enqueued work MUST retain the channel owner's recorded source context
 on the target execution thread, and MUST restore any prior same-owner context
 when they finish or fail. Unrelated thread context MUST NOT be overwritten.
+
+Forge 1.19.2 absent/vanilla protocol sentinel fields MAY retain their exact source
+string values, independent object identities and source mutability. Reading those
+sentinels MUST NOT imply native support for connections without LMS, login-phase
+packets, or broad source protocol negotiation.

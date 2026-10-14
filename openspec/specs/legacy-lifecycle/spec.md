@@ -31,3 +31,35 @@ verified event ancestry and exact source descriptors. Source float-distance
 overrides remain fail-fast until override dispatch can be preserved. A read
 followed by a write intentionally applies source float rounding; merely
 observing the event MUST NOT round or otherwise mutate its target distance.
+
+### Native config extension projection
+
+The source ConfigScreenFactory's Minecraft/parent-screen function MAY implement
+the target native config-screen extension. Source registration and lookup keys
+MUST project to the target IConfigScreenFactory key on the same real native
+container; suppliers MUST remain lazy and original source factory identity MUST
+be preserved on lookup. Native factories MAY project back to a source function
+using their owning native container. This MUST NOT fabricate managed native
+containers or imply that managed mod configuration factories are registered.
+A source mod-list screen construction MUST create the real target mod-list
+screen with the evaluated parent, not silently substitute the parent screen.
+Source subclasses of the removed screen remain fail-fast.
+
+### Nested registered event ownership
+
+A registered source event callback MAY temporarily enter its recorded owner even
+when another source owner initiated the target event. That callback MUST restore
+the previous context, active-container state and owning thread on success or
+failure. Same-owner re-entry MUST preserve the current context identity. This
+explicit event-dispatch operation MUST remain separate from networking's strict
+recorded-context entry, which MUST NOT overwrite an unrelated active owner.
+
+### Source client reload-registration event
+
+The source once-per-client-construction reload-listener registration event MAY
+project to the target sorted client registration event. Its unnamed listeners
+MUST receive deterministic source-owner keys, preserving evaluation, registration
+phase and listener identity. Existing keys MUST remain untouched; repeated source
+listener keys MUST be disambiguated deterministically. A missing client event,
+unknown input-code semantics or incomplete managed-container iteration MUST NOT
+be declared supported solely because unrelated container getters link.

@@ -60,8 +60,10 @@ public final class TransformedLinkageAudit {
     private void inspect(ClassNode node) {
         if (node.superName != null) type(node.superName, node.name + " SUPER");
         for (String iface : node.interfaces) type(iface, node.name + " INTERFACE");
+        for (var field : node.fields) descriptor(field.desc, node.name + "#" + field.name);
         for (var method : node.methods) {
             String site = node.name + "#" + method.name + method.desc;
+            descriptor(method.desc, site);
             for (var instruction : method.instructions) {
                 if (instruction instanceof MethodInsnNode call) member(call.owner, call.name, call.desc, false, call.getOpcode() == Opcodes.INVOKESTATIC, site);
                 else if (instruction instanceof FieldInsnNode field) member(field.owner, field.name, field.desc, true,
@@ -84,11 +86,20 @@ public final class TransformedLinkageAudit {
             for (int i = 0; i < dynamic.getBootstrapMethodArgumentCount(); i++) constant(dynamic.getBootstrapMethodArgument(i), site);
         } else if (value instanceof Type typed && typed.getSort() == Type.OBJECT) type(typed.getInternalName(), site);
     }
+    private void descriptor(String descriptor, String site) { describe(Type.getType(descriptor), site); }
+    private void describe(Type type, String site) {
+        if (type.getSort() == Type.METHOD) {
+            for (Type argument : type.getArgumentTypes()) describe(argument, site);
+            describe(type.getReturnType(), site);
+        } else if (type.getSort() == Type.ARRAY) describe(type.getElementType(), site);
+        else if (type.getSort() == Type.OBJECT) type(type.getInternalName(), site);
+    }
     private void type(String name, String site) {
         if (!name.startsWith("[") && lookup(name) == null) gaps.add(new Gap("CLASS_MISSING", name, site));
     }
     private void member(String owner, String name, String descriptor, boolean field, boolean isStatic, String site) {
         if (owner.startsWith("[")) return; // JVM array clone/member rules are separate.
+        descriptor(descriptor, site);
         String symbol = owner + "#" + name + descriptor;
         String key = (field ? "F" : "M") + isStatic + symbol;
         boolean found = resolutions.computeIfAbsent(key, k -> resolves(owner, name, descriptor, field, isStatic, new HashSet<>()));
@@ -110,7 +121,7 @@ public final class TransformedLinkageAudit {
             if (name.equals("<init>")) return false;
         }
         if (node.superName != null && resolves(node.superName, name, descriptor, field, isStatic, seen)) return true;
-        for (String iface : node.interfaces) if (resolves(iface, name, descriptor, field, isStatic, seen)) return true;
+        if (field || !isStatic) for (String iface : node.interfaces) if (resolves(iface, name, descriptor, field, isStatic, seen)) return true;
         return false;
     }
     private ClassNode lookup(String name) {

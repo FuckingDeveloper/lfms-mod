@@ -106,6 +106,10 @@ public final class Forge1192EventBusBridge {
                 event -> addNamedClientReloadListener(event, listener, modId));
     }
 
+    public static void registerClientReloadListener(AddClientReloadListenersEvent event, PreparableReloadListener listener) {
+        addNamedClientReloadListener(event, java.util.Objects.requireNonNull(listener), Forge1192LifecycleBridge.requireActive().modId());
+    }
+
     private static void addNamedClientReloadListener(
             AddClientReloadListenersEvent event,
             PreparableReloadListener listener,
@@ -173,8 +177,30 @@ public final class Forge1192EventBusBridge {
             Class<? extends Event> eventType = method.getParameterTypes()[0].asSubclass(Event.class);
             method.setAccessible(true);
             Consumer listener = event -> invokeScoped(modId, ignored -> invokeSubscriber(subscriber, method, ignored), (Event) event);
-            registerListener(bus, annotation.priority(), eventType, listener, false);
+            if (eventType == com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class) {
+                var parameter = method.getGenericParameterTypes()[0];
+                java.lang.reflect.Type subject = null;
+                if (parameter instanceof java.lang.reflect.ParameterizedType typed) subject = typed.getActualTypeArguments()[0];
+                if (subject != null && subject != net.minecraft.world.level.block.entity.BlockEntity.class)
+                    throw new IllegalStateException("Unsupported source attachment subject: " + method.toGenericString());
+                registerBlockAttachmentListener(bus, annotation.priority(), listener);
+            } else registerListener(bus, annotation.priority(), eventType, listener, false);
         }
+    }
+
+    public static void addGenericListener(IEventBus bus, Class<?> subject, Consumer<?> listener) {
+        if (subject != net.minecraft.world.level.block.entity.BlockEntity.class)
+            throw new IllegalStateException("Only source block attachment subjects are adapted: " + subject);
+        String modId = Forge1192LifecycleBridge.requireActive().modId();
+        @SuppressWarnings("unchecked") var typed = (Consumer<com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent<?>>)listener;
+        registerBlockAttachmentListener(bus, net.neoforged.bus.api.EventPriority.NORMAL,
+                event -> invokeScoped(modId, typed, (com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent<?>)event));
+    }
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void registerBlockAttachmentListener(IEventBus bus, net.neoforged.bus.api.EventPriority priority, Consumer listener) {
+        if (bus != net.neoforged.neoforge.common.NeoForge.EVENT_BUS)
+            throw new IllegalStateException("Source attachments require the gameplay event bus");
+        bus.addListener(priority, false, com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class, listener);
     }
 
     /**
@@ -189,6 +215,8 @@ public final class Forge1192EventBusBridge {
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
             Class<T> eventType, Consumer<T> listener,
             boolean deferUntilItemComponentsBound) {
+        if (eventType == com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class)
+            throw new IllegalStateException("Source attachment lambda requires an explicit generic subject");
         if (deferUntilItemComponentsBound) {
             if (!ModLifecycleEvent.class.isAssignableFrom(eventType)) {
                 throw new IllegalStateException("Item-component deferral is only valid for mod lifecycle events: "
@@ -555,7 +583,7 @@ public final class Forge1192EventBusBridge {
     }
 
     private static <T extends Event> void invokeScoped(String modId, Consumer<T> listener, T event) {
-        try (var lifecycle = Forge1192LifecycleBridge.enterRecorded(modId);
+        try (var lifecycle = Forge1192LifecycleBridge.enterCallback(modId);
              var mod = Forge1192RegistrationContext.enterMod(modId)) {
             if (event instanceof RegisterEvent registration) {
                 try (var registry = Forge1192RegistrationContext.enterRegistration(registration)) {

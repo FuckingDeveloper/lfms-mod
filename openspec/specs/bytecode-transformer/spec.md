@@ -21,3 +21,14 @@ Instruction migration MUST preserve operand-stack shape, control flow, exception
 Cross-version expression rewrites SHOULD use bytecode dataflow/provenance instead of hardcoded opcode sequences. A semantic rewrite MUST explicitly document where the legacy check occurs relative to migrated consumers and whether moving it changes side effects.
 
 Hook availability, owner visibility, invocation kind and linkage dependencies MUST be checked before a transformed class is considered loadable. Transform execution MUST NOT depend on mod-specific names in LMS core.
+
+## Semantic instance-call families
+
+A shared traversal MAY apply a proven instance-call family rule to direct calls,
+callable handles, invokedynamic arguments and nested dynamic constants. Selection
+MUST remain based on exact source member identity, verified ancestry and invocation
+kind. A static semantic bridge MUST consume one reference receiver plus the exact
+source arguments and return type. Callable rewrites MUST preserve the original
+receiver/capture type with a typed thunk where necessary; source-super handles
+use the caller receiver type and MUST not become virtual redispatch accidentally.
+Constructor/uninitialized-this transformations remain separate verified operations.

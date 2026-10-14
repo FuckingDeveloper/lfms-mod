@@ -229,16 +229,17 @@ public final class Forge1192ItemBridge {
 
     /** Return the live source-era tag view, not a detached target copy. */
     public static net.minecraft.nbt.CompoundTag getTag(ItemStack stack) {
-        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-        return data == null ? null : data.tag;
+        return mutableTags(stack).acquire(stack, false);
     }
 
     public static net.minecraft.nbt.CompoundTag getOrCreateTag(ItemStack stack) {
-        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-        if (data != null) return data.tag;
-        var tag = new net.minecraft.nbt.CompoundTag();
-        stack.set(DataComponents.CUSTOM_DATA, new CustomData(tag));
-        return tag;
+        return mutableTags(stack).acquire(stack, true);
+    }
+
+    private static com.fuckingdeveloper.lms.runtime.itemhandler.LegacyMutableTagState mutableTags(ItemStack stack) {
+        if (!((Object)stack instanceof com.fuckingdeveloper.lms.runtime.itemhandler.LegacyMutableTagCarrier carrier))
+            throw new IllegalStateException("Source mutable stack-tag lifecycle hook is missing");
+        return carrier.lms$mutableTags();
     }
 
     public static net.minecraft.nbt.CompoundTag getOrCreateTagElement(
@@ -262,15 +263,11 @@ public final class Forge1192ItemBridge {
         var root = getTag(stack);
         if (root == null) return;
         root.remove(key);
-        if (root.isEmpty()) stack.remove(DataComponents.CUSTOM_DATA);
+        if (root.isEmpty()) mutableTags(stack).assign(stack, null);
     }
 
     public static void setTag(ItemStack stack, net.minecraft.nbt.CompoundTag tag) {
-        if (tag == null) {
-            stack.remove(DataComponents.CUSTOM_DATA);
-        } else {
-            stack.set(DataComponents.CUSTOM_DATA, new CustomData(tag));
-        }
+        mutableTags(stack).assign(stack, tag);
     }
 
     /** Preserve the exact Forge 1.19.2 ItemStack NBT schema. */

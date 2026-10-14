@@ -74,6 +74,13 @@ public final class Forge1192BlockCapabilityBridge {
     @SuppressWarnings("unchecked")
     public static <T> LegacyLazyOptional<T> baseGetCapability(BlockEntity blockEntity, LegacyCapability<T> capability, Direction side) {
         Objects.requireNonNull(blockEntity); Objects.requireNonNull(capability);
+        if (!(blockEntity instanceof LegacyBlockCapabilityCarrier carrier))
+            throw new IllegalStateException("Source block capability lifecycle hook is missing");
+        if (!carrier.lms$sourceCapabilities().isValid() || !carrier.lms$sourceCapabilities().isInitialized()) return LegacyLazyOptional.empty();
+        var attached = carrier.lms$sourceCapabilities().getCapability(capability, side);
+        if (attached.isPresent()) return attached;
+        if (capability != LegacyForgeCapabilities.ITEM_HANDLER && capability != LegacyForgeCapabilities.ENERGY
+                && capability != LegacyForgeCapabilities.FLUID_HANDLER) return attached;
         if (!(blockEntity.getLevel() instanceof ServerLevel level))
             throw new IllegalStateException("Native block capability migration requires an attached server level");
         if (blockEntity.isRemoved()) return LegacyLazyOptional.empty();

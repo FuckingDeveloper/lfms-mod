@@ -37,10 +37,10 @@ recursing into it. Per-class dispatch caches MUST NOT retain disposable loaders.
 
 Native target block queries MUST use the authoritative attached server level,
 position, current block entity and matching sided target capability. Target
-absence MAY produce the source empty optional. An unknown source/custom
-capability, detached/replaced receiver or unsupported native provider operation
-MUST fail explicitly. Native client-provider and source attachment-event
-integration remain separate gaps. Source-provider overrides remain usable on
+absence MAY produce the source empty optional. A source/custom capability MUST query the genuine source attachment dispatcher;
+only established dispatcher absence MAY produce empty. A missing dispatcher
+lifecycle hook, detached/replaced native receiver or unsupported native provider
+operation MUST fail explicitly. Native client-provider lookup remains a separate gap. Source-provider overrides remain usable on
 their original side independently of this native-provider restriction.
 
 Present native providers MUST invalidate the source optional when the target
@@ -58,3 +58,23 @@ composition inside an existing target transaction remain separate gaps.
 Native fluid operations and energy direction flags remain fail-closed until
 their source contracts can be preserved; provider presence alone MUST NOT be
 claimed as successful transfer.
+
+## Eager source block attachments
+
+The Forge 1.19.2 source attachment event MUST execute at the end of the native
+block-entity base constructor, after its base fields are set and before subclass
+construction. First-query gathering is forbidden. Subject filtering and listener
+priority/owner contexts MUST be preserved. Dispatcher state MUST belong to the
+receiver, without global maps retaining receivers, source loaders or worlds.
+Queries MUST return the first present provider optional in insertion order,
+retain token/side/identity, reject null results, and return empty after genuine
+provider absence or invalidation. During gathering the source base dispatcher
+is still empty, matching the original superclass contract.
+
+Removal and source chunk-unload callbacks MUST invalidate attachment listeners.
+Source invalidate/revive operations MUST retain the original dispatcher lifecycle;
+revive changes validity and MUST NOT re-fire the constructor event. Serializable
+providers MUST retain their original ordered ForgeCaps keys and Tag payloads
+through the target ValueInput/ValueOutput boundary. Duplicate keys MUST fail.
+Source item/entity attachment lifecycle and inherited GenericEvent APIs remain
+separate unsupported boundaries; registration requiring them MUST fail explicitly.

@@ -306,6 +306,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteLegacyBlockCapabilityQueries(node);
         rewrites += rewriteLegacyLivingFallFamily(node);
+        rewrites += rewriteLegacyDurabilityFamily(node);
+        rewrites += rewriteLegacyNeighborCallbacks(node);
         rewrites += rewriteLegacyTextureAtlasSpriteIdentity(node);
         rewrites += rewriteLegacyBoatRendererSubclass(node);
         rewrites += rewriteLegacyDyeColorValues(node);
@@ -859,43 +861,87 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    @FunctionalInterface
+    private interface SemanticInstanceMember {
+        Handle resolve(int opcode, String owner, String name, String descriptor);
+    }
+
+    /** One evidence-selected traversal for instance calls and all callable constant shapes. */
+    private int rewriteSemanticInstanceCalls(ClassNode node, SemanticInstanceMember member) {
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        int rewrites = 0;
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof MethodInsnNode call && (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                    || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                    || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL)) {
+                Handle bridge = member.resolve(call.getOpcode(), call.owner, call.name, call.desc);
+                if (bridge != null) {
+                    verifySemanticInstanceShape(call.desc, bridge);
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC); call.owner = bridge.getOwner();
+                    call.name = bridge.getName(); call.desc = bridge.getDesc(); call.itf = bridge.isInterface(); rewrites++;
+                }
+            } else if (instruction instanceof InvokeDynamicInsnNode indy) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    Object original = indy.bsmArgs[i];
+                    Object adapted = semanticInstanceConstant(node, original, member, adapters, capturedBridgeReceiver(indy, original));
+                    if (adapted != original) { indy.bsmArgs[i] = adapted; rewrites++; }
+                }
+            } else if (instruction instanceof LdcInsnNode ldc) {
+                Object adapted = semanticInstanceConstant(node, ldc.cst, member, adapters, null);
+                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+            }
+        }
+        node.methods.addAll(adapters); return rewrites;
+    }
+    private Object semanticInstanceConstant(ClassNode node, Object value, SemanticInstanceMember member,
+            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String receiver) {
+        if (value instanceof Handle handle) {
+            int opcode = switch (handle.getTag()) {
+                case org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL -> org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
+                case org.objectweb.asm.Opcodes.H_INVOKEINTERFACE -> org.objectweb.asm.Opcodes.INVOKEINTERFACE;
+                case org.objectweb.asm.Opcodes.H_INVOKESPECIAL -> org.objectweb.asm.Opcodes.INVOKESPECIAL;
+                default -> -1;
+            };
+            if (opcode == -1) return value;
+            Handle bridge = member.resolve(opcode, handle.getOwner(), handle.getName(), handle.getDesc());
+            if (bridge == null) return value;
+            verifySemanticInstanceShape(handle.getDesc(), bridge);
+            return preserveBridgeHandleType(node, handle, bridge, receiver, adapters);
+        }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed = false;
+            for (int i = 0; i < args.length; i++) {
+                Object original = dynamic.getBootstrapMethodArgument(i);
+                args[i] = semanticInstanceConstant(node, original, member, adapters, null); changed |= args[i] != original;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
+        }
+        return value;
+    }
+    private static void verifySemanticInstanceShape(String source, Handle bridge) {
+        Type[] before = Type.getArgumentTypes(source), after = Type.getArgumentTypes(bridge.getDesc());
+        if (bridge.getTag() != org.objectweb.asm.Opcodes.H_INVOKESTATIC || after.length != before.length + 1
+                || after[0].getSort() != Type.OBJECT || !Type.getReturnType(source).equals(Type.getReturnType(bridge.getDesc()))
+                || !java.util.Arrays.equals(before, java.util.Arrays.copyOfRange(after, 1, after.length)))
+            throw new IllegalStateException("Semantic bridge does not preserve the source invocation shape: " + source + " -> " + bridge);
+    }
+
     /** Adapt the exact 1.19.2 Level#playSound player exclusion to Entity. */
     private int rewriteLegacyLevelSoundPlayback(ClassNode node) {
         if (isManagedSubtypeOf(node, "net/minecraft/world/level/Level")
                 && node.methods.stream().anyMatch(m -> legacyLevelSoundMember(node.name, m.name, m.desc) != null)) {
             throw new IllegalStateException("Unadapted source level-sound override: " + node.name);
         }
-        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
-        int rewrites = 0;
-        for (var method : node.methods) for (var insn : method.instructions) {
-            if (insn instanceof MethodInsnNode call
-                    && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL) {
-                Handle adapted = legacyLevelSoundMember(call.owner, call.name, call.desc);
-                if (adapted != null) {
-                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                    call.owner = adapted.getOwner(); call.name = adapted.getName();
-                    call.desc = adapted.getDesc(); call.itf = false; rewrites++;
-                }
-            } else if (insn instanceof InvokeDynamicInsnNode indy) {
-                for (int i = 0; i < indy.bsmArgs.length; i++) {
-                    Object adapted = adaptLegacyLevelSoundConstant(node, indy.bsmArgs[i], adapters,
-                            capturedBridgeReceiver(indy, indy.bsmArgs[i]));
-                    if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
-                }
-            } else if (insn instanceof LdcInsnNode ldc) {
-                Object adapted = adaptLegacyLevelSoundConstant(node, ldc.cst, adapters, null);
-                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
-            }
-        }
-        node.methods.addAll(adapters);
-        return rewrites;
+        return rewriteSemanticInstanceCalls(node, (opcode, owner, name, descriptor) ->
+                opcode == org.objectweb.asm.Opcodes.INVOKEVIRTUAL ? legacyLevelSoundMember(owner, name, descriptor) : null);
     }
 
     /** A captured receiver can be narrower than an invokevirtual handle owner. */
     private String capturedBridgeReceiver(InvokeDynamicInsnNode indy, Object value) {
         if (!(value instanceof Handle handle)
                 || (handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
-                    && handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKEINTERFACE)
+                    && handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKEINTERFACE
+                    && handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKESPECIAL)
                 || !indy.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")) return null;
         Type[] captured = Type.getArgumentTypes(indy.desc);
         if (captured.length == 0 || captured[0].getSort() != Type.OBJECT) return null;
@@ -906,7 +952,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     /** Preserve the original callable type, including LambdaMetafactory's exact capture rule. */
     private static Handle preserveBridgeHandleType(ClassNode node, Handle original, Handle bridge,
             String capturedReceiver, java.util.List<org.objectweb.asm.tree.MethodNode> adapters) {
-        String receiver = capturedReceiver == null ? original.getOwner() : capturedReceiver;
+        String receiver = capturedReceiver == null
+                ? original.getTag() == org.objectweb.asm.Opcodes.H_INVOKESPECIAL ? node.name : original.getOwner()
+                : capturedReceiver;
         String descriptor = "(L" + receiver + ";" + original.getDesc().substring(1);
         if (descriptor.equals(bridge.getDesc())) return bridge;
         String name = "lms$semanticHandle$" + (node.methods.size() + adapters.size());
@@ -951,25 +999,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 "(Lnet/minecraft/world/level/Level;" + descriptor.substring(1), false);
     }
 
-    private Object adaptLegacyLevelSoundConstant(ClassNode node, Object value,
-            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String capturedReceiver) {
-        if (value instanceof Handle handle && handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL) {
-            Handle adapted = legacyLevelSoundMember(handle.getOwner(), handle.getName(), handle.getDesc());
-            return adapted == null ? value : preserveBridgeHandleType(node, handle, adapted, capturedReceiver, adapters);
-        }
-        if (value instanceof ConstantDynamic dynamic) {
-            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
-            boolean changed = false;
-            for (int i = 0; i < args.length; i++) {
-                Object original = dynamic.getBootstrapMethodArgument(i);
-                args[i] = adaptLegacyLevelSoundConstant(node, original, adapters, null);
-                changed |= args[i] != original;
-            }
-            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(),
-                    dynamic.getBootstrapMethod(), args) : value;
-        }
-        return value;
-    }
+
 
     /** Adapt 1.19.2 enum constants to the target sealed result-family fields. */
     private static int rewriteLegacyInteractionResultConstants(ClassNode node) {
@@ -1421,46 +1451,26 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * constructor or any other use of the removed type.</p>
      */
     private static int rewriteRemovedOptionalClientScreenConstructors(ClassNode node) {
-        final String removed = "net/minecraftforge/client/gui/ModListScreen";
+        String removed = "net/minecraftforge/client/gui/ModListScreen";
+        String target = "net/neoforged/neoforge/client/gui/modlist/ModListScreen";
         int rewrites = 0;
-        for (var method : node.methods) {
-            for (var insn = method.instructions.getFirst(); insn != null; ) {
-                var next = insn.getNext();
-                if (insn instanceof MethodInsnNode call
-                        && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
-                        && call.owner.equals(removed)
-                        && call.name.equals("<init>")
-                        && call.desc.equals("(Lnet/minecraft/client/gui/screens/Screen;)V")) {
-                    // The NEW and DUP must be adjacent real instructions. Do
-                    // not rewrite arbitrary constructors with unknown stack
-                    // shape, and never suppress a required gameplay class.
-                    TypeInsnNode allocation = null;
-                    org.objectweb.asm.tree.AbstractInsnNode duplicate = null;
-                    int steps = 0;
-                    for (var previous = call.getPrevious(); previous != null && steps++ < 12;
-                         previous = previous.getPrevious()) {
-                        if (previous instanceof TypeInsnNode type
-                                && type.getOpcode() == org.objectweb.asm.Opcodes.NEW
-                                && type.desc.equals(removed)) {
-                            var after = type.getNext();
-                            while (after != null && after.getOpcode() < 0) after = after.getNext();
-                            if (after != null && after.getOpcode() == org.objectweb.asm.Opcodes.DUP) {
-                                allocation = type;
-                                duplicate = after;
-                            }
-                            break;
-                        }
-                    }
-                    if (allocation != null) {
-                        method.instructions.remove(call);
-                        method.instructions.remove(duplicate);
-                        method.instructions.remove(allocation);
-                        rewrites++;
-                    }
-                }
-                insn = next;
-            }
+        for (var method : node.methods) for (var instruction : method.instructions.toArray()) {
+            if (!(instruction instanceof TypeInsnNode allocation) || allocation.getOpcode() != org.objectweb.asm.Opcodes.NEW
+                    || !allocation.desc.equals(removed)) continue;
+            var duplicate = nextExecutable(allocation);
+            if (duplicate == null || duplicate.getOpcode() != org.objectweb.asm.Opcodes.DUP)
+                throw new IllegalStateException("Source mod list construction is not a paired NEW/DUP: " + node.name);
+            var constructor = matchingConstructor(duplicate, removed);
+            if (constructor == null || !constructor.desc.equals("(Lnet/minecraft/client/gui/screens/Screen;)V"))
+                throw new IllegalStateException("Unadapted source mod list constructor: " + node.name);
+            method.instructions.remove(allocation); method.instructions.remove(duplicate);
+            method.instructions.set(constructor, new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, target,
+                    "create", "(Lnet/minecraft/client/gui/screens/Screen;)L" + target + ";", false));
+            rewrites++;
         }
+        for (var method : node.methods) for (var instruction : method.instructions)
+            if (instruction instanceof MethodInsnNode call && call.owner.equals(removed) && call.name.equals("<init>"))
+                throw new IllegalStateException("Source mod list subclass constructor is not adapted: " + node.name);
         return rewrites;
     }
 
@@ -6490,8 +6500,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * {@code Orientation}. The target contract explicitly accepts
      * {@code null} for notifications that do not originate in the target's
      * experimental redstone ordering model. Preserve the notification and its
-     * changed-block identity while discarding only the source-generation
-     * position value that the target API no longer represents.
+     * changed-block identity through a source bridge that retains the
+     * position for immediate and queued target dispatch.
      *
      * <p>This rewrite is selected by the exact Forge 1.19.2 SRG member,
      * descriptor and a verified {@code Level} inheritance relationship. A
@@ -6499,65 +6509,25 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * insufficient.</p>
      */
     private int rewriteLegacyNeighborUpdateFamily(ClassNode node) {
-        final String level = "net/minecraft/world/level/Level";
-        final String blockPos = "Lnet/minecraft/core/BlockPos;";
-        final String block = "Lnet/minecraft/world/level/block/Block;";
-        final String direction = "Lnet/minecraft/core/Direction;";
-        final String state = "Lnet/minecraft/world/level/block/state/BlockState;";
-        final String orientation = "Lnet/minecraft/world/level/redstone/Orientation;";
-        int rewrites = 0;
-        for (var method : node.methods) {
-            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (!(insn instanceof MethodInsnNode call)
-                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        || !isManagedSubtypeOf(call.owner, level)) continue;
-
-                if (call.name.equals("m_46672_")
-                        && call.desc.equals("(" + blockPos + block + ")V")) {
-                    method.instructions.insertBefore(call, new org.objectweb.asm.tree.InsnNode(
-                            org.objectweb.asm.Opcodes.ACONST_NULL));
-                    call.name = "updateNeighborsAt";
-                    call.desc = "(" + blockPos + block + orientation + ")V";
-                    rewrites++;
-                    continue;
-                }
-                if (call.name.equals("m_46590_")
-                        && call.desc.equals("(" + blockPos + block + direction + ")V")) {
-                    method.instructions.insertBefore(call, new org.objectweb.asm.tree.InsnNode(
-                            org.objectweb.asm.Opcodes.ACONST_NULL));
-                    call.name = "updateNeighborsAtExceptFromFacing";
-                    call.desc = "(" + blockPos + block + direction + orientation + ")V";
-                    rewrites++;
-                    continue;
-                }
-                if (call.name.equals("m_46586_")
-                        && call.desc.equals("(" + blockPos + block + blockPos + ")V")) {
-                    var adaptation = new org.objectweb.asm.tree.InsnList();
-                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.POP));
-                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ACONST_NULL));
-                    method.instructions.insertBefore(call, adaptation);
-                    call.name = "neighborChanged";
-                    call.desc = "(" + blockPos + block + orientation + ")V";
-                    rewrites++;
-                    continue;
-                }
-                if (call.name.equals("m_213960_")
-                        && call.desc.equals("(" + state + blockPos + block + blockPos + "Z)V")) {
-                    var adaptation = new org.objectweb.asm.tree.InsnList();
-                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
-                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.POP));
-                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ACONST_NULL));
-                    adaptation.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
-                    method.instructions.insertBefore(call, adaptation);
-                    call.name = "neighborChanged";
-                    call.desc = "(" + state + blockPos + block + orientation + "Z)V";
-                    rewrites++;
-                }
-            }
-        }
-        return rewrites;
+        if (isManagedSubtypeOf(node, "net/minecraft/world/level/Level") && node.methods.stream().anyMatch(method ->
+                legacyNeighborMember("net/minecraft/world/level/Level", method.name, method.desc) != null))
+            throw new IllegalStateException("Source level neighbor override requires a dispatch adapter: " + node.name);
+        return rewriteSemanticInstanceCalls(node, (opcode, owner, name, descriptor) ->
+                opcode == org.objectweb.asm.Opcodes.INVOKEVIRTUAL ? legacyNeighborMember(owner, name, descriptor) : null);
     }
-
+    private Handle legacyNeighborMember(String owner, String name, String descriptor) {
+        String level = "net/minecraft/world/level/Level";
+        if (!isManagedSubtypeOf(owner, level)) return null;
+        String target = switch (name + descriptor) {
+            case "m_46672_(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/Block;)V" -> "updateNeighborsAt";
+            case "m_46590_(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/core/Direction;)V" -> "updateNeighborsAtExceptFromFacing";
+            case "m_46586_(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/core/BlockPos;)V",
+                    "m_213960_(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/core/BlockPos;Z)V" -> "neighborChanged";
+            default -> null;
+        };
+        return target == null ? null : new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/runtime/Forge1192NeighborBridge", target, "(L" + level + ";" + descriptor.substring(1), false);
+    }
     /**
      * Forge 1.19.2 used ENTITYBLOCK_ANIMATED to exclude a block from chunk
      * model tessellation while leaving its block-entity renderer active. The
@@ -7596,6 +7566,134 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return rewrites;
     }
 
+    private int rewriteLegacyNeighborCallbacks(ClassNode node) {
+        String block = "net/minecraft/world/level/block/Block";
+        String source = "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/Block;Lnet/minecraft/core/BlockPos;Z)V";
+        String target = source.replace("Lnet/minecraft/core/BlockPos;Z)", "Lnet/minecraft/world/level/redstone/Orientation;Z)");
+        var additions = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        int rewrites = 0;
+        if (isManagedSubtypeOf(node, block)) for (var method : node.methods)
+            if (method.name.equals("m_6861_") && method.desc.equals(source)) {
+                if ((method.access & (org.objectweb.asm.Opcodes.ACC_STATIC | org.objectweb.asm.Opcodes.ACC_ABSTRACT)) != 0
+                        || node.methods.stream().anyMatch(m -> m.name.equals("neighborChanged") && m.desc.equals(target)))
+                    throw new IllegalStateException("Ambiguous source neighbor callback: " + node.name);
+                var callback = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC,
+                        "neighborChanged", target, null, null);
+                for (int i = 0; i <= 4; i++) callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, i));
+                callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 2));
+                callback.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192NeighborBridge", "requirePosition", "(Lnet/minecraft/world/level/Level;)Lnet/minecraft/core/BlockPos;", false));
+                callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD, 6));
+                callback.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL, node.name, method.name, source, false));
+                callback.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));
+                callback.maxLocals = 7; callback.maxStack = 7; additions.add(callback); rewrites++;
+            }
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof MethodInsnNode call && call.name.equals("m_6861_") && call.desc.equals(source)
+                    && isManagedSubtypeOf(call.owner, block)) {
+                boolean base = call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL && call.owner.equals(block);
+                if (!base && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL) continue;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC); call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192NeighborBridge";
+                call.name = base ? "baseCallback" : "callback"; call.desc = "(L" + block + ";" + source.substring(1); call.itf = false; rewrites++;
+            }
+        }
+        node.methods.addAll(additions); return rewrites;
+    }
+
+    private int rewriteLegacyDurabilityFamily(ClassNode node) {
+        String item = "net/minecraft/world/item/Item";
+        String hook = "(Lnet/minecraft/world/item/ItemStack;ILnet/minecraft/world/entity/LivingEntity;Ljava/util/function/Consumer;)I";
+        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        int rewrites = 0;
+        if (isManagedSubtypeOf(node, item)) {
+            for (var method : node.methods) if (method.name.equals("damageItem") && method.desc.equals(hook)) {
+                if ((method.access & (org.objectweb.asm.Opcodes.ACC_STATIC | org.objectweb.asm.Opcodes.ACC_ABSTRACT)) != 0)
+                    throw new IllegalStateException("Unsupported source damage hook shape: " + node.name);
+                if (node.methods.stream().anyMatch(m -> m.name.equals("lms$sourceDamageItem") && m.desc.equals(hook)))
+                    throw new IllegalStateException("Source damage hook adapter collision: " + node.name);
+                method.name = "lms$sourceDamageItem";
+                method.access = (method.access & ~org.objectweb.asm.Opcodes.ACC_PROTECTED) | org.objectweb.asm.Opcodes.ACC_PUBLIC;
+                var wrapper = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC,
+                        "damageItem", hook, null, null);
+                wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+                wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
+                wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD, 2));
+                wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 3));
+                wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 4));
+                wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/runtime/Forge1192DurabilityBridge", "targetDamageItem", "(L" + item + ";" + hook.substring(1), false));
+                wrapper.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));
+                wrapper.maxLocals = 5; wrapper.maxStack = 5; adapters.add(wrapper); rewrites++;
+            }
+        }
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof MethodInsnNode call) {
+                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL && call.name.equals("damageItem")
+                        && call.desc.equals(hook) && hasManagedDamageHook(call.owner, hook)) {
+                    call.name = "lms$sourceDamageItem"; rewrites++; continue;
+                }
+                if (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL) continue;
+                Handle bridge = legacyDurabilityMember(call.owner, call.name, call.desc);
+                if (bridge != null) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC); call.owner = bridge.getOwner(); call.name = bridge.getName();
+                    call.desc = bridge.getDesc(); call.itf = false; rewrites++;
+                }
+            } else if (instruction instanceof InvokeDynamicInsnNode indy) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    Object adapted = adaptLegacyDurabilityConstant(node, indy.bsmArgs[i], adapters, capturedBridgeReceiver(indy, indy.bsmArgs[i]));
+                    if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
+                }
+            } else if (instruction instanceof LdcInsnNode ldc) {
+                Object adapted = adaptLegacyDurabilityConstant(node, ldc.cst, adapters, null);
+                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+            }
+        }
+        node.methods.addAll(adapters); return rewrites;
+    }
+    private boolean hasManagedDamageHook(String owner, String descriptor) {
+        var seen = new java.util.HashSet<String>();
+        while (owner != null && seen.add(owner)) {
+            ClassNode source = readManagedClass(owner);
+            if (source == null) return false;
+            if (source.methods.stream().anyMatch(m -> m.name.equals("damageItem") && m.desc.equals(descriptor))) return true;
+            owner = source.superName;
+        }
+        return false;
+    }
+    private Handle legacyDurabilityMember(String owner, String name, String descriptor) {
+        String stack = "net/minecraft/world/item/ItemStack", item = "net/minecraft/world/item/Item";
+        String target = null, receiver = null;
+        if (name.equals("m_41622_") && descriptor.equals("(ILnet/minecraft/world/entity/LivingEntity;Ljava/util/function/Consumer;)V")) {
+            target = "hurtAndBreak"; receiver = stack;
+        } else if (name.equals("m_220157_") && descriptor.equals("(ILnet/minecraft/util/RandomSource;Lnet/minecraft/server/level/ServerPlayer;)Z")) {
+            target = "hurt"; receiver = stack;
+        } else if (name.equals("damageItem") && descriptor.equals("(Lnet/minecraft/world/item/ItemStack;ILnet/minecraft/world/entity/LivingEntity;Ljava/util/function/Consumer;)I")) {
+            target = name; receiver = item;
+        }
+        if (target == null || !isManagedSubtypeOf(owner, receiver)) return null;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, "com/fuckingdeveloper/lms/runtime/Forge1192DurabilityBridge",
+                target, "(L" + receiver + ";" + descriptor.substring(1), false);
+    }
+    private Object adaptLegacyDurabilityConstant(ClassNode node, Object value,
+            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String capturedReceiver) {
+        if (value instanceof Handle handle && handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESPECIAL
+                && handle.getName().equals("damageItem") && hasManagedDamageHook(handle.getOwner(), handle.getDesc()))
+            return new Handle(handle.getTag(), handle.getOwner(), "lms$sourceDamageItem", handle.getDesc(), handle.isInterface());
+        if (value instanceof Handle handle && handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL) {
+            Handle bridge = legacyDurabilityMember(handle.getOwner(), handle.getName(), handle.getDesc());
+            return bridge == null ? value : preserveBridgeHandleType(node, handle, bridge, capturedReceiver, adapters);
+        }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed = false;
+            for (int i = 0; i < args.length; i++) {
+                Object original = dynamic.getBootstrapMethodArgument(i);
+                args[i] = adaptLegacyDurabilityConstant(node, original, adapters, null); changed |= args[i] != original;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
+        }
+        return value;
+    }
+
     /** Target widened fall distance, while multiplier, cancellation and event timing survived. */
     private int rewriteLegacyLivingFallFamily(ClassNode node) {
         String event = "net/neoforged/neoforge/event/entity/living/LivingFallEvent";
@@ -7682,32 +7780,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
 
     /** Exact provider member identity, with independent virtual and source-super dispatch. */
     private int rewriteLegacyBlockCapabilityQueries(ClassNode node) {
-        var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
-        int rewrites = 0;
-        for (var method : node.methods) for (var insn : method.instructions) {
-            if (insn instanceof MethodInsnNode call) {
-                boolean special = call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL;
-                if (!special && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE) continue;
-                Handle adapted = legacyBlockCapabilityMember(call.owner, call.name, call.desc, special);
-                if (adapted != null) {
-                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                    call.owner = adapted.getOwner(); call.name = adapted.getName();
-                    call.desc = adapted.getDesc(); call.itf = false; rewrites++;
-                }
-            } else if (insn instanceof InvokeDynamicInsnNode indy) {
-                for (int i = 0; i < indy.bsmArgs.length; i++) {
-                    Object adapted = adaptLegacyBlockCapabilityConstant(node, indy.bsmArgs[i], adapters,
-                            capturedBridgeReceiver(indy, indy.bsmArgs[i]));
-                    if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
-                }
-            } else if (insn instanceof LdcInsnNode ldc) {
-                Object adapted = adaptLegacyBlockCapabilityConstant(node, ldc.cst, adapters, null);
-                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
-            }
-        }
-        node.methods.addAll(adapters);
-        return rewrites;
+        return rewriteSemanticInstanceCalls(node, (opcode, owner, name, descriptor) ->
+                legacyBlockCapabilityMember(owner, name, descriptor, opcode == org.objectweb.asm.Opcodes.INVOKESPECIAL));
     }
 
     private Handle legacyBlockCapabilityMember(String owner, String name, String descriptor, boolean special) {
@@ -7728,26 +7802,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 base ? "baseGetCapability" : special ? "sourceDefaultGetCapability" : "getCapability",
                 "(" + (base ? "L" + blockEntity + ";" : "Ljava/lang/Object;")
                         + descriptor.substring(1), false);
-    }
-
-    private Object adaptLegacyBlockCapabilityConstant(ClassNode node, Object value,
-            java.util.List<org.objectweb.asm.tree.MethodNode> adapters, String capturedReceiver) {
-        if (value instanceof Handle handle && (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
-                || handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEINTERFACE)) {
-            Handle adapted = legacyBlockCapabilityMember(handle.getOwner(), handle.getName(), handle.getDesc(), false);
-            return adapted == null ? value : preserveBridgeHandleType(node, handle, adapted, capturedReceiver, adapters);
-        }
-        if (value instanceof ConstantDynamic dynamic) {
-            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()];
-            boolean changed = false;
-            for (int i = 0; i < args.length; i++) {
-                Object original = dynamic.getBootstrapMethodArgument(i);
-                args[i] = adaptLegacyBlockCapabilityConstant(node, original, adapters, null);
-                changed |= args[i] != original;
-            }
-            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
-        }
-        return value;
     }
 
     /** Holder migration requires source member identity AND verified receiver ancestry. */
@@ -10424,6 +10478,31 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     call.itf = false;
                     rewrites++;
                 }
+                if (call.owner.equals("net/neoforged/bus/api/IEventBus") && call.name.equals("addGenericListener")
+                        && call.desc.equals("(Ljava/lang/Class;Ljava/util/function/Consumer;)V")) {
+                    Type eventType = inferLambdaEventType(call);
+                    if (eventType == null || !eventType.getInternalName().equals("com/fuckingdeveloper/lms/runtime/event/LegacyAttachCapabilitiesEvent"))
+                        throw new IllegalStateException("Unadapted source generic event registration: " + node.name);
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                    call.desc = "(Lnet/neoforged/bus/api/IEventBus;Ljava/lang/Class;Ljava/util/function/Consumer;)V";
+                    call.itf = false; rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/fml/ModContainer") && call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        && ((call.name.equals("registerExtensionPoint") && call.desc.equals("(Ljava/lang/Class;Ljava/util/function/Supplier;)V"))
+                            || (call.name.equals("getCustomExtension") && call.desc.equals("(Ljava/lang/Class;)Ljava/util/Optional;")))) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192ConfigScreenBridge";
+                    call.desc = "(Lnet/neoforged/fml/ModContainer;" + call.desc.substring(1); call.itf = false; rewrites++;
+                }
+                if (call.owner.equals("net/neoforged/neoforge/client/event/AddClientReloadListenersEvent")
+                        && call.name.equals("registerReloadListener") && call.desc.equals("(Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V")) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                    call.name = "registerClientReloadListener";
+                    call.desc = "(Lnet/neoforged/neoforge/client/event/AddClientReloadListenersEvent;Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V";
+                    call.itf = false; rewrites++;
+                }
                 // Legacy listeners capture the active legacy mod identity when
                 // registered. RegisterEvent callbacks additionally receive a scoped
                 // registration context, so old registry facade adapters execute only
@@ -10692,6 +10771,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        if (value.equals("net/minecraftforge/client/event/RegisterClientReloadListenersEvent"))
+            return "net/neoforged/neoforge/client/event/AddClientReloadListenersEvent";
+        if (value.equals("net/minecraftforge/client/ConfigScreenHandler$ConfigScreenFactory"))
+            return "com/fuckingdeveloper/lms/runtime/render/LegacyConfigScreenFactory";
+        if (value.equals("net/minecraftforge/client/ConfigScreenHandler"))
+            return "com/fuckingdeveloper/lms/runtime/render/Forge1192ConfigScreenBridge";
+        if (value.equals("net/minecraftforge/client/gui/ModListScreen"))
+            return "net/neoforged/neoforge/client/gui/modlist/ModListScreen";
+        if (value.equals("net/minecraftforge/event/AttachCapabilitiesEvent"))
+            return "com/fuckingdeveloper/lms/runtime/event/LegacyAttachCapabilitiesEvent";
+        if (value.equals("net/minecraftforge/common/util/INBTSerializable"))
+            return "com/fuckingdeveloper/lms/runtime/capability/LegacyINBTSerializable";
         if (value.equals("net/minecraft/world/InteractionResultHolder"))
             return "com/fuckingdeveloper/lms/runtime/item/LegacyInteractionResultHolder";
         if (value.equals("net/minecraft/world/item/UseAnim"))

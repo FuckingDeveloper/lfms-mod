@@ -233,3 +233,27 @@ tasks.register('compatibilityAudit', JavaExec) {
     mainClass = 'com.fuckingdeveloper.lms.check.TransformedLinkageAudit'
     workingDir = layout.projectDirectory.dir('run')
 }
+
+// The probe is a target game library, not a fabricated native/legacy mod.
+def nativeSmokeJar = tasks.register('nativeSmokeJar', Jar) {
+    dependsOn tasks.named('compatibilityTestClasses')
+    archiveClassifier = 'native-smoke'
+    from(sourceSets.compatibilityTest.output) {
+        include '**/NativeLifecycleSmokeLauncher*.class', '**/LiveTargetContractProbe*.class'
+    }
+    manifest { attributes('FMLModType': 'GAMELIBRARY', 'Automatic-Module-Name': 'lms.compatibility.smoke') }
+}
+tasks.register('nativeCompatibilitySmoke', JavaExec) {
+    group = 'verification'
+    description = 'Check physical-client FML-applied hooks without starting Minecraft, a world or window'
+    dependsOn tasks.named('prepareServerRun'), nativeSmokeJar, installLaunchJar, prepareLaunchPlan
+    javaLauncher = tasks.named('runServer', JavaExec).flatMap { it.javaLauncher }
+    mainClass = 'com.fuckingdeveloper.lms.check.NativeLifecycleSmokeLauncher'
+    workingDir = layout.projectDirectory.dir('run')
+    doFirst {
+        def nativeRun = tasks.named('runServer', JavaExec).get()
+        setJvmArgs(nativeRun.jvmArgs)
+        nativeRun.jvmArgumentProviders.each { jvmArgs(it.asArguments()) }
+        setClasspath(nativeRun.classpathProvider + files(nativeSmokeJar.get().archiveFile.get().asFile))
+    }
+}

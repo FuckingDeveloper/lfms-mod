@@ -33,6 +33,9 @@ import java.util.function.Supplier;
  */
 public final class Forge1192NetworkBridge {
     private Forge1192NetworkBridge() {}
+    // Pinned source bytecode constructs distinct sentinel strings, rather than interned protocol literals.
+    public static String ABSENT = new String("ABSENT 🤔");
+    public static String ACCEPTVANILLA = new String("ALLOWVANILLA 💓💓💓");
 
     public enum TargetKind {
         SERVER, PLAYER, ALL, DIMENSION, TRACKING_CHUNK, TRACKING_ENTITY_AND_SELF, NEAR

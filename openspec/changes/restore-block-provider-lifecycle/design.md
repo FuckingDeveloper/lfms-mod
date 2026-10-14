@@ -1,6 +1,9 @@
 # Block provider lifecycle — evidence and remaining design
 
-Status: investigation; not implemented and not a compatibility claim.
+Status: block constructor/dispatcher/invalidation/ForgeCaps contracts implemented
+and checked with the actual physical-client FML/mixin loader. Gameplay acceptance
+and full source mechanism persistence remain pending. See
+`openspec/changes/batch-runtime-semantics/tasks.md`.
 
 The next causal blocker is a custom source token falling through a source block
 entity override to the original BlockEntity superclass query. The latest server

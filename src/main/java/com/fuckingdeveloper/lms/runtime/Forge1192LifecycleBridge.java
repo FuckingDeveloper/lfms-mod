@@ -62,6 +62,22 @@ public final class Forge1192LifecycleBridge {
                 new LegacyContainer(modId)));
     }
 
+    /** Registered event callbacks may cross source owners; preserve and restore the caller's context. */
+    public static AutoCloseable enterCallback(String modId) {
+        Objects.requireNonNull(modId);
+        Context previous = CURRENT.get();
+        if (previous != null && previous.modId().equals(modId)) return () -> {};
+        Binding binding = BINDINGS.get(modId);
+        if (binding == null) throw new IllegalStateException("No callback owner binding recorded for " + modId);
+        Context callback = new Context(modId, binding.modEventBus(), binding.hostContainer(), new LegacyContainer(modId));
+        Thread owner = Thread.currentThread(); CURRENT.set(callback);
+        return () -> {
+            if (Thread.currentThread() != owner || CURRENT.get() != callback)
+                throw new IllegalStateException("Source callback scope closed out of order or on another thread");
+            if (previous == null) CURRENT.remove(); else CURRENT.set(previous);
+        };
+    }
+
     private static AutoCloseable activate(Context context) {
         if (CURRENT.get() != null) throw new IllegalStateException("Nested legacy lifecycle scopes are not supported");
         Thread owner = Thread.currentThread();

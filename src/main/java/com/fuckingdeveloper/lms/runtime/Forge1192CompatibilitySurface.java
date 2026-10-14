@@ -37,6 +37,17 @@ public final class Forge1192CompatibilitySurface {
      * exact legacy owner/name/descriptor contracts, not namespace guesses.
      */
     private static final Set<String> SUPPORTED_BRIDGES = Set.of(
+            "net.minecraftforge.client.ConfigScreenHandler$ConfigScreenFactory#<init>(Ljava/util/function/BiFunction;)V",
+            "net.minecraftforge.client.ConfigScreenHandler$ConfigScreenFactory#<init>(Ljava/util/function/Function;)V",
+            "net.minecraftforge.client.ConfigScreenHandler$ConfigScreenFactory#screenFunction()Ljava/util/function/BiFunction;",
+            "net.minecraftforge.client.event.RegisterClientReloadListenersEvent#registerReloadListener(Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V",
+            "net.minecraftforge.client.gui.ModListScreen#<init>(Lnet/minecraft/client/gui/screens/Screen;)V",
+            "net.minecraftforge.fml.ModContainer#getCustomExtension(Ljava/lang/Class;)Ljava/util/Optional;",
+            "net.minecraftforge.fml.ModContainer#registerExtensionPoint(Ljava/lang/Class;Ljava/util/function/Supplier;)V",
+            "net.minecraftforge.fml.ModContainer#getModId()Ljava/lang/String;",
+            "net.minecraftforge.fml.ModContainer#getModInfo()Lnet/minecraftforge/forgespi/language/IModInfo;",
+            "net.minecraftforge.forgespi.language.IModInfo#getDisplayName()Ljava/lang/String;",
+            "net.minecraftforge.eventbus.api.IEventBus#addGenericListener(Ljava/lang/Class;Ljava/util/function/Consumer;)V",
             "net.minecraftforge.eventbus.api.IEventBus#addListener(Ljava/util/function/Consumer;)V",
             "net.minecraftforge.eventbus.api.IEventBus#register(Ljava/lang/Object;)V",
             "net.minecraftforge.api.distmarker.Dist#isClient()Z",

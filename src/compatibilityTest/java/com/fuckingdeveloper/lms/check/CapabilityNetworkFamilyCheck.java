@@ -64,6 +64,7 @@ final class CapabilityNetworkFamilyCheck {
             net.minecraft.SharedConstants.tryDetectVersion();
             net.minecraft.server.Bootstrap.bootStrap();
             itemTransfers();
+            BatchFamilyCheck.run();
         }
         System.out.println("PASS: block capability dispatch/identity/default/super, owner negatives, actual interface lambda linkage, network provenance/deferred scopes, native item transaction commit/rollback/invalidation");
     }
