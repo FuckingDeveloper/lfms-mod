@@ -301,6 +301,7 @@ public final class Forge1192EventBusBridge {
             return;
         }
         if (eventType == LegacyFurnaceFuelBurnTimeEvent.class) {
+            listen(bus, priority, receiveCanceled, eventType, listener);
             IEventBus modBus = Forge1192LifecycleBridge.requireActive().modEventBus();
             listen(modBus, priority, receiveCanceled, ModifyDefaultComponentsEvent.class,
                     event -> registerLegacyFuelComponents(event, (Consumer) listener));

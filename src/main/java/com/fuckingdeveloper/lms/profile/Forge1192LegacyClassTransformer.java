@@ -244,6 +244,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacySignItemConstruction(node);
         rewrites += rewriteLegacyItemNameDefaults(node);
         rewrites += rewriteLegacyItemUseCallbacks(node);
+        rewrites += rewriteLegacyItemResourceQueries(node);
         rewrites += rewriteLegacyBlockUseCallbacks(node);
         rewrites += rewriteLegacySignBlockConstruction(node);
         rewrites += rewriteLegacyWoodButtonConstruction(node);
@@ -2436,6 +2437,104 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             adapter.maxStack = 7; adapter.maxLocals = withItem ? 8 : 6;
             node.methods.add(adapter);
             rewrites++;
+        }
+        return rewrites;
+    }
+
+    /** Source ownership plus exact extension descriptors establish fuel-query identity. */
+    private Handle itemResourceHandle(Handle handle) {
+        String stack = "Lnet/minecraft/world/item/ItemStack;", type = "Lnet/minecraft/world/item/crafting/RecipeType;";
+        String item = "net/minecraft/world/item/Item", bridge = "com/fuckingdeveloper/lms/runtime/Forge1192FuelBridge";
+        String name = null, descriptor = handle.getDesc();
+        if (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESTATIC) {
+            if (handle.getOwner().equals("net/minecraftforge/common/ForgeHooks") && handle.getName().equals("getBurnTime")
+                    && descriptor.equals("(" + stack + type + ")I")) name = "getBurnTime";
+            if (handle.getOwner().equals("net/minecraftforge/event/ForgeEventFactory") && handle.getName().equals("getItemBurnTime")
+                    && descriptor.equals("(" + stack + "I" + type + ")I")) name = "getItemBurnTime";
+        } else if (handle.getName().equals("getBurnTime")) {
+            if (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                    && handle.getOwner().equals("net/minecraft/world/item/ItemStack") && descriptor.equals("(" + type + ")I")) {
+                name = "stackBurnTime"; descriptor = "(" + stack + type + ")I";
+            } else if (descriptor.equals("(" + stack + type + ")I") && isManagedSubtypeOf(handle.getOwner(), item)
+                    && (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                        || (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESPECIAL && handle.getOwner().equals(item)))) {
+                name = handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESPECIAL ? "defaultBurnTime" : "itemBurnTime";
+                descriptor = "(L" + item + ";" + stack + type + ")I";
+            }
+        }
+        if (handle.getName().equals("hasCraftingRemainingItem") || handle.getName().equals("getCraftingRemainingItem")) {
+            boolean has = handle.getName().equals("hasCraftingRemainingItem");
+            String result = has ? "Z" : stack;
+            String receiver = null;
+            boolean base = handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESPECIAL && handle.getOwner().equals(item);
+            if (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                    && handle.getOwner().equals("net/minecraft/world/item/ItemStack") && descriptor.equals("()" + result)) receiver = stack;
+            else if ((handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL || base)
+                    && isManagedSubtypeOf(handle.getOwner(), item) && descriptor.equals("(" + stack + ")" + result)) receiver = "L" + item + ";" + stack;
+            if (receiver != null) {
+                bridge = "com/fuckingdeveloper/lms/runtime/Forge1192CraftingRemainderBridge";
+                name = base ? (has ? "defaultHas" : "defaultGet") : (has ? "has" : "get");
+                descriptor = "(" + receiver + ")" + result;
+            }
+        }
+        return name == null ? null : new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, bridge, name, descriptor, false);
+    }
+    private Object itemResourceConstant(Object value) {
+        if (value instanceof Handle handle) { var adapted = itemResourceHandle(handle); return adapted == null ? value : adapted; }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed = false;
+            for (int i = 0; i < args.length; i++) { Object old = dynamic.getBootstrapMethodArgument(i); args[i] = itemResourceConstant(old); changed |= args[i] != old; }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
+        }
+        return value;
+    }
+    private int rewriteLegacyItemResourceQueries(ClassNode node) {
+        int rewrites = 0;
+        String descriptor = "(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/crafting/RecipeType;)I";
+        if (isManagedSubtypeOf(node, "net/minecraft/world/item/Item")
+                && node.methods.stream().anyMatch(m -> m.name.equals("getBurnTime") && m.desc.equals(descriptor)
+                        && (m.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0)) {
+            String view = "com/fuckingdeveloper/lms/runtime/item/LegacyFuelItem";
+            if (!node.interfaces.contains(view)) node.interfaces.add(view);
+            var adapter = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                    "lms$burnTime", descriptor, null, null);
+            for (int i = 0; i < 3; i++) adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, i));
+            adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL, node.name, "getBurnTime", descriptor, false));
+            adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));
+            adapter.maxStack = 3; adapter.maxLocals = 3; node.methods.add(adapter); rewrites++;
+        }
+        if (isManagedSubtypeOf(node, "net/minecraft/world/item/Item")) {
+            for (var source : java.util.List.copyOf(node.methods)) {
+                boolean has = source.name.equals("hasCraftingRemainingItem") && source.desc.equals("(Lnet/minecraft/world/item/ItemStack;)Z");
+                boolean get = source.name.equals("getCraftingRemainingItem") && source.desc.equals("(Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/item/ItemStack;");
+                if ((!has && !get) || (source.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0) continue;
+                String view = "com/fuckingdeveloper/lms/runtime/item/LegacyCraftingItem";
+                if (!node.interfaces.contains(view)) node.interfaces.add(view);
+                var adapter = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                        has ? "lms$hasCraftingRemainder" : "lms$craftingRemainder", source.desc, null, null);
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+                adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
+                adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL, node.name, source.name, source.desc, false));
+                adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(has ? org.objectweb.asm.Opcodes.IRETURN : org.objectweb.asm.Opcodes.ARETURN));
+                adapter.maxStack = 2; adapter.maxLocals = 2; node.methods.add(adapter); rewrites++;
+            }
+        }
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof MethodInsnNode call) {
+                // Keep source-owned calls and generated virtual callback dispatch intact.
+                if (call.owner.equals(node.name) && (call.name.equals("getBurnTime")
+                        || call.name.equals("hasCraftingRemainingItem") || call.name.equals("getCraftingRemainingItem"))) continue;
+                int tag = switch (call.getOpcode()) {
+                    case org.objectweb.asm.Opcodes.INVOKESTATIC -> org.objectweb.asm.Opcodes.H_INVOKESTATIC;
+                    case org.objectweb.asm.Opcodes.INVOKEVIRTUAL -> org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL;
+                    case org.objectweb.asm.Opcodes.INVOKESPECIAL -> org.objectweb.asm.Opcodes.H_INVOKESPECIAL;
+                    default -> -1;
+                };
+                if (tag == -1) continue;
+                var adapted = itemResourceHandle(new Handle(tag, call.owner, call.name, call.desc, call.itf));
+                if (adapted != null) { call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC); call.owner = adapted.getOwner(); call.name = adapted.getName(); call.desc = adapted.getDesc(); call.itf = false; rewrites++; }
+            } else if (instruction instanceof LdcInsnNode ldc) { Object adapted = itemResourceConstant(ldc.cst); if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; } }
+            else if (instruction instanceof InvokeDynamicInsnNode dynamic) for (int i = 0; i < dynamic.bsmArgs.length; i++) { Object adapted = itemResourceConstant(dynamic.bsmArgs[i]); if (adapted != dynamic.bsmArgs[i]) { dynamic.bsmArgs[i] = adapted; rewrites++; } }
         }
         return rewrites;
     }

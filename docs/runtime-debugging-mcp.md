@@ -17,6 +17,9 @@ Stop the previous test client safely before launching a replacement or running
 the native FML smoke probe in the same run directory. Do not terminate arbitrary
 Java processes or interrupt a world save. Do not launch concurrent clients
 against the same world/bridge/log destination.
+Do not compile or regenerate `build/classes`/`build/resources` while a dev client
+is using those directories. Complete all build checks first, then launch a fresh
+client; a live module classloader is not an incremental hot-reload boundary.
 
 Use the repository wrapper and the existing verification tasks appropriate to
 the compatibility family. For the current development slice:

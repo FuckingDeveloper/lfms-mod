@@ -6,14 +6,26 @@ import net.neoforged.bus.api.Event;
 
 /**
  * Verifier-visible Forge 1.19.2 fuel query adapted to the 26.3 item-component model.
- * Instances are evaluated while default item components are being bound.
+ * Real source queries carry their recipe type; native component binding has no recipe context.
  */
-public final class LegacyFurnaceFuelBurnTimeEvent extends Event {
+public final class LegacyFurnaceFuelBurnTimeEvent extends Event implements net.neoforged.bus.api.ICancellableEvent {
     private final ItemStack itemStack;
+    private final RecipeType<?> recipeType;
+    private final boolean query;
     private int burnTime;
     private boolean overridden;
 
     public LegacyFurnaceFuelBurnTimeEvent(ItemStack itemStack, int burnTime) {
+        this(itemStack, burnTime, null, false);
+    }
+
+    public LegacyFurnaceFuelBurnTimeEvent(ItemStack itemStack, int burnTime, RecipeType<?> recipeType) {
+        this(itemStack, burnTime, recipeType, true);
+    }
+
+    private LegacyFurnaceFuelBurnTimeEvent(ItemStack itemStack, int burnTime, RecipeType<?> recipeType, boolean query) {
+        this.recipeType = recipeType;
+        this.query = query;
         this.itemStack = itemStack;
         this.burnTime = burnTime;
     }
@@ -23,6 +35,7 @@ public final class LegacyFurnaceFuelBurnTimeEvent extends Event {
     }
 
     public RecipeType<?> getRecipeType() {
+        if (query) return recipeType;
         throw new UnsupportedOperationException(
                 "Minecraft 26.3 cooking fuel components are not queried with a legacy RecipeType");
     }
@@ -31,6 +44,7 @@ public final class LegacyFurnaceFuelBurnTimeEvent extends Event {
         if (burnTime >= 0) {
             this.burnTime = burnTime;
             this.overridden = true;
+            setCanceled(true);
         }
     }
 
