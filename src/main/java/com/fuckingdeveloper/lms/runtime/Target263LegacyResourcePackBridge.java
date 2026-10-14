@@ -69,6 +69,10 @@ public final class Target263LegacyResourcePackBridge {
             }
             snapshot.forEach(artifact -> {
                 output.accept(createPack(artifact, packType));
+                if (packType == PackType.SERVER_DATA) {
+                    Pack aliases = com.fuckingdeveloper.lms.runtime.worldgen.Target263WorldgenPack.aliases(artifact);
+                    if (aliases != null) output.accept(aliases);
+                }
                 if (packType == PackType.CLIENT_RESOURCES) {
                     Pack signGuiPack = Target263LegacySignGuiResources.createPack(artifact);
                     if (signGuiPack != null) output.accept(signGuiPack);

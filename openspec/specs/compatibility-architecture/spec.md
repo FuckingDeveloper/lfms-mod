@@ -822,3 +822,17 @@ IC2 Classic 1.19.2 is the first broad integration target because it exercises ma
 Every compatibility family discovered through IC2 SHOULD be generalized and, where practical, covered by a focused synthetic fixture so future testing does not depend exclusively on IC2.
 
 The original IC2 artifact MUST remain external and unmodified.
+
+
+### Native world-generation placement policy
+
+Supported legacy tree and ore declarations MUST preserve source configuration
+intent, custom virtual callbacks, world/position, supplied randomness and placement
+results while executing the active target generation's native placement engine.
+Native base replacement, soil and update rules MAY follow the target generation;
+bit-for-bit source vanilla tree/ore algorithm reproduction is not required.
+This exception MUST NOT discard an explicit source option or custom callback.
+Static implementation codecs and data-driven feature definitions MUST remain
+separate lifecycle operations. Definitions MUST enter native data loading before
+registry freeze; runtime placement MUST NOT mutate frozen registries. Unknown
+feature/configuration families remain explicit gaps. See worldgen-feature-family.
