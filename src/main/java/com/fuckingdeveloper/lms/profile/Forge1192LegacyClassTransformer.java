@@ -259,6 +259,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteSourceRecipeIdCalls(node);
         rewrites += rewriteRecipeInformationFamily(node);
         rewrites += rewriteInteractionResultInformation(node);
+        rewrites += rewriteComponentJsonInformation(node);
         rewrites += rewriteColorCollectionConstants(node);
         rewrites += rewriteBonemealCallbacks(node);
         rewrites += rewriteContainerGraphicsPhases(node);
@@ -4057,6 +4058,39 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     && field.desc.equals("Lnet/minecraft/world/InteractionResult;")) {field.owner="com/fuckingdeveloper/lms/runtime/Forge1192InteractionResultBridge";rewrites++;}
         }
         return rewrites;
+    }
+
+    private static Handle componentJsonHandle(Handle handle) {
+        if (handle.getTag()!=org.objectweb.asm.Opcodes.H_INVOKESTATIC
+                || !handle.getOwner().equals("net/minecraft/network/chat/Component$Serializer") || SRG_RUNTIME_RESOLVER.isEmpty()) return null;
+        String name=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(handle.getOwner(),handle.getName(),handle.getDesc()).orElse(handle.getName());
+        boolean supported=switch(name) {
+            case "toJson", "toStableJson" -> handle.getDesc().equals("(Lnet/minecraft/network/chat/Component;)Ljava/lang/String;");
+            case "toJsonTree" -> handle.getDesc().equals("(Lnet/minecraft/network/chat/Component;)Lcom/google/gson/JsonElement;");
+            case "fromJson" -> handle.getDesc().equals("(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;") || handle.getDesc().equals("(Lcom/google/gson/JsonElement;)Lnet/minecraft/network/chat/MutableComponent;");
+            default -> false;
+        };
+        return supported ? new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192ComponentJsonBridge",name,handle.getDesc(),false) : null;
+    }
+    private static Object componentJsonConstant(Object value) {
+        if (value instanceof Handle handle) { var adapted=componentJsonHandle(handle); return adapted==null ? value : adapted; }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args=new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed=false;
+            for (int i=0; i<args.length; i++) { Object old=dynamic.getBootstrapMethodArgument(i); args[i]=componentJsonConstant(old); changed|=args[i]!=old; }
+            return changed ? new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args) : value;
+        }
+        return value;
+    }
+    private static int rewriteComponentJsonInformation(ClassNode node) {
+        int count=0;
+        for (var method:node.methods) for (var instruction:method.instructions) {
+            if (instruction instanceof MethodInsnNode call && call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC) {
+                var adapted=componentJsonHandle(new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,call.owner,call.name,call.desc,call.itf));
+                if (adapted!=null) { call.owner=adapted.getOwner();call.name=adapted.getName();call.itf=false;count++; }
+            } else if (instruction instanceof LdcInsnNode ldc) { Object adapted=componentJsonConstant(ldc.cst);if (adapted!=ldc.cst){ldc.cst=adapted;count++;} }
+            else if (instruction instanceof InvokeDynamicInsnNode dynamic) for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=componentJsonConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;count++;}}
+        }
+        return count;
     }
 
     private int rewriteBonemealCallbacks(ClassNode node) {
