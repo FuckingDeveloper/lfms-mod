@@ -12,7 +12,18 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 neoForge {
     version = project.neo_version
     runs {
-        client { client() }
+        client {
+            client()
+            // Preserve DevLaunch's main class and generated arguments. JavaExec
+            // --args replaces them, so append native Quick Play through the run DSL.
+            def testWorld = providers.gradleProperty('lmsTestWorld')
+            if (testWorld.isPresent()) {
+                def worldId = testWorld.get()
+                if (worldId.isBlank()) throw new GradleException('lmsTestWorld must name an existing directory under run/saves')
+                programArgument '--quickPlaySingleplayer'
+                programArgument worldId
+            }
+        }
         server { server(); programArgument '--nogui' }
     }
     mods {

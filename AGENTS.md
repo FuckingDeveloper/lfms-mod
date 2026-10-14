@@ -234,6 +234,28 @@ Useful filter:
 grep -nE 'LMS lifecycle|LMS runtime-session|LMS managed-transform|ERROR|FATAL|Exception|Caused by:|NoClassDefFoundError|ClassNotFoundException|VerifyError|NoSuchMethodError|NoSuchFieldError|AbstractMethodError' /tmp/lms-run.log
 ```
 
+When the `minecraft` MCP server is available, use MCP Fabric for runtime checks
+before handing supported gameplay operations to a human. Follow
+`docs/runtime-debugging-mcp.md`: compile/focused checks, fresh Gradle client,
+explicit test-world launch, connection/capability gates, actual content behavior,
+and causal runtime-log inspection. Prefer structured API data; screenshots are
+optional evidence only for behavior the API cannot expose. Do not build a custom
+Minecraft automation framework or change MCP Fabric sources to fill missing
+operations without agreement. Document unavailable operations as BLOCKED or
+UNVERIFIED. Do not infer loaded-world readiness from a responding bridge alone.
+
+For an existing test world, the target's native Quick Play launch can bypass the
+menu without adding an automation framework:
+
+```bash
+./gradlew runClient -PlmsTestWorld='<test-world-directory>' > /tmp/lms-run.log 2>&1
+```
+
+Use an explicit directory under `run/saves/`, not a guessed display name. Do not
+launch a second client or a native smoke process sharing the live client's run
+logs/bridge. Preserve diagnostics and stop the previous test client safely before
+restarting it. Keep tokens, local MCP configuration and test-run output out of Git.
+
 When asking a human to test a build, ALWAYS provide the exact command/filter needed to collect the relevant evidence.
 
 Do not ask the human to choose arbitrary log excerpts.

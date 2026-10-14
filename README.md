@@ -8,12 +8,12 @@ Binary-first compatibility system for legacy Minecraft Forge/FML mods on modern 
 
 ## Development
 
-Use Gradle 9.2.1 or the official NeoForge 26.3 MDK wrapper.
+Use the repository Gradle wrapper (9.2.1).
 
 ```bash
-gradle runClient
-gradle runServer
-gradle build
+./gradlew runClient
+./gradlew runServer
+./gradlew build
 ```
 
 Put candidate legacy JARs in the **development run directory** under `legacy-mods/`.
@@ -29,3 +29,9 @@ See `openspec/` for normative requirements, architecture and change proposals. I
 - `openspec/specs/target-runtimes/spec.md` — maintaining LMS across future Minecraft/NeoForge targets;
 - `openspec/specs/compatibility-verification/spec.md` — testing and compatibility evidence;
 - `AGENTS.md` — mandatory repository rules for autonomous coding agents.
+
+Runtime debugging uses the existing `minecraft` MCP server / MCP Fabric when
+available. See [the runtime runbook](docs/runtime-debugging-mcp.md) for connection
+and world gates, native Quick Play launch, structured content/behavior checks,
+log collection and explicitly unsupported operations. The tool is development
+instrumentation and does not add Fabric compatibility to LMS.
