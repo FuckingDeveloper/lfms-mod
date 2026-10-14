@@ -18,10 +18,34 @@ public final class ProguardMappingReader {
                                String obfuscatedOwner, String obfuscatedName) {}
     public record MethodMapping(String namedOwner, String namedName, String parameters,
                                 String obfuscatedOwner, String obfuscatedName) {}
-    public record Index(Map<String, String> namedToObfuscatedClasses,
-                        Map<String, String> obfuscatedToNamedClasses,
-                        Map<MethodKey, MethodMapping> namedMethods,
-                        List<FieldMapping> namedFields) {
+    public static final class Index {
+        private final Map<String,String> namedToObfuscatedClasses;
+        private final Map<String,String> obfuscatedToNamedClasses;
+        private final Map<MethodKey,MethodMapping> namedMethods;
+        private final List<FieldMapping> namedFields;
+        private final Map<String,List<MethodMapping>> obfuscatedMethods;
+        private final Map<String,List<FieldMapping>> obfuscatedFields;
+
+        public Index(Map<String,String> namedToObfuscatedClasses, Map<String,String> obfuscatedToNamedClasses,
+                     Map<MethodKey,MethodMapping> namedMethods, List<FieldMapping> namedFields) {
+            this.namedToObfuscatedClasses=Map.copyOf(namedToObfuscatedClasses);
+            this.obfuscatedToNamedClasses=Map.copyOf(obfuscatedToNamedClasses);
+            this.namedMethods=Map.copyOf(namedMethods);this.namedFields=List.copyOf(namedFields);
+            var methods=new java.util.HashMap<String,java.util.ArrayList<MethodMapping>>();
+            for(var method:this.namedMethods.values()) methods.computeIfAbsent(method.obfuscatedOwner()+"\u0000"+method.obfuscatedName(),unused->new java.util.ArrayList<>()).add(method);
+            var frozenMethods=new java.util.HashMap<String,List<MethodMapping>>();
+            methods.forEach((key,values)->frozenMethods.put(key,values.stream().distinct().toList()));
+            obfuscatedMethods=Map.copyOf(frozenMethods);
+            var fields=new java.util.HashMap<String,java.util.ArrayList<FieldMapping>>();
+            for(var field:this.namedFields) fields.computeIfAbsent(field.obfuscatedOwner()+"\u0000"+field.obfuscatedName(),unused->new java.util.ArrayList<>()).add(field);
+            var frozenFields=new java.util.HashMap<String,List<FieldMapping>>();
+            fields.forEach((key,values)->frozenFields.put(key,List.copyOf(values)));
+            obfuscatedFields=Map.copyOf(frozenFields);
+        }
+        public Map<String,String> namedToObfuscatedClasses(){return namedToObfuscatedClasses;}
+        public Map<String,String> obfuscatedToNamedClasses(){return obfuscatedToNamedClasses;}
+        public Map<MethodKey,MethodMapping> namedMethods(){return namedMethods;}
+        public List<FieldMapping> namedFields(){return namedFields;}
         public Optional<MethodMapping> find(String owner, String name, String parameters) {
             return Optional.ofNullable(namedMethods.get(new MethodKey(toBinaryName(owner), name, parameters)));
         }
@@ -32,29 +56,10 @@ public final class ProguardMappingReader {
             return Optional.ofNullable(obfuscatedToNamedClasses.get(toBinaryName(obfuscatedClass)));
         }
         public List<FieldMapping> findFieldByObfuscated(String owner, String name) {
-            String normalizedOwner = toBinaryName(owner);
-            return namedFields.stream()
-                    .filter(field -> field.obfuscatedOwner().equals(normalizedOwner))
-                    .filter(field -> field.obfuscatedName().equals(name))
-                    .toList();
+            return obfuscatedFields.getOrDefault(toBinaryName(owner)+"\u0000"+name,List.of());
         }
-        private static final java.util.concurrent.ConcurrentMap<Index, Map<String, List<MethodMapping>>> OBFUSCATED_METHOD_CACHE =
-                new java.util.concurrent.ConcurrentHashMap<>();
-
         public List<MethodMapping> findByObfuscated(String owner, String name) {
-            String key = toBinaryName(owner) + "\u0000" + name;
-            Map<String, List<MethodMapping>> index = OBFUSCATED_METHOD_CACHE.computeIfAbsent(this, ignored -> {
-                Map<String, java.util.ArrayList<MethodMapping>> mutable = new java.util.HashMap<>();
-                for (MethodMapping method : namedMethods.values()) {
-                    String methodKey = method.obfuscatedOwner() + "\u0000" + method.obfuscatedName();
-                    mutable.computeIfAbsent(methodKey, unused -> new java.util.ArrayList<>()).add(method);
-                }
-                Map<String, List<MethodMapping>> frozen = new java.util.HashMap<>();
-                mutable.forEach((methodKey, values) -> frozen.put(methodKey,
-                        values.stream().distinct().toList()));
-                return Map.copyOf(frozen);
-            });
-            return index.getOrDefault(key, List.of());
+            return obfuscatedMethods.getOrDefault(toBinaryName(owner)+"\u0000"+name,List.of());
         }
         public String obfuscateDescriptor(String descriptor) {
             StringBuilder out = new StringBuilder();
