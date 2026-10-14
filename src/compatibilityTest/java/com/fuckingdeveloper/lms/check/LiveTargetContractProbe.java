@@ -137,6 +137,7 @@ public final class LiveTargetContractProbe {
         CookingRecipeInformationCheck.run();
         InteractionResultInformationCheck.run();
         ContainerGraphicsCheck.run();
+        WidgetExtractionFamilyCheck.run();
         BonemealFamilyCheck.run();
         ComponentJsonCheck.run();
         ItemWireFamilyCheck.run();

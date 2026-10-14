@@ -265,6 +265,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteItemWireFamily(node);
         rewrites += rewriteEarlyFluidConstruction(node);
         rewrites += rewriteBonemealCallbacks(node);
+        rewrites += rewriteWidgetGraphics(node);
+        rewrites += rewriteWidgetPrimitiveFamily(node);
         rewrites += rewriteContainerGraphicsPhases(node);
         rewrites += rewriteGuiBatchOperations(node);
         rewrites += rewriteRecipeRewardKeys(node);
@@ -4235,6 +4237,129 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             node.methods.add(wrapper); count++;
         }
         return count;
+    }
+
+    private boolean declaresManagedMethod(ClassNode node,String name,String descriptor) {
+        var current=node;
+        while(current!=null) {
+            if(current.methods.stream().anyMatch(m->m.name.equals(name)&&m.desc.equals(descriptor)))return true;
+            try{byte[] bytes=managedClassBytes==null||current.superName==null?null:managedClassBytes.find(current.superName);if(bytes==null)return false;var parent=new ClassNode();new ClassReader(bytes).accept(parent,ClassReader.SKIP_CODE|ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);current=parent;}
+            catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}
+        }
+        return false;
+    }
+    private boolean hasProjectedWidgetAncestor(ClassNode node) {
+        String parent = node.superName;
+        while (parent != null && !parent.startsWith("net/minecraft/")) {
+            try {
+                byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(parent);
+                if (bytes == null) return false;
+                var ancestor = new ClassNode();
+                new ClassReader(bytes).accept(ancestor, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                if (isManagedSubtypeOf(ancestor, "net/minecraft/client/gui/components/AbstractWidget")
+                        && ancestor.methods.stream().anyMatch(m -> m.name.equals("m_6303_") && m.desc.equals("(Lcom/mojang/blaze3d/vertex/PoseStack;IIF)V"))) return true;
+                parent = ancestor.superName;
+            } catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+        }
+        return false;
+    }
+
+    /** Resolve removed source methods while respecting managed overrides/hiding. */
+    private String sourceGuiMethod(ClassNode active, String owner, String name, String descriptor) {
+        var seen = new java.util.HashSet<String>();
+        while (owner != null && seen.add(owner)) {
+            if (owner.startsWith("net/minecraft/")) {
+                if (SRG_RUNTIME_RESOLVER.isPresent()) {
+                    var canonical = SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner, name, descriptor);
+                    if (canonical.isPresent()) return owner + "#" + canonical.get();
+                    // Source AbstractWidget extends GuiComponent; the target removed that ancestry.
+                    if (owner.equals("net/minecraft/client/gui/components/AbstractWidget")) {
+                        var base = SRG_RUNTIME_RESOLVER.get().canonicalMethodName("net/minecraft/client/gui/GuiComponent", name, descriptor);
+                        if (base.isPresent()) return "net/minecraft/client/gui/GuiComponent#" + base.get();
+                    }
+                }
+            }
+            try {
+                ClassNode current;
+                if (owner.equals(active.name)) current = active;
+                else {
+                    byte[] bytes = hierarchyBytes(owner);
+                    if (bytes == null) return null;
+                    current = new ClassNode();
+                    new ClassReader(bytes).accept(current, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                }
+                if (current.methods.stream().anyMatch(m -> m.name.equals(name) && m.desc.equals(descriptor))) return null;
+                owner = current.superName;
+            } catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+        }
+        return null;
+    }
+
+    private int rewriteWidgetPrimitiveFamily(ClassNode node) {
+        int count = 0;
+        String pose = "Lcom/mojang/blaze3d/vertex/PoseStack;";
+        String screenUtils = "com/fuckingdeveloper/lms/runtime/render/Forge1192ScreenUtilsBridge";
+        var ownFields = fieldHierarchy(node);
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof FieldInsnNode field && field.getOpcode() == org.objectweb.asm.Opcodes.GETSTATIC
+                    && field.name.equals("f_93617_") && field.desc.equals("Lnet/minecraft/resources/ResourceLocation;")
+                    && "net/minecraft/client/gui/components/AbstractWidget".equals(sourceFieldOwner(node.name, ownFields, field.owner, field.name, field.desc, new java.util.HashSet<>()))) {
+                field.owner = "com/fuckingdeveloper/lms/runtime/Target263LegacyWidgetAssets";
+                field.name = "WIDGETS"; field.desc = "Lnet/minecraft/resources/Identifier;"; count++;
+            }
+            if (!(instruction instanceof MethodInsnNode call) || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC) continue;
+            if (call.owner.equals("net/minecraftforge/client/gui/ScreenUtils")) {
+                boolean border = call.name.equals("blitWithBorder") && java.util.Set.of(
+                        "("+pose+"IIIIIIIIIF)V", "("+pose+"IIIIIIIIIIIIF)V",
+                        "("+pose+"Lnet/minecraft/resources/ResourceLocation;IIIIIIIIIF)V",
+                        "("+pose+"Lnet/minecraft/resources/ResourceLocation;IIIIIIIIIIIIF)V").contains(call.desc);
+                boolean rectangle = call.name.equals("drawTexturedModalRect") && call.desc.equals("("+pose+"IIIIIIF)V");
+                if (border || rectangle) { call.owner = screenUtils; call.itf = false; count++; }
+            } else if (call.desc.startsWith("("+pose+"Lnet/minecraft/client/gui/Font;") && call.desc.endsWith("III)V")) {
+                String identity = sourceGuiMethod(node, call.owner, call.name, call.desc);
+                if ("net/minecraft/client/gui/GuiComponent#drawCenteredString".equals(identity)
+                        && java.util.Set.of("("+pose+"Lnet/minecraft/client/gui/Font;Lnet/minecraft/network/chat/Component;III)V",
+                        "("+pose+"Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V",
+                        "("+pose+"Lnet/minecraft/client/gui/Font;Lnet/minecraft/util/FormattedCharSequence;III)V").contains(call.desc)) {
+                    call.owner = "com/fuckingdeveloper/lms/runtime/render/Forge1192WidgetGraphicsBridge";
+                    call.name = "drawCenteredString"; call.itf = false; count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    private int rewriteWidgetGraphics(ClassNode node) {
+        String widget="net/minecraft/client/gui/components/AbstractWidget",pose="Lcom/mojang/blaze3d/vertex/PoseStack;";
+        String callback="("+pose+"IIF)V",graphics="Lnet/minecraft/client/gui/GuiGraphicsExtractor;";
+        var source=node.methods.stream().filter(m->m.name.equals("m_6303_")&&m.desc.equals(callback)).findFirst().orElse(null);
+        if(source==null || !isManagedSubtypeOf(node,widget))return 0;
+        boolean button=isManagedSubtypeOf(node,"net/minecraft/client/gui/components/AbstractButton");
+        String targetName=button?"extractContents":"extractWidgetRenderState",targetDesc="("+graphics+"IIF)V";
+        if(node.methods.stream().anyMatch(m->m.name.equals(targetName)&&m.desc.equals(targetDesc)))throw new IllegalStateException("Source/native widget extraction collision: "+node.name);
+        String view="com/fuckingdeveloper/lms/runtime/render/LegacyWidgetGraphics",bridge="com/fuckingdeveloper/lms/runtime/render/Forge1192WidgetGraphicsBridge";
+        node.interfaces.add(view);
+        var dispatch=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"lms$widget",callback,null,null);
+        for(int i=0;i<4;i++)dispatch.instructions.add(new org.objectweb.asm.tree.VarInsnNode(i<2?org.objectweb.asm.Opcodes.ALOAD:org.objectweb.asm.Opcodes.ILOAD,i));dispatch.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD,4));
+        dispatch.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,node.name,source.name,source.desc,false));dispatch.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));dispatch.maxStack=5;dispatch.maxLocals=5;node.methods.add(dispatch);
+        var target=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PROTECTED|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,targetName,targetDesc,null,null);
+        for(int i=0;i<4;i++)target.instructions.add(new org.objectweb.asm.tree.VarInsnNode(i<2?org.objectweb.asm.Opcodes.ALOAD:org.objectweb.asm.Opcodes.ILOAD,i));target.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD,4));
+        target.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,bridge,"extract","(L"+view+";"+graphics+"IIF)V",false));target.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));target.maxStack=5;target.maxLocals=5;node.methods.add(target);
+        if(!declaresManagedMethod(node,"m_7202_","(Z)I")) {
+            var method=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PROTECTED|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_7202_","(Z)I",null,null);
+            method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));method.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,bridge,"yImage","(L"+widget+";Z)I",false));method.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));method.maxStack=2;method.maxLocals=2;node.methods.add(method);
+        }
+        String background="("+pose+"Lnet/minecraft/client/Minecraft;II)V";
+        if(!declaresManagedMethod(node,"m_7906_",background)) {
+            var method=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PROTECTED|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_7906_",background,null,null);
+            for(int i=1;i<5;i++)method.instructions.add(new org.objectweb.asm.tree.VarInsnNode(i<3?org.objectweb.asm.Opcodes.ALOAD:org.objectweb.asm.Opcodes.ILOAD,i));method.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,bridge,"defaultBackground",background,false));method.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));method.maxStack=4;method.maxLocals=5;node.methods.add(method);
+        }
+        if(!declaresManagedMethod(node,"m_93252_","()I") && !hasProjectedWidgetAncestor(node)) {
+            node.fields.add(new org.objectweb.asm.tree.FieldNode(org.objectweb.asm.Opcodes.ACC_PRIVATE,"lms$widgetDepth","I",null,null));
+            var getter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93252_","()I",null,null);getter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));getter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.GETFIELD,node.name,"lms$widgetDepth","I"));getter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));getter.maxStack=1;getter.maxLocals=1;node.methods.add(getter);
+            if(!declaresManagedMethod(node,"m_93250_","(I)V")){var setter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93250_","(I)V",null,null);setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));setter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.PUTFIELD,node.name,"lms$widgetDepth","I"));setter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));setter.maxStack=2;setter.maxLocals=2;node.methods.add(setter);}
+        }
+        return 1;
     }
 
     private int rewriteContainerGraphicsPhases(ClassNode node) {

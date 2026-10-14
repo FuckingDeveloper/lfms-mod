@@ -11,7 +11,7 @@ import java.util.function.Consumer;
 /** Scoped legacy GUI primitives recorded through the authoritative target extractor. */
 public final class Forge1192TooltipGuiBridge {
     private static final ThreadLocal<Scope> ACTIVE = new ThreadLocal<>();
-    enum Phase { TOOLTIP, BACKGROUND, LABELS }
+    enum Phase { TOOLTIP, BACKGROUND, LABELS, WIDGET }
     static final class Scope {
         final GuiGraphicsExtractor graphics;
         final LegacyTooltipItemRenderer renderer = new LegacyTooltipItemRenderer();

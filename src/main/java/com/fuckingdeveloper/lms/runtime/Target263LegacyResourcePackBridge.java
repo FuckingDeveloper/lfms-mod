@@ -63,6 +63,10 @@ public final class Target263LegacyResourcePackBridge {
                 .toList();
         event.addRepositorySource(output -> {
             if (packType == PackType.CLIENT_RESOURCES) output.accept(createAtlasExtensionPack());
+            if (packType == PackType.CLIENT_RESOURCES) {
+                Pack widgets = Target263LegacyWidgetAssets.createPack(snapshot);
+                if (widgets != null) output.accept(widgets);
+            }
             snapshot.forEach(artifact -> {
                 output.accept(createPack(artifact, packType));
                 if (packType == PackType.CLIENT_RESOURCES) {
