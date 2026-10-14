@@ -156,6 +156,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private volatile LegacyClassTransformer.ClassBytesLookup managedClassBytes;
     private final java.util.concurrent.locks.ReentrantReadWriteLock evidenceLock = new java.util.concurrent.locks.ReentrantReadWriteLock();
     private final java.util.Map<String, java.util.Optional<byte[]>> hierarchyEvidence = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, java.util.Optional<byte[]>> targetAbiEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private record SubtypeEvidence(String candidate, String ancestor) {}
     private final java.util.Map<SubtypeEvidence, Boolean> subtypeEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private record FieldDeclaration(String name, String descriptor) {}
@@ -341,6 +342,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
+        rewrites += rewriteCommonTagReferences(node);
         rewrites += rewriteWidgetCoordinateFieldsAndFieldHandles(node);
         rewrites += rewriteLegacyMobEffectInstanceConstruction(node);
         rewrites += rewriteLegacyMobEffectQueries(node);
@@ -7217,6 +7219,22 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return (previous == null ? evidence : previous).orElse(null);
     }
 
+    /** Exact target declarations, independently cached from source/managed ancestry. */
+    private byte[] targetAbiBytes(String owner) throws java.io.IOException {
+        var cached = targetAbiEvidence.get(owner);
+        if (cached != null) return cached.orElse(null);
+        byte[] bytes = null;
+        if (SafeFrameClassWriter.isParentRuntimeType(owner)) {
+            try (var stream = Forge1192LegacyClassTransformer.class.getClassLoader()
+                    .getResourceAsStream(owner + ".class")) {
+                if (stream != null) bytes = stream.readAllBytes();
+            }
+        }
+        var evidence = java.util.Optional.ofNullable(bytes);
+        var previous = targetAbiEvidence.putIfAbsent(owner, evidence);
+        return (previous == null ? evidence : previous).orElse(null);
+    }
+
     private boolean isManagedSubtypeOf(String candidate, String target) {
         java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
         var key = new SubtypeEvidence(candidate, target);
@@ -7422,12 +7440,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (wallSide != null) {
                     field.owner = "net/minecraft/world/level/block/WallBlock";
                     field.name = wallSide;
-                    rewrites++;
-                    continue;
-                }
-                String commonTag = renamedCommonTagField(field);
-                if (commonTag != null) {
-                    field.name = commonTag;
                     rewrites++;
                     continue;
                 }
@@ -7648,6 +7660,44 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * legacy owner/name/descriptor and verify the selected target declaration;
      * unchanged fields continue through ordinary namespace migration.
      */
+    private int rewriteCommonTagReferences(ClassNode node) {
+        int rewrites = 0;
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof FieldInsnNode field) {
+                String target = renamedCommonTagField(field);
+                if (target != null) { field.name = target; rewrites++; }
+            } else if (instruction instanceof LdcInsnNode constant) {
+                Object target = commonTagConstant(constant.cst);
+                if (target != constant.cst) { constant.cst = target; rewrites++; }
+            } else if (instruction instanceof InvokeDynamicInsnNode dynamic) {
+                for (int i = 0; i < dynamic.bsmArgs.length; i++) {
+                    Object target = commonTagConstant(dynamic.bsmArgs[i]);
+                    if (target != dynamic.bsmArgs[i]) { dynamic.bsmArgs[i] = target; rewrites++; }
+                }
+            }
+        }
+        return rewrites;
+    }
+
+    private Object commonTagConstant(Object value) {
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] arguments = new Object[dynamic.getBootstrapMethodArgumentCount()];
+            boolean changed = false;
+            for (int i = 0; i < arguments.length; i++) {
+                Object source = dynamic.getBootstrapMethodArgument(i);
+                arguments[i] = commonTagConstant(source);
+                changed |= arguments[i] != source;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(),
+                    dynamic.getBootstrapMethod(), arguments) : value;
+        }
+        if (!(value instanceof Handle handle) || handle.getTag() != org.objectweb.asm.Opcodes.H_GETSTATIC) return value;
+        String target = renamedCommonTagField(new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC,
+                handle.getOwner(), handle.getName(), handle.getDesc()));
+        return target == null ? value : new Handle(handle.getTag(), handle.getOwner(), target,
+                handle.getDesc(), handle.isInterface());
+    }
+
     private String renamedCommonTagField(FieldInsnNode field) {
         if (field.getOpcode() != org.objectweb.asm.Opcodes.GETSTATIC
                 || !field.owner.startsWith("net/neoforged/neoforge/common/Tags$")
@@ -7668,7 +7718,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         };
         if (targetName == null) return null;
         try {
-            byte[] bytes = hierarchyBytes(field.owner);
+            byte[] bytes = targetAbiBytes(field.owner);
             if (bytes == null) return null;
             ClassNode target = new ClassNode();
             new ClassReader(bytes).accept(target,
@@ -9926,7 +9976,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private boolean isTargetMethodOverridable(
             Forge1192SrgRuntimeResolver.Resolution resolved) {
         try {
-            byte[] bytes = hierarchyBytes(resolved.owner());
+            byte[] bytes = targetAbiBytes(resolved.owner());
             if (bytes == null) return false;
             ClassNode target = new ClassNode();
             new ClassReader(bytes).accept(target,

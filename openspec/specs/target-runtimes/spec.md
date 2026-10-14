@@ -72,6 +72,12 @@ The comparison SHOULD cover:
 
 Structural equality MUST NOT be interpreted automatically as semantic equality.
 
+Source declaration evidence and target ABI evidence MUST be kept distinct. Pinned
+source headers and managed legacy bytecode MAY establish source ancestry/member
+identity, but MUST NOT establish that a member exists or is overridable in the
+target. Target member validation MUST inspect actual configured target classes
+and MUST use caches independent of source/managed hierarchy caches.
+
 The comparator MAY produce categories such as:
 
 - VERIFIED_UNCHANGED
