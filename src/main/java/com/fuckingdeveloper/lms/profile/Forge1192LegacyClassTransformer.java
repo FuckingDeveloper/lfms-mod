@@ -341,6 +341,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
         rewrites += rewriteVerifiedSrgMethodCalls(node);
         rewrites += rewriteVerifiedSrgFieldAccesses(node);
+        rewrites += rewriteWidgetCoordinateFieldsAndFieldHandles(node);
         rewrites += rewriteLegacyMobEffectInstanceConstruction(node);
         rewrites += rewriteLegacyMobEffectQueries(node);
         rewrites += rewriteLegacyVanillaRegistryFields(node);
@@ -5867,7 +5868,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                             rewrites++;
                             continue;
                         }
-                        if (!isSrgMethodName(handle.getName())) continue;
+                        if (!isSrgMethodName(handle.getName()) || handle.getTag() < org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL) continue;
                         var resolved = handle.getOwner().startsWith("net/minecraft/")
                                 ? SRG_RUNTIME_RESOLVER.get().resolve(
                                         handle.getOwner(), handle.getName(), handle.getDesc())
@@ -7177,11 +7178,35 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return null;
     }
 
+    private static final java.util.Map<String, java.util.Optional<String>> SOURCE_LOADER_ALIASES = sourceLoaderAliases();
+    private static java.util.Map<String, java.util.Optional<String>> sourceLoaderAliases() {
+        var aliases = new java.util.HashMap<String, java.util.Optional<String>>();
+        for (String source : Forge1192SourceHierarchyIndex.owners()) {
+            String projected = migrateInternalName(source);
+            // Namespace projection retains source declarations; semantic replacement shims
+            // deliberately own a different hierarchy and must use their runtime evidence.
+            if (projected.equals("net/neoforged/neoforge/" + source.substring("net/minecraftforge/".length()))) {
+                var previous = aliases.putIfAbsent(projected, java.util.Optional.of(source));
+                if (previous != null && !previous.equals(java.util.Optional.of(source))) aliases.put(projected, java.util.Optional.empty());
+            }
+        }
+        return java.util.Map.copyOf(aliases);
+    }
     private byte[] hierarchyBytes(String internalName) throws java.io.IOException {
         var cached = hierarchyEvidence.get(internalName);
         if (cached != null) return cached.orElse(null);
         byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(internalName);
-        if (bytes == null && SafeFrameClassWriter.isParentRuntimeType(internalName)) {
+        boolean ambiguousSource = false;
+        if (bytes == null) {
+            var alias = SOURCE_LOADER_ALIASES.get(internalName);
+            ambiguousSource = alias != null && alias.isEmpty();
+            String source = alias == null ? internalName : alias.orElse(null);
+            if (source != null) {
+                if (!source.equals(internalName) && managedClassBytes != null) bytes = managedClassBytes.find(source);
+                if (bytes == null) bytes = Forge1192SourceHierarchyIndex.find(source);
+            }
+        }
+        if (bytes == null && !ambiguousSource && SafeFrameClassWriter.isParentRuntimeType(internalName)) {
             try (var stream = Forge1192LegacyClassTransformer.class.getClassLoader()
                     .getResourceAsStream(internalName + ".class")) {
                 bytes = stream == null ? null : stream.readAllBytes();
@@ -7515,6 +7540,73 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             }
         }
         return rewrites;
+    }
+
+    /** Retain raw field storage, not potentially overridden target geometry accessors. */
+    private int rewriteWidgetCoordinateFieldsAndFieldHandles(ClassNode node) {
+        var own = fieldHierarchy(node); var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>(); int rewrites = 0;
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof FieldInsnNode field) {
+                Handle bridge = widgetCoordinateBridge(node, own, field.owner, field.name, field.desc, field.getOpcode());
+                if (bridge != null) { method.instructions.set(field, new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge.getOwner(), bridge.getName(), bridge.getDesc(), false)); rewrites++; }
+            } else if (instruction instanceof LdcInsnNode ldc) {
+                Object adapted = sourceFieldConstant(node, own, ldc.cst, adapters);
+                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+            } else if (instruction instanceof InvokeDynamicInsnNode indy) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    Object adapted = sourceFieldConstant(node, own, indy.bsmArgs[i], adapters);
+                    if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
+                }
+            }
+        }
+        node.methods.addAll(adapters); return rewrites;
+    }
+    private Handle widgetCoordinateBridge(ClassNode node, FieldHierarchy own, String owner, String name, String descriptor, int opcode) {
+        String widget = "net/minecraft/client/gui/components/AbstractWidget";
+        if (!descriptor.equals("I") || !(name.equals("x") || name.equals("y"))
+                || (opcode != org.objectweb.asm.Opcodes.GETFIELD && opcode != org.objectweb.asm.Opcodes.PUTFIELD)) return null;
+        String declaration = sourceFieldOwner(node.name, own, owner, name, descriptor, new java.util.HashSet<>());
+        if (!widget.equals(declaration)) return null;
+        boolean read = opcode == org.objectweb.asm.Opcodes.GETFIELD;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, "com/fuckingdeveloper/lms/runtime/render/Forge1192WidgetFieldBridge", (read ? "get" : "set") + name.toUpperCase(java.util.Locale.ROOT), "(L" + widget + ";" + (read ? ")I" : "I)V"), false);
+    }
+    private Object sourceFieldConstant(ClassNode node, FieldHierarchy own, Object value, java.util.List<org.objectweb.asm.tree.MethodNode> adapters) {
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] args = new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed = false;
+            for (int i = 0; i < args.length; i++) { Object original = dynamic.getBootstrapMethodArgument(i); args[i] = sourceFieldConstant(node, own, original, adapters); changed |= args[i] != original; }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
+        }
+        if (!(value instanceof Handle handle)) return value;
+        int opcode = switch (handle.getTag()) {
+            case org.objectweb.asm.Opcodes.H_GETFIELD -> org.objectweb.asm.Opcodes.GETFIELD;
+            case org.objectweb.asm.Opcodes.H_PUTFIELD -> org.objectweb.asm.Opcodes.PUTFIELD;
+            case org.objectweb.asm.Opcodes.H_GETSTATIC -> org.objectweb.asm.Opcodes.GETSTATIC;
+            case org.objectweb.asm.Opcodes.H_PUTSTATIC -> org.objectweb.asm.Opcodes.PUTSTATIC;
+            default -> -1;
+        };
+        if (opcode == -1) return value;
+        String owner = handle.getOwner(), name = handle.getName(), descriptor = handle.getDesc();
+        if (name.startsWith("f_") && SRG_RUNTIME_RESOLVER.isPresent()) {
+            String declaration = sourceFieldOwner(node.name, own, owner, name, descriptor, new java.util.HashSet<>());
+            if (declaration == null || !declaration.startsWith("net/minecraft/")) return value;
+            var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(declaration, name, descriptor);
+            if (!resolved.resolved()) return value;
+            owner = resolved.owner(); name = resolved.name(); descriptor = resolved.descriptor();
+        }
+        Handle bridge = widgetCoordinateBridge(node, own, owner, name, descriptor, opcode);
+        if (bridge == null && owner.equals(handle.getOwner()) && name.equals(handle.getName()) && descriptor.equals(handle.getDesc())) return value;
+        boolean instance = opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.PUTFIELD;
+        boolean read = opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.GETSTATIC;
+        String methodDescriptor = "(" + (instance ? "L" + handle.getOwner() + ";" : "") + (read ? "" : handle.getDesc()) + ")" + (read ? handle.getDesc() : "V");
+        String adapterName = "lms$fieldHandle$" + (node.methods.size() + adapters.size());
+        while (hasMethod(node, adapters, adapterName, methodDescriptor)) adapterName += "$";
+        var adapter = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_STATIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC, adapterName, methodDescriptor, null, null);
+        int local = 0;
+        for (Type argument : Type.getArgumentTypes(methodDescriptor)) { adapter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(argument.getOpcode(org.objectweb.asm.Opcodes.ILOAD), local)); local += argument.getSize(); }
+        if (bridge != null) adapter.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge.getOwner(), bridge.getName(), bridge.getDesc(), false));
+        else adapter.instructions.add(new FieldInsnNode(opcode, owner, name, descriptor));
+        adapter.instructions.add(new org.objectweb.asm.tree.InsnNode(Type.getReturnType(methodDescriptor).getOpcode(org.objectweb.asm.Opcodes.IRETURN))); adapters.add(adapter);
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, node.name, adapterName, methodDescriptor, false);
     }
 
     private record LegacyColorCollectionField(String collection, String color) {}

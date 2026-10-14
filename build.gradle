@@ -234,12 +234,25 @@ tasks.register('compatibilityAudit', JavaExec) {
     workingDir = layout.projectDirectory.dir('run')
 }
 
+tasks.register('generateSourceHierarchy', JavaExec) {
+    group = 'verification'
+    description = 'Regenerate pinned Forge 1.19.2 loader declarations from an immutable source development JAR'
+    dependsOn tasks.named('compatibilityTestClasses')
+    classpath = sourceSets.compatibilityTest.runtimeClasspath
+    mainClass = 'com.fuckingdeveloper.lms.check.GenerateSourceHierarchy'
+    doFirst {
+        def sourceJar = providers.gradleProperty('legacySourceJar').orNull
+        if (sourceJar == null || !file(sourceJar).isFile()) throw new GradleException('Supply -PlegacySourceJar=/absolute/path/to/Forge-1.19.2-43.4.0-named-patched.jar')
+        args sourceJar, layout.projectDirectory.file('src/main/resources/lms/profile/forge1192/loader-hierarchy.tsv').asFile.absolutePath
+    }
+}
+
 // The probe is a target game library, not a fabricated native/legacy mod.
 def nativeSmokeJar = tasks.register('nativeSmokeJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
     archiveClassifier = 'native-smoke'
     from(sourceSets.compatibilityTest.output) {
-        include '**/NativeLifecycleSmokeLauncher*.class', '**/LiveTargetContractProbe*.class', '**/SlotRenderFamilyCheck*.class', '**/SubscriberIndexCheck*.class', '**/BlockDataFamilyCheck*.class', '**/ScreenStateFamilyCheck*.class', '**/ButtonFamilyCheck*.class'
+        include '**/NativeLifecycleSmokeLauncher*.class', '**/LiveTargetContractProbe*.class', '**/SlotRenderFamilyCheck*.class', '**/SubscriberIndexCheck*.class', '**/BlockDataFamilyCheck*.class', '**/ScreenStateFamilyCheck*.class', '**/ButtonFamilyCheck*.class', '**/WidgetHierarchyFamilyCheck*.class'
     }
     manifest { attributes('FMLModType': 'GAMELIBRARY', 'Automatic-Module-Name': 'lms.compatibility.smoke') }
 }

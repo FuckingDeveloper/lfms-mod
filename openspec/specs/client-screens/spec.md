@@ -45,3 +45,25 @@ their native superclass path MAY terminate at that verified default as well.
 Custom rendering, other unverified native superclass activation, direct allocation of
 the now-abstract native Button, custom tooltip constructors and source-super callable
 references remain unproven boundaries in this bounded implementation.
+
+## Source loader inheritance and widget fields
+
+Native loader ancestors in source member lookup MUST use source-generation
+declaration evidence. Target namespace or target ancestry alone MUST NOT authorize
+a source field match. Managed declarations MUST take precedence over bundled
+source evidence; absent evidence MUST remain unresolved. Field lookup MUST preserve
+the JVM declaration/interface/superclass order and descriptor identity.
+
+Source public widget coordinates MAY use exact native raw storage after target
+visibility changes. Such direct field reads/writes MUST NOT invoke overridable
+geometry getters/setters. Source-owned hidden fields MUST remain distinct. Surviving
+field handles MUST retain their original callable type, including receiver type;
+nested constants MUST undergo the same checked lookup as direct instructions.
+Source metadata MUST be generated from the pinned immutable development artifact
+with recorded provenance and indexed once, rather than hand-written per mod.
+Metadata-only class headers MUST NOT be defined as executable runtime classes.
+After an explicit source-profile namespace projection, hierarchy queries MUST
+retain the original source declaration evidence. Reverse projections MUST be
+indexed; ambiguous source aliases MUST NOT select target ancestry as a shortcut.
+This reverse lookup applies to namespace projection, not semantic replacement
+shims whose target hierarchy is deliberately implemented by LMS.

@@ -27,6 +27,12 @@ Preflight also closes the four old Button superclass constructor sites and
 source no-argument activation via native input callbacks, including the verified
 ExtendedButton inherited default. Whole GUI rendering/input remains a separate gap.
 
+16:53 acceptance: generator initialization now passes those getters/constructors,
+then fails reading inherited widget active through the original Forge ancestor.
+Source loader declaration evidence and reverse namespace lookup now cover that
+ancestry generically. Eight widget state fields and field handles pass native
+fixtures, including hidden fields and rebinding. Generator acceptance remains open.
+
 ## Implemented, awaiting the next user run
 
 - [x] Cover the five source positional/seeded level-sound overloads, inherited
