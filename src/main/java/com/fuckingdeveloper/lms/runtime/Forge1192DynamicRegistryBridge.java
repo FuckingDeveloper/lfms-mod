@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -45,18 +46,18 @@ public final class Forge1192DynamicRegistryBridge {
 
     public static void enchant(
             ItemStack stack, ResourceKey<Enchantment> enchantment, int level) {
-        Registry<Enchantment> registry = resolveTyped(Registries.ENCHANTMENT);
+        HolderLookup.RegistryLookup<Enchantment> registry = readLookup(Registries.ENCHANTMENT);
         stack.enchant(registry.getOrThrow(enchantment), level);
     }
 
     public static int enchantmentMaxLevel(ResourceKey<Enchantment> enchantment) {
-        Registry<Enchantment> registry = resolveTyped(Registries.ENCHANTMENT);
+        HolderLookup.RegistryLookup<Enchantment> registry = readLookup(Registries.ENCHANTMENT);
         return registry.getOrThrow(enchantment).value().getMaxLevel();
     }
 
     public static int itemEnchantmentLevel(
             ResourceKey<Enchantment> enchantment, ItemStack stack) {
-        Registry<Enchantment> registry = resolveTyped(Registries.ENCHANTMENT);
+        HolderLookup.RegistryLookup<Enchantment> registry = readLookup(Registries.ENCHANTMENT);
         return EnchantmentHelper.getItemEnchantmentLevel(
                 registry.getOrThrow(enchantment), stack);
     }
@@ -74,7 +75,7 @@ public final class Forge1192DynamicRegistryBridge {
     public static Map.Entry<EquipmentSlot, ItemStack> randomItemWith(
             ResourceKey<Enchantment> enchantment, LivingEntity entity,
             Predicate<ItemStack> predicate) {
-        Registry<Enchantment> registry = resolveTyped(Registries.ENCHANTMENT);
+        HolderLookup.RegistryLookup<Enchantment> registry = readLookup(Registries.ENCHANTMENT);
         var holder = registry.getOrThrow(enchantment);
         var matches = new ArrayList<Map.Entry<EquipmentSlot, ItemStack>>();
         for (EquipmentSlot slot : EquipmentSlot.VALUES) {
@@ -161,6 +162,13 @@ public final class Forge1192DynamicRegistryBridge {
 
         throw new IllegalStateException("Legacy access to data-driven registry "
                 + key.identifier() + " requires an active registration or world context");
+    }
+
+    /** A target reload lookup can expose live data without being a mutable Registry. */
+    private static <T> HolderLookup.RegistryLookup<T> readLookup(ResourceKey<Registry<T>> key) {
+        var reload = Target263ReloadLookupBridge.currentRegistries();
+        if (reload.isPresent()) return reload.get().lookupOrThrow(key);
+        return resolveTyped(key);
     }
 
     @SuppressWarnings("unchecked")

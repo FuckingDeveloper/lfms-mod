@@ -68,6 +68,28 @@ public final class ReloadLookupFamilyCheck {
             }
             check(scope, "synchronous reload event delivery not scoped");
         }
+        var enchants = new MappedRegistry<net.minecraft.world.item.enchantment.Enchantment>(Registries.ENCHANTMENT, Lifecycle.stable());
+        var enchantKey = ResourceKey.create(Registries.ENCHANTMENT, Identifier.fromNamespaceAndPath("fixture", "scoped"));
+        var definition = net.minecraft.world.item.enchantment.Enchantment.definition(HolderSet.<Item>direct(), 1, 7,
+                net.minecraft.world.item.enchantment.Enchantment.constantCost(1), net.minecraft.world.item.enchantment.Enchantment.constantCost(10), 1,
+                net.minecraft.world.entity.EquipmentSlotGroup.ANY);
+        var enchant = enchants.register(enchantKey, net.minecraft.world.item.enchantment.Enchantment.enchantment(definition).build(enchantKey.identifier()), RegistrationInfo.BUILT_IN);
+        enchants.freeze();
+        var updated = enchants.prepareTagReload(new TagLoader.LoadResult<>(Registries.ENCHANTMENT, Map.of()));
+        var enchantLookup = HolderLookup.Provider.create(java.util.stream.Stream.of(updated.lookup()));
+        check(!(enchantLookup.lookupOrThrow(Registries.ENCHANTMENT) instanceof Registry<?>), "probe did not exercise read-only native lookup");
+        Target263ReloadLookupBridge.run(enchantLookup, () -> {
+            check(com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.enchantmentMaxLevel(enchantKey) == 7, "reload information query required a world registry");
+            var stack = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STONE);
+            stack.set(net.minecraft.core.component.DataComponents.ENCHANTMENTS, net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY);
+            com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.enchant(stack, enchantKey, 3);
+            check(com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.itemEnchantmentLevel(enchantKey, stack)==3, "enchantment holder/value identity lost in reload scope");
+            try {
+                Target263ReloadLookupBridge.run(RegistryAccess.EMPTY, () -> com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.enchantmentMaxLevel(enchantKey));
+                throw new AssertionError("missing scoped registry fell back to unrelated world");
+            } catch (IllegalStateException expected) {}
+            check(com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.stackEnchantmentLevel(stack,enchantKey)==3, "nested lookup failure leaked scope");
+        });
         System.out.println("PASS: actual native fire-resistance initializer/tag membership, synchronous reload lookup, nested failure restoration and thread cleanup; full datapack reload unverified");
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
