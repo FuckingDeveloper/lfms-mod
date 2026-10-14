@@ -8,8 +8,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  *
  * ForgeMod.enableMilkFluid() was an opt-in request made during mod construction.
  * LMS records that request without exposing the removed ForgeMod class. Actual
- * target registration is deliberately kept separate: consumers can proceed
- * through linkage while unsupported registry materialization remains explicit.
+ * target registration is performed by the native NeoForge opt-in lifecycle.
+ * A late unmaterialized request fails rather than mutating a frozen registry.
  */
 public final class Forge1192BuiltinRegistryBridge {
     private static final ThreadLocal<Boolean> MILK_FLUID_REQUESTED =
@@ -42,6 +42,7 @@ public final class Forge1192BuiltinRegistryBridge {
             throw new IllegalArgumentException("Unsupported null legacy builtin registry handle");
         if (builtin.namespace().equals("minecraft")) {
             return switch (builtin.path()) {
+                case "milk" -> net.neoforged.neoforge.common.NeoForgeMod.MILK.value();
                 case "block_interaction_range" -> Attributes.BLOCK_INTERACTION_RANGE.value();
                 case "entity_interaction_range" -> Attributes.ENTITY_INTERACTION_RANGE.value();
                 case "gravity" -> Attributes.GRAVITY.value();
@@ -55,7 +56,11 @@ public final class Forge1192BuiltinRegistryBridge {
     }
 
     public static void enableMilkFluid() {
-        Forge1192LifecycleBridge.requireActive();
+        var context=Forge1192LifecycleBridge.requireActive();
+        if(Forge1192RegistrationContext.registryPhaseCompleted(context.modId(),net.minecraft.core.registries.Registries.FLUID)
+                && !net.neoforged.neoforge.common.NeoForgeMod.MILK.isBound())
+            throw new IllegalStateException("Source milk opt-in arrived after target fluid registration: "+context.modId());
+        net.neoforged.neoforge.common.NeoForgeMod.enableMilkFluid();
         MILK_FLUID_REQUESTED.set(Boolean.TRUE);
     }
 

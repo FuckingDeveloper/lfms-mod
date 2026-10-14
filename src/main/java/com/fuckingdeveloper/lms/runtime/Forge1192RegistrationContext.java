@@ -74,6 +74,10 @@ public final class Forge1192RegistrationContext {
         };
     }
 
+    public static boolean registryPhaseCompleted(String modId,ResourceKey<? extends Registry<?>> key) {
+        synchronized(PENDING){return COMPLETED.getOrDefault(modId,Set.of()).contains(key);}
+    }
+
     public static AutoCloseable enterRegistration(RegisterEvent event) {
         Objects.requireNonNull(event, "event");
         if (CURRENT_EVENT.get() != null) throw new IllegalStateException("Nested legacy registration scopes are not supported");
