@@ -163,3 +163,11 @@ Changes are specified in widget-render-extraction, native-loader-feature-intents
 scoped-fluid-model-information, instance-owned-symbol-indexes and
 proven-default-stack-capabilities. Per-run logs, JVM exception traces, worlds and
 screenshots remain local and are not committed.
+
+Follow-up: source item-backed widgets exposed the removed Minecraft ItemRenderer
+getter. A complete, identity-independent immediate GUI helper body and direct
+receiver flow now project to the native GUI item extractor with null level/owner,
+seed zero and the caller's planar/fractional pose. Full instruction evidence and
+changed-light/cache-rebinding negatives pass native smoke tests. The client/world
+and macerator main screen load after this fix. Arbitrary widget activation remains
+human acceptance, not a completed automated check. See proven-gui-item-operations.
