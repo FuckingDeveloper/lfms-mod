@@ -49,6 +49,8 @@ public final class LmsMod {
 
     public LmsMod(IEventBus modBus, ModContainer hostContainer) {
         modBus.addListener(this::onPayloadRegistration);
+        modBus.addListener(com.fuckingdeveloper.lms.runtime.worldgen.Target263WorldgenAdapter::register);
+        modBus.addListener(com.fuckingdeveloper.lms.runtime.worldgen.Target263WorldgenPack::addPackFinders);
         modBus.addListener(com.fuckingdeveloper.lms.runtime.recipe.Forge1192UpgradeRecipe::registerSerializer);
         modBus.addListener(Forge1192CreativeTabBridge::onRegister);
         modBus.addListener(AddPackFindersEvent.class, legacyResourcePacks::addPackFinders);

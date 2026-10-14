@@ -4,12 +4,22 @@
 - [x] Inspect source construction, registration caller and tree callback family.
 - [x] Inspect exact target feature, provider, placer and registry contracts.
 - [x] Record lifecycle-key defect and non-equivalent base tree behavior.
-- [ ] Decide native versus strict-source base-generation policy in proposal.md.
-- [ ] Specify selected policy without weakening existing contracts implicitly.
-- [ ] Adapt configured feature construction/access/placement family.
-- [ ] Adapt source tree/ore configuration and provider/callback family.
-- [ ] Correct static registry event identity together with staged data definitions.
-- [ ] Verify native registry loading/encoding, source dispatch and negative cases.
+- [x] Native policy A accepted for trees and ores.
+- [x] Specify selected policy explicitly in architecture and design.
+- [x] Adapt supported configured tree/ore construction and placement family.
+- [x] Adapt proven tree/ore settings, simple-provider factories and placer callbacks.
+- [x] Correct implementation registry identity and stage definitions in native data pack.
+- [x] Native smoke: codec roundtrips, source dispatch/setters/context, definition encoding,
+  duplicate failure, canonical biome override/reload identity, source resource bytes/native
+  precedence, transformed source factory/handle/key/builder and external placer/modifier linkage.
+- [ ] Actual client native data loading, growth, ore placement and re-entry acceptance.
 - [ ] Run wrapper checks, then client and MCP growth/rejection/reload acceptance.
 
 This task list records planned work, not functional compatibility.
+
+
+Checkpoint: ./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava
+passes after the source-policy implementation. Client attempts exposed and removed
+source provider class-to-interface factory linkage and over-broad base-type
+relocation. The new tests cover both. Client/MCP acceptance is still pending;
+current attempts are not a higher compatibility milestone.

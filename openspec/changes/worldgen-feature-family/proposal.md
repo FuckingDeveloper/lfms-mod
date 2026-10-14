@@ -1,6 +1,6 @@
 # World-generation feature family
 
-Status: proposed; semantic policy decision pending. No runtime support added.
+Status: policy A accepted by the user on 2026-10-15 for trees and ores; implementation in progress.
 
 ## Problem and evidence
 
@@ -41,7 +41,7 @@ and a dirt predicate before calling dirtProvider. Target placeBelowTrunkBlock
 invokes its target onTreeGrow and then belowTrunkProvider.getOptionalState.
 These implementations are not proven behaviorally identical.
 
-## Decision required
+## Accepted decision
 
 A. Native generation rules with source-owned configuration/callbacks: use the
 native tree/ore placement engines; preserve source settings, custom trunk/foliage
@@ -58,8 +58,11 @@ mod code. Native placement may be reused only where equivalence is established.
 This is wider work; no source-Minecraft classloading domain or wholesale vanilla
 runtime import is implied or authorized by this proposal.
 
-Existing semantic-preservation requirements remain authoritative while this
-choice is pending. Native equivalence is not inferred from shared method names.
+The user selected A for both trees and ores. The adapter uses native generation
+algorithms and native base eligibility/soil/update rules while preserving source
+configuration intent and custom callbacks. B is retained above as the rejected
+alternative, not an implementation requirement. Native/source identity is not
+inferred from shared method names.
 
 ## Implementation boundaries common to either choice
 

@@ -33,6 +33,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private static final Forge1192MappingLayer VANILLA_RELOCATIONS = new Forge1192MappingLayer();
     private static final java.util.Map<String, String> EXPLICIT_VANILLA_CLASS_RELOCATIONS = java.util.Map.ofEntries(
             java.util.Map.entry(SOURCE_MATERIAL, RUNTIME_MATERIAL),
+            java.util.Map.entry("net/minecraft/world/level/biome/BiomeGenerationSettings$Builder", "net/minecraft/world/level/biome/BiomeGenerationSettings$PlainBuilder"),
             java.util.Map.entry("net/minecraft/client/model/ArmorStandArmorModel", "net/minecraft/client/model/object/armorstand/ArmorStandArmorModel"),
             java.util.Map.entry("net/minecraft/client/model/BoatModel", "net/minecraft/client/model/object/boat/BoatModel"),
             java.util.Map.entry("net/minecraft/client/model/BookModel", "net/minecraft/client/model/object/book/BookModel"),
@@ -282,6 +283,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyFarmlandFields(node);
         rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
+        rewrites += Forge1192WorldgenRewriter.rewrite(node, this::isManagedSubtypeOf, this::isLegacyUnitMapCodecField);
         rewrites += rewriteLegacyComposterRegistrations(node);
         rewrites += rewriteLegacyMixinPropertyAccessors(node);
         rewrites += rewriteLegacyFixedBufferRegistration(node);
@@ -5855,8 +5857,15 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
-                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE) continue;
+                        || (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                            && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC)) continue;
                 LegacyMixinInvoker invoker = legacyMixinInvoker(call.owner, call.name, call.desc);
+                if (invoker != null && invoker.target().equals("net/minecraft/world/level/levelgen/feature/trunkplacers/TrunkPlacerType")
+                        && invoker.member().equals("register") && call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC
+                        && call.desc.equals("(Ljava/lang/String;Lcom/mojang/serialization/Codec;)Lnet/minecraft/world/level/levelgen/feature/trunkplacers/TrunkPlacerType;")) {
+                    call.owner="com/fuckingdeveloper/lms/runtime/worldgen/Target263WorldgenAdapter";call.name="registerTrunk";call.itf=false;rewrites++;continue;
+                }
+                if (call.getOpcode()!=org.objectweb.asm.Opcodes.INVOKEINTERFACE) continue;
                 if (invoker != null
                         && invoker.target().equals("net/minecraft/world/level/chunk/LevelChunk")) {
                     String bridgeName = null;
@@ -9728,7 +9737,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     case "FEATURE_SIZE_TYPES" -> "FEATURE_SIZE_TYPE";
                     case "PLACEMENT_MODIFIER_TYPES" -> "PLACEMENT_MODIFIER_TYPE";
                     case "CARVER_TYPES" -> "CARVER";
-                    case "FEATURES" -> "FEATURE";
+                    case "FEATURES" -> "FEATURE_TYPE";
                     case "STRUCTURE_PIECE_TYPES" -> "STRUCTURE_PIECE";
                     case "STRUCTURE_TYPES" -> "STRUCTURE_TYPE";
                     case "STRUCTURE_PLACEMENT_TYPES" -> "STRUCTURE_PLACEMENT";
@@ -12319,6 +12328,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor";
         if (value.equals("net/minecraft/client/color/item/ItemColor"))
             return "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor";
+        String worldgenRelocation = Forge1192WorldgenRewriter.relocation(value);
+        if (worldgenRelocation != null) return worldgenRelocation;
         String explicitVanillaRelocation = EXPLICIT_VANILLA_CLASS_RELOCATIONS.get(value);
         if (explicitVanillaRelocation != null) return explicitVanillaRelocation;
         // IForgeItem was a Forge extension interface mixed into Item in 1.19.2.

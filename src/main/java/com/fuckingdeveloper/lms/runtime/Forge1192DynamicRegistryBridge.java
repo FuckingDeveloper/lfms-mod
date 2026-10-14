@@ -98,7 +98,10 @@ public final class Forge1192DynamicRegistryBridge {
     public static void populateSimpleTreeBlockMapping(Map<Block, Block> mapping) {
         mapping.clear();
         for (Object value : resolve(Registries.FEATURE)) {
-            if (!(value instanceof TreeFeature tree)) continue;
+            TreeFeature tree;
+            if (value instanceof TreeFeature nativeTree) tree = nativeTree;
+            else if (value instanceof com.fuckingdeveloper.lms.runtime.worldgen.Target263WorldgenAdapter.TreeIntent intent) tree = intent.settings();
+            else continue;
             if (!(tree.trunkProvider().value() instanceof SimpleStateProvider trunk)) continue;
             if (!(tree.foliageProvider().value() instanceof SimpleStateProvider foliage)) continue;
             mapping.put(trunk.state().getBlock(), foliage.state().getBlock());
