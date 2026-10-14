@@ -225,6 +225,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
         rewrites += rewriteLegacyEntityLevelFieldAccess(node);
+        rewrites += rewriteLegacyContainerScreenStateFamily(node);
         rewrites += rewriteLegacyBlockDataFamily(node);
         rewrites += rewriteLegacyBlockPosConstruction(node);
         rewrites += rewriteLegacyChunkPosFamily(node);
@@ -367,6 +368,72 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         byte[] verified = writer.toByteArray();
         return new Result(verified, rewrites > 0,
                 "forge-1.19.2 exact namespace migrations=" + rewrites);
+    }
+
+    private static final String CONTAINER_SCREEN = "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen";
+    private record ScreenStateMember(String targetName, String descriptor) {}
+    private static final java.util.Map<String, ScreenStateMember> SCREEN_STATE_MEMBERS = java.util.Map.of(
+            "getGuiLeft", new ScreenStateMember("getLeftPos", "()I"),
+            "getGuiTop", new ScreenStateMember("getTopPos", "()I"),
+            "getXSize", new ScreenStateMember("getImageWidth", "()I"),
+            "getYSize", new ScreenStateMember("getImageHeight", "()I"),
+            "getSlotUnderMouse", new ScreenStateMember("getHoveredSlot", "()Lnet/minecraft/world/inventory/Slot;"));
+
+    /** Exact Forge-added field getters survive under different target names. */
+    private int rewriteLegacyContainerScreenStateFamily(ClassNode node) {
+        int rewrites = 0;
+        boolean screen = isManagedSubtypeOf(node, CONTAINER_SCREEN);
+        if (screen) {
+            // A source utility with a new target name could hijack native virtual dispatch.
+            for (var method : node.methods) for (var member : SCREEN_STATE_MEMBERS.values()) {
+                if (method.name.equals(member.targetName()) && method.desc.equals(member.descriptor()))
+                    throw new IllegalStateException("Unproven source/native container-screen getter collision: " + node.name + "#" + method.name + method.desc);
+            }
+            for (var method : node.methods) {
+                var member = SCREEN_STATE_MEMBERS.get(method.name);
+                if (member == null || !method.desc.equals(member.descriptor())) continue;
+                if ((method.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0 || (method.access & org.objectweb.asm.Opcodes.ACC_PUBLIC) == 0)
+                    throw new IllegalStateException("Invalid source container-screen getter override: " + node.name + "#" + method.name + method.desc);
+                method.name = member.targetName(); rewrites++;
+            }
+        }
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof MethodInsnNode call && (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                    || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL)) {
+                var member = screenStateMember(node, call.owner, call.name, call.desc);
+                if (member != null) { call.name = member.targetName(); rewrites++; }
+            } else if (instruction instanceof InvokeDynamicInsnNode indy) {
+                for (int i = 0; i < indy.bsmArgs.length; i++) {
+                    Object adapted = screenStateConstant(node, indy.bsmArgs[i]);
+                    if (adapted != indy.bsmArgs[i]) { indy.bsmArgs[i] = adapted; rewrites++; }
+                }
+            } else if (instruction instanceof LdcInsnNode ldc) {
+                Object adapted = screenStateConstant(node, ldc.cst);
+                if (adapted != ldc.cst) { ldc.cst = adapted; rewrites++; }
+            }
+        }
+        return rewrites;
+    }
+    private ScreenStateMember screenStateMember(ClassNode node, String owner, String name, String descriptor) {
+        var member = SCREEN_STATE_MEMBERS.get(name);
+        return member != null && member.descriptor().equals(descriptor)
+                && (owner.equals(node.name) ? isManagedSubtypeOf(node, CONTAINER_SCREEN) : isManagedSubtypeOf(owner, CONTAINER_SCREEN)) ? member : null;
+    }
+    private Object screenStateConstant(ClassNode node, Object value) {
+        if (value instanceof Handle handle && (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL
+                || handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESPECIAL)) {
+            var member = screenStateMember(node, handle.getOwner(), handle.getName(), handle.getDesc());
+            return member == null ? value : new Handle(handle.getTag(), handle.getOwner(), member.targetName(), handle.getDesc(), handle.isInterface());
+        }
+        if (value instanceof ConstantDynamic dynamic) {
+            Object[] arguments = new Object[dynamic.getBootstrapMethodArgumentCount()]; boolean changed = false;
+            for (int i = 0; i < arguments.length; i++) {
+                Object original = dynamic.getBootstrapMethodArgument(i);
+                arguments[i] = screenStateConstant(node, original); changed |= arguments[i] != original;
+            }
+            return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), arguments) : value;
+        }
+        return value;
     }
 
     private record BlockDataMember(String sourceName, String descriptor, String alias,

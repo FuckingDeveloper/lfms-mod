@@ -18,6 +18,12 @@ is now fixture-verified. Source block NBT/update callbacks also had a verified
 native lifecycle gap; restoring them does not yet prove the reported wire visuals
 or energy transport work. Both gameplay acceptance items remain open.
 
+16:01 acceptance: the user confirms visual wire connections. Generator opening
+passes selective subscriber linkage, then fails at inherited getGuiLeft during
+FilterComponent initialization. The later missing-button NPE is consequential.
+All five screen state getters and protected dimension writes are now fixture-verified.
+Actual generator interaction, wire persistence and energy transport remain open.
+
 ## Implemented, awaiting the next user run
 
 - [x] Cover the five source positional/seeded level-sound overloads, inherited

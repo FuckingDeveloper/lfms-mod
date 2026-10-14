@@ -49,6 +49,7 @@ public final class BatchFamilyCheck {
         }
     }
     static void run() throws Exception {
+        ScreenStateFamilyCheck.run();
         var bus = BusBuilder.builder().build();
         var host = host(bus);
         var subscriber = new AttachmentSubscriber();
