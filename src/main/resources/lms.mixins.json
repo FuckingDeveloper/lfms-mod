@@ -15,7 +15,8 @@
     "Target263SingleRecipeResultAccess"
   ],
   "client": [
-    "Target263EntityRenderStateMixin"
+    "Target263EntityRenderStateMixin",
+    "Target263FluidModelLookupMixin"
   ],
   "injectors": {
     "defaultRequire": 1

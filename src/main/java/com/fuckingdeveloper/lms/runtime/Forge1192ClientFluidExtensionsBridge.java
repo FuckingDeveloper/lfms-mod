@@ -42,6 +42,8 @@ public final class Forge1192ClientFluidExtensionsBridge {
         if (sourceAccessor != null) return texture(extensions, sourceAccessor, "still");
         Identifier vanilla = vanillaTexture(state.getType(), true);
         if (vanilla != null) return vanilla;
+        var pending = Target263FluidModelLookupBridge.current(state.getType());
+        if (pending != null) return pending.stillMaterial().sprite().contents().name();
         try {
             return Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(state)
                     .stillMaterial().sprite().contents().name();
@@ -60,6 +62,8 @@ public final class Forge1192ClientFluidExtensionsBridge {
         if (sourceAccessor != null) return texture(extensions, sourceAccessor, "flowing");
         Identifier vanilla = vanillaTexture(state.getType(), false);
         if (vanilla != null) return vanilla;
+        var pending = Target263FluidModelLookupBridge.current(state.getType());
+        if (pending != null) return pending.flowingMaterial().sprite().contents().name();
         try {
             return Minecraft.getInstance().getModelManager().getFluidStateModelSet().get(state)
                     .flowingMaterial().sprite().contents().name();
