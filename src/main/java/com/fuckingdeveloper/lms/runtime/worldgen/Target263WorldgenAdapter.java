@@ -46,6 +46,18 @@ public final class Target263WorldgenAdapter {
     public static net.minecraft.world.level.levelgen.blockpredicates.BlockPredicate survival(BlockState state,Vec3i offset){
         return new net.minecraft.world.level.levelgen.blockpredicates.WouldSurvivePredicate(offset,state);
     }
+    private static final class Defaults {
+        static final java.lang.invoke.MethodHandle TREE_THRESHOLD=threshold();
+        private static java.lang.invoke.MethodHandle threshold(){
+            try{return java.lang.invoke.MethodHandles.privateLookupIn(net.minecraft.data.worldgen.placement.VegetationPlacements.class,java.lang.invoke.MethodHandles.lookup()).findStaticGetter(net.minecraft.data.worldgen.placement.VegetationPlacements.class,"TREE_THRESHOLD",net.minecraft.world.level.levelgen.placement.PlacementModifier.class);}
+            catch(ReflectiveOperationException failure){throw new ExceptionInInitializerError(failure);}
+        }
+    }
+    public static net.minecraft.world.level.levelgen.placement.PlacementModifier treeThreshold(){
+        try{return (net.minecraft.world.level.levelgen.placement.PlacementModifier)Defaults.TREE_THRESHOLD.invokeExact();}
+        catch(RuntimeException|Error failure){throw failure;}
+        catch(Throwable failure){throw new IllegalStateException("Cannot read exact native tree placement default",failure);}
+    }
     public static RuleTest stone(){return RuleTest.either(new TagMatchTest(BlockTags.HEIGHT_SPECIFIC_ORE_REPLACEABLES),HeightMatchTest.min(0),new TagMatchTest(BlockTags.STONE_ORE_REPLACEABLES));}
     public static RuleTest deepslate(){return RuleTest.either(new TagMatchTest(BlockTags.HEIGHT_SPECIFIC_ORE_REPLACEABLES),HeightMatchTest.max(8),new TagMatchTest(BlockTags.DEEPSLATE_ORE_REPLACEABLES));}
     public static RuleTest naturalStone(){return new TagMatchTest(BlockTags.BASE_STONE_OVERWORLD);}

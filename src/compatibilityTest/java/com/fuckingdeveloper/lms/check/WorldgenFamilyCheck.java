@@ -96,12 +96,16 @@ public final class WorldgenFamilyCheck {
             check(builder.build().features().get(net.minecraft.world.level.levelgen.GenerationStep.Decoration.UNDERGROUND_ORES.ordinal()).get(0)==canonical,"source biome holder bypassed native override/reload identity");
             try{Target263BiomeModifierBridge.addFeature(builder,net.minecraft.world.level.levelgen.GenerationStep.Decoration.UNDERGROUND_ORES,Holder.direct(sourcePlaced));throw new AssertionError("biome registry scope leaked");}catch(IllegalStateException expected){}
         }
+        var thresholdField=net.minecraft.data.worldgen.placement.VegetationPlacements.class.getDeclaredField("TREE_THRESHOLD");thresholdField.setAccessible(true);
+        check(Target263WorldgenAdapter.treeThreshold()==thresholdField.get(null),"source placement default lost exact native singleton identity");
         sourceFactories();
         var fixture=Path.of("legacy-mods/IC2Classic-1.19.2-2.1.3.4.jar");
         if(!Files.exists(fixture))fixture=Path.of("run/legacy-mods/IC2Classic-1.19.2-2.1.3.4.jar");
         if(Files.exists(fixture)){
             byte[] before=MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(fixture));
             try(var loader=new ManagedLegacyClassLoader(fixture,WorldgenFamilyCheck.class.getClassLoader(),new Forge1192LegacyClassTransformer())){
+                var generator=loader.linkOwnedClass("ic2.core.platform.events.WorldGenerator");
+                nativeAbi(loader.definedClassBytes(generator.getName()));
                 var sourceTrunk=loader.linkOwnedClass("ic2.core.block.resource.rubber.RubberTrunkPlacer");
                 check(sourceTrunk.getSuperclass()==LegacyTrunkPlacer.class,"external trunk did not use source-dispatch base");sourceTrunk.getConstructor(int.class,int.class,int.class).newInstance(5,2,0);
                 var sourceLeaves=loader.linkOwnedClass("ic2.core.block.resource.rubber.RubberFoliagePlacer");
@@ -113,6 +117,27 @@ public final class WorldgenFamilyCheck {
             check(Arrays.equals(before,MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(fixture))),"legacy artifact modified");
         }
         System.out.println("PASS: native tree engine source callbacks/context/setters/failure restoration, tree flags/provider codec roundtrip, native ore size/discard/replacements, staged definition data/duplicate rejection, canonical biome override/reload identity, resource bytes/native precedence and immutable external placer/modifier linkage");
+    }
+    private static void nativeAbi(byte[] bytes)throws Exception {
+        var node=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(bytes).accept(node,org.objectweb.asm.ClassReader.SKIP_DEBUG|org.objectweb.asm.ClassReader.SKIP_FRAMES);
+        int checked=0;
+        for(var method:node.methods)for(var insn:method.instructions){
+            String owner=insn instanceof org.objectweb.asm.tree.MethodInsnNode call?call.owner:insn instanceof org.objectweb.asm.tree.FieldInsnNode field?field.owner:null;
+            if(owner==null||!(owner.startsWith("net/minecraft/")||owner.startsWith("net/neoforged/")||owner.startsWith("com/fuckingdeveloper/lms/runtime/")))continue;
+            var type=Class.forName(owner.replace('/','.'),false,WorldgenFamilyCheck.class.getClassLoader());
+            java.lang.reflect.Member found=null;
+            if(insn instanceof org.objectweb.asm.tree.MethodInsnNode call){
+                if(call.name.equals("<init>")){for(var candidate:type.getDeclaredConstructors())if(org.objectweb.asm.Type.getConstructorDescriptor(candidate).equals(call.desc))found=candidate;}
+                else {var pending=new ArrayDeque<Class<?>>();pending.add(type);var visited=new HashSet<Class<?>>();while(!pending.isEmpty()&&found==null){var current=pending.remove();if(!visited.add(current))continue;for(var candidate:current.getDeclaredMethods())if(candidate.getName().equals(call.name)&&org.objectweb.asm.Type.getMethodDescriptor(candidate).equals(call.desc)){found=candidate;break;}if(current.getSuperclass()!=null)pending.add(current.getSuperclass());pending.addAll(List.of(current.getInterfaces()));}}
+                check(call.itf==type.isInterface(),"wrong native class/interface invocation: "+owner+"#"+call.name+call.desc);
+            }else if(insn instanceof org.objectweb.asm.tree.FieldInsnNode field){
+                for(Class<?> current=type;current!=null&&found==null;current=current.getSuperclass())for(var candidate:current.getDeclaredFields())if(candidate.getName().equals(field.name)&&org.objectweb.asm.Type.getDescriptor(candidate.getType()).equals(field.desc)){found=candidate;break;}
+            }
+            check(found!=null,"unresolved transformed worldgen native member: "+owner+" / "+insn);
+            check(java.lang.reflect.Modifier.isPublic(found.getModifiers()),"inaccessible native worldgen member: "+found);checked++;
+        }
+        check(checked>30,"worldgen native ABI inventory unexpectedly empty");
+        System.out.println("Worldgen native call/field ABI inventory checked="+checked);
     }
     private static void sourceFactories()throws Exception {
         var node=new org.objectweb.asm.tree.ClassNode();node.name="fixture/WorldgenCalls";node.superName="java/lang/Object";node.version=org.objectweb.asm.Opcodes.V17;node.access=org.objectweb.asm.Opcodes.ACC_PUBLIC;

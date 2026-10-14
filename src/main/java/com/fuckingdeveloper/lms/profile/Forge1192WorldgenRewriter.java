@@ -42,6 +42,7 @@ final class Forge1192WorldgenRewriter {
     }
     private static Object callable(Object value,BiPredicate<String,String> subtype){
         if(value instanceof Handle h){
+            if(h.getTag()==H_GETSTATIC&&h.getOwner().equals("net/minecraft/data/worldgen/placement/VegetationPlacements")&&(h.getName().equals("f_195420_")||h.getName().equals("TREE_THRESHOLD"))&&h.getDesc().equals("L"+SOURCE+"placement/PlacementModifier;"))return new Handle(H_INVOKESTATIC,ADAPTER,"treeThreshold","()"+h.getDesc(),false);
             if(h.getTag()==H_INVOKESTATIC&&h.getOwner().equals(SOURCE+"feature/stateproviders/BlockStateProvider")&&(h.getName().equals("m_191384_")||h.getName().equals("m_191382_")||h.getName().equals("simple"))&&(h.getDesc().equals("(Lnet/minecraft/world/level/block/state/BlockState;)L"+SOURCE+"feature/stateproviders/SimpleStateProvider;")||h.getDesc().equals("(Lnet/minecraft/world/level/block/Block;)L"+SOURCE+"feature/stateproviders/SimpleStateProvider;")))return new Handle(H_INVOKESTATIC,h.getOwner(),"of",h.getDesc(),true);
             var name=callback(h.getOwner(),h.getName(),h.getDesc(),subtype);return name==null?h:new Handle(h.getTag(),h.getOwner().equals(TRUNK)?RUNTIME+"LegacyTrunkPlacer":h.getOwner().equals(FOLIAGE)?RUNTIME+"LegacyFoliagePlacer":h.getOwner(),name,h.getDesc(),h.isInterface());}
         if(value instanceof ConstantDynamic c){Object[] args=new Object[c.getBootstrapMethodArgumentCount()];for(int i=0;i<args.length;i++)args[i]=callable(c.getBootstrapMethodArgument(i),subtype);return new ConstantDynamic(c.getName(),c.getDescriptor(),(Handle)callable(c.getBootstrapMethod(),subtype),args);}
@@ -82,6 +83,8 @@ final class Forge1192WorldgenRewriter {
                 if(insn instanceof FieldInsnNode f){
                     if(f.getOpcode()==GETSTATIC&&f.owner.equals("net/minecraft/data/BuiltinRegistries")&&f.desc.equals("Lnet/minecraft/core/Registry;")&&(f.name.equals("f_123861_")||f.name.equals("f_194653_"))){
                         f.owner=DEFINITIONS;f.name=f.name.equals("f_123861_")?"CONFIGURED":"PLACED";f.desc="L"+DEFINITIONS+"$Domain;";edits++;
+                    } else if(f.getOpcode()==GETSTATIC&&f.owner.equals("net/minecraft/data/worldgen/placement/VegetationPlacements")&&(f.name.equals("f_195420_")||f.name.equals("TREE_THRESHOLD"))&&f.desc.equals("L"+SOURCE+"placement/PlacementModifier;")){
+                        var replacement=new MethodInsnNode(INVOKESTATIC,ADAPTER,"treeThreshold","()"+f.desc,false);method.instructions.set(f,replacement);insn=replacement;edits++;
                     } else if(f.getOpcode()==GETSTATIC&&f.owner.equals("net/minecraft/data/worldgen/features/OreFeatures")&&f.desc.equals("L"+SOURCE+"structure/templatesystem/RuleTest;")){
                         String name=switch(f.name){case "f_195071_"->"naturalStone";case "f_195072_"->"stone";case "f_195073_"->"deepslate";case "f_195074_"->"netherrack";case "f_195075_"->"nether";default->null;};
                         if(name!=null){var replacement=new MethodInsnNode(INVOKESTATIC,ADAPTER,name,"()"+f.desc,false);method.instructions.set(f,replacement);insn=replacement;edits++;}

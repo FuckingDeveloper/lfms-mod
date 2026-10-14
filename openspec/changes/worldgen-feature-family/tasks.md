@@ -23,3 +23,10 @@ passes after the source-policy implementation. Client attempts exposed and remov
 source provider class-to-interface factory linkage and over-broad base-type
 relocation. The new tests cover both. Client/MCP acceptance is still pending;
 current attempts are not a higher compatibility milestone.
+
+Native ABI inventory now resolves all 113 native call/field sites in the
+transformed external worldgen initializer against actual loaded target classes,
+including invocation kind and accessibility. The source tree-placement default
+retains the exact native TREE_THRESHOLD singleton through a checked getter;
+its now-private target field is not accessed directly by transformed code.
+The full wrapper checks pass after this correction. Runtime acceptance continues.
