@@ -95,6 +95,7 @@ public final class BatchFamilyCheck {
         check(ordered.getCapability(TOKEN, null) == present && order.equals(List.of(1, 2)), "ordered provider selection");
         carbonGate(); durability(); mutableTags(); originScopes(); transformationContracts(); hierarchyCaches(); mixinAnchors();
         SlotRenderFamilyCheck.run();
+        SubscriberIndexCheck.run(bus, host);
         System.out.println("PASS: real attachment event dispatch/nested ownership, ordered optional identity/absence/NBT/invalidation, durability ordering, deferred origin scopes, source adapter bytecode, hierarchy rebinding, native hook anchors/config extensions/reload registration");
     }
     private static LegacyICapabilityProvider provider(BiFunction<LegacyCapability<?>, Direction, LegacyLazyOptional<?>> function) {

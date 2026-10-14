@@ -95,6 +95,10 @@ public final class Forge1192LifecycleBridge {
         return context;
     }
 
+    public static java.util.Optional<Context> currentContext() {
+        return java.util.Optional.ofNullable(CURRENT.get());
+    }
+
     public static IEventBus modEventBus(String modId) {
         Binding binding = BINDINGS.get(Objects.requireNonNull(modId, "modId"));
         if (binding == null) throw new IllegalStateException("No lifecycle event bus recorded for legacy mod " + modId);

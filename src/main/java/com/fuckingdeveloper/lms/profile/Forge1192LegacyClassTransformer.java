@@ -10622,11 +10622,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
 
                 if (call.owner.equals("net/neoforged/bus/api/IEventBus")
-                        && call.name.equals("register")
+                        && (call.name.equals("register") || call.name.equals("unregister"))
                         && call.desc.equals("(Ljava/lang/Object;)V")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
-                    call.name = "register";
                     call.desc = "(Lnet/neoforged/bus/api/IEventBus;Ljava/lang/Object;)V";
                     call.itf = false;
                     rewrites++;

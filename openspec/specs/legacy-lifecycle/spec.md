@@ -63,3 +63,28 @@ phase and listener identity. Existing keys MUST remain untouched; repeated sourc
 listener keys MUST be disambiguated deterministically. A missing client event,
 unknown input-code semantics or incomplete managed-container iteration MUST NOT
 be declared supported solely because unrelated container getters link.
+
+### Selective subscriber linkage and ownership
+
+Annotated source subscriber discovery MUST use class-file metadata before
+resolving method signatures. For managed classes, that metadata MUST describe
+the exact defined transformed class. Resolving unrelated utility-method types
+MUST NOT be a prerequisite for linking an otherwise supported event handler.
+Every applicable annotated handler MUST still be validated and linked; a missing
+handler event type or invalid signature MUST fail explicitly before installation.
+
+Instance/class registration MUST retain source public instance/static selection,
+inherited annotation and virtual dispatch, priority and cancelled-event policy.
+Conflicting inherited annotations without established source precedence MUST
+remain an explicit unsupported boundary. Source registration with no applicable
+handlers MAY remain empty, as in the source bus; this MUST NOT skip applicable
+handlers. Repeated registration of the same subscriber on the same bus MUST NOT
+duplicate callbacks. Source unregister MUST remove all wrappers belonging to
+that registration, including event fanout, without removing another subscriber.
+Partial installation failure MUST undo installed wrappers and retain its cause.
+Class-file indexes MUST NOT independently retain disposable managed loaders.
+Native reinitialization MAY reuse the source owner previously recorded for that
+same subscriber and bus after unregister. Such provenance MUST use weak ownership
+keys, retain the original owner on duplicate registration, and restore thread
+context after registration. An unknown owner MUST fail explicitly; class/package
+names MUST NOT substitute for recorded provenance.

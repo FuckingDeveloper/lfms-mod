@@ -134,8 +134,8 @@ public final class Forge1192EventBusBridge {
                     boolean deferUntilItemComponentsBound,
                                                      Class<T> eventType) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        registerListener(bus, net.neoforged.bus.api.EventPriority.NORMAL, eventType,
-                event -> invokeScoped(modId, listener, event), deferUntilItemComponentsBound);
+        installConsumer(bus, listener, () -> registerListener(bus, net.neoforged.bus.api.EventPriority.NORMAL, eventType,
+                event -> invokeScoped(modId, listener, event), deferUntilItemComponentsBound));
     }
 
     public static <T extends Event> void addListener(IEventBus bus, net.neoforged.bus.api.EventPriority priority,
@@ -143,8 +143,8 @@ public final class Forge1192EventBusBridge {
                                                      boolean deferUntilItemComponentsBound,
                                                      Class<T> eventType) {
         String modId = Forge1192LifecycleBridge.requireActive().modId();
-        registerListener(bus, priority, eventType,
-                event -> invokeScoped(modId, listener, event), deferUntilItemComponentsBound);
+        installConsumer(bus, listener, () -> registerListener(bus, priority, eventType,
+                event -> invokeScoped(modId, listener, event), deferUntilItemComponentsBound));
     }
 
     /**
@@ -155,37 +155,104 @@ public final class Forge1192EventBusBridge {
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static void register(IEventBus bus, Object subscriber) {
-        String modId = Forge1192LifecycleBridge.requireActive().modId();
         if (subscriber == null) throw new NullPointerException("subscriber");
 
-        List<Method> handlers = new ArrayList<>();
-        for (Class<?> type = subscriber.getClass(); type != null && type != Object.class; type = type.getSuperclass()) {
-            for (Method method : type.getDeclaredMethods()) {
-                if (method.getAnnotation(net.neoforged.bus.api.SubscribeEvent.class) == null) continue;
-                if (method.getParameterCount() != 1 || !Event.class.isAssignableFrom(method.getParameterTypes()[0]))
-                    throw new IllegalArgumentException("Invalid legacy event subscriber method: " + method);
-                handlers.add(method);
-            }
+        synchronized (SUBSCRIPTIONS) {
+            var registered = SUBSCRIPTIONS.computeIfAbsent(bus, ignored -> new java.util.WeakHashMap<>());
+            if (registered.containsKey(subscriber)) return;
+            var handlers = Forge1192SubscriberMethods.prepare(subscriber);
+            if (handlers.isEmpty()) return; // Source register() installs nothing for this case.
+            String modId = Forge1192LifecycleBridge.currentContext().map(Forge1192LifecycleBridge.Context::modId)
+                    .orElseGet(() -> {
+                        var owners = SUBSCRIBER_OWNERS.get(bus);
+                        String known = owners == null ? null : owners.get(subscriber);
+                        if (known == null) throw new IllegalStateException("No source owner recorded for event subscriber " + subscriber.getClass().getName());
+                        return known;
+                    });
+            for (var handler : handlers) validateAttachmentSignature(handler);
+            List<Runnable> cleanup = new ArrayList<>();
+            List<Runnable> previous = INSTALLING.get(); INSTALLING.set(cleanup);
+            try (var ownership = Forge1192LifecycleBridge.enterCallback(modId)) {
+                for (var handler : handlers) {
+                    Consumer listener = event -> invokeScoped(modId, ignored -> {
+                        if (!handler.receiveCanceled() && ignored instanceof ICancellableEvent canceled && canceled.isCanceled()) return;
+                        handler.invoke((Event)ignored);
+                    }, (Event)event);
+                    if (handler.eventType() == com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class)
+                        registerBlockAttachmentListener(bus, handler.priority(), listener);
+                    else registerListener(bus, handler.priority(), handler.eventType(), listener, handler.receiveCanceled(), false);
+                }
+                registered.put(subscriber, List.copyOf(cleanup));
+                SUBSCRIBER_OWNERS.computeIfAbsent(bus, ignored -> new java.util.WeakHashMap<>()).put(subscriber, modId);
+            } catch (RuntimeException | Error failure) {
+                try { removeSubscriptions(cleanup); } catch (RuntimeException | Error rollback) { failure.addSuppressed(rollback); }
+                throw failure;
+            } catch (Exception failure) {
+                try { removeSubscriptions(cleanup); } catch (RuntimeException | Error rollback) { failure.addSuppressed(rollback); }
+                throw new IllegalStateException("Source subscriber ownership scope failed", failure);
+            } finally { if (previous == null) INSTALLING.remove(); else INSTALLING.set(previous); }
         }
-        handlers.sort(Comparator.comparing(Method::toGenericString));
-        if (handlers.isEmpty())
-            throw new IllegalArgumentException("Legacy event subscriber has no @SubscribeEvent methods: "
-                    + subscriber.getClass().getName());
+    }
 
-        for (Method method : handlers) {
-            var annotation = method.getAnnotation(net.neoforged.bus.api.SubscribeEvent.class);
-            Class<? extends Event> eventType = method.getParameterTypes()[0].asSubclass(Event.class);
-            method.setAccessible(true);
-            Consumer listener = event -> invokeScoped(modId, ignored -> invokeSubscriber(subscriber, method, ignored), (Event) event);
-            if (eventType == com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class) {
-                var parameter = method.getGenericParameterTypes()[0];
-                java.lang.reflect.Type subject = null;
-                if (parameter instanceof java.lang.reflect.ParameterizedType typed) subject = typed.getActualTypeArguments()[0];
-                if (subject != null && subject != net.minecraft.world.level.block.entity.BlockEntity.class)
-                    throw new IllegalStateException("Unsupported source attachment subject: " + method.toGenericString());
-                registerBlockAttachmentListener(bus, annotation.priority(), listener);
-            } else registerListener(bus, annotation.priority(), eventType, listener, false);
+    private static final java.util.Map<IEventBus, java.util.Map<Object, List<Runnable>>> SUBSCRIPTIONS = new java.util.WeakHashMap<>();
+    private static final java.util.Map<IEventBus, java.util.Map<Object, String>> SUBSCRIBER_OWNERS = new java.util.WeakHashMap<>();
+    private static final ThreadLocal<List<Runnable>> INSTALLING = new ThreadLocal<>();
+
+    private static void installConsumer(IEventBus bus, Object source, Runnable installation) {
+        synchronized (SUBSCRIPTIONS) {
+            var registered = SUBSCRIPTIONS.computeIfAbsent(bus, ignored -> new java.util.WeakHashMap<>());
+            List<Runnable> added = new ArrayList<>(), previous = INSTALLING.get(); INSTALLING.set(added);
+            try {
+                installation.run();
+                var all = new ArrayList<>(registered.getOrDefault(source, List.of())); all.addAll(added);
+                registered.put(source, List.copyOf(all));
+            } catch (RuntimeException | Error failure) {
+                try { removeSubscriptions(added); } catch (RuntimeException | Error rollback) { failure.addSuppressed(rollback); }
+                throw failure;
+            } finally { if (previous == null) INSTALLING.remove(); else INSTALLING.set(previous); }
         }
+    }
+
+    public static void unregister(IEventBus bus, Object subscriber) {
+        synchronized (SUBSCRIPTIONS) {
+            var registrations = SUBSCRIPTIONS.get(bus);
+            var cleanup = registrations == null ? null : registrations.get(subscriber);
+            if (cleanup == null) { bus.unregister(subscriber); return; }
+            removeSubscriptions(cleanup); registrations.remove(subscriber);
+            if (registrations.isEmpty()) SUBSCRIPTIONS.remove(bus);
+        }
+    }
+
+    private static void validateAttachmentSignature(Forge1192SubscriberMethods.Handler handler) {
+        if (handler.eventType() != com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class || handler.signature() == null) return;
+        String supported = "(Lcom/fuckingdeveloper/lms/runtime/event/LegacyAttachCapabilitiesEvent<Lnet/minecraft/world/level/block/entity/BlockEntity;>;)V";
+        if (!handler.signature().equals(supported))
+            throw new IllegalStateException("Unsupported source attachment subject: " + handler.symbol() + " " + handler.signature());
+    }
+
+    private static void removeSubscriptions(List<Runnable> cleanup) {
+        RuntimeException failed = null;
+        for (int i = cleanup.size() - 1; i >= 0; i--) {
+            try { cleanup.get(i).run(); }
+            catch (RuntimeException error) { if (failed == null) failed = error; else failed.addSuppressed(error); }
+        }
+        if (failed != null) throw failed;
+    }
+
+    private static <T extends Event> void listen(IEventBus bus, net.neoforged.bus.api.EventPriority priority,
+            boolean canceled, Class<T> type, Consumer<T> listener) {
+        var cleanup = INSTALLING.get();
+        if (cleanup != null) {
+            var reference = new java.lang.ref.WeakReference<>(bus);
+            var callback = new java.lang.ref.WeakReference<>(listener);
+            cleanup.add(() -> { var target = reference.get(); var registered = callback.get(); if (target != null && registered != null) target.unregister(registered); });
+        }
+        bus.addListener(priority, canceled, type, listener);
+    }
+
+    private static void withoutSubscriptionCapture(Runnable registration) {
+        var previous = INSTALLING.get(); INSTALLING.remove();
+        try { registration.run(); } finally { if (previous != null) INSTALLING.set(previous); }
     }
 
     public static void addGenericListener(IEventBus bus, Class<?> subject, Consumer<?> listener) {
@@ -193,14 +260,14 @@ public final class Forge1192EventBusBridge {
             throw new IllegalStateException("Only source block attachment subjects are adapted: " + subject);
         String modId = Forge1192LifecycleBridge.requireActive().modId();
         @SuppressWarnings("unchecked") var typed = (Consumer<com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent<?>>)listener;
-        registerBlockAttachmentListener(bus, net.neoforged.bus.api.EventPriority.NORMAL,
-                event -> invokeScoped(modId, typed, (com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent<?>)event));
+        installConsumer(bus, listener, () -> registerBlockAttachmentListener(bus, net.neoforged.bus.api.EventPriority.NORMAL,
+                event -> invokeScoped(modId, typed, (com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent<?>)event)));
     }
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static void registerBlockAttachmentListener(IEventBus bus, net.neoforged.bus.api.EventPriority priority, Consumer listener) {
         if (bus != net.neoforged.neoforge.common.NeoForge.EVENT_BUS)
             throw new IllegalStateException("Source attachments require the gameplay event bus");
-        bus.addListener(priority, false, com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class, listener);
+        listen(bus, priority, false, com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class, listener);
     }
 
     /**
@@ -215,6 +282,14 @@ public final class Forge1192EventBusBridge {
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
             Class<T> eventType, Consumer<T> listener,
             boolean deferUntilItemComponentsBound) {
+        registerListener(bus, priority, eventType, listener, false, deferUntilItemComponentsBound);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static <T extends Event> void registerListener(
+            IEventBus bus, net.neoforged.bus.api.EventPriority priority,
+            Class<T> eventType, Consumer<T> listener, boolean receiveCanceled,
+            boolean deferUntilItemComponentsBound) {
         if (eventType == com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class)
             throw new IllegalStateException("Source attachment lambda requires an explicit generic subject");
         if (deferUntilItemComponentsBound) {
@@ -227,12 +302,12 @@ public final class Forge1192EventBusBridge {
         }
         if (eventType == LegacyFurnaceFuelBurnTimeEvent.class) {
             IEventBus modBus = Forge1192LifecycleBridge.requireActive().modEventBus();
-            modBus.addListener(priority, false, ModifyDefaultComponentsEvent.class,
+            listen(modBus, priority, receiveCanceled, ModifyDefaultComponentsEvent.class,
                     event -> registerLegacyFuelComponents(event, (Consumer) listener));
             return;
         }
         if (eventType == LegacyRenderHighlightBlockEvent.class) {
-            bus.addListener(priority, false, ExtractBlockOutlineRenderStateEvent.class,
+            listen(bus, priority, receiveCanceled, ExtractBlockOutlineRenderStateEvent.class,
                     event -> registerLegacyBlockHighlightRenderer(event, (Consumer) listener));
             return;
         }
@@ -261,23 +336,23 @@ public final class Forge1192EventBusBridge {
             return;
         }
         if (eventType == LegacyRegisterGuiOverlaysEvent.class) {
-            Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
+            listen(Forge1192LifecycleBridge.requireActive().modEventBus(),
                     priority, false, RegisterGuiLayersEvent.class,
                     event -> ((Consumer) listener).accept(new LegacyRegisterGuiOverlaysEvent(event)));
             return;
         }
         if (eventType == LegacyVillagerTradesEvent.class) {
-            bus.addListener(priority, false, ServerAboutToStartEvent.class,
+            listen(bus, priority, receiveCanceled, ServerAboutToStartEvent.class,
                     event -> dispatchLegacyVillagerTrades(event, (Consumer) listener));
             return;
         }
         if (eventType == LegacyWandererTradesEvent.class) {
-            bus.addListener(priority, false, ServerAboutToStartEvent.class,
+            listen(bus, priority, receiveCanceled, ServerAboutToStartEvent.class,
                     event -> dispatchLegacyWandererTrades(event, (Consumer) listener));
             return;
         }
         for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
-            bus.addListener(priority, false, (Class) concreteType, (Consumer) listener);
+            listen(bus, priority, receiveCanceled, (Class) concreteType, (Consumer) listener);
         }
     }
 
@@ -295,13 +370,13 @@ public final class Forge1192EventBusBridge {
         registerDeferredClientReloadReplay();
         AtomicReference<T> pending = new AtomicReference<>();
         AtomicBoolean invoked = new AtomicBoolean();
-        bus.addListener(priority, false, eventType, event -> {
+        listen(bus, priority, false, eventType, event -> {
             if (!pending.compareAndSet(null, event)) {
                 throw new IllegalStateException("Legacy lifecycle event was captured more than once: "
                         + eventType.getName());
             }
         });
-        NeoForge.EVENT_BUS.addListener(priority, false, TagsUpdatedEvent.ServerDataLoad.class, event -> {
+        listen(NeoForge.EVENT_BUS, priority, false, TagsUpdatedEvent.ServerDataLoad.class, event -> {
             if (!event.shouldUpdateStaticData() || invoked.get()) return;
             T lifecycleEvent = pending.getAndSet(null);
             if (lifecycleEvent == null) {
@@ -350,7 +425,7 @@ public final class Forge1192EventBusBridge {
     private static void registerLegacyModelBakingListener(
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
             Consumer<LegacyModelBakingCompletedEvent> listener) {
-        bus.addListener(priority, false, ModelEvent.ModifyBakingResult.class, event -> {
+        listen(bus, priority, false, ModelEvent.ModifyBakingResult.class, event -> {
             dispatchPreparedLegacyTextureStitchPost(event);
             Forge1192ModelBakingBridge.invoke(
                     Forge1192ModelBakingBridge.context(event), listener);
@@ -363,11 +438,11 @@ public final class Forge1192EventBusBridge {
             boolean block, boolean item) {
         IEventBus modBus = Forge1192LifecycleBridge.requireActive().modEventBus();
         if (block) {
-            modBus.addListener(priority, false, RegisterColorHandlersEvent.BlockTintSources.class,
+            listen(modBus, priority, false, RegisterColorHandlersEvent.BlockTintSources.class,
                     event -> listener.accept(new LegacyRegisterColorHandlersEvent.Block(event.getBlockColors())));
         }
         if (item) {
-            modBus.addListener(priority, false, RegisterColorHandlersEvent.ItemTintSources.class,
+            listen(modBus, priority, false, RegisterColorHandlersEvent.ItemTintSources.class,
                     event -> listener.accept(new LegacyRegisterColorHandlersEvent.Item()));
         }
     }
@@ -376,15 +451,19 @@ public final class Forge1192EventBusBridge {
     private static synchronized void registerLegacyTextureStitchListener(
             net.neoforged.bus.api.EventPriority priority, Consumer listener, boolean pre) {
         if (pre) {
-            TEXTURE_STITCH_PRE.add(new PrioritizedListener<>(priority, listener));
+            var token = new PrioritizedListener<>(priority, listener);
+            TEXTURE_STITCH_PRE.add(token);
+            if (INSTALLING.get() != null) { var reference = new java.lang.ref.WeakReference<>(token); INSTALLING.get().add(() -> TEXTURE_STITCH_PRE.remove(reference.get())); }
         } else {
-            TEXTURE_STITCH_POST.add(new PrioritizedListener<>(priority, listener));
+            var token = new PrioritizedListener<>(priority, listener);
+            TEXTURE_STITCH_POST.add(token);
+            if (INSTALLING.get() != null) { var reference = new java.lang.ref.WeakReference<>(token); INSTALLING.get().add(() -> TEXTURE_STITCH_POST.remove(reference.get())); }
         }
         if (textureStitchDispatcherRegistered) return;
 
-        Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
+        withoutSubscriptionCapture(() -> Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
                 net.neoforged.bus.api.EventPriority.HIGHEST, false,
-                TextureAtlasStitchedEvent.class, Forge1192EventBusBridge::dispatchLegacyTextureStitch);
+                TextureAtlasStitchedEvent.class, Forge1192EventBusBridge::dispatchLegacyTextureStitch));
         textureStitchDispatcherRegistered = true;
     }
 
@@ -567,19 +646,6 @@ public final class Forge1192EventBusBridge {
                     InputEvent.MouseScrollingEvent.class,
                     InputEvent.InteractionKeyMappingTriggered.class);
         return List.of(eventType);
-    }
-
-    private static void invokeSubscriber(Object subscriber, Method method, Event event) {
-        try {
-            method.invoke(subscriber, event);
-        } catch (InvocationTargetException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof RuntimeException runtime) throw runtime;
-            if (cause instanceof Error error) throw error;
-            throw new IllegalStateException("Legacy event subscriber failed: " + method, cause);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Cannot invoke legacy event subscriber: " + method, e);
-        }
     }
 
     private static <T extends Event> void invokeScoped(String modId, Consumer<T> listener, T event) {

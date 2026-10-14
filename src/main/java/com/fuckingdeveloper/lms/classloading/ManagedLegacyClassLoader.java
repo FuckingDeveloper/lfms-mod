@@ -26,6 +26,7 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
     private final JarFile jar;
     private final List<JarFile> dependencyJars;
     private final LegacyClassTransformer transformer;
+    private final java.util.Map<String, byte[]> definedClassBytes = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ManagedLegacyClassLoader(Path artifact, ClassLoader targetLoader) throws IOException {
         this(artifact, List.of(), targetLoader, (name, bytes) ->
@@ -82,6 +83,13 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
     /** Immutable pre-transformation evidence from this loader's admitted dependency graph. */
     public byte[] originalClassBytes(String binaryName) throws IOException {
         return readOwnedClassBytes(binaryName.replace('.', '/'));
+    }
+
+    /** Authoritative metadata for a class already defined by this exact loader. */
+    public byte[] definedClassBytes(String binaryName) {
+        byte[] bytes = definedClassBytes.get(binaryName);
+        if (bytes == null) throw new IllegalStateException("Class has not been defined by this managed loader: " + binaryName);
+        return bytes.clone();
     }
 
     public boolean owns(String binaryName) {
@@ -151,7 +159,9 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
             byte[] original = in.readAllBytes();
             LegacyClassTransformer.Result result = transformer.transform(name, original);
             byte[] bytes = result.bytes();
-            return defineClass(name, bytes, 0, bytes.length);
+            Class<?> defined = defineClass(name, bytes, 0, bytes.length);
+            definedClassBytes.put(name, bytes.clone());
+            return defined;
         } catch (IOException e) {
             throw new ClassNotFoundException(name, e);
         } catch (Exception e) {
