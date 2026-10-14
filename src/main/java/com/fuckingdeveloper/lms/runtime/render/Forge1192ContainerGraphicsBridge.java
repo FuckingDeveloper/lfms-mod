@@ -60,10 +60,7 @@ public final class Forge1192ContainerGraphicsBridge {
     public static void defaultBlendFunc(){Forge1192TooltipGuiBridge.scope();} // Exact source factors are the target TRANSLUCENT pipeline.
 
     static Matrix3x2f planar(PoseStack poses) {
-        var m=poses.last().pose();
-        if(m.m02()!=0 || m.m12()!=0 || m.m03()!=0 || m.m13()!=0 || m.m23()!=0 || m.m32()!=0 || m.m33()!=1)
-            throw new IllegalStateException("Non-planar source GUI pose is not adapted");
-        return new Matrix3x2f(m.m00(),m.m01(),m.m10(),m.m11(),m.m30(),m.m31());
+        return Forge1192GuiPlaneBridge.planar(poses.last().pose());
     }
     private static int text(Font font,PoseStack pose,Object text,float x,float y,int color,boolean shadow) {
         if(font.getClass().getClassLoader() instanceof com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader)
@@ -73,9 +70,11 @@ public final class Forge1192ContainerGraphicsBridge {
         if(state.colorWriteMask!=com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALL)
             throw new UnsupportedOperationException("Masked source GUI text is not adapted");
         var graphics=state.graphics;
+        var transform=planar(pose);
+        Forge1192GuiPlaneBridge.submit(pose.last().pose().m32());
         graphics.pose().pushMatrix();
         try {
-            graphics.pose().mul(planar(pose));graphics.pose().translate(x,y);
+            graphics.pose().mul(transform);graphics.pose().translate(x,y);
             int width;
             if(text instanceof Component component){graphics.text(font,component,0,0,color,shadow);width=font.width(component);}
             else if(text instanceof FormattedCharSequence sequence){graphics.text(font,sequence,0,0,color,shadow);width=font.width(sequence);}

@@ -10,7 +10,7 @@ and custom getters remain unsupported. No world-renderer class is fabricated.
 The source renderGuiItem/renderAndDecorateItem/fake variants preserve source null
 level, owner selection and seed through the exact native extraction operation.
 Decorations preserve the supplied count override. The source draw's white color,
-block-atlas binding and disabled-blend result survive in GUI scope. Other source
+block-atlas binding and enabled-blend/depth result survive in GUI scope. Other source
 model/world methods are not inferred equivalent.
 
 Source flat/3D item-lighting setters retain scoped intent. Source ordinary GUI item
@@ -20,7 +20,7 @@ no lighting input. The adapter MUST NOT mutate GPU-global lighting during extrac
 Arbitrary manual 3D rendering remains unsupported.
 
 Source depth-enable/disable intent remains local to extracted flat GUI drawing;
-nonzero/deep or nonplanar source primitives retain fail-fast boundaries. Target
+depth traces outside planar-gui-depth-layers and nonplanar source primitives retain fail-fast boundaries. Target
 GUI ordering and separate item-atlas depth remain authoritative. Source color-mask
 channels MUST be captured into immutable native quad pipelines; RGB-only highlights
 must preserve destination alpha. Masked text/item operations without a proven

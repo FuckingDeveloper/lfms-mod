@@ -20,6 +20,7 @@ public final class Forge1192TooltipGuiBridge {
         int color = -1;
         boolean blend = true;
         boolean depthTest = true;
+        final Forge1192GuiPlaneBridge.Order planes=new Forge1192GuiPlaneBridge.Order();
         boolean flatItemLighting;
         int colorWriteMask = com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALL;
         boolean textureEnabled = true;
@@ -66,10 +67,14 @@ public final class Forge1192TooltipGuiBridge {
         Scope scope = scope();
         if(scope.colorWriteMask!=com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALL)
             throw new UnsupportedOperationException("Masked source direct GUI blit is not adapted");
-        if (z != 0 || !pose.last().pose().equals(new org.joml.Matrix4f()))
-            throw new IllegalStateException("Unadapted legacy tooltip pose/depth transform");
+        var transform=Forge1192GuiPlaneBridge.planar(pose.last().pose());
         if (scope.texture == null) throw new IllegalStateException("Legacy tooltip blit has no bound texture");
-        scope.graphics.blit(RenderPipelines.GUI_TEXTURED, scope.texture, x, y, u, v,
-                width, height, textureWidth, textureHeight, scope.color);
+        Forge1192GuiPlaneBridge.submit(pose.last().pose().m32()+z);
+        scope.graphics.pose().pushMatrix();
+        try {
+            scope.graphics.pose().mul(transform);
+            scope.graphics.blit(RenderPipelines.GUI_TEXTURED, scope.texture, x, y, u, v,
+                    width, height, textureWidth, textureHeight, scope.color);
+        }finally{scope.graphics.pose().popMatrix();}
     }
 }

@@ -12,8 +12,7 @@ Minecraft.getItemRenderer result and has not escaped or been stored/duplicated.
 The target adapter extracts an ordinary native GUI item with the same null context
 and seed, preserving the source caller's planar pose and fractional position. The
 native item render state controls GUI transforms, lighting, foil and model selection.
-Its scope token MUST NOT represent a surviving old world renderer. Colored/depth/
-3D caller poses and unproven helper bodies remain explicit gaps. Native GPU state
+Its scope token MUST NOT represent a surviving old world renderer. Colored/3D caller poses and depth traces outside planar-gui-depth-layers and unproven helper bodies remain explicit gaps. Native GPU state
 is not mutated; successful source blend-disable intent is retained in GUI scope.
 
 The exact adjacent source disableDepthTest after this proven operation MAY become

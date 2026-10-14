@@ -182,3 +182,14 @@ virtual overrides. Compilation, compatibilityTest, nativeCompatibilitySmoke and
 compileLaunchJava pass. Filter activation and hover remain human acceptance because
 MCP does not expose arbitrary GUI widget activation; no full-filter claim is made.
 See scoped-gui-item-consumers. Nonzero/3D source drawing remains a diagnosed gap.
+
+Planar-depth follow-up: selected-filter foreground drawing uses an ordinary XY
+quad translated to source Z=100. The previous guard intentionally rejected it;
+planar-gui-depth-layers now explicitly extends that boundary. Shared ordered-plane
+projection covers source quads, text, blits and item helper poses. Tests submit
+Z=0/100/100 geometry through actual native GuiGraphicsExtractor/GuiRenderState,
+verify exactly one new native stratum and unchanged XY, and reject descending,
+mixed, perspective/nonfinite/out-of-plane inputs. Previous generic item consumers
+also now retain the source ordinary draw's enabled blend/depth state. Full checks
+pass; filter selection/hover still requires human acceptance. This supersedes the
+blanket nonzero-depth limitation above, not the remaining arbitrary 3D limitation.

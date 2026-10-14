@@ -50,7 +50,7 @@ public final class LegacyGuiBuffer implements VertexConsumer {
     private void requireBuilding(){if(!building)throw new IllegalStateException("Source GUI vertex outside batch");}
     private void flushPoint(){if(current){points.add(new Point(x,y,z,u,v,argb));current=false;}}
     @Override public VertexConsumer addVertex(float x,float y,float z){requireBuilding();flushPoint();this.x=x;this.y=y;this.z=z;u=v=0;argb=-1;current=true;return this;}
-    public VertexConsumer vertex(Matrix4f pose,float x,float y,float z){if(pose.m02()!=0||pose.m12()!=0||pose.m03()!=0||pose.m13()!=0||pose.m23()!=0||pose.m32()!=0||pose.m33()!=1)throw new IllegalStateException("Non-planar source GUI vertex pose");var point=pose.transformPosition(new Vector3f(x,y,z));return addVertex(point.x,point.y,point.z);}
+    public VertexConsumer vertex(Matrix4f pose,float x,float y,float z){Forge1192GuiPlaneBridge.planar(pose);var point=pose.transformPosition(new Vector3f(x,y,z));return addVertex(point.x,point.y,point.z);}
     @Override public VertexConsumer setColor(int r,int g,int b,int a){return setColor(ARGB.color(a,r,g,b));}
     @Override public VertexConsumer setColor(int argb){requireBuilding();if(!current)throw new IllegalStateException("Color before source vertex");this.argb=argb;return this;}
     @Override public VertexConsumer setUv(float u,float v){requireBuilding();if(!current)throw new IllegalStateException("UV before source vertex");this.u=u;this.v=v;return this;}
@@ -62,15 +62,25 @@ public final class LegacyGuiBuffer implements VertexConsumer {
     public void finish() {
         requireBuilding();flushPoint();building=false;
         if(points.size()%4!=0)throw new IllegalStateException("Incomplete source GUI quad batch");
+        if(points.isEmpty())return;
+        float depth=uniformPlane(points);
         var scope=Forge1192TooltipGuiBridge.scope();var graphics=scope.graphics;
         var transform=new Matrix3x2f(graphics.pose());var snapshot=new ArrayList<Point>();
-        for(var point:points){var xy=transform.transformPosition(new Vector2f(point.x,point.y));if(point.z!=0)throw new IllegalStateException("Source GUI depth transform is unproven");snapshot.add(new Point(xy.x,xy.y,0,point.u,point.v,ARGB.multiply(point.color,scope.color)));}
+        for(var point:points){var xy=transform.transformPosition(new Vector2f(point.x,point.y));snapshot.add(new Point(xy.x,xy.y,0,point.u,point.v,ARGB.multiply(point.color,scope.color)));}
         TextureSetup textures=TextureSetup.noTexture();
         if(texture){if(scope.texture==null && scope.textureObject==null)throw new IllegalStateException("No source GUI texture bound");var nativeTexture=scope.textureObject!=null?scope.textureObject:Minecraft.getInstance().getTextureManager().getTexture(scope.texture);textures=TextureSetup.singleTexture(nativeTexture.getTextureView(),nativeTexture.getSampler());}
         RenderPipeline pipeline=pipeline(texture,scope.blend,scope.colorWriteMask);
         var clip=graphics.peekScissorStack();
+        Forge1192GuiPlaneBridge.submit(depth);
         graphics.submitGuiElementRenderState(new QuadState(List.copyOf(snapshot),pipeline,textures,clip,bounds(snapshot)));
         points.clear();
+    }
+    public static float uniformPlane(List<Point> points) {
+        if(points.isEmpty())throw new IllegalArgumentException("Empty GUI primitive has no plane");
+        float depth=points.getFirst().z;
+        for(var point:points)if(!Float.isFinite(point.x)||!Float.isFinite(point.y)||!Float.isFinite(point.z)||point.z!=depth)
+            throw new UnsupportedOperationException("Source GUI batch contains mixed/nonfinite planes");
+        return depth;
     }
     public static ScreenRectangle bounds(List<Point> points) {
         if(points.isEmpty())return null;

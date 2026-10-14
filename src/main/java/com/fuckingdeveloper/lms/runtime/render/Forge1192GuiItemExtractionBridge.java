@@ -17,7 +17,7 @@ public final class Forge1192GuiItemExtractionBridge {
         catch(ReflectiveOperationException failure){throw new ExceptionInInitializerError(failure);}
     }
     /** Target flat GUI pipelines have no depth/stencil state; no global GL state survives extraction. */
-    public static void restoreFlatGuiDepth(){Forge1192TooltipGuiBridge.scope();}
+    public static void restoreFlatGuiDepth(){Forge1192TooltipGuiBridge.scope().depthTest=false;}
     private static final ClassValue<java.util.Map<String,Class<?>>> SCREEN_GETTERS = new ClassValue<>() {
         @Override protected java.util.Map<String,Class<?>> computeValue(Class<?> type) {
             var result=new java.util.HashMap<String,Class<?>>();
@@ -44,19 +44,22 @@ public final class Forge1192GuiItemExtractionBridge {
     }
     public static void itemWithContext(LegacyTooltipItemRenderer context,LivingEntity owner,ItemStack stack,int x,int y,int seed) {
         var graphics=Forge1192TooltipGuiBridge.graphics(context);
+        Forge1192GuiPlaneBridge.submit(0);
         try{ITEM.invokeExact(graphics,owner,(Level)null,stack,x,y,seed);}
         catch(RuntimeException|Error failure){throw failure;}
         catch(Throwable failure){throw new IllegalStateException("Native GUI item extraction failed",failure);}
-        var scope=Forge1192TooltipGuiBridge.scope();scope.color=-1;scope.blend=false;
+        var scope=Forge1192TooltipGuiBridge.scope();scope.color=-1;scope.blend=true;scope.depthTest=true;
         scope.texture=net.minecraft.resources.Identifier.withDefaultNamespace("textures/atlas/blocks.png");scope.textureObject=null;
     }
     public static LegacyTooltipItemRenderer context(Minecraft ignored){return Forge1192TooltipGuiBridge.scope().renderer;}
     public static void item(LegacyTooltipItemRenderer context,PoseStack pose,ItemStack stack,float x,float y){
         var graphics=Forge1192TooltipGuiBridge.graphics(context);var scope=Forge1192TooltipGuiBridge.scope();
         if(scope.color!=-1)throw new UnsupportedOperationException("Colored source GUI item extraction is not proven");
+        var transform=Forge1192ContainerGraphicsBridge.planar(pose);
+        Forge1192GuiPlaneBridge.submit(pose.last().pose().m32());
         graphics.pose().pushMatrix();
         try{
-            graphics.pose().mul(Forge1192ContainerGraphicsBridge.planar(pose)).translate(x,y);
+            graphics.pose().mul(transform).translate(x,y);
             ITEM.invokeExact(graphics,(LivingEntity)null,(Level)null,stack,0,0,0);
             scope.blend=false;
         }catch(RuntimeException|Error failure){throw failure;}
