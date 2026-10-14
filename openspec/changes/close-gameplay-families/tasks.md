@@ -1,0 +1,115 @@
+# Gameplay family backlog — Forge 1.19.2 to target 26.3
+
+## Evidence and acceptance
+
+Highest observed overall milestone: **6, world load**. The user's 2026-10-14
+test confirmed coffee effects and armor equipment. Neither observation proves
+overall milestone 7 or complete food/armor compatibility.
+
+Interactive client verification belongs to the user: provide concrete actions
+and an exact log collection command, then use their result as runtime evidence.
+Do not run an interactive gameplay test in place of that workflow.
+
+Latest user acceptance (11:33, 2026-10-14): generator opening crashes and cable
+connections regress. The first generator cause is eager subscriber discovery
+linking an unrelated removed ItemRenderer utility signature; the subsequent
+missing-button NPE follows aborted initialization. Selective subscriber linkage
+is now fixture-verified. Source block NBT/update callbacks also had a verified
+native lifecycle gap; restoring them does not yet prove the reported wire visuals
+or energy transport work. Both gameplay acceptance items remain open.
+
+16:01 acceptance: the user confirms visual wire connections. Generator opening
+passes selective subscriber linkage, then fails at inherited getGuiLeft during
+FilterComponent initialization. The later missing-button NPE is consequential.
+All five screen state getters and protected dimension writes are now fixture-verified.
+Actual generator interaction, wire persistence and energy transport remain open.
+Preflight also closes the four old Button superclass constructor sites and
+source no-argument activation via native input callbacks, including the verified
+ExtendedButton inherited default. Whole GUI rendering/input remains a separate gap.
+
+16:53 acceptance: generator initialization now passes those getters/constructors,
+then fails reading inherited widget active through the original Forge ancestor.
+Source loader declaration evidence and reverse namespace lookup now cover that
+ancestry generically. Eight widget state fields and field handles pass native
+fixtures, including hidden fields and rebinding. Generator acceptance remains open.
+
+## Implemented, awaiting the next user run
+
+- [x] Cover the five source positional/seeded level-sound overloads, inherited
+  receivers and direct/indy/condy references. Static external coverage: 22 sites.
+- [x] Restore the inspected target server-player menu-counter and synchronizer
+  access contract as one family, preserving target implementations.
+- [x] Record lifecycle gate rejection in the managed session, display rejected
+  sessions with an explicit uninitialized status/reason and exclude them from
+  the loaded count. Count initialized managed sessions in title branding.
+- [x] Index target member/class candidate queries and cache repeated named
+  searches, retaining candidate order, ambiguity and negative evidence.
+- [x] Add cumulative transformation timing at target load completion.
+- [x] Verify with `./gradlew compatibilityTest compileLaunchJava`, including
+  compilation of main sources, actual transformed target access, synthetic ASM
+  cases, immutable source artifacts and indexed-evidence comparisons.
+- [x] User confirms canned food consumption and returned can; hunger is unverified.
+- [x] User screenshot confirms blocked dependency display and initialization reason.
+- [x] Fix gameplay network-channel provenance and deferred owner-context restoration.
+- [x] Adapt exact sided/unsided block capability queries, source overrides and
+  explicit source-super dispatch, including interface method references.
+- [x] Adapt native server item handlers with committed/aborted transactions;
+  retain native cache invalidation and fail explicitly for unsupported providers.
+- [x] Fix criterion bucket-class Optional inference using an explicit Class<?> map.
+- [x] Verify with `./gradlew compatibilityTest compileLaunchJava`: source optional
+  identity/default/super dispatch, negative owners, actual interface lambda linkage,
+  actual payload handler scheduling on another thread, forged equal channel tokens,
+  exception/context restoration and target item-handler transaction rollback/commit.
+  The isolated transfer fixture bootstraps target data with an empty FML loading
+  list and declared stone components; this is not a world reload/invalidation test.
+- [x] Diagnose next user run: destruction-adjacent server crash is a deferred
+  source custom-capability query, not proven to be a destruction callback failure.
+- [x] Adapt fall-event float/double distance family: getter, setter, constructors,
+  callable references and nested constants; preserve authoritative event state.
+- [x] Verify fall family with `./gradlew compatibilityTest compileLaunchJava`:
+  actual transformed getter/setter/constructor/lambda/constructor-reference calls,
+  cancellation/multiplier/read precision, nested constants and negative owners.
+- [x] User confirms jumping no longer crashes in the 2026-10-14 09:42 test.
+- [ ] User verifies furnace placement/ticking and generator open/slots/close/reopen
+  after these changes; no interactive client was launched by the agent.
+
+## Remaining compatibility families
+
+| Family | Current evidence | Required work / acceptance |
+| --- | --- | --- |
+| Fall event | `crash-2026-10-14_02.37.27-client.txt`: source `getDistance(): float` links against target `getDistance(): double`; handler executes on client as the target event does | Distance getter no longer blocks: latest crash reaches source ItemStack.m_41622_ damage callback. Distance and durability family checks pass; the user now confirms jumping no longer crashes. Broader fall variants remain unverified. Source float-distance overrides remain fail-fast |
+| Custom menu lifecycle and screens | Gameplay channel provenance is restored; `crash-2026-10-14_09.42.56-server.txt` fails constructing a source slot because its own field was incorrectly redirected to native private `Slot.slot` | Source field declaration/hiding resolution now corrected generically; actual target Slot fixtures and mutable x/y accessors pass. Opening/slots/close/reopen and source screen rendering still require acceptance |
+| Event subscriber linkage/lifetime | The 11:33 generator run aborts init while reflection eagerly links an unrelated ItemRenderer method signature | Exact defined-byte indexes link applicable handlers selectively; actual FML fixtures preserve inheritance, cancellation, duplicate prevention, unregister/reopen and rollback. Generator gameplay acceptance remains pending |
+| Food/drink completion | Coffee effect succeeded; canned food consumption and returned can now confirmed by user | Verify hunger, effects, returned container/count and audio after sound-family migration |
+| Block neighbour callback delivery | Source container-block override takes the changed block's `BlockPos`; target callback takes nullable `Orientation` | Source-position delivery now survives queued/multi/instant dispatch; actual FML/mixin scope probes pass. Verify visual wire updates after placement/removal and keep native unknown-origin calls fail-fast |
+| Block capabilities | Missing query ABI no longer appears; `crash-2026-10-14_02.33.15-server.txt` now fails explicitly on a custom token during scheduled `onLoaded` of a mechanism, after user broke a furnace | Eager block attachment gathering, ordered queries, genuine absence, invalidation and ForgeCaps save/load now pass unit and actual FML/mixin probes; gameplay verification pending. Native client lookup, item/entity attachment, native energy direction flags/fluid operations, nested transactions and direct slot replacement remain gaps |
+| Cable functionality | The 16:01 user run confirms visual wire connections after model invalidation and source data lifecycle adaptation; energy transport unverified | Visual connections are observed. Verify placement/removal, corners and world re-entry separately from energy transport |
+| Block data persistence/initial synchronization | Native target ValueInput/ValueOutput and lookup-bearing update callbacks do not enter old CompoundTag overrides | Adapt the complete load/save/update/handle family, inherited defaults, explicit super order, ForgeData identity and once-only ForgeCaps persistence. Fixtures use real FML storage operations. Verify fresh cable connections and world re-entry; erased historical values cannot be reconstructed |
+| Armor behavior | User confirmed equipment, reported absent worn textures | Adapt worn equipment assets/models, attributes, durability and repair using source contracts; verify actual protection and per-stack/custom overrides |
+| Item energy | Prior user report: chainsaw charge does not decrease | Source damage callbacks and mutable tag copy/resource ownership now adapted; native comparison snapshots detect tag changes. Verify gameplay callback delivery, charge delta and persistence separately |
+| Independent dependency-mod lifecycle | CarbonConfig is admitted but its entrypoint now has 6 remaining source API boundaries (previously 14); its classes are also used as a managed dependency | Adapt loader extension/metadata/ordered-container/reflection and client registration boundaries; prevent duplicate independent/dependency initialization before claiming this mod loaded |
+| Startup performance | Latest transformation timing: 1089 reference classes, 84090 ms cumulative transformation; indexed lookup checks pass | Measure the next run, separating build/target artifact regeneration, source transformation, registration and resource loading |
+| World-entry resource replay | Source setup is deferred until target dynamic data/component lifecycle; LMS requests an ordinary client-resource reload afterwards | Preserve listener state, registry context and reload ordering; any reduction in reload scope requires evidence that all dependent state remains correct |
+
+Original legacy JARs and all pre-existing uncommitted edits remain immutable
+inputs/user-owned work. Named reference artifacts in this backlog are test
+evidence, never production transformation selectors.
+
+Latest batch implementation and verification details:
+`openspec/changes/batch-runtime-semantics/tasks.md`.
+
+Menu/model batch evidence and verification: `openspec/changes/restore-menu-and-model-updates/tasks.md`.
+
+Subscriber/data follow-up evidence: `openspec/changes/selective-subscriber-linkage/tasks.md`
+and `openspec/changes/restore-subscriber-and-block-data/tasks.md`.
+
+
+17:35 follow-up: the latest gameplay run crashed in water-driven block loot
+generation on missing Tags.Items.SHEARS; earlier deferred setup failed on
+Tags.Biomes.IS_WATER. Source metadata had shadowed target ABI evidence and
+disabled existing aliases. Separately, synchronous reload callbacks lacked the
+target lookupWithUpdatedTags provider, causing early-stack fire-resistance
+initializers to fail on minecraft:is_fire. Details and verification:
+`openspec/changes/separate-source-and-target-evidence/tasks.md`.
+The forge:global_loot_modifiers list JSON format remains a resource-migration
+gap. No new generator gameplay success or energy transport/use is inferred.

@@ -1,0 +1,210 @@
+package com.fuckingdeveloper.lms.analysis;
+
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Handle;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.zip.ZipFile;
+
+/**
+ * Inspects an optional, user-provided 1.19.2 runtime JAR without defining or executing classes.
+ * Input classes must use the same namespace as the queried symbols (typically named/Mojang).
+ */
+public final class LegacyRuntimeBytecodeInspector {
+    public record MethodInfo(String name, String descriptor, int access, List<String> operations) {}
+    public record ClassInfo(String name, String parent, List<String> interfaces, int access, List<MethodInfo> methods) {}
+    public record Finding(String owner, String method, String descriptor, String status,
+                          String declaringOwner, int declaringClassAccess, int methodAccess, String detail) {
+        public boolean declaringInterface() { return (declaringClassAccess & Opcodes.ACC_INTERFACE) != 0; }
+        public boolean methodStatic() { return (methodAccess & Opcodes.ACC_STATIC) != 0; }
+        public boolean methodPrivate() { return (methodAccess & Opcodes.ACC_PRIVATE) != 0; }
+    }
+    public record MethodSemantics(String owner, String method, String descriptor, List<String> operations) {}
+
+    private final Map<String, ClassInfo> classes = new HashMap<>();
+
+    public static LegacyRuntimeBytecodeInspector read(Path jar) throws IOException {
+        LegacyRuntimeBytecodeInspector inspector = new LegacyRuntimeBytecodeInspector();
+        if (!Files.isRegularFile(jar)) throw new IOException("Runtime JAR not found: " + jar);
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            var entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                var entry = entries.nextElement();
+                if (!entry.getName().endsWith(".class") || entry.isDirectory()) continue;
+                try (var stream = zip.getInputStream(entry)) {
+                    ClassReader reader = new ClassReader(stream);
+                    List<MethodInfo> methods = new ArrayList<>();
+                    String[] parent = new String[1];
+                    int[] classAccess = new int[1];
+                    List<String> interfaces = new ArrayList<>();
+                    reader.accept(new ClassVisitor(Opcodes.ASM9) {
+                        @Override
+                        public void visit(int version, int access, String name, String signature,
+                                          String superName, String[] implemented) {
+                            parent[0] = superName;
+                            classAccess[0] = access;
+                            if (implemented != null) interfaces.addAll(List.of(implemented));
+                        }
+                        @Override
+                        public MethodVisitor visitMethod(int access, String name, String descriptor,
+                                                         String signature, String[] exceptions) {
+                            List<String> operations = new ArrayList<>();
+                            methods.add(new MethodInfo(name, descriptor, access, operations));
+                            return semanticVisitor(operations);
+                        }
+                    }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                    inspector.classes.put(reader.getClassName(),
+                            new ClassInfo(reader.getClassName(), parent[0], List.copyOf(interfaces), classAccess[0], List.copyOf(methods)));
+                } catch (IllegalArgumentException ex) {
+                    throw new IOException("Cannot parse class " + entry.getName() + " in " + jar, ex);
+                }
+            }
+        }
+        return inspector;
+    }
+
+    public int classCount() { return classes.size(); }
+    public MethodSemantics semantics(String owner, String method, String descriptor) {
+        String internalOwner = owner.replace('.', '/');
+        MethodSemantics direct = semanticsRecursive(internalOwner, method, descriptor, new HashSet<>());
+        return direct == null ? new MethodSemantics(owner, method, descriptor, List.of()) : direct;
+    }
+
+    private MethodSemantics semanticsRecursive(String current, String method, String descriptor, Set<String> visited) {
+        if (!visited.add(current)) return null;
+        ClassInfo info = classes.get(current);
+        if (info == null) return null;
+        for (MethodInfo candidate : info.methods()) {
+            if (candidate.name().equals(method) && candidate.descriptor().equals(descriptor)) {
+                return new MethodSemantics(current.replace('/', '.'), method, descriptor,
+                        List.copyOf(candidate.operations()));
+            }
+        }
+        if (info.parent() != null) {
+            MethodSemantics found = semanticsRecursive(info.parent(), method, descriptor, visited);
+            if (found != null) return found;
+        }
+        for (String implemented : info.interfaces()) {
+            MethodSemantics found = semanticsRecursive(implemented, method, descriptor, visited);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private static MethodVisitor semanticVisitor(List<String> operations) {
+        return new MethodVisitor(Opcodes.ASM9) {
+            @Override public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean itf) {
+                operations.add("CALL " + owner + "#" + name + descriptor);
+            }
+            @Override public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+                operations.add("FIELD " + owner + "#" + name + ":" + descriptor);
+            }
+            @Override public void visitTypeInsn(int opcode, String type) {
+                operations.add("TYPE " + opcode + " " + type);
+            }
+            @Override public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
+                                                         Object... bootstrapMethodArguments) {
+                operations.add("INDY " + name + descriptor);
+            }
+        };
+    }
+
+
+    public Finding find(String owner, String method, String descriptor) {
+        String internalOwner = owner.replace('.', '/');
+        if (!classes.containsKey(internalOwner)) {
+            return new Finding(owner, method, descriptor, "OWNER_NOT_IN_JAR", "", 0, 0,
+                    "No class at this exact namespace/path; verify that the JAR is deobfuscated and includes this class");
+        }
+        return findRecursive(internalOwner, owner, method, descriptor, new HashSet<>());
+    }
+
+    public Finding findUniqueByDescriptor(String owner, String descriptor) {
+        String internalOwner = owner.replace('.', '/');
+        if (!classes.containsKey(internalOwner)) {
+            return new Finding(owner, "", descriptor, "OWNER_NOT_IN_JAR", "", 0, 0,
+                    "No class at this exact namespace/path; verify that the JAR is deobfuscated and includes this class");
+        }
+        List<DescriptorMatch> matches = new ArrayList<>();
+        collectByDescriptor(internalOwner, descriptor, new HashSet<>(), matches);
+        var unique = matches.stream()
+                .distinct()
+                .toList();
+        if (unique.size() == 1) {
+            var match = unique.getFirst();
+            String declaringOwner = match.owner().replace('/', '.');
+            String status = match.owner().equals(internalOwner) ? "DECLARED" : "INHERITED";
+            ClassInfo declaring = classes.get(match.owner());
+            return new Finding(owner, match.method().name(), descriptor, status, declaringOwner,
+                    declaring == null ? 0 : declaring.access(), match.method().access(),
+                    "Unique exact descriptor in runtime hierarchy; method name recovered from Forge bytecode");
+        }
+        return new Finding(owner, "", descriptor,
+                unique.isEmpty() ? "DESCRIPTOR_NOT_FOUND" : "DESCRIPTOR_AMBIGUOUS", "", 0, 0,
+                unique.isEmpty() ? "No method with exact descriptor in runtime hierarchy"
+                        : "Multiple methods with exact descriptor in runtime hierarchy: "
+                        + unique.stream().map(match -> match.owner().replace('/', '.') + "#"
+                        + match.method().name()).toList());
+    }
+
+    private record DescriptorMatch(String owner, MethodInfo method) {}
+
+    private void collectByDescriptor(String current, String descriptor, Set<String> visited,
+                                     List<DescriptorMatch> matches) {
+        if (!visited.add(current)) return;
+        ClassInfo info = classes.get(current);
+        if (info == null) return;
+        for (MethodInfo candidate : info.methods()) {
+            if (candidate.descriptor().equals(descriptor)) {
+                matches.add(new DescriptorMatch(current, candidate));
+            }
+        }
+        if (info.parent() != null) collectByDescriptor(info.parent(), descriptor, visited, matches);
+        for (String implemented : info.interfaces()) {
+            collectByDescriptor(implemented, descriptor, visited, matches);
+        }
+    }
+
+    private Finding findRecursive(String current, String requestedOwner, String method,
+                                  String descriptor, Set<String> visited) {
+        if (!visited.add(current)) return new Finding(requestedOwner, method, descriptor,
+                "HIERARCHY_CYCLE", "", 0, 0, "Cycle in runtime class hierarchy");
+        ClassInfo info = classes.get(current);
+        if (info == null) return new Finding(requestedOwner, method, descriptor,
+                "HIERARCHY_INCOMPLETE", "", 0, 0, "Missing ancestor class: " + current);
+        for (MethodInfo candidate : info.methods()) {
+            if (candidate.name().equals(method) && candidate.descriptor().equals(descriptor)) {
+                return new Finding(requestedOwner, method, descriptor,
+                        current.equals(requestedOwner.replace('.', '/')) ? "DECLARED" : "INHERITED",
+                        current.replace('/', '.'), info.access(), candidate.access(), "Exact method name and descriptor in runtime bytecode");
+            }
+        }
+        List<String> parents = new ArrayList<>();
+        if (info.parent() != null) parents.add(info.parent());
+        parents.addAll(info.interfaces());
+        boolean incomplete = false;
+        for (String parent : parents) {
+            Finding result = findRecursive(parent, requestedOwner, method, descriptor, visited);
+            if (result.status().equals("DECLARED") || result.status().equals("INHERITED")) {
+                return new Finding(requestedOwner, method, descriptor, "INHERITED",
+                        result.declaringOwner(), result.declaringClassAccess(), result.methodAccess(), "Exact method in runtime ancestor " + result.declaringOwner());
+            }
+            if (result.status().equals("HIERARCHY_INCOMPLETE")) incomplete = true;
+        }
+        return new Finding(requestedOwner, method, descriptor,
+                incomplete ? "NOT_FOUND_IN_INCOMPLETE_HIERARCHY" : "NOT_FOUND",
+                "", 0, 0, incomplete ? "No match in available classes; at least one ancestor is missing"
+                        : "No exact method in the inspected class hierarchy");
+    }
+}

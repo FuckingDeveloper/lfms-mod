@@ -17,3 +17,9 @@ A cache hit MUST NOT be accepted when compatibility-relevant inputs differ.
 Cache corruption MUST be recoverable by discarding and rebuilding derived output.
 
 The original legacy JAR MUST never be replaced by a cache artifact.
+
+Per-transformer raw hierarchy and name-pair subtype evidence MAY be cached when
+its managed binary graph is fixed. Rebinding MUST invalidate positive and negative
+evidence. Cache entries MUST retain only bytes/names/results, not loaded source
+classes. Decisions using a currently mutated ClassNode MUST start from its current
+superclass/interfaces and MUST not use a name-only cached whole-node decision.
