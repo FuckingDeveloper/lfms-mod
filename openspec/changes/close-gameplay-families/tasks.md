@@ -6,9 +6,10 @@ Highest observed overall milestone: **6, world load**. The user's 2026-10-14
 test confirmed coffee effects and armor equipment. Neither observation proves
 overall milestone 7 or complete food/armor compatibility.
 
-Interactive client verification belongs to the user: provide concrete actions
-and an exact log collection command, then use their result as runtime evidence.
-Do not run an interactive gameplay test in place of that workflow.
+The user's later explicit MCP runtime-debugging request authorizes automated
+gameplay checks through the existing MCP Fabric tools. Use structured server state
+to confirm client predictions. Keep the human check/report workflow for operations
+MCP cannot perform, with exact actions and an exact log collection command.
 
 Latest user acceptance (11:33, 2026-10-14): generator opening crashes and cable
 connections regress. The first generator cause is eager subscriber discovery
@@ -113,3 +114,52 @@ initializers to fail on minecraft:is_fire. Details and verification:
 `openspec/changes/separate-source-and-target-evidence/tasks.md`.
 The forge:global_loot_modifiers list JSON format remains a resource-migration
 gap. No new generator gameplay success or energy transport/use is inferred.
+
+
+## Family checkpoint — widget extraction and recipe execution
+
+- [x] Project source custom-widget content callbacks without overriding final target
+  extractors; preserve inherited receiver depth and managed hidden fields.
+- [x] Preserve source widget sheet pixels in an isolated pack and source nine-slice
+  border geometry, centered labels, scoped texture/color state and callable handles.
+- [x] Forward source milk opt-in through native registration and read pending native
+  fluid textures during the actual baking-result callback rather than uninitialized
+  global model state.
+- [x] Replace whole-dataset hashing in reverse symbol lookups with dataset-owned
+  immutable method/field indexes.
+- [x] Prove absent source capability initializers across managed item/interface
+  bytecode for ordinary stack merging; custom providers remain fail-fast.
+- [x] Automated checks: compatibilityTest, nativeCompatibilitySmoke, compileLaunchJava.
+- [x] Runtime subpaths: generator GUI open/close/reopen and fuel insertion/consumption;
+  existing cable route delivers energy to macerator; gold ore yields two gold dust;
+  deepslate iron ore yields two iron dust and shift-transfer merges into an existing
+  inventory stack, confirmed on the server.
+
+These are observed level-7 subpaths, not an overall level-7/8 completion claim.
+Overall baseline remains level 6 with partial gameplay. Arbitrary GUI buttons,
+hover/input routes, worn armor and chainsaw charge remain incompletely verified.
+MCP's direct open_container cannot open this packet-driven source menu; actual
+empty-hand use_item can. MCP provides no arbitrary widget activation tool.
+
+The original sapling AbstractMethodError is removed, but actual growth reaches a
+new first causal worldgen boundary: source FeatureConfiguration/ConfiguredFeature
+are removed and target Feature is now an interface with configuration carried by
+specific feature implementations. Tree/trunk/foliage callback contracts require a
+family-level design; namespace substitution cannot implement this migration.
+
+Copper ore rejection is independent of successful gold/iron recipes. The source
+uses its own TagKey factory for forge:ores/copper; native c:ores/copper contains the
+item, while forge:ores/copper is absent. Existing static Forge Tags field projection
+does not cover factory-created source identities or old tag resource directories.
+A source tag-resource/common-default projection must preserve source contributions,
+pack precedence, replace behavior and reload identity together; blanket namespace
+replacement is insufficient. Copper acceptance remains open.
+
+CarbonConfig lifecycle and the old global-loot-modifier list resource boundary
+remain open. World re-entry preservation of existing machine inventories/energy
+has not passed controlled acceptance and remains a separate requirement.
+
+Changes are specified in widget-render-extraction, native-loader-feature-intents,
+scoped-fluid-model-information, instance-owned-symbol-indexes and
+proven-default-stack-capabilities. Per-run logs, JVM exception traces, worlds and
+screenshots remain local and are not committed.
