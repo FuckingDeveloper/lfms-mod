@@ -46,10 +46,17 @@ public final class StackComparisonFamilyCheck {
             handle.instructions.add(new InsnNode(Opcodes.ARETURN));node.methods.add(handle);
         }
         var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);node.accept(writer);var path=Files.createTempFile("lms-stack-comparison", ".jar");
-        try(var jar=new JarOutputStream(Files.newOutputStream(path))){jar.putNextEntry(new JarEntry(node.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();}
+        try(var jar=new JarOutputStream(Files.newOutputStream(path))){jar.putNextEntry(new JarEntry(node.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();
+            for(boolean custom:new boolean[]{false,true}){String name=custom?"fixture/CustomSourceCapabilityItem":"fixture/DefaultSourceCapabilityItem";var item=new ClassWriter(0);item.visit(Opcodes.V17,Opcodes.ACC_PUBLIC|Opcodes.ACC_ABSTRACT,name,null,"net/minecraft/world/item/Item",null);
+                if(custom){var method=item.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_ABSTRACT,"initCapabilities","(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraftforge/common/capabilities/ICapabilityProvider;",null,null);method.visitEnd();}item.visitEnd();jar.putNextEntry(new JarEntry(name+".class"));jar.write(item.toByteArray());jar.closeEntry();}
+}
         var original=Files.readAllBytes(path);
         try(var loader=new ManagedLegacyClassLoader(path,StackComparisonFamilyCheck.class.getClassLoader(),new Forge1192LegacyClassTransformer())) {
             var clazz=loader.linkOwnedClass(node.name.replace('/','.'));
+            var defaults=loader.linkOwnedClass("fixture.DefaultSourceCapabilityItem").asSubclass(Item.class);
+            var custom=loader.linkOwnedClass("fixture.CustomSourceCapabilityItem").asSubclass(Item.class);
+            check(Forge1192StackComparisonBridge.hasDefaultSourceCapabilities(defaults),"proven source item defaults rejected");
+            check(!Forge1192StackComparisonBridge.hasDefaultSourceCapabilities(custom),"custom source initializer ignored");
             for(int i=0;i<symbols.length;i++) {
                 boolean expected=i!=1;
                 check((boolean)clazz.getMethod("compare"+i,ItemStack.class,ItemStack.class).invoke(null,a,b)==expected,"source comparison call "+symbols[i]);

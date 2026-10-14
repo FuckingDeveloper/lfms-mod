@@ -7,6 +7,33 @@ import java.util.Objects;
 /** Source NBT equality is distinct from native component equality. */
 public final class Forge1192StackComparisonBridge {
     private Forge1192StackComparisonBridge() {}
+    private static final ClassValue<Boolean> DEFAULT_SOURCE_CAPABILITIES = new ClassValue<>() {
+        @Override protected Boolean computeValue(Class<?> type) {
+            for (Class<?> current=type;current!=Item.class;current=current.getSuperclass()) {
+                if(current==null || !(current.getClassLoader() instanceof com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader loader)) return false;
+                if(!declaresNoInitializer(loader,current.getName(),new java.util.HashSet<>())) return false;
+            }
+            return true;
+        }
+    };
+    private static boolean declaresNoInitializer(com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader loader,String name,java.util.Set<String> seen) {
+        if(!seen.add(name))return true;
+        if(name.startsWith("java/") || name.startsWith("java."))return true;
+        if(name.equals("net/minecraftforge/common/extensions/IForgeItem"))return true;
+        try {
+            byte[] bytes=loader.originalClassBytes(name.replace('/','.'));
+            if(bytes==null)return false;
+            var node=new org.objectweb.asm.tree.ClassNode();
+            new org.objectweb.asm.ClassReader(bytes).accept(node,org.objectweb.asm.ClassReader.SKIP_CODE|org.objectweb.asm.ClassReader.SKIP_DEBUG|org.objectweb.asm.ClassReader.SKIP_FRAMES);
+            for(var method:node.methods)if((method.access&org.objectweb.asm.Opcodes.ACC_STATIC)==0 && method.name.equals("initCapabilities")
+                    && method.desc.equals("(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraftforge/common/capabilities/ICapabilityProvider;"))return false;
+            for(String iface:node.interfaces)if(!declaresNoInitializer(loader,iface,seen))return false;
+            return true;
+        } catch(java.io.IOException failure){throw new IllegalStateException("Cannot prove source item capability defaults",failure);}
+    }
+    public static boolean hasDefaultSourceCapabilities(Class<? extends Item> type) {
+        return DEFAULT_SOURCE_CAPABILITIES.get(type);
+    }
     public static boolean sameItem(ItemStack a, ItemStack b) { return !b.isEmpty() && a.is(b.getItem()); }
     public static boolean isSame(ItemStack a, ItemStack b) {
         return a==b || (!a.isEmpty() && !b.isEmpty() && sameItem(a,b));
@@ -17,9 +44,9 @@ public final class Forge1192StackComparisonBridge {
         if (!Objects.equals(Forge1192ItemBridge.getTag(a), Forge1192ItemBridge.getTag(b))) return false;
         requireSourceTagProjection(a); requireSourceTagProjection(b);
         // Source IForgeItem default provides only named vanilla shulker stacks.
-        // Exact base Item instances cannot be those BlockItems. Source stack
+        // Verified managed subclasses reaching Item without an initializer cannot be those named shulker instances. Source stack
         // attachment subjects are currently rejected by the event bridge.
-        if (a.getItem().getClass()!=Item.class || b.getItem().getClass()!=Item.class)
+        if (!hasDefaultSourceCapabilities(a.getItem().getClass()) || !hasDefaultSourceCapabilities(b.getItem().getClass()))
             throw new UnsupportedOperationException("Source stack capability equality requires proven provider state: "
                     + a.getItem().getClass().getName() + ", " + b.getItem().getClass().getName());
         return true;
