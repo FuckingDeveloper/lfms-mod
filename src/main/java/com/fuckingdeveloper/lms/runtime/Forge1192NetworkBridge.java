@@ -124,6 +124,28 @@ public final class Forge1192NetworkBridge {
 
 
 
+    /** Source full registry id prepends its registry identifier to the raw id. */
+    public static void writeRegistryId(FriendlyByteBuf buffer,Object token,Object value) {
+        if(!(token instanceof net.minecraft.core.Registry<?> registry))throw new IllegalStateException("Source registry wire requires actual registry token");
+        buffer.writeIdentifier(registry.key().identifier());
+        writeRegistryIdUnsafe(buffer,token,value);
+    }
+    public static Object readRegistryId(FriendlyByteBuf buffer) {
+        var id=buffer.readIdentifier();
+        Object token=net.minecraft.core.registries.BuiltInRegistries.REGISTRY.getValue(id);
+        if(token==null) {
+            var key=net.minecraft.resources.ResourceKey.createRegistryKey(id);
+            var server=net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer();
+            if(server!=null)token=server.registryAccess().lookupOrThrow(key);
+            else {
+                var client=net.minecraft.client.Minecraft.getInstance();
+                if(client!=null && client.level!=null)token=client.level.registryAccess().lookupOrThrow(key);
+            }
+        }
+        if(token==null)throw new IllegalStateException("Unknown source registry wire identifier: "+id);
+        return readRegistryIdUnsafe(buffer,token);
+    }
+
     public enum Flow { CLIENTBOUND, SERVERBOUND, BIDIRECTIONAL }
 
     public record LegacyMessage(

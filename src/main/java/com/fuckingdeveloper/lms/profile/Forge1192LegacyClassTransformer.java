@@ -261,6 +261,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteInteractionResultInformation(node);
         rewrites += rewriteComponentJsonInformation(node);
         rewrites += rewriteColorCollectionConstants(node);
+        rewrites += rewriteFluidPacketFamily(node);
+        rewrites += rewriteItemWireFamily(node);
         rewrites += rewriteEarlyFluidConstruction(node);
         rewrites += rewriteBonemealCallbacks(node);
         rewrites += rewriteContainerGraphicsPhases(node);
@@ -4090,6 +4092,69 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (adapted!=null) { call.owner=adapted.getOwner();call.name=adapted.getName();call.itf=false;count++; }
             } else if (instruction instanceof LdcInsnNode ldc) { Object adapted=componentJsonConstant(ldc.cst);if (adapted!=ldc.cst){ldc.cst=adapted;count++;} }
             else if (instruction instanceof InvokeDynamicInsnNode dynamic) for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=componentJsonConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;count++;}}
+        }
+        return count;
+    }
+
+    private static Handle fluidPacketHandle(Handle handle) {
+        if(!handle.getOwner().equals("net/minecraftforge/fluids/FluidStack"))return null;
+        if(handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL && handle.getName().equals("writeToPacket") && handle.getDesc().equals("(Lnet/minecraft/network/FriendlyByteBuf;)V"))
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192FluidPacketBridge","writeToPacket","(Lnet/neoforged/neoforge/fluids/FluidStack;Lnet/minecraft/network/FriendlyByteBuf;)V",false);
+        if(handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKESTATIC && handle.getName().equals("readFromPacket") && handle.getDesc().equals("(Lnet/minecraft/network/FriendlyByteBuf;)Lnet/minecraftforge/fluids/FluidStack;"))
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192FluidPacketBridge","readFromPacket","(Lnet/minecraft/network/FriendlyByteBuf;)Lnet/neoforged/neoforge/fluids/FluidStack;",false);
+        return null;
+    }
+    private static Object fluidPacketConstant(Object value) {
+        if(value instanceof Handle handle){var adapted=fluidPacketHandle(handle);return adapted==null?value:adapted;}
+        if(value instanceof ConstantDynamic dynamic){Object[] args=new Object[dynamic.getBootstrapMethodArgumentCount()];boolean changed=false;for(int i=0;i<args.length;i++){Object old=dynamic.getBootstrapMethodArgument(i);args[i]=fluidPacketConstant(old);changed|=args[i]!=old;}return changed?new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args):value;}
+        return value;
+    }
+    private static int rewriteFluidPacketFamily(ClassNode node) {
+        int count=0;
+        for(var method:node.methods)for(var instruction:method.instructions){
+            if(instruction instanceof MethodInsnNode call){int tag=call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL?org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL:call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC?org.objectweb.asm.Opcodes.H_INVOKESTATIC:-1;if(tag==-1)continue;var adapted=fluidPacketHandle(new Handle(tag,call.owner,call.name,call.desc,call.itf));if(adapted!=null){call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;count++;}}
+            else if(instruction instanceof LdcInsnNode ldc){Object adapted=fluidPacketConstant(ldc.cst);if(adapted!=ldc.cst){ldc.cst=adapted;count++;}}
+            else if(instruction instanceof InvokeDynamicInsnNode dynamic)for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=fluidPacketConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;count++;}}
+        }
+        return count;
+    }
+
+    private static Handle itemWireHandle(Handle handle) {
+        String owner="net/minecraft/network/FriendlyByteBuf";
+        if(handle.getTag()!=org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL || !handle.getOwner().equals(owner) || SRG_RUNTIME_RESOLVER.isEmpty())return null;
+        String name=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,handle.getName(),handle.getDesc()).orElse(handle.getName());
+        if(name.equals("writeFluidStack") && handle.getDesc().equals("(Lnet/minecraftforge/fluids/FluidStack;)V"))
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192FluidPacketBridge",name,"(L"+owner+";Lnet/neoforged/neoforge/fluids/FluidStack;)V",false);
+        if(name.equals("readFluidStack") && handle.getDesc().equals("()Lnet/minecraftforge/fluids/FluidStack;"))
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192FluidPacketBridge",name,"(L"+owner+";)Lnet/neoforged/neoforge/fluids/FluidStack;",false);
+        String registry="Lnet/minecraftforge/registries/IForgeRegistry;";
+        if(java.util.Set.of("writeRegistryId", "writeRegistryIdUnsafe").contains(name) && handle.getDesc().equals("("+registry+"Ljava/lang/Object;)V"))
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge",name,"(L"+owner+";Ljava/lang/Object;Ljava/lang/Object;)V",false);
+        if(name.equals("readRegistryIdUnsafe") && handle.getDesc().equals("("+registry+")Ljava/lang/Object;"))
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge",name,"(L"+owner+";Ljava/lang/Object;)Ljava/lang/Object;",false);
+        if(name.equals("readRegistryId") && handle.getDesc().equals("()Ljava/lang/Object;"))
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192NetworkBridge",name,"(L"+owner+";)Ljava/lang/Object;",false);
+        boolean supported=switch(name) {
+            case "writeItem" -> handle.getDesc().equals("(Lnet/minecraft/world/item/ItemStack;)L"+owner+";");
+            case "writeItemStack" -> handle.getDesc().equals("(Lnet/minecraft/world/item/ItemStack;Z)L"+owner+";");
+            case "readItem" -> handle.getDesc().equals("()Lnet/minecraft/world/item/ItemStack;");
+            case "writeNbt" -> handle.getDesc().equals("(Lnet/minecraft/nbt/CompoundTag;)L"+owner+";");
+            case "readNbt" -> handle.getDesc().equals("()Lnet/minecraft/nbt/CompoundTag;");
+            default -> false;
+        };
+        return supported?new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192ItemWireBridge",name,"(L"+owner+";"+handle.getDesc().substring(1),false):null;
+    }
+    private static Object itemWireConstant(Object value) {
+        if(value instanceof Handle handle){var adapted=itemWireHandle(handle);return adapted==null?value:adapted;}
+        if(value instanceof ConstantDynamic dynamic){Object[] args=new Object[dynamic.getBootstrapMethodArgumentCount()];boolean changed=false;for(int i=0;i<args.length;i++){Object old=dynamic.getBootstrapMethodArgument(i);args[i]=itemWireConstant(old);changed|=args[i]!=old;}return changed?new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args):value;}
+        return value;
+    }
+    private static int rewriteItemWireFamily(ClassNode node) {
+        int count=0;
+        for(var method:node.methods)for(var instruction:method.instructions){
+            if(instruction instanceof MethodInsnNode call && call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL){var adapted=itemWireHandle(new Handle(org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL,call.owner,call.name,call.desc,call.itf));if(adapted!=null){call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;count++;}}
+            else if(instruction instanceof LdcInsnNode ldc){Object adapted=itemWireConstant(ldc.cst);if(adapted!=ldc.cst){ldc.cst=adapted;count++;}}
+            else if(instruction instanceof InvokeDynamicInsnNode dynamic)for(int i=0;i<dynamic.bsmArgs.length;i++){Object adapted=itemWireConstant(dynamic.bsmArgs[i]);if(adapted!=dynamic.bsmArgs[i]){dynamic.bsmArgs[i]=adapted;count++;}}
         }
         return count;
     }
