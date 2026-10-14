@@ -8,9 +8,13 @@ public final class Forge1192GuiPlaneBridge {
     private Forge1192GuiPlaneBridge() {}
     public static Matrix3x2f planar(Matrix4f matrix) {
         if(!matrix.isFinite() || matrix.m02()!=0 || matrix.m12()!=0 || matrix.m20()!=0 || matrix.m21()!=0
-                || matrix.m03()!=0 || matrix.m13()!=0 || matrix.m23()!=0 || matrix.m22()!=1 || matrix.m33()!=1)
-            throw new UnsupportedOperationException("Source GUI transform is not an XY plane with independent Z translation");
+                || matrix.m03()!=0 || matrix.m13()!=0 || matrix.m23()!=0 || matrix.m33()!=1)
+            throw new UnsupportedOperationException("Source GUI transform is not an XY plane with independent Z scale/translation");
         return new Matrix3x2f(matrix.m00(),matrix.m01(),matrix.m10(),matrix.m11(),matrix.m30(),matrix.m31());
+    }
+    /** Effective source plane for a local-Z primitive after its independent Z transform. */
+    public static float depth(Matrix4f matrix,float localZ) {
+        return matrix.m22()*localZ+matrix.m32();
     }
     public static void submit(float depth) {
         var scope=Forge1192TooltipGuiBridge.scope();

@@ -55,6 +55,7 @@ public final class Forge1192GuiItemExtractionBridge {
     public static void item(LegacyTooltipItemRenderer context,PoseStack pose,ItemStack stack,float x,float y){
         var graphics=Forge1192TooltipGuiBridge.graphics(context);var scope=Forge1192TooltipGuiBridge.scope();
         if(scope.color!=-1)throw new UnsupportedOperationException("Colored source GUI item extraction is not proven");
+        if(pose.last().pose().m22()!=1)throw new UnsupportedOperationException("Source 3D GUI item Z scaling is not proven");
         var transform=Forge1192ContainerGraphicsBridge.planar(pose);
         Forge1192GuiPlaneBridge.submit(pose.last().pose().m32());
         graphics.pose().pushMatrix();

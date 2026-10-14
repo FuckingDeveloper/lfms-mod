@@ -193,3 +193,24 @@ mixed, perspective/nonfinite/out-of-plane inputs. Previous generic item consumer
 also now retain the source ordinary draw's enabled blend/depth state. Full checks
 pass; filter selection/hover still requires human acceptance. This supersedes the
 blanket nonzero-depth limitation above, not the remaining arbitrary 3D limitation.
+
+
+Comparator follow-up: crash-2026-10-15_01.35.20-client identified ordinary uniform
+PoseStack scaling of flat text. The shared planar validator incorrectly required
+m22=1. Flat text/quads/blits now accept independent finite Z scale, while explicit
+blit depth uses m22*z+m32. The 3D item helper retains the previous Z-scale boundary.
+Immutable GUI-family bytecode confirms comparator 0.5 scaling and reciprocal
+restoration; inspected icon/item scaling siblings retain Z=1. Native checks cover
+half-scale geometry, restored XY, effective local depths, equal native strata,
+multiple finite scale factors and continued 3D-item/perspective/tilt rejection.
+compatibilityTest, nativeCompatibilitySmoke and compileLaunchJava pass. Comparator
+activation and text appearance still require human acceptance through its GUI
+button; MCP has no arbitrary widget activation operation. This extends the flat
+primitive contract in planar-gui-depth-layers; no full-GUI compatibility claim.
+
+Runtime after the scale fix: Quick Play loaded Новый мир; MCP confirmed the actual
+26.3 NeoForge integrated server, source macerator block and legacy inventory.
+Empty-hand use opened the macerator main GUI; targeted visual confirmation showed
+its slots, title, widgets and item tooltip without a new crash. The main GUI was
+opened again successfully after closing. Comparator activation remains untested.
+The existing forge:global_loot_modifiers reload error is still present.

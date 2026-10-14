@@ -69,7 +69,7 @@ public final class Forge1192TooltipGuiBridge {
             throw new UnsupportedOperationException("Masked source direct GUI blit is not adapted");
         var transform=Forge1192GuiPlaneBridge.planar(pose.last().pose());
         if (scope.texture == null) throw new IllegalStateException("Legacy tooltip blit has no bound texture");
-        Forge1192GuiPlaneBridge.submit(pose.last().pose().m32()+z);
+        Forge1192GuiPlaneBridge.submit(Forge1192GuiPlaneBridge.depth(pose.last().pose(),z));
         scope.graphics.pose().pushMatrix();
         try {
             scope.graphics.pose().mul(transform);
