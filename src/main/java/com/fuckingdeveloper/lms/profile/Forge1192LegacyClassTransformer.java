@@ -163,6 +163,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private final java.util.Map<String, java.util.Optional<FieldHierarchy>> fieldHierarchyEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private record BlockDataHierarchy(String parent, java.util.Set<String> callbacks) {}
     private final java.util.Map<String, java.util.Optional<BlockDataHierarchy>> blockDataHierarchyEvidence = new java.util.concurrent.ConcurrentHashMap<>();
+    private record ButtonPressHierarchy(String parent, boolean declaresPress) {}
+    private final java.util.Map<String, java.util.Optional<ButtonPressHierarchy>> buttonPressHierarchyEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, Boolean> configuredFeatureInitializers =
             new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, Boolean> itemComponentInitializers =
@@ -186,6 +188,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             hierarchyEvidence.clear(); subtypeEvidence.clear();
             fieldHierarchyEvidence.clear();
             blockDataHierarchyEvidence.clear();
+            buttonPressHierarchyEvidence.clear();
             configuredFeatureInitializers.clear(); itemComponentInitializers.clear(); legacyUnitMapCodecFields.clear();
         } finally { evidenceLock.writeLock().unlock(); }
     }
@@ -226,6 +229,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
         rewrites += rewriteLegacyEntityLevelFieldAccess(node);
         rewrites += rewriteLegacyContainerScreenStateFamily(node);
+        rewrites += rewriteLegacyButtonConstructionAndPress(node);
         rewrites += rewriteLegacyBlockDataFamily(node);
         rewrites += rewriteLegacyBlockPosConstruction(node);
         rewrites += rewriteLegacyChunkPosFamily(node);
@@ -368,6 +372,87 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         byte[] verified = writer.toByteArray();
         return new Result(verified, rewrites > 0,
                 "forge-1.19.2 exact namespace migrations=" + rewrites);
+    }
+
+    private static final String LEGACY_BUTTON = "net/minecraft/client/gui/components/Button";
+    private static final String BUTTON_SOURCE_CONSTRUCTOR = "(IIIILnet/minecraft/network/chat/Component;Lnet/minecraft/client/gui/components/Button$OnPress;)V";
+    private static final String BUTTON_PRESS_ALIAS = "lms$sourceButtonPress";
+    private static boolean nativeSourceButtonPressDefault(String owner) {
+        // Inspected source/target ExtendedButton override drawing only, inheriting Button activation.
+        return owner != null && (owner.equals(LEGACY_BUTTON)
+                || owner.equals("net/minecraftforge/client/gui/widget/ExtendedButton")
+                || owner.equals("net/neoforged/neoforge/client/gui/widget/ExtendedButton"));
+    }
+    private static boolean sourceButtonPress(String name, String descriptor) {
+        return (name.equals("m_5691_") || name.equals("onPress")) && descriptor.equals("()V");
+    }
+    private boolean inheritedButtonPress(String owner) {
+        var seen = new java.util.HashSet<String>();
+        while (owner != null && !nativeSourceButtonPressDefault(owner) && seen.add(owner)) {
+            var evidence = buttonPressHierarchyEvidence.computeIfAbsent(owner, key -> {
+                try {
+                    byte[] bytes = managedClassBytes == null ? null : managedClassBytes.find(key);
+                    if (bytes == null) return java.util.Optional.empty();
+                    var source = new ClassNode(); new ClassReader(bytes).accept(source, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                    return java.util.Optional.of(new ButtonPressHierarchy(source.superName, source.methods.stream().anyMatch(method -> sourceButtonPress(method.name, method.desc))));
+                } catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+            }).orElseThrow(() -> new IllegalStateException("Unadapted native button superclass activation"));
+            if (evidence.declaresPress()) return true;
+            owner = evidence.parent();
+        }
+        if (!nativeSourceButtonPressDefault(owner)) throw new IllegalStateException("Unproven source button activation hierarchy");
+        return false;
+    }
+    /** Preserve source constructor defaults and no-argument activation on the same native widget. */
+    private int rewriteLegacyButtonConstructionAndPress(ClassNode node) {
+        String bridge = "com/fuckingdeveloper/lms/runtime/render/Forge1192ButtonBridge";
+        String marker = "com/fuckingdeveloper/lms/runtime/render/LegacyButtonPressCallbacks";
+        String nativePress = "(Lnet/minecraft/client/input/InputWithModifiers;)V";
+        boolean button = isManagedSubtypeOf(node, LEGACY_BUTTON); int rewrites = 0;
+        var wrappers = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
+        if (button) for (var method : node.methods) {
+            if (!sourceButtonPress(method.name, method.desc)) continue;
+            if ((method.access & org.objectweb.asm.Opcodes.ACC_PUBLIC) == 0 || (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0
+                    || node.methods.stream().anyMatch(other -> other != method && (other.name.equals(BUTTON_PRESS_ALIAS) && other.desc.equals("()V")
+                        || other.name.equals("onPress") && other.desc.equals(nativePress))))
+                throw new IllegalStateException("Unadapted source button activation shape/collision: " + node.name + "#" + method.name + method.desc);
+            method.name = BUTTON_PRESS_ALIAS;
+            if (!node.interfaces.contains(marker)) node.interfaces.add(marker);
+            var wrapper = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC, "onPress", nativePress, null, null);
+            wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+            wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, "press", "(L" + LEGACY_BUTTON + ";)V", false));
+            wrapper.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN)); wrappers.add(wrapper); rewrites++;
+        }
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof TypeInsnNode allocation && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW && allocation.desc.equals(LEGACY_BUTTON))
+                throw new IllegalStateException("Unadapted direct legacy Button allocation: " + node.name + "#" + method.name);
+            if (!(instruction instanceof MethodInsnNode call) || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL) continue;
+            if (call.owner.equals(LEGACY_BUTTON) && call.name.equals("<init>") && call.desc.endsWith("Lnet/minecraft/client/gui/components/Button$OnTooltip;)V"))
+                throw new IllegalStateException("Unadapted custom source Button tooltip constructor: " + node.name + "#" + method.name);
+            if (call.owner.equals(LEGACY_BUTTON) && call.name.equals("<init>") && call.desc.equals(BUTTON_SOURCE_CONSTRUCTOR)) {
+                if (!node.superName.equals(LEGACY_BUTTON) || !method.name.equals("<init>"))
+                    throw new IllegalStateException("Unadapted direct legacy Button allocation: " + node.name + "#" + method.name);
+                // This load is legal with uninitialized this on the operand stack; no receiver is used.
+                method.instructions.insertBefore(call, new FieldInsnNode(org.objectweb.asm.Opcodes.GETSTATIC, LEGACY_BUTTON, "DEFAULT_NARRATION", "L" + LEGACY_BUTTON + "$CreateNarration;"));
+                call.desc = BUTTON_SOURCE_CONSTRUCTOR.substring(0, BUTTON_SOURCE_CONSTRUCTOR.length() - 2) + "L" + LEGACY_BUTTON + "$CreateNarration;)V";
+                rewrites++;
+            } else if (sourceButtonPress(call.name, call.desc) && isManagedSubtypeOf(call.owner, LEGACY_BUTTON)) {
+                if (call.owner.equals(LEGACY_BUTTON) || !inheritedButtonPress(call.owner)) {
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC); call.owner = bridge; call.name = "basePress";
+                    call.desc = "(L" + LEGACY_BUTTON + ";)V"; call.itf = false;
+                } else {
+                    call.name = BUTTON_PRESS_ALIAS;
+                }
+                rewrites++;
+            }
+        }
+        rewrites += rewriteSemanticInstanceCalls(node, (opcode, owner, name, descriptor) -> {
+            if (!sourceButtonPress(name, descriptor) || !(owner.equals(node.name) ? button : isManagedSubtypeOf(owner, LEGACY_BUTTON))) return null;
+            if (opcode == org.objectweb.asm.Opcodes.INVOKESPECIAL)
+                throw new IllegalStateException("Unadapted source button super callable reference: " + node.name + " -> " + owner + "#" + name);
+            return opcode == org.objectweb.asm.Opcodes.INVOKEVIRTUAL ? new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC, bridge, "press", "(L" + LEGACY_BUTTON + ";)V", false) : null;
+        });
+        node.methods.addAll(wrappers); return rewrites;
     }
 
     private static final String CONTAINER_SCREEN = "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen";

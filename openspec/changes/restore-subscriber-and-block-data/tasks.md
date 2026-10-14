@@ -21,6 +21,8 @@ acceptance is pending; headless native probes establish bounded lifecycle semant
 - [x] `git diff --check`.
 - [ ] User checks generator open/slots/close/reopen.
 - [ ] User checks fresh insulated tin cable placement/removal and world re-entry.
+- [x] User confirms visual wire connections in the 16:01 run; persistence and
+  energy transport remain unverified.
 
 Verification logs: `/tmp/lms-block-data-final.log` and
 `/tmp/lms-compatibility-audit.tsv`. The audit inventories unsupported linkage; it

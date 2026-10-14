@@ -23,6 +23,9 @@ passes selective subscriber linkage, then fails at inherited getGuiLeft during
 FilterComponent initialization. The later missing-button NPE is consequential.
 All five screen state getters and protected dimension writes are now fixture-verified.
 Actual generator interaction, wire persistence and energy transport remain open.
+Preflight also closes the four old Button superclass constructor sites and
+source no-argument activation via native input callbacks, including the verified
+ExtendedButton inherited default. Whole GUI rendering/input remains a separate gap.
 
 ## Implemented, awaiting the next user run
 
@@ -74,7 +77,7 @@ Actual generator interaction, wire persistence and energy transport remain open.
 | Food/drink completion | Coffee effect succeeded; canned food consumption and returned can now confirmed by user | Verify hunger, effects, returned container/count and audio after sound-family migration |
 | Block neighbour callback delivery | Source container-block override takes the changed block's `BlockPos`; target callback takes nullable `Orientation` | Source-position delivery now survives queued/multi/instant dispatch; actual FML/mixin scope probes pass. Verify visual wire updates after placement/removal and keep native unknown-origin calls fail-fast |
 | Block capabilities | Missing query ABI no longer appears; `crash-2026-10-14_02.33.15-server.txt` now fails explicitly on a custom token during scheduled `onLoaded` of a mechanism, after user broke a furnace | Eager block attachment gathering, ordered queries, genuine absence, invalidation and ForgeCaps save/load now pass unit and actual FML/mixin probes; gameplay verification pending. Native client lookup, item/entity attachment, native energy direction flags/fluid operations, nested transactions and direct slot replacement remain gaps |
-| Cable functionality | User confirms improved connections, but broken/gapped geometry remains. Client field-update packets fail on the source render-dirty ABI; energy transport unverified | Four native extraction invalidation operations and positioned source model-data refinement are now adapted. Verify visual updates and geometry separately from energy transport |
+| Cable functionality | The 16:01 user run confirms visual wire connections after model invalidation and source data lifecycle adaptation; energy transport unverified | Visual connections are observed. Verify placement/removal, corners and world re-entry separately from energy transport |
 | Block data persistence/initial synchronization | Native target ValueInput/ValueOutput and lookup-bearing update callbacks do not enter old CompoundTag overrides | Adapt the complete load/save/update/handle family, inherited defaults, explicit super order, ForgeData identity and once-only ForgeCaps persistence. Fixtures use real FML storage operations. Verify fresh cable connections and world re-entry; erased historical values cannot be reconstructed |
 | Armor behavior | User confirmed equipment, reported absent worn textures | Adapt worn equipment assets/models, attributes, durability and repair using source contracts; verify actual protection and per-stack/custom overrides |
 | Item energy | Prior user report: chainsaw charge does not decrease | Source damage callbacks and mutable tag copy/resource ownership now adapted; native comparison snapshots detect tag changes. Verify gameplay callback delivery, charge delta and persistence separately |
