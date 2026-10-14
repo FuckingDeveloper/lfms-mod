@@ -1,0 +1,19 @@
+# Resource and Data Compatibility Specification
+
+Legacy compatibility includes non-class content where required: metadata, language resources, models, textures, recipes, tags or legacy tag-like systems, data files and other loader/game resources.
+
+Resource transformation MUST be separated conceptually from arbitrary bytecode transformation. Original resource bytes MUST remain unchanged in the source artifact.
+
+A profile MUST be able to declare resource/data transformations required by its legacy generation. Unsupported resource formats that affect declared functionality MUST be represented in diagnostics/capabilities.
+
+Resource transformations MUST participate in transformation cache identity.
+
+For Forge 1.19.2 standard standing-sign textures, the target 26.3 adapter MAY
+derive the sign-edit GUI image from the source 64x32 UV layout: the 24x12 board
+front at (2,2) followed by the 2x14 post front at (2,16), centered at x=11 in
+the target 24x26 image. Integer-resolution scaling and alpha MUST be preserved.
+The source namespace/path identity MUST select the corresponding target
+`textures/gui/signs/` resource. Explicit target-shaped resources MUST take
+precedence, malformed layouts MUST fail explicitly, and legacy artifacts MUST
+remain unchanged. This GUI adaptation MUST NOT be claimed as proof of world
+sign-model, hanging-sign, animation, or arbitrary custom UV compatibility.

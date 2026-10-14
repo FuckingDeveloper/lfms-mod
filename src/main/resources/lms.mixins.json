@@ -1,0 +1,24 @@
+{
+  "required": true,
+  "package": "com.fuckingdeveloper.lms.mixin",
+  "mixins": [
+    "Target263BlockCapabilityMixin",
+    "Target263TagValueOutputAccess",
+    "Target263TagValueInputAccess",
+    "Target263MultiNeighborOriginMixin",
+    "Target263QueuedNeighborOriginMixin",
+    "Target263InstantNeighborOriginMixin",
+    "Target263MutableStackTagMixin",
+    "Target263ItemResourceSnapshotMixin",
+    "Target263VillagerTradeMixin",
+    "Target263WanderingTraderTradeMixin",
+    "Target263SingleRecipeResultAccess"
+  ],
+  "client": [
+    "Target263EntityRenderStateMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "minVersion": "0.8"
+}

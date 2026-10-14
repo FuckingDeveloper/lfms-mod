@@ -1,0 +1,5 @@
+{
+  "lms.mods.blocked": "не инициализирован",
+  "lms.mods.blocked_count": "LMS: %s не инициализирован",
+  "lms.mods.blocked_description": "LMS обнаружил этот legacy-мод, но заблокировал его инициализацию. Он не учитывается как загруженный."
+}
