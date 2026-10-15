@@ -235,3 +235,11 @@ bound texture, tint, blend and color-mask state in immutable native render data.
 Sprite UVs come from the genuine native sprite while retaining the source bound
 texture. Static fills retain source coordinate normalization, ARGB and once-only
 blend/texture state changes. Receiver-depth overloads remain unadapted.
+
+### Source key-category presentation
+
+Registered source key categories MUST retain their original translation key when
+presented by the native Category.label operation. Native categories retain native
+labels. Resolve category identity through the registered source intent, not a
+fixture ID or guessed language key. Labels remain translatable components so
+native language reloads continue to apply; no source resources are rewritten.

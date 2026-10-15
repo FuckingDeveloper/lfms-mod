@@ -16,6 +16,7 @@
     "Target263SingleRecipeResultAccess"
   ],
   "client": [
+    "Target263KeyCategoryLabelMixin",
     "Target263EntityRenderStateMixin",
     "Target263FluidModelLookupMixin"
   ],

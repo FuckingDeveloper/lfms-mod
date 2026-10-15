@@ -45,6 +45,9 @@ final class BootstrapFamilyCheck {
             var codec=LegacyTextureStitchSpriteSource.CODEC.codec();
             check(codec.parse(com.mojang.serialization.JsonOps.INSTANCE,codec.encodeStart(com.mojang.serialization.JsonOps.INSTANCE,value).getOrThrow()).getOrThrow().atlasId().equals(atlas),"native atlas source codec lost identity");
         }
+        var sourceCategory=Forge1192KeyMappingBridge.category("fixture.source.category");
+        check(sourceCategory.label().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents translated&&translated.getKey().equals("fixture.source.category"),"source category label lost original translation identity");
+        check(Forge1192KeyMappingBridge.sourceCategoryLabel(net.minecraft.client.KeyMapping.Category.MOVEMENT).isEmpty(),"native category label hijacked");
         constructionAndStages();
         var bus=BusBuilder.builder().build();
         var info=(IModInfo)Proxy.newProxyInstance(BootstrapFamilyCheck.class.getClassLoader(),new Class[]{IModInfo.class},(p,m,a)->{if(m.getName().equals("getModId"))return "bootstrap_probe";throw new AssertionError(m);});

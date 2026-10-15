@@ -14,6 +14,7 @@ public final class Forge1192KeyMappingBridge {
     private static final org.slf4j.Logger LOG =
             org.slf4j.LoggerFactory.getLogger(Forge1192KeyMappingBridge.class);
     private static final Map<String, KeyMapping.Category> CUSTOM_CATEGORIES = new HashMap<>();
+    private static final Map<KeyMapping.Category,String> SOURCE_LABELS = new HashMap<>();
 
     private Forge1192KeyMappingBridge() {}
 
@@ -69,10 +70,13 @@ public final class Forge1192KeyMappingBridge {
     private static KeyMapping.Category registerCustomCategory(String legacyTranslationKey) {
         Identifier id = customCategoryId(legacyTranslationKey);
         KeyMapping.Category category = KeyMapping.Category.register(id);
-        LOG.warn("LMS preserved legacy key category identity '{}' as '{}'; the target label key "
-                        + "is '{}' rather than the source translation key and may require a resource alias",
-                legacyTranslationKey, id, id.toLanguageKey("key.category"));
+        SOURCE_LABELS.put(category,legacyTranslationKey);
+        LOG.debug("LMS preserved legacy key category '{}' as '{}'",legacyTranslationKey,id);
         return category;
+    }
+
+    public static synchronized java.util.Optional<String> sourceCategoryLabel(KeyMapping.Category category) {
+        return java.util.Optional.ofNullable(SOURCE_LABELS.get(category));
     }
 
     private static Identifier customCategoryId(String translationKey) {
