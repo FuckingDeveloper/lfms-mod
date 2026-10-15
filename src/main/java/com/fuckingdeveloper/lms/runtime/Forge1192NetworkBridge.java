@@ -469,7 +469,10 @@ public final class Forge1192NetworkBridge {
                         throw new IllegalStateException("Legacy channel rejects its own protocol version: "
                                 + channel.name() + " version=" + version);
                     }
-                    var registrar = event.registrar(version);
+                    // Plain source registerMessage consumes on the network thread;
+                    // only an explicit source enqueueWork crosses to the game thread.
+                    var registrar = event.registrar(version).executesOn(
+                            net.neoforged.neoforge.network.registration.HandlerThread.NETWORK);
                     String absent = "ABSENT \uD83E\uDD14";
                     if (channel.clientAcceptedVersions().test(absent)
                             && channel.serverAcceptedVersions().test(absent)) {

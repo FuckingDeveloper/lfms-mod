@@ -20,6 +20,14 @@ predicates accept the locally advertised protocol. Support for broader
 predicate-based negotiation MUST be tracked separately from same-LMS protocol
 operation and MUST NOT be inferred from exact target version matching.
 
+For the supported Forge 1.19.2 plain `SimpleChannel#registerMessage` consumer,
+delivery MUST retain the source network-thread boundary. The target registrar's
+default main-thread wrapper MUST NOT implicitly move that consumer to the game
+thread. Explicit source `NetworkEvent.Context#enqueueWork` MUST continue to use
+the target context's game-thread executor, preserving its returned future and
+the recorded channel-owner scope. The adapter MUST NOT add a timer/retry queue
+or replay a source packet to compensate for an unproven ordering issue.
+
 Channel creation and message registration MUST retain source initialization
 ownership checks. Use of a previously registered channel during gameplay MUST
 be authorized by that exact channel's recorded provenance, not by requiring

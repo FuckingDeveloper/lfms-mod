@@ -144,11 +144,13 @@ final class CapabilityNetworkFamilyCheck {
                 (p,m,a) -> { if (m.getName().equals("getModId")) return "network_fixture"; throw new AssertionError(m); });
         var host = new ModContainer(info) { @Override public IEventBus getEventBus() { return bus; } };
         var name = Identifier.fromNamespaceAndPath("network_fixture", "channel");
+        var receivedOn = new java.util.concurrent.atomic.AtomicReference<Thread>();
         Forge1192NetworkBridge.LegacyChannel channel;
         try (var ignored = Forge1192LifecycleBridge.enter("network_fixture", bus, host)) {
             channel = (Forge1192NetworkBridge.LegacyChannel)Forge1192NetworkBridge.newSimpleChannel(name, () -> "1", s -> true, s -> true);
             fails(() -> Forge1192NetworkBridge.newSimpleChannel(name, () -> "1", s -> true, s -> true));
             Forge1192NetworkBridge.registerMessage(channel, 0, String.class, (a,b) -> {}, b -> "", (a,b) -> {
+                receivedOn.set(Thread.currentThread());
                 check(Forge1192LifecycleBridge.requireActive().modId().equals("network_fixture"), "packet handler source context");
                 Forge1192NetworkBridge.enqueueWork(((java.util.function.Supplier<?>)b).get(),
                         () -> check(Forge1192LifecycleBridge.requireActive().modId().equals("network_fixture"), "deferred source context"));
@@ -173,10 +175,15 @@ final class CapabilityNetworkFamilyCheck {
                     }
                     throw new AssertionError("Unexpected target packet context call " + m);
                 });
-        var handler = Forge1192NetworkBridge.class.getDeclaredMethod("handlePayload", Forge1192NetworkBridge.LegacyPayload.class,
-                net.neoforged.neoforge.network.handling.IPayloadContext.class);
-        handler.setAccessible(true);
-        handler.invoke(null, new Forge1192NetworkBridge.LegacyPayload(channel, Forge1192NetworkBridge.messages(channel).getFirst(), "fixture"), targetContext);
+        Forge1192NetworkBridge.registerPayloads(new net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent());
+        var handler = NativeNetworkRegistry.clientHandler(channel.name());
+        var deliveryFailure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        Thread delivery = new Thread(() -> handler.handle(
+                new Forge1192NetworkBridge.LegacyPayload(channel, Forge1192NetworkBridge.messages(channel).getFirst(), "fixture"), targetContext));
+        delivery.setUncaughtExceptionHandler((t,e) -> deliveryFailure.set(e));
+        delivery.start(); delivery.join();
+        if (deliveryFailure.get() != null) throw new AssertionError("native packet delivery", deliveryFailure.get());
+        check(receivedOn.get() == delivery, "native registrar moved source network consumer to the game-thread queue");
         fails(Forge1192LifecycleBridge::requireActive);
         check(queued.size() == 1, "actual payload handler did not enqueue work");
         Thread worker = new Thread(queued.getFirst());
@@ -190,6 +197,14 @@ final class CapabilityNetworkFamilyCheck {
             var prior = Forge1192LifecycleBridge.requireActive();
             fails(() -> Forge1192NetworkBridge.runInChannelScope(channel, () -> { throw new AssertionError("wrong owner ran"); }));
             check(Forge1192LifecycleBridge.requireActive() == prior, "unrelated context overwritten");
+        }
+    }
+    private static final class NativeNetworkRegistry extends net.neoforged.neoforge.network.registration.NetworkRegistry {
+        @SuppressWarnings("unchecked")
+        static net.neoforged.neoforge.network.handling.IPayloadHandler<Forge1192NetworkBridge.LegacyPayload> clientHandler(Identifier id) {
+            var handler = CLIENTBOUND_HANDLERS.get(net.minecraft.network.ConnectionProtocol.PLAY).get(id);
+            if (handler == null) throw new AssertionError("Native payload registration missing");
+            return (net.neoforged.neoforge.network.handling.IPayloadHandler<Forge1192NetworkBridge.LegacyPayload>)handler;
         }
     }
     private static ClassNode node(String name) {
