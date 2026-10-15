@@ -3,6 +3,8 @@ package com.fuckingdeveloper.lms.check;
 import com.fuckingdeveloper.lms.runtime.*;
 import com.electronwill.nightconfig.core.CommentedConfig;
 import java.lang.reflect.Proxy;
+import org.objectweb.asm.*;
+import org.objectweb.asm.tree.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,6 +48,7 @@ final class NativeConfigFamilyCheck {
         try{Forge1192ModContainerView.nativeView(other).dispatchConfigEvent(Forge1192NativeConfigBridge.reloading(source));throw new AssertionError("cross-owner event accepted");}catch(IllegalArgumentException expected){}
         check(events.get()==1,"rejected event produced side effects");
         sourceHandles(source);
+        configUiFamilies();
         var resolver=com.fuckingdeveloper.lms.mapping.Forge1192SrgRuntimeResolver.load(Path.of(".")).orElseThrow();
         var pathGetter=resolver.resolve("net/minecraft/server/MinecraftServer","m_129843_","(Lnet/minecraft/world/level/storage/LevelResource;)Ljava/nio/file/Path;");
         check(pathGetter.resolved()&&pathGetter.name().equals("getWorldPath"),"packaged unobfuscated owner failed exact method resolution: "+pathGetter);
@@ -55,6 +58,14 @@ final class NativeConfigFamilyCheck {
         var dependency=Path.of("lms/dependencies/CarbonConfig-1.19.2-2.0.2.jar/3d6c721d4d977672-Primitive Collections-0.8.9.jar");
         if(Files.exists(external)&&Files.exists(dependency))try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(external,List.of(dependency),NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
             auditGuiLinkage(external,loader);
+            var checkboxType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonCheckBox");
+            var stateType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonCheckBox$CheckBoxState");
+            var checkboxState=stateType.getConstructor(boolean.class).newInstance(true);var checkboxCalls=new AtomicInteger();
+            stateType.getMethod("setCallback",java.util.function.Consumer.class).invoke(checkboxState,(java.util.function.Consumer<Object>)ignored->checkboxCalls.incrementAndGet());
+            var checkbox=(com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox)checkboxType.getConstructor(int.class,int.class,int.class,int.class,stateType).newInstance(3,5,90,20,checkboxState);
+            check(checkbox.selected()&&checkbox.getX()==3&&checkbox.getY()==5&&checkbox.getWidth()==90&&checkbox.getHeight()==20,"immutable checkbox constructor/selection/geometry lost");
+            checkbox.onPress(new net.minecraft.client.input.KeyEvent(4,97,0));check(!checkbox.selected()&&checkboxCalls.get()==1,"immutable checkbox source state override/callback lost or doubled");
+            checkbox.onPress(new net.minecraft.client.input.KeyEvent(4,97,0));check(checkbox.selected()&&checkboxCalls.get()==2,"immutable checkbox second activation failed");
             var guiType=loader.linkOwnedClass("carbonconfiglib.gui.base.helpers.GuiUtils");
             check(guiType.getDeclaredMethods().length>0,"immutable GUI helper verification did not execute");
             var guiNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(guiType.getName())).accept(guiNode,0);int projectedBatches=0;
@@ -111,6 +122,57 @@ final class NativeConfigFamilyCheck {
         }
 
         System.out.println("PASS: genuine native config/spec/data/path ownership, source enum identity, actual correction count/cache reset, atomic file save separate from exactly-once reload, restart/owner/unloaded boundaries");
+    }
+    private static void configUiFamilies() throws Exception {
+        String checkRoot="net/minecraft/client/gui/components/Checkbox",sys="net/minecraft/client/gui/components/toasts/SystemToast",manager="net/minecraft/client/gui/components/toasts/ToastComponent",toast="net/minecraft/client/gui/components/toasts/Toast",comp="Lnet/minecraft/network/chat/Component;",id="L"+sys+"$SystemToastIds;";
+        var node=new ClassNode();node.version=Opcodes.V17;node.access=Opcodes.ACC_PUBLIC;node.name="fixture/ConfigUiCalls";node.superName="java/lang/Object";
+        var join=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"join","("+comp+comp+")Lnet/minecraft/network/chat/MutableComponent;",null,null);node.methods.add(join);join.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));join.instructions.add(new VarInsnNode(Opcodes.ALOAD,1));join.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC,"net/minecraft/network/chat/CommonComponents","m_178398_",join.desc,false));join.instructions.add(new InsnNode(Opcodes.ARETURN));
+        var references=List.of(new Handle(Opcodes.H_NEWINVOKESPECIAL,checkRoot,"<init>","(IIII"+comp+"Z)V",false),new Handle(Opcodes.H_NEWINVOKESPECIAL,checkRoot,"<init>","(IIII"+comp+"ZZ)V",false),new Handle(Opcodes.H_NEWINVOKESPECIAL,sys,"<init>","("+id+comp+comp+")V",false),new Handle(Opcodes.H_INVOKEVIRTUAL,"net/minecraft/client/Minecraft","m_91300_","()L"+manager+";",false),new Handle(Opcodes.H_INVOKEVIRTUAL,manager,"m_94922_","(L"+toast+";)V",false),new Handle(Opcodes.H_INVOKESTATIC,"net/minecraft/network/chat/CommonComponents","m_178398_",join.desc,false),new Handle(Opcodes.H_INVOKEVIRTUAL,checkRoot,"m_5691_","()V",false),new Handle(Opcodes.H_INVOKEVIRTUAL,checkRoot,"m_93840_","()Z",false));
+        for(int i=0;i<references.size();i++)for(boolean nested:new boolean[]{false,true}) {
+            var method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"handle"+i+(nested?"nested":""),"()Ljava/lang/invoke/MethodHandle;",null,null);node.methods.add(method);
+            Object value=nested?new ConstantDynamic("handle","Ljava/lang/invoke/MethodHandle;",new Handle(Opcodes.H_INVOKESTATIC,"java/lang/invoke/ConstantBootstraps","explicitCast","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;",false),references.get(i)):references.get(i);method.instructions.add(new LdcInsnNode(value));method.instructions.add(new InsnNode(Opcodes.ARETURN));
+        }
+        var runnable=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"pressRunnable","(L"+checkRoot+";)Ljava/lang/Runnable;",null,null);node.methods.add(runnable);runnable.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));runnable.instructions.add(new InvokeDynamicInsnNode("run",runnable.desc,new Handle(Opcodes.H_INVOKESTATIC,"java/lang/invoke/LambdaMetafactory","metafactory","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",false),Type.getMethodType("()V"),references.get(6),Type.getMethodType("()V")));runnable.instructions.add(new InsnNode(Opcodes.ARETURN));
+        var child=new ClassNode();child.version=Opcodes.V17;child.access=Opcodes.ACC_PUBLIC;child.name="fixture/SourceCheckbox";child.superName=checkRoot;child.fields.add(new FieldNode(Opcodes.ACC_PUBLIC,"calls","I",null,null));
+        var ctor=new MethodNode(Opcodes.ACC_PUBLIC,"<init>","(IIII"+comp+"ZZ)V",null,null);child.methods.add(ctor);ctor.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));for(int i=1;i<=4;i++)ctor.instructions.add(new VarInsnNode(Opcodes.ILOAD,i));ctor.instructions.add(new VarInsnNode(Opcodes.ALOAD,5));ctor.instructions.add(new VarInsnNode(Opcodes.ILOAD,6));ctor.instructions.add(new VarInsnNode(Opcodes.ILOAD,7));ctor.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,checkRoot,"<init>",ctor.desc,false));ctor.instructions.add(new InsnNode(Opcodes.RETURN));
+        var press=new MethodNode(Opcodes.ACC_PUBLIC,"m_5691_","()V",null,null);child.methods.add(press);press.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));press.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,checkRoot,"m_5691_","()V",false));press.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));press.instructions.add(new InsnNode(Opcodes.DUP));press.instructions.add(new FieldInsnNode(Opcodes.GETFIELD,child.name,"calls","I"));press.instructions.add(new InsnNode(Opcodes.ICONST_1));press.instructions.add(new InsnNode(Opcodes.IADD));press.instructions.add(new FieldInsnNode(Opcodes.PUTFIELD,child.name,"calls","I"));press.instructions.add(new InsnNode(Opcodes.RETURN));
+        var path=Files.createTempFile("lms-config-ui-calls", ".jar");try(var jar=new java.util.jar.JarOutputStream(Files.newOutputStream(path))){for(var n:List.of(node,child)){var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);n.accept(writer);jar.putNextEntry(new java.util.jar.JarEntry(n.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();}}
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+            var type=loader.linkOwnedClass(node.name.replace('/','.'));var childType=loader.linkOwnedClass(child.name.replace('/','.'));
+            var selected=(com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox)childType.getConstructor(int.class,int.class,int.class,int.class,net.minecraft.network.chat.Component.class,boolean.class,boolean.class).newInstance(3,5,90,20,net.minecraft.network.chat.Component.literal("option"),false,false);
+            selected.onPress(new net.minecraft.client.input.KeyEvent(4,97,0));check(selected.selected()&&childType.getField("calls").getInt(selected)==1,"native checkbox activation lost source override/super dispatch");
+            for(int i=0;i<references.size();i++) {
+                var direct=(java.lang.invoke.MethodHandle)type.getMethod("handle"+i).invoke(null);var nested=(java.lang.invoke.MethodHandle)type.getMethod("handle"+i+"nested").invoke(null);check(direct.type().equals(nested.type()),"nested configuration UI handle descriptor diverged");
+                if(i==0||i==1){check(direct.type().returnType()==com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox.class,"checkbox constructor handle lost projected return");try{var args=new ArrayList<Object>(List.of(3,5,90,20,net.minecraft.network.chat.Component.literal("option"),true));if(i==1)args.add(false);check(((com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox)direct.invokeWithArguments(args)).selected(),"checkbox constructor handle state lost");}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}}
+                if(i==3)check(direct.type().equals(java.lang.invoke.MethodType.methodType(net.minecraft.client.gui.components.toasts.ToastManager.class,net.minecraft.client.Minecraft.class)),"toast accessor handle lost actual owner/native manager type");
+            }
+            try{var pressHandle=(java.lang.invoke.MethodHandle)type.getMethod("handle6nested").invoke(null);pressHandle.invokeWithArguments(selected);var selectedHandle=(java.lang.invoke.MethodHandle)type.getMethod("handle7").invoke(null);check(!(boolean)selectedHandle.invokeWithArguments(selected)&&childType.getField("calls").getInt(selected)==2,"source checkbox callable bypassed override or duplicated super toggle");}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}
+            ((Runnable)type.getMethod("pressRunnable",com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox.class).invoke(null,selected)).run();check(selected.selected()&&childType.getField("calls").getInt(selected)==3,"source bound activation lambda failed or duplicated callback");
+            var first=net.minecraft.network.chat.Component.literal("first").withStyle(net.minecraft.ChatFormatting.RED);var second=net.minecraft.network.chat.Component.literal("second");
+            var result=(net.minecraft.network.chat.MutableComponent)type.getMethod("join",net.minecraft.network.chat.Component.class,net.minecraft.network.chat.Component.class).invoke(null,first,second);
+            check(result.getString().equals("first. second")&&result.getSiblings().getFirst()==first&&result.getSiblings().getLast()==second&&first.getSiblings().isEmpty(),"narration append order/styles/reference identity changed");result.append("!");check(first.getString().equals("first")&&second.getString().equals("second"),"narration join mutated inputs");
+            try{var handle=(java.lang.invoke.MethodHandle)type.getMethod("handle5nested").invoke(null);check(((net.minecraft.network.chat.Component)handle.invokeWithArguments(first,second)).getString().equals("first. second"),"narration source callable did not execute");}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}
+            toastQueue(type);
+        }
+        System.out.println("PASS: source checkbox constructors/native activation/super/callable handles, native toast queue/token/update/cancellation and narration order/style/mutability; actual native layout/rendering requires client");
+    }
+    private static void toastQueue(Class<?> probes) throws Exception {
+        var unsafeField=sun.misc.Unsafe.class.getDeclaredField("theUnsafe");unsafeField.setAccessible(true);var unsafe=(sun.misc.Unsafe)unsafeField.get(null);
+        var manager=(net.minecraft.client.gui.components.toasts.ToastManager)unsafe.allocateInstance(net.minecraft.client.gui.components.toasts.ToastManager.class);
+        for(var entry:Map.<String,Object>of("queued",new ArrayDeque<>(),"visibleToasts",new ArrayList<>(),"occupiedSlots",new BitSet()).entrySet()){var field=manager.getClass().getDeclaredField(entry.getKey());field.setAccessible(true);field.set(manager,entry.getValue());}
+        var id=com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.Id.TUTORIAL_HINT;var other=com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.Id.WORLD_BACKUP;
+        check(id.ordinal()==0&&id.displayTime==5000&&com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.Id.values().length==10&&com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.Id.CHAT_PREVIEW_WARNING.displayTime==10000,"source toast categories/order/durations changed");
+        var count=new AtomicInteger();java.util.function.Consumer<net.neoforged.neoforge.client.event.ToastAddEvent> listener=event->{count.incrementAndGet();if(event.getToast().getToken()==other)event.setCanceled(true);};
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL,false,net.neoforged.neoforge.client.event.ToastAddEvent.class,listener);
+        try {
+            var title=net.minecraft.network.chat.Component.literal("backup");
+            com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast toast;
+            try{var ctor=(java.lang.invoke.MethodHandle)probes.getMethod("handle2").invoke(null);toast=(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast)ctor.invokeWithArguments(id,title,null);var add=(java.lang.invoke.MethodHandle)probes.getMethod("handle4nested").invoke(null);add.invokeWithArguments(manager,toast);}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}
+            check(manager.getToast(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.class,id)==toast&&count.get()==1,"source notification lost native queue/token identity");
+            com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.addOrUpdate(manager,id,net.minecraft.network.chat.Component.literal("updated"),null);check(manager.getToast(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.class,id)==toast&&count.get()==1,"source reset duplicated native queued toast");
+            com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.add(manager,other,title,null);check(manager.getToast(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.class,other)==null&&count.get()==2,"native toast cancellation skipped or category aliased");
+            manager.clear();check(manager.getToast(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.class,id)==null,"native toast clear lost source entry");
+        }finally{net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(listener);}
     }
     private static void immutableScrollConsumer(com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader sourceLoader,com.fuckingdeveloper.lms.runtime.render.Forge1192ContainerSelectionList<?> list) throws Exception {
         String parent="carbonconfiglib/gui/base/widgets/CarbonDynamicList$DynamicEntry",owner="fixture/ImmutableScrollRow";
@@ -169,6 +231,7 @@ final class NativeConfigFamilyCheck {
         }
         check(inspected>0,"immutable GUI audit inspected no classes");
         for(String gap:missing){
+            check(!gap.contains("Checkbox#<init>")&&!gap.contains("#m_91300_()")&&!gap.contains("#m_178398_(")&&!gap.contains("toasts/ToastComponent#")&&!gap.contains("SystemToast$SystemToastIds#"),"supported configuration UI family retained residual call: "+gap);
             check(!gap.contains("[class verification]"),"GUI class verification regressed: "+gap);
             check(!gap.contains("#m_6050_(DDD)Z"),"supported source scroll retained residual call: "+gap);
             check(!gap.startsWith("com/mojang/blaze3d/platform/Window#m_")&&!gap.startsWith("com/mojang/blaze3d/platform/NativeImage#m_"),"proven GUI dimension/image family retained residual call: "+gap);

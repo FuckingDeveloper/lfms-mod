@@ -7,6 +7,10 @@ import net.minecraft.network.chat.MutableComponent;
 public final class Forge1192TranslationBridge {
     private Forge1192TranslationBridge() {}
 
+    public static MutableComponent joinForNarration(Component first,Component second) {
+        return net.minecraft.network.chat.CommonComponents.joinForNarration(first,second);
+    }
+
     public static MutableComponent translatable(String key, Object... arguments) {
         Object[] normalized = arguments.clone();
         for (int i = 0; i < normalized.length; i++) {

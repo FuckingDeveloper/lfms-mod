@@ -258,6 +258,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             public ClassNode hierarchy(String owner){try{var bytes=hierarchyBytes(owner);if(bytes==null)return null;var type=new ClassNode();new ClassReader(bytes).accept(type,ClassReader.SKIP_CODE|ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);return type;}catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}}
             public String sourceDeclaration(String owner){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,"m_6050_","(DDD)Z").filter("mouseScrolled"::equals).map(ignored->owner).orElse(null);}
         });
+        rewrites += Forge1192ConfigUiRewriter.rewrite(node,new Forge1192ConfigUiRewriter.Evidence(){
+            public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):isManagedSubtypeOf(owner,root);}
+            public String canonical(String owner,String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,descriptor).orElse(null);}
+        });
         rewrites += Forge1192NativeConfigRewriter.rewrite(node);
         rewrites += Forge1192GameRulesRewriter.rewrite(node,
                 owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor") : isManagedSubtypeOf(owner,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor"),
@@ -12522,6 +12526,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        String configUi=Forge1192ConfigUiRewriter.relocation(value);if(configUi!=null)return configUi;
         if (value.equals("com/mojang/blaze3d/platform/GlStateManager$SourceFactor")) return "com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend$SourceFactor";
         if (value.equals("com/mojang/blaze3d/platform/GlStateManager$DestFactor")) return "com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend$DestFactor";
 
