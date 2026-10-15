@@ -242,6 +242,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"));
         rewrites += Forge1192BootstrapRewriter.rewrite(node);
         rewrites += rewriteSourceContainerNbt(node);
+        rewrites += Forge1192GameRulesRewriter.rewrite(node,
+                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor") : isManagedSubtypeOf(owner,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor"),
+                new Forge1192GameRulesRewriter.Names() {
+                    public String method(String owner,String name,String desc) {return isSrgMethodName(name)?SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null):name;}
+                    public String field(String owner,String name,String desc) {return name.startsWith("f_")?SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner,name,desc).orElse(null):name;}
+                });
         rewrites += Forge1192ContainerUsersRewriter.rewrite(node,
                 owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/Container") : isManagedSubtypeOf(owner,"net/minecraft/world/Container"),
                 owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/block/entity/ContainerOpenersCounter") : isManagedSubtypeOf(owner,"net/minecraft/world/level/block/entity/ContainerOpenersCounter"),
@@ -12450,6 +12456,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        String ruleView = Forge1192GameRulesRewriter.relocation(value);
+        if (ruleView != null) return ruleView;
         if (value.equals("net/minecraftforge/client/event/RegisterClientReloadListenersEvent"))
             return "net/neoforged/neoforge/client/event/AddClientReloadListenersEvent";
         if (value.equals("net/minecraftforge/client/ConfigScreenHandler$ConfigScreenFactory"))
@@ -12668,7 +12676,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateDescriptor(String descriptor) {
-        String migrated = descriptor;
+        String migrated = Forge1192GameRulesRewriter.descriptor(descriptor);
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             migrated = migrated.replace(relocation.getKey(), relocation.getValue());
         }

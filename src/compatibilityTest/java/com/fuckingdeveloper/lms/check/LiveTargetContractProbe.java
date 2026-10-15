@@ -148,6 +148,7 @@ public final class LiveTargetContractProbe {
         SourceContainerFamilyCheck.run(host);
         ContainerPersistenceFamilyCheck.run();
         ContainerUsersFamilyCheck.run();
+        GameRulesFamilyCheck.run();
         AtlasMaterialFamilyCheck.run();
         BonemealFamilyCheck.run();
         ComponentJsonCheck.run();
