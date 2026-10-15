@@ -9,10 +9,11 @@ public final class Forge1192InputBridge {
     private Forge1192InputBridge() {}
 
     public static boolean isKeyDown(Window ignoredWindow, int key) {
-        return InputConstants.isKeyDown(key);
+        return InputConstants.isKeyDown(Forge1192KeyboardBridge.keyboardCode(key));
     }
 
     public static int mouseButton(Window ignoredWindow, int button) {
+        button = Forge1192KeyboardBridge.mouseCode(button);
         int mask = button > 0 && button <= Integer.SIZE ? 1 << button - 1 : 0;
         return (SDLMouse.SDL_GetMouseState(null, null) & mask) != 0
                 ? InputConstants.PRESS : InputConstants.RELEASE;

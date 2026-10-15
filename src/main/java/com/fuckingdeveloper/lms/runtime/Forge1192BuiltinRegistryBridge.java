@@ -40,6 +40,7 @@ public final class Forge1192BuiltinRegistryBridge {
     public static Object get(LegacyRegistryObject builtin) {
         if (builtin == null)
             throw new IllegalArgumentException("Unsupported null legacy builtin registry handle");
+        if (builtin.isDeferred()) return builtin.deferredValue();
         if (builtin.namespace().equals("minecraft")) {
             return switch (builtin.path()) {
                 case "milk" -> net.neoforged.neoforge.common.NeoForgeMod.MILK.value();

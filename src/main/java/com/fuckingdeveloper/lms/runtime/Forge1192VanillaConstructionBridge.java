@@ -181,7 +181,7 @@ public final class Forge1192VanillaConstructionBridge {
         if (material.flammable) properties = properties.ignitedByLava();
         if (material.replaceable) properties = properties.replaceable();
         LEGACY_MATERIALS_BY_PROPERTIES.put(properties, material);
-        return properties;
+        return com.fuckingdeveloper.lms.runtime.registry.LegacyDeferredRegister.blockProperties(properties);
     }
 
     /** Recover behavior that legacy door-like blocks derived from Material. */
@@ -205,7 +205,7 @@ public final class Forge1192VanillaConstructionBridge {
         BlockBehaviour.Properties copied = BlockBehaviour.Properties.ofLegacyCopy(source);
         LegacyMaterial material = LEGACY_MATERIALS_BY_PROPERTIES.get(source.properties());
         if (material != null) LEGACY_MATERIALS_BY_PROPERTIES.put(copied, material);
-        return copied;
+        return com.fuckingdeveloper.lms.runtime.registry.LegacyDeferredRegister.blockProperties(copied);
     }
 
     /**
@@ -267,6 +267,12 @@ public final class Forge1192VanillaConstructionBridge {
 
     /** Use the legacy block's explicit registry name for its paired block item. */
     public static Item.Properties withBlockItemId(Block block, Item.Properties properties) {
+        var nativeKey = BuiltInRegistries.BLOCK.getResourceKey(block);
+        if (nativeKey.isPresent()) {
+            var id = nativeKey.get().identifier();
+            rememberCreativeTab(properties, id);
+            return properties.setId(ResourceKey.create(Registries.ITEM,id));
+        }
         try {
             Class<?> lookupType = block.getClass();
             while (lookupType != null && !java.lang.reflect.Modifier.isPublic(lookupType.getModifiers())) {

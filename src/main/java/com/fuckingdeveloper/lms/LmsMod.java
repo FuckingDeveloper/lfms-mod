@@ -101,8 +101,6 @@ public final class LmsMod {
                                     mod.modId(), dependencyDecision.missing());
                             continue;
                         }
-                        legacyResourcePacks.admit(mod.file());
-                        legacyResourcePacks.admitAll(dependencyDecision.artifacts());
                         LOG.info("LMS dependency-gate id={} state=READY mandatoryDependenciesSatisfied=true managedArtifacts={}",
                                 mod.modId(), dependencyDecision.artifacts().stream()
                                         .map(path -> path.getFileName().toString()).toList());
@@ -252,7 +250,7 @@ public final class LmsMod {
                                         registrationPlan.complete(), registrationPlan.boundaries().size(),
                                         registrationPlan.unresolved().size(), registrationPlan.reason());
                                 var compatibilitySurface = new Forge1192CompatibilitySurface()
-                                        .assess(registrationPlan.boundaries());
+                                        .assess(registrationPlan.boundaries(), mod.file());
                                 var compatibilityFamilies = compatibilitySurface.requirements().stream()
                                         .collect(java.util.stream.Collectors.groupingBy(
                                                 Forge1192CompatibilitySurface.Requirement::adapter,
@@ -269,7 +267,10 @@ public final class LmsMod {
                                                 java.util.stream.Collectors.counting()));
                                 LOG.info("LMS compatibility-states id={} states={}", mod.modId(), compatibilityStates);
                                 for (var requirement : compatibilitySurface.requirements()) {
-                                    if (requirement.state() != Forge1192CompatibilitySurface.State.SUPPORTED) {
+                                    if (requirement.state() == Forge1192CompatibilitySurface.State.INACTIVE_DATA_GENERATION) {
+                                        LOG.info("LMS compatibility-inactive id={} target={} callSites={} phase=DATA_GENERATION",
+                                                mod.modId(), requirement.target(), requirement.callSites());
+                                    } else if (requirement.state() != Forge1192CompatibilitySurface.State.SUPPORTED) {
                                         LOG.info("LMS compatibility-gap id={} target={} callSites={} family={} state={}",
                                                 mod.modId(), requirement.target(), requirement.callSites(),
                                                 requirement.adapter(), requirement.state());
@@ -335,6 +336,10 @@ public final class LmsMod {
                             LOG.info("LMS lifecycle id={} state=INITIALIZING entrypointInitialization=true", mod.modId());
                             try {
                                 runtimeSession.initialize();
+                                // A blocked entrypoint has no registered content. Publishing its
+                                // data packs would contaminate native tags with missing entries.
+                                legacyResourcePacks.admit(mod.file());
+                                legacyResourcePacks.admitAll(dependencyDecision.artifacts());
                                 LOG.info("LMS lifecycle id={} state=INITIALIZED entrypointInitialization=true sessionState={}",
                                         mod.modId(), runtimeSession.state());
                             } catch (Throwable initializationFailure) {

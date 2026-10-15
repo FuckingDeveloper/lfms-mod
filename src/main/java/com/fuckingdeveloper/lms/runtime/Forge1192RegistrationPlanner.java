@@ -18,26 +18,32 @@ import java.util.jar.JarFile;
  */
 public final class Forge1192RegistrationPlanner {
     public record MethodKey(String owner, String name, String descriptor) {}
-    public record Boundary(String source, String owner, String name, String descriptor) {}
+    public enum ExecutionPhase { RUNTIME, DATA_GENERATION }
+    public record Boundary(String source, String owner, String name, String descriptor, ExecutionPhase phase) {
+        public Boundary(String source,String owner,String name,String descriptor){this(source,owner,name,descriptor,ExecutionPhase.RUNTIME);}
+    }
+    private record Work(MethodKey method,ExecutionPhase phase){}
+    private record Call(MethodKey method,ExecutionPhase phase){}
     public record Plan(int inspectedMethods, boolean complete, List<Boundary> boundaries,
                        List<String> unresolved, String reason) {}
 
     private static final int MAX_METHODS = 4096;
 
     public Plan plan(Path artifact, String entrypoint) throws IOException {
-        Deque<MethodKey> pending = new ArrayDeque<>();
-        pending.add(new MethodKey(entrypoint.replace('.', '/'), "<init>", "()V"));
-        Set<MethodKey> visited = new HashSet<>();
+        Deque<Work> pending = new ArrayDeque<>();
+        pending.add(new Work(new MethodKey(entrypoint.replace('.', '/'), "<init>", "()V"),ExecutionPhase.RUNTIME));
+        Set<Work> visited = new HashSet<>();
         Set<Boundary> boundaries = new TreeSet<>(Comparator.comparing(Boundary::source)
                 .thenComparing(Boundary::owner).thenComparing(Boundary::name)
-                .thenComparing(Boundary::descriptor));
+                .thenComparing(Boundary::descriptor).thenComparing(Boundary::phase));
         Set<String> unresolved = new TreeSet<>();
         Map<String, ClassInfo> cache = new HashMap<>();
 
         try (JarFile jar = new JarFile(artifact.toFile(), false)) {
             while (!pending.isEmpty() && visited.size() < MAX_METHODS) {
-                MethodKey current = pending.removeFirst();
-                if (!visited.add(current)) continue;
+                Work work = pending.removeFirst();
+                if (!visited.add(work)) continue;
+                MethodKey current=work.method();
                 Resolution resolution = resolveOwnedMethod(jar, cache, current);
                 if (resolution == null) {
                     // Reaching a superclass outside the managed artifact is a normal call-graph
@@ -47,14 +53,16 @@ public final class Forge1192RegistrationPlanner {
                     unresolved.add("unresolved-owned-method:" + current);
                     continue;
                 }
-                List<MethodKey> calls = resolution.calls();
-                for (MethodKey call : calls) {
+                List<Call> calls = resolution.calls();
+                for (Call edge : calls) {
+                    MethodKey call=edge.method();
+                    ExecutionPhase phase=work.phase()==ExecutionPhase.DATA_GENERATION?work.phase():edge.phase();
                     if (call.owner().startsWith("net/minecraftforge/")) {
                         boundaries.add(new Boundary(current.toString(), call.owner().replace('/', '.'),
-                                call.name(), call.descriptor()));
+                                call.name(), call.descriptor(), phase));
                     } else if (jar.getJarEntry(call.owner() + ".class") != null
-                            && !visited.contains(call)) {
-                        pending.addLast(call);
+                            && !visited.contains(new Work(call,phase))) {
+                        pending.addLast(new Work(call,phase));
                     }
                 }
             }
@@ -66,8 +74,8 @@ public final class Forge1192RegistrationPlanner {
                         : "Owned call graph incomplete; lifecycle execution must remain blocked");
     }
 
-    private record ClassInfo(String name, String superName, Map<MethodKey, List<MethodKey>> methods) {}
-    private record Resolution(MethodKey declaration, List<MethodKey> calls) {}
+    private record ClassInfo(String name, String superName, Map<MethodKey, List<Call>> methods) {}
+    private record Resolution(MethodKey declaration, List<Call> calls) {}
 
     private static boolean ownedHierarchyTerminatesExternally(JarFile jar,
                                                               Map<String, ClassInfo> cache,
@@ -93,7 +101,7 @@ public final class Forge1192RegistrationPlanner {
             ClassInfo info = readClass(jar, cache, owner);
             if (info == null) return null;
             MethodKey declared = new MethodKey(owner, symbolic.name(), symbolic.descriptor());
-            List<MethodKey> calls = info.methods().get(declared);
+            List<Call> calls = info.methods().get(declared);
             if (calls != null) return new Resolution(declared, calls);
             String parent = info.superName();
             if (parent == null || jar.getJarEntry(parent + ".class") == null) return null;
@@ -116,7 +124,7 @@ public final class Forge1192RegistrationPlanner {
     }
 
     private static ClassInfo inspect(byte[] bytes) {
-        Map<MethodKey, List<MethodKey>> methods = new HashMap<>();
+        Map<MethodKey, List<Call>> methods = new HashMap<>();
         String[] identity = new String[2];
         new ClassReader(bytes).accept(new ClassVisitor(Opcodes.ASM9) {
             private String owner;
@@ -129,18 +137,22 @@ public final class Forge1192RegistrationPlanner {
             @Override public MethodVisitor visitMethod(int access, String name, String descriptor,
                                                         String signature, String[] exceptions) {
                 MethodKey key = new MethodKey(owner, name, descriptor);
-                List<MethodKey> calls = new ArrayList<>();
+                List<Call> calls = new ArrayList<>();
                 methods.put(key, calls);
                 return new MethodVisitor(Opcodes.ASM9) {
                     @Override public void visitMethodInsn(int opcode, String target, String method,
                                                           String desc, boolean itf) {
-                        calls.add(new MethodKey(target, method, desc));
+                        calls.add(new Call(new MethodKey(target, method, desc),ExecutionPhase.RUNTIME));
                     }
                     @Override public void visitInvokeDynamicInsn(String name, String descriptor,
                                                                  Handle bootstrap, Object... args) {
                         for (Object arg : args) {
                             if (arg instanceof Handle handle) {
-                                calls.add(new MethodKey(handle.getOwner(), handle.getName(), handle.getDesc()));
+                                boolean dataCallback=bootstrap.getOwner().equals("java/lang/invoke/LambdaMetafactory")
+                                        &&descriptor.endsWith("Ljava/util/function/Consumer;")
+                                        &&handle.getDesc().endsWith("Lnet/minecraftforge/data/event/GatherDataEvent;)V");
+                                calls.add(new Call(new MethodKey(handle.getOwner(), handle.getName(), handle.getDesc()),
+                                        dataCallback?ExecutionPhase.DATA_GENERATION:ExecutionPhase.RUNTIME));
                             }
                         }
                     }

@@ -38,7 +38,7 @@ public final class Forge1192NetworkBridge {
     public static String ACCEPTVANILLA = new String("ALLOWVANILLA 💓💓💓");
 
     public enum TargetKind {
-        SERVER, PLAYER, ALL, DIMENSION, TRACKING_CHUNK, TRACKING_ENTITY_AND_SELF, NEAR
+        SERVER, PLAYER, ALL, DIMENSION, TRACKING_CHUNK, TRACKING_ENTITY, TRACKING_ENTITY_AND_SELF, NEAR
     }
 
     public record LegacyPacketTarget(TargetKind kind, Object argument) {
@@ -63,6 +63,7 @@ public final class Forge1192NetworkBridge {
         public static final LegacyPacketDistributor DIMENSION = new LegacyPacketDistributor(TargetKind.DIMENSION);
         public static final LegacyPacketDistributor TRACKING_CHUNK =
                 new LegacyPacketDistributor(TargetKind.TRACKING_CHUNK);
+        public static final LegacyPacketDistributor TRACKING_ENTITY = new LegacyPacketDistributor(TargetKind.TRACKING_ENTITY);
         public static final LegacyPacketDistributor TRACKING_ENTITY_AND_SELF =
                 new LegacyPacketDistributor(TargetKind.TRACKING_ENTITY_AND_SELF);
         public static final LegacyPacketDistributor NEAR = new LegacyPacketDistributor(TargetKind.NEAR);
@@ -147,6 +148,37 @@ public final class Forge1192NetworkBridge {
     }
 
     public enum Flow { CLIENTBOUND, SERVERBOUND, BIDIRECTIONAL }
+
+    public enum LegacyNetworkDirection {
+        PLAY_TO_CLIENT(Flow.CLIENTBOUND), PLAY_TO_SERVER(Flow.SERVERBOUND),
+        LOGIN_TO_CLIENT(null), LOGIN_TO_SERVER(null);
+        private final Flow flow;
+        LegacyNetworkDirection(Flow flow) { this.flow=flow; }
+        private Flow playFlow() {
+            if(flow==null) throw new UnsupportedOperationException("Legacy login-channel phase is not adapted");
+            return flow;
+        }
+    }
+
+    public static final class LegacyChannelBuilder {
+        private final Identifier name;
+        private Supplier<String> version;
+        private Predicate<String> client, server;
+        private boolean built;
+        private LegacyChannelBuilder(Identifier name){this.name=Objects.requireNonNull(name);}
+        public static LegacyChannelBuilder named(Identifier name){return new LegacyChannelBuilder(name);}
+        public LegacyChannelBuilder networkProtocolVersion(Supplier<String> value){checkOpen();version=Objects.requireNonNull(value);return this;}
+        public LegacyChannelBuilder clientAcceptedVersions(Predicate<String> value){checkOpen();client=Objects.requireNonNull(value);return this;}
+        public LegacyChannelBuilder serverAcceptedVersions(Predicate<String> value){checkOpen();server=Objects.requireNonNull(value);return this;}
+        public Object simpleChannel(){
+            checkOpen();
+            Object channel=newSimpleChannel(name,Objects.requireNonNull(version,"protocol version"),Objects.requireNonNull(client,"client acceptance"),Objects.requireNonNull(server,"server acceptance"));
+            built=true;return channel;
+        }
+        private void checkOpen(){if(built)throw new IllegalStateException("Legacy channel builder already consumed");}
+    }
+
+
 
     public record LegacyMessage(
             int discriminator,
@@ -347,6 +379,32 @@ public final class Forge1192NetworkBridge {
         return message;
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static Object registerMessage(Object token, int discriminator, Class messageType,
+            BiConsumer encoder, Function decoder, BiConsumer consumer,
+            java.util.Optional<LegacyNetworkDirection> direction) {
+        Objects.requireNonNull(direction,"legacy message direction");
+        Flow flow=direction.map(LegacyNetworkDirection::playFlow).orElse(null);
+        LegacyMessage message=(LegacyMessage)registerMessage(token,discriminator,messageType,encoder,decoder,consumer);
+        if(flow!=null){resolveFlow(token,discriminator,flow);return MESSAGES.get(requireChannel(token)).get(discriminator);}
+        return message;
+    }
+
+    public static void sendToServer(Object token,Object message){send(token,LegacyPacketDistributor.SERVER.noArg(),message);}
+    public static void sendTo(Object token,Object message,net.minecraft.network.Connection connection,LegacyNetworkDirection direction){
+        var channel=requireChannel(token);var flow=Objects.requireNonNull(direction).playFlow();
+        var registration=messages(channel).stream().filter(m->m.messageType()==message.getClass()).findFirst().orElseThrow();
+        requireFlow(registration,flow==Flow.CLIENTBOUND?PacketFlow.CLIENTBOUND:PacketFlow.SERVERBOUND);
+        var payload=new LegacyPayload(channel,registration,message);
+        if(flow==Flow.CLIENTBOUND)connection.send(new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(payload));
+        else connection.send(new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(payload));
+    }
+    private static void requireFlow(LegacyMessage registration,PacketFlow actual){
+        if(registration.flow()!=null&&registration.flow()!=Flow.BIDIRECTIONAL
+                &&registration.flow()!=(actual==PacketFlow.CLIENTBOUND?Flow.CLIENTBOUND:Flow.SERVERBOUND))
+            throw new IllegalStateException("Source packet direction mismatch for "+registration.messageType().getName());
+    }
+
     public static void send(Object token, LegacyPacketTarget target, Object message) {
         LegacyChannel channel = requireChannel(token);
         Objects.requireNonNull(target, "target");
@@ -356,6 +414,7 @@ public final class Forge1192NetworkBridge {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Invalid legacy message "
                         + message.getClass().getName() + " on channel " + channel.name()));
+        requireFlow(registration,target.kind()==TargetKind.SERVER?PacketFlow.SERVERBOUND:PacketFlow.CLIENTBOUND);
         LegacyPayload payload = new LegacyPayload(channel, registration, message);
         switch (target.kind()) {
             case SERVER -> Target263ClientNetworkBridge.sendToServer(payload);
@@ -379,6 +438,7 @@ public final class Forge1192NetworkBridge {
                 }
                 PacketDistributor.sendToPlayersTrackingChunk(level, chunk.getPos(), payload);
             }
+            case TRACKING_ENTITY -> PacketDistributor.sendToPlayersTrackingEntity(requireArgument(target,Entity.class),payload);
             case TRACKING_ENTITY_AND_SELF -> PacketDistributor.sendToPlayersTrackingEntityAndSelf(
                     requireArgument(target, Entity.class), payload);
             case NEAR -> {
@@ -454,6 +514,7 @@ public final class Forge1192NetworkBridge {
     }
 
     private static void handlePayload(LegacyPayload payload, IPayloadContext context) {
+        requireFlow(payload.registration(),context.flow());
         ServerPlayer sender = context.flow() == PacketFlow.SERVERBOUND
                 ? requirePlayer(context) : null;
         LegacyContext legacyContext = new LegacyContext(sender, work -> context.enqueueWork(

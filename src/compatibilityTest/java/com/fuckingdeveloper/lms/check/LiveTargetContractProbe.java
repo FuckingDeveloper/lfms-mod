@@ -144,6 +144,7 @@ public final class LiveTargetContractProbe {
         GuiPlaneFamilyCheck.run();
         WorldgenFamilyCheck.run();
         LegacyTagResourceCheck.run();
+        BootstrapFamilyCheck.run();
         BonemealFamilyCheck.run();
         ComponentJsonCheck.run();
         ItemWireFamilyCheck.run();

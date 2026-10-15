@@ -12,7 +12,7 @@ import java.util.Set;
  * similarity alone is never treated as compatibility proof.</p>
  */
 public final class Forge1192CompatibilitySurface {
-    public enum State { SUPPORTED, ADAPTER_REQUIRED, UNSUPPORTED }
+    public enum State { SUPPORTED, INACTIVE_DATA_GENERATION, ADAPTER_REQUIRED, UNSUPPORTED }
 
     public record Requirement(String target, long callSites, State state, String adapter) {}
     public record Assessment(List<Requirement> requirements, boolean executable) {}
@@ -37,6 +37,22 @@ public final class Forge1192CompatibilitySurface {
      * exact legacy owner/name/descriptor contracts, not namespace guesses.
      */
     private static final Set<String> SUPPORTED_BRIDGES = Set.of(
+            "net.minecraftforge.client.event.InputEvent$Key#getAction()I",
+            "net.minecraftforge.client.event.InputEvent$Key#getKey()I",
+            "net.minecraftforge.client.event.InputEvent$Key#getScanCode()I",
+            "net.minecraftforge.client.event.InputEvent$Key#getModifiers()I",
+            "net.minecraftforge.client.event.RegisterKeyMappingsEvent#register(Lnet/minecraft/client/KeyMapping;)V",
+            "net.minecraftforge.fml.util.ObfuscationReflectionHelper#getPrivateValue(Ljava/lang/Class;Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;",
+            "net.minecraftforge.fml.DistExecutor#unsafeRunWhenOn(Lnet/minecraftforge/api/distmarker/Dist;Ljava/util/function/Supplier;)V",
+            "net.minecraftforge.registries.DeferredRegister#register(Lnet/minecraftforge/eventbus/api/IEventBus;)V",
+            "net.minecraftforge.registries.RegistryObject#get()Ljava/lang/Object;",
+            "net.minecraftforge.network.NetworkRegistry$ChannelBuilder#named(Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraftforge/network/NetworkRegistry$ChannelBuilder;",
+            "net.minecraftforge.network.NetworkRegistry$ChannelBuilder#networkProtocolVersion(Ljava/util/function/Supplier;)Lnet/minecraftforge/network/NetworkRegistry$ChannelBuilder;",
+            "net.minecraftforge.network.NetworkRegistry$ChannelBuilder#clientAcceptedVersions(Ljava/util/function/Predicate;)Lnet/minecraftforge/network/NetworkRegistry$ChannelBuilder;",
+            "net.minecraftforge.network.NetworkRegistry$ChannelBuilder#serverAcceptedVersions(Ljava/util/function/Predicate;)Lnet/minecraftforge/network/NetworkRegistry$ChannelBuilder;",
+            "net.minecraftforge.network.NetworkRegistry$ChannelBuilder#simpleChannel()Lnet/minecraftforge/network/simple/SimpleChannel;",
+            "net.minecraftforge.network.simple.SimpleChannel#registerMessage(ILjava/lang/Class;Ljava/util/function/BiConsumer;Ljava/util/function/Function;Ljava/util/function/BiConsumer;Ljava/util/Optional;)Lnet/minecraftforge/network/simple/IndexedMessageCodec$MessageHandler;",
+
             "net.minecraftforge.client.ConfigScreenHandler$ConfigScreenFactory#<init>(Ljava/util/function/BiFunction;)V",
             "net.minecraftforge.client.ConfigScreenHandler$ConfigScreenFactory#<init>(Ljava/util/function/Function;)V",
             "net.minecraftforge.client.ConfigScreenHandler$ConfigScreenFactory#screenFunction()Ljava/util/function/BiFunction;",
@@ -129,22 +145,52 @@ public final class Forge1192CompatibilitySurface {
 
     private static final Set<String> EXPLICIT_UNSUPPORTED = Set.of();
 
+    /** Conservative artifact validation for a known unsupported native-super data family. */
+    public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries,java.nio.file.Path artifact) throws java.io.IOException {
+        var base=assess(boundaries);
+        var requirements=new ArrayList<>(base.requirements());
+        var unsupported=new java.util.TreeSet<String>();
+        try(var jar=new java.util.jar.JarFile(artifact.toFile(),false)){
+            for(var entry:java.util.Collections.list(jar.entries())){
+                if(!entry.getName().endsWith(".class"))continue;
+                try(var in=jar.getInputStream(entry)){
+                    new org.objectweb.asm.ClassReader(in).accept(new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9){
+                        @Override public org.objectweb.asm.MethodVisitor visitMethod(int access,String name,String descriptor,String signature,String[] exceptions){
+                            return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9){
+                                @Override public void visitMethodInsn(int opcode,String owner,String method,String desc,boolean itf){
+                                    if(opcode!=org.objectweb.asm.Opcodes.INVOKESPECIAL)return;
+                                    if(!owner.equals("net/minecraft/world/level/block/entity/RandomizableContainerBlockEntity")
+                                            &&!owner.equals("net/minecraft/world/level/block/entity/BaseContainerBlockEntity"))return;
+                                    if((method.equals("m_142466_")||method.equals("m_183515_"))&&desc.equals("(Lnet/minecraft/nbt/CompoundTag;)V"))
+                                        unsupported.add(owner.replace('/','.')+"#"+method+desc);
+                                }
+                            };
+                        }
+                    },org.objectweb.asm.ClassReader.SKIP_DEBUG|org.objectweb.asm.ClassReader.SKIP_FRAMES);
+                }
+            }
+        }
+        for(String target:unsupported)requirements.add(new Requirement(target,1,State.ADAPTER_REQUIRED,"NATIVE_CONTAINER_DATA"));
+        return new Assessment(List.copyOf(requirements),base.executable()&&unsupported.isEmpty());
+    }
+
     public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries) {
         var grouped = boundaries.stream().collect(java.util.stream.Collectors.groupingBy(
                 boundary -> boundary.owner() + "#" + boundary.name() + boundary.descriptor(),
-                java.util.TreeMap::new, java.util.stream.Collectors.counting()));
+                java.util.TreeMap::new, java.util.stream.Collectors.toList()));
         List<Requirement> requirements = new ArrayList<>();
         for (var entry : grouped.entrySet()) {
             String target = entry.getKey();
-            State state = SUPPORTED_BRIDGES.contains(target)
+            boolean inactive=entry.getValue().stream().allMatch(boundary -> boundary.phase()==Forge1192RegistrationPlanner.ExecutionPhase.DATA_GENERATION);
+            State state = inactive ? State.INACTIVE_DATA_GENERATION : SUPPORTED_BRIDGES.contains(target)
                     ? State.SUPPORTED
                     : EXPLICIT_UNSUPPORTED.contains(target) ? State.UNSUPPORTED
                     : NETWORK_ADAPTERS.contains(target) ? State.ADAPTER_REQUIRED : State.ADAPTER_REQUIRED;
-            requirements.add(new Requirement(target, entry.getValue(), state,
+            requirements.add(new Requirement(target, entry.getValue().size(), state,
                     NETWORK_ADAPTERS.contains(target) ? "NETWORK_PROTOCOL" : family(target)));
         }
         boolean executable = requirements.stream()
-                .allMatch(requirement -> requirement.state() == State.SUPPORTED);
+                .allMatch(requirement -> requirement.state() == State.SUPPORTED || requirement.state() == State.INACTIVE_DATA_GENERATION);
         return new Assessment(List.copyOf(requirements), executable);
     }
 

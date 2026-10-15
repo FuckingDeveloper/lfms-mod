@@ -18,18 +18,18 @@ public final class Forge1192KeyMappingBridge {
     private Forge1192KeyMappingBridge() {}
 
     public static KeyMapping create(String name, int keyCode, String category) {
-        return new KeyMapping(name, keyCode, category(category));
+        return new KeyMapping(name, com.fuckingdeveloper.lms.runtime.render.Forge1192KeyboardBridge.keyboardCode(keyCode), category(category));
     }
 
     public static KeyMapping create(
             String name, InputConstants.Type inputType, int keyCode, String category) {
-        return new KeyMapping(name, inputType, keyCode, category(category));
+        return new KeyMapping(name, inputType, com.fuckingdeveloper.lms.runtime.render.Forge1192KeyboardBridge.key(inputType,keyCode).getValue(), category(category));
     }
 
     public static KeyMapping create(
             String name, IKeyConflictContext conflictContext,
             InputConstants.Type inputType, int keyCode, String category) {
-        return new KeyMapping(name, conflictContext, inputType, keyCode, category(category));
+        return new KeyMapping(name, conflictContext, inputType, com.fuckingdeveloper.lms.runtime.render.Forge1192KeyboardBridge.key(inputType,keyCode).getValue(), category(category));
     }
 
     public static KeyMapping create(
@@ -42,7 +42,7 @@ public final class Forge1192KeyMappingBridge {
             String name, IKeyConflictContext conflictContext, KeyModifier modifier,
             InputConstants.Type inputType, int keyCode, String category) {
         return new KeyMapping(
-                name, conflictContext, modifier, inputType, keyCode, category(category));
+                name, conflictContext, modifier, inputType, com.fuckingdeveloper.lms.runtime.render.Forge1192KeyboardBridge.key(inputType,keyCode).getValue(), category(category));
     }
 
     public static KeyMapping create(

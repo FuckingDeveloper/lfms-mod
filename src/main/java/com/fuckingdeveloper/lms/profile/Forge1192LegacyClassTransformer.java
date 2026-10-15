@@ -237,6 +237,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockPosConstruction(node);
         rewrites += rewriteLegacyChunkPosFamily(node);
         rewrites += rewriteLegacyChatEventFamily(node);
+        rewrites += Forge1192BootstrapRewriter.rewrite(node);
         rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
         // superclass constructor is still visible. Later construction-shape
@@ -9633,6 +9634,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     case "ENTITY_TYPES" -> "ENTITY_TYPE";
                     case "FLUIDS" -> "FLUID";
                     case "FOLIAGE_PLACER_TYPES" -> "FOLIAGE_PLACER_TYPE";
+                    case "SOUND_EVENTS" -> "SOUND_EVENT";
+                    case "POTIONS" -> "POTION";
+                    case "PARTICLE_TYPES" -> "PARTICLE_TYPE";
+                    case "MENU_TYPES" -> "MENU";
+                    case "RECIPE_TYPES" -> "RECIPE_TYPE";
+                    case "ATTRIBUTES" -> "ATTRIBUTE";
+                    case "STAT_TYPES" -> "STAT_TYPE";
                     case "ITEMS" -> "ITEM";
                     case "MOB_EFFECTS" -> "MOB_EFFECT";
                     case "POI_TYPES" -> "POINT_OF_INTEREST_TYPE";
@@ -12245,6 +12253,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static Handle migrateHandle(Handle handle) {
+        handle = Forge1192BootstrapRewriter.handle(handle);
         String owner = migrateInternalName(handle.getOwner());
         String desc = migrateDescriptor(handle.getDesc());
         if (owner.equals(handle.getOwner()) && desc.equals(handle.getDesc())) return handle;
@@ -12328,6 +12337,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             return "com/fuckingdeveloper/lms/runtime/color/LegacyBlockColor";
         if (value.equals("net/minecraft/client/color/item/ItemColor"))
             return "com/fuckingdeveloper/lms/runtime/color/LegacyItemColor";
+        String bootstrapRelocation = Forge1192BootstrapRewriter.relocation(value);
+        if (bootstrapRelocation != null) return bootstrapRelocation;
         String worldgenRelocation = Forge1192WorldgenRewriter.relocation(value);
         if (worldgenRelocation != null) return worldgenRelocation;
         String explicitVanillaRelocation = EXPLICIT_VANILLA_CLASS_RELOCATIONS.get(value);
@@ -12505,6 +12516,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             migrated = migrated.replace(relocation.getKey(), relocation.getValue());
         }
+        migrated = Forge1192BootstrapRewriter.descriptor(migrated);
         return migrated
                 .replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge")
                 .replace("net/minecraftforge/api/distmarker/Dist", "net/neoforged/api/distmarker/Dist")
