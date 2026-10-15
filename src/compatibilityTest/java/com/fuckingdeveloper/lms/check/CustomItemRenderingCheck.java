@@ -66,6 +66,9 @@ final class CustomItemRenderingCheck {
                     "removed source dispatcher camera retained");
             check(operations.stream().anyMatch(i -> i instanceof MethodInsnNode c && c.name.equals("cameraPosition")
                     && c.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192CustomItemBridge")), "source camera position observation lost");
+            check(operations.stream().noneMatch(i -> i instanceof MethodInsnNode c && (c.name.equals("m_91291_") || c.name.equals("m_174269_"))), "removed nested source renderer API retained");
+            check(operations.stream().anyMatch(i -> i instanceof MethodInsnNode c && c.name.equals("renderStatic")
+                    && c.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192NestedItemBridge")), "nested source items silently omitted");
             String itemClass="com.progwml6.ironchest.common.item.IronChestBlockItem";
             loader.loadClass(itemClass);var named=new ClassNode();new ClassReader(loader.definedClassBytes(itemClass)).accept(named,0);
             check(named.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).anyMatch(i->i instanceof MethodInsnNode c

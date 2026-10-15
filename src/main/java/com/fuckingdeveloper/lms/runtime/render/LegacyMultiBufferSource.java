@@ -21,6 +21,7 @@ public class LegacyMultiBufferSource {
     private final boolean recordingOnly;
     private final net.minecraft.client.resources.model.sprite.SpriteGetter sprites;
     private final Map<LegacyRenderType, RecordingVertexConsumer> batches = new LinkedHashMap<>();
+    private final List<RecordedItem> items = new ArrayList<>();
     private boolean flushed;
 
     protected LegacyMultiBufferSource() {
@@ -94,6 +95,16 @@ public class LegacyMultiBufferSource {
         return snapshot();
     }
 
+    public void recordItem(net.minecraft.client.renderer.item.ItemModelResolver resolver,
+            net.minecraft.world.item.ItemStack stack, net.minecraft.world.item.ItemDisplayContext display,
+            PoseStack sourcePose, net.minecraft.world.level.Level level, net.minecraft.world.entity.ItemOwner owner,
+            int light, int overlay, int seed) {
+        if (flushed || (!recordingOnly && submitter == null)) throw new IllegalStateException("No active source geometry recording");
+        var state = new net.minecraft.client.renderer.item.ItemStackRenderState();
+        resolver.updateForTopItem(state, stack.copy(), display, level, owner, seed);
+        items.add(new RecordedItem(state, new org.joml.Matrix4f(sourcePose.last().pose()), light, overlay));
+    }
+
     public static LegacyBufferSource m_109898_(
             com.mojang.blaze3d.vertex.BufferBuilder ignoredBuilder) {
         return new LegacyBufferSource();
@@ -105,8 +116,11 @@ public class LegacyMultiBufferSource {
             List<Consumer<VertexConsumer>> operations = List.copyOf(recorder.operations);
                 if (!operations.isEmpty()) recorded.add(new RecordedBatch(renderType, operations, List.copyOf(recorder.positions)));
         });
-        return new RecordedGeometry(List.copyOf(recorded));
+        return new RecordedGeometry(List.copyOf(recorded), List.copyOf(items));
     }
+
+    private record RecordedItem(net.minecraft.client.renderer.item.ItemStackRenderState state,
+            org.joml.Matrix4fc pose, int light, int overlay) {}
 
     private record RecordedBatch(
             LegacyRenderType renderType,
@@ -116,15 +130,20 @@ public class LegacyMultiBufferSource {
     /** Immutable geometry extracted from one source renderer invocation. */
     public static final class RecordedGeometry {
         private final List<RecordedBatch> batches;
+        private final List<RecordedItem> items;
 
-        private RecordedGeometry(List<RecordedBatch> batches) {
+        private RecordedGeometry(List<RecordedBatch> batches, List<RecordedItem> items) {
             this.batches = batches;
+            this.items = items;
         }
 
         public org.joml.Vector3fc[] extents() {
-            return batches.stream().flatMap(batch -> batch.positions().stream())
+            var result = new java.util.ArrayList<org.joml.Vector3fc>();
+            batches.stream().flatMap(batch -> batch.positions().stream())
                     .map(position -> new org.joml.Vector3f(position.x(), position.y(), position.z()))
-                    .toArray(org.joml.Vector3fc[]::new);
+                    .forEach(result::add);
+            for(var item : items) item.state().visitExtents(vertex -> result.add(new org.joml.Vector3f(vertex).mulPosition(item.pose())));
+            return result.toArray(org.joml.Vector3fc[]::new);
         }
 
         public void submit(SubmitNodeCollector submitter, PoseStack poseStack) {
@@ -143,6 +162,14 @@ public class LegacyMultiBufferSource {
                                     : target;
                             batch.operations().forEach(operation -> operation.accept(output));
                         });
+            }
+            for (var item : items) {
+                PoseStack nestedPose = applySubmissionPose ? poseStack : new PoseStack();
+                nestedPose.pushPose();
+                try {
+                    nestedPose.mulPose(item.pose());
+                    item.state().submit(nestedPose, submitter, item.light(), item.overlay(), 0);
+                } finally { nestedPose.popPose(); }
             }
         }
     }

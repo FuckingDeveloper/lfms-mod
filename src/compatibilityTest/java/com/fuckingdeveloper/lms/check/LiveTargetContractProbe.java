@@ -147,6 +147,7 @@ public final class LiveTargetContractProbe {
         CreativeConstructionFamilyCheck.run();
         StaticItemResourcesCheck.run();
         CustomItemRenderingCheck.run();
+        NestedItemRenderingCheck.run();
         DamageDescriptorFamilyCheck.run();
         BootstrapFamilyCheck.run();
         SourceContainerFamilyCheck.run(host);

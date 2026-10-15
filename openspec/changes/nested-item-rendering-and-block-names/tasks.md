@@ -1,0 +1,8 @@
+- [x] Inspect runtime34 crash, source renderStatic overloads and exact target extraction/submission APIs.
+- [x] Preserve nested item context/pose/light/overlay through native extraction and submission.
+- [x] Cover ordinary source BlockItem construction and constructor references with block-owned names.
+- [x] Verify actual original source BER and item bytecode plus isolated native-state regression tests.
+- [x] Run `compatibilityTest nativeCompatibilitySmoke compileLaunchJava` successfully.
+- [x] Runtime37: MCP opens the original trapped crystal chest at (-238,85,36), takes/returns its copper ore, closes and confirms original slot/count. Visual inspection confirms ore rendering inside the transparent chest. Actual item names are Iron Chest and Trapped Crystal Chest.
+- [x] No new runtime error after the packet/update test; first remaining logged error is the pre-existing global-loot-list schema gap. Held/world custom item rendering remains unsupported.
+- [ ] User acceptance of source inventory changes and labels in runtime37.

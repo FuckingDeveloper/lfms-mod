@@ -294,6 +294,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyDamageSourceSingletonComparisons(node);
         rewrites += Forge1192DamageSourceRewriter.rewrite(node);
         rewrites += Forge1192CustomItemRewriter.rewrite(node);
+        rewrites += Forge1192NestedItemRewriter.rewrite(node);
         rewrites += rewriteLegacyBiomePrecipitationPresence(node);
         rewrites += rewriteLegacyChunkUnsavedMarks(node);
         rewrites += rewriteLegacyRecipeViewFamily(node);
