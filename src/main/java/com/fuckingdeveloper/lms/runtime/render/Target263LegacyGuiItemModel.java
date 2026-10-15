@@ -15,19 +15,22 @@ import net.minecraft.world.item.*;
 import org.joml.*;
 import org.jspecify.annotations.Nullable;
 
-/** GUI geometry extraction plus native late submission for proven non-GUI contexts. */
+/** GUI/item-entity geometry extraction plus native late submission for proven contexts. */
 public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matrix4fc transformation,
                                           ItemModel missing) implements ItemModel {
     private static final SpecialModelRenderer<LegacyMultiBufferSource.RecordedGeometry> SUBMIT = new SpecialModelRenderer<>() {
         public void submit(LegacyMultiBufferSource.RecordedGeometry geometry, PoseStack pose, SubmitNodeCollector output,
-                int light, int overlay, boolean foil, int outline) { geometry.submit(output, pose); }
-        public void getExtents(java.util.function.Consumer<Vector3fc> output) { throw new UnsupportedOperationException("GUI extents are extracted from actual source geometry"); }
-        public LegacyMultiBufferSource.RecordedGeometry extractArgument(ItemStack stack) { throw new UnsupportedOperationException("GUI geometry requires the native display context"); }
+                int light, int overlay, boolean foil, int outline) {
+            if (outline != 0) throw new UnsupportedOperationException("Source custom item outline submission is not adapted");
+            geometry.submit(output, pose);
+        }
+        public void getExtents(java.util.function.Consumer<Vector3fc> output) { throw new UnsupportedOperationException("Extents are extracted from actual source geometry"); }
+        public LegacyMultiBufferSource.RecordedGeometry extractArgument(ItemStack stack) { throw new UnsupportedOperationException("Source geometry requires native extraction inputs"); }
     };
 
     @Override public void update(ItemStackRenderState output, ItemStack stack, ItemModelResolver resolver,
             ItemDisplayContext display, @Nullable ClientLevel level, @Nullable ItemOwner owner, int seed) {
-        if (display != ItemDisplayContext.GUI) {
+        if (display != ItemDisplayContext.GUI && display != ItemDisplayContext.GROUND) {
             if(Target263DeferredCustomItem.supports(display)) {
                 installDeferred(output,stack,display);
                 return;
@@ -35,11 +38,18 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
             missing.update(output, stack, resolver, display, level, owner, seed);
             return;
         }
-        var buffers = LegacyMultiBufferSource.recording(Minecraft.getInstance().getAtlasManager());
-        Forge1192CustomItemBridge.extensions(stack.getItem()).getCustomRenderer().m_108829_(
-                stack.copy(), display, new PoseStack(), buffers, 15728880, OverlayTexture.NO_OVERLAY);
-        var geometry = buffers.finishRecording();
-        installGeometry(output, stack, geometry);
+        int light = display == ItemDisplayContext.GUI ? 15728880
+                : Target263GroundItemExtraction.requireLight(output, stack, owner);
+        var geometry = recordGeometry(Forge1192CustomItemBridge.extensions(stack.getItem()).getCustomRenderer(),
+                stack, display, light, Minecraft.getInstance().getAtlasManager());
+        installGeometry(output, stack, geometry, display);
+    }
+
+    public static LegacyMultiBufferSource.RecordedGeometry recordGeometry(Forge1192CustomItemRenderer renderer,
+            ItemStack stack, ItemDisplayContext display, int light, net.minecraft.client.resources.model.sprite.SpriteGetter sprites) {
+        var buffers = LegacyMultiBufferSource.recording(sprites);
+        renderer.m_108829_(stack.copy(), display, new PoseStack(), buffers, light, OverlayTexture.NO_OVERLAY);
+        return buffers.finishRecording();
     }
 
     public void installDeferred(ItemStackRenderState output,ItemStack stack,ItemDisplayContext display) {
@@ -54,6 +64,10 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
     }
 
     public void installGeometry(ItemStackRenderState output, ItemStack stack, LegacyMultiBufferSource.RecordedGeometry geometry) {
+        installGeometry(output, stack, geometry, ItemDisplayContext.GUI);
+    }
+
+    public void installGeometry(ItemStackRenderState output, ItemStack stack, LegacyMultiBufferSource.RecordedGeometry geometry, ItemDisplayContext display) {
         output.appendModelIdentityElement(this);
         // Like native SpecialModelWrapper, include the actual extracted argument.
         // Equal display properties do not identify source-selected geometry/materials.
@@ -66,14 +80,14 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
         layer.setExtents(geometry::extents);
         layer.setLocalTransform(transformation);
         layer.setupSpecialModel(SUBMIT, geometry);
-        properties.applyToLayer(layer, ItemDisplayContext.GUI);
+        properties.applyToLayer(layer, display);
     }
 
     public record Unbaked(Identifier base) implements ItemModel.Unbaked {
         public static final MapCodec<Unbaked> CODEC = Identifier.CODEC.fieldOf("base").xmap(Unbaked::new, Unbaked::base);
         public void resolveDependencies(ResolvableModel.Resolver resolver) { resolver.markDependency(base); }
         public ItemModel bake(ItemModel.BakingContext context, Matrix4fc transform) {
-            com.mojang.logging.LogUtils.getLogger().warn("LMS source custom item model {} supports GUI and deferred hand/head/fixed/nested draws; ground/shelf/bounds/outline contexts remain unsupported", base);
+            com.mojang.logging.LogUtils.getLogger().warn("LMS source custom item model {} supports GUI, native item-entity GROUND and deferred hand/head/fixed/nested draws; shelf/deferred-bounds/outline contexts remain unsupported", base);
             var baker = context.blockModelBaker(); var model = baker.getModel(base);
             var properties = ModelRenderProperties.fromResolvedModel(baker, model, model.getTopTextureSlots());
             return new Target263LegacyGuiItemModel(properties, new Matrix4f(transform), context.missingItemModel(transform));

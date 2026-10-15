@@ -18,6 +18,7 @@
     "Target263SingleRecipeResultAccess"
   ],
   "client": [
+    "Target263GroundItemExtractionMixin",
     "Target263KeyCategoryLabelMixin",
     "Target263EntityRenderStateMixin",
     "Target263FluidModelLookupMixin"

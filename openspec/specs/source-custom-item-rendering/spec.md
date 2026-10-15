@@ -19,7 +19,16 @@ invoke it exactly once, and submit through the native collector. Mutable source
 custom data MUST be isolated both at capture and materialization. Submitted state
 MUST NOT capture a live source renderer, block entity, input stack or pose.
 
-GROUND, target-only contexts and pre-submission bounds for deferred models remain
+For native item entities, GROUND MAY record source-local geometry once during
+model extraction using the packed light already computed by EntityRenderer and
+the native NO_OVERLAY. The extraction scope MUST match the exact output state,
+input stack and entity owner, restore nested scopes and clear on failure. The
+adapter MUST freeze actual vertex bounds, apply the original GROUND model
+transform, and preserve native bob/spin/count/spread placement. Submission MUST
+reuse this geometry without a second source callback or a live stack/entity.
+Unscoped GROUND extraction and unsupported outlines MUST fail explicitly.
+
+Target-only contexts and pre-submission bounds for deferred models remain
 explicit gaps until their semantics are established. Bounds requests MUST fail
 explicitly; dummy bounds and a second source callback with guessed lighting are
 forbidden. Unsupported outline semantics MUST remain explicit as well.
