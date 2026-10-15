@@ -341,6 +341,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyCreativeTabLookup(node);
         rewrites += rewriteLegacyCreativeTabEnumeration(node);
         rewrites += rewriteLegacyBlockItemConstruction(node);
+        rewrites += Forge1192BlockItemNamesRewriter.rewrite(node);
         rewrites += rewriteLegacyNamedItemConstruction(node);
         rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
         rewrites += rewriteEarlyItemStackConsumers(node);

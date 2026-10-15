@@ -66,6 +66,10 @@ final class CustomItemRenderingCheck {
                     "removed source dispatcher camera retained");
             check(operations.stream().anyMatch(i -> i instanceof MethodInsnNode c && c.name.equals("cameraPosition")
                     && c.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192CustomItemBridge")), "source camera position observation lost");
+            String itemClass="com.progwml6.ironchest.common.item.IronChestBlockItem";
+            loader.loadClass(itemClass);var named=new ClassNode();new ClassReader(loader.definedClassBytes(itemClass)).accept(named,0);
+            check(named.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).anyMatch(i->i instanceof MethodInsnNode c
+                    && c.name.equals("withBlockItemDescription")),"ordinary source BlockItem subclass lost block name intent");
             var source = new ClassNode(); new ClassReader(loader.originalClassBytes(name)).accept(source, 0);
             var reference = new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "probeHandle", "()Ljava/lang/invoke/MethodHandle;", null, null);
             reference.instructions.add(new LdcInsnNode(new Handle(Opcodes.H_INVOKEVIRTUAL,

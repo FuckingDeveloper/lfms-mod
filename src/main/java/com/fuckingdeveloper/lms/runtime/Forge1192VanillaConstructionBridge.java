@@ -312,6 +312,10 @@ public final class Forge1192VanillaConstructionBridge {
         return properties.overrideDescription(block.getDescriptionId());
     }
 
+    public static net.minecraft.world.item.BlockItem blockItemWithSourceName(Block block, Item.Properties properties) {
+        return new net.minecraft.world.item.BlockItem(block, withBlockItemDescription(properties, block));
+    }
+
     /** Preserve Block#asItem during staged legacy registration. */
     public static void associateBlockItem(Block block, Item item) {
         Forge1192RegistrationContext.requireActive();
