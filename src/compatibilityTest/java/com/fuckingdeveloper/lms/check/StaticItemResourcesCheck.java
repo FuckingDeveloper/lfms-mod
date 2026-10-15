@@ -31,7 +31,7 @@ final class StaticItemResourcesCheck {
             }
             byte[] original = Files.readAllBytes(archive);
             var definitions = Target263LegacyStaticItemResources.definitions(archive);
-            check(definitions.keySet().equals(Set.of(id("items/generated.json"), id("items/tool.json"))),
+            check(definitions.keySet().equals(Set.of(id("items/generated.json"), id("items/tool.json"), id("items/entity.json"), id("models/lms_legacy/item/entity.json"))),
                     "unsupported or explicit native models replaced");
             var document = JsonParser.parseString(new String(definitions.get(id("items/generated.json")), StandardCharsets.UTF_8)).getAsJsonObject();
             var model = document.getAsJsonObject("model");
@@ -57,14 +57,19 @@ final class StaticItemResourcesCheck {
             var pack = Target263LegacyStaticItemResources.createPack(archive);
             try (var manager = new net.minecraft.server.packs.resources.MultiPackResourceManager(
                     net.minecraft.server.packs.PackType.CLIENT_RESOURCES, pack.open().toList())) {
-                check(manager.listResources("items", i -> true).size() == 2, "native resource discovery lost definitions");
+                check(manager.listResources("items", i -> true).size() == 3, "native resource discovery lost definitions");
                 check(manager.getResource(id("items/generated.json")).isPresent(), "native direct resource lookup lost definition");
-                check(manager.getResource(id("items/entity.json")).isEmpty(), "unsupported entity renderer fabricated");
+                var custom = JsonParser.parseString(new String(definitions.get(id("items/entity.json")), StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonObject("model");
+                check(custom.get("type").getAsString().equals("lms:legacy_gui_item"), "source custom selection lost");
+                var decoded = com.fuckingdeveloper.lms.runtime.render.Target263LegacyGuiItemModel.Unbaked.CODEC.codec().parse(JsonOps.INSTANCE, custom).getOrThrow();
+                check(decoded.base().equals(id("lms_legacy/item/entity")), "custom base identity lost");
+                var base = JsonParser.parseString(new String(definitions.get(id("models/lms_legacy/item/entity.json")), StandardCharsets.UTF_8)).getAsJsonObject();
+                check(!base.has("parent"), "builtin/entity marker left as target geometry parent");
             }
             check(Arrays.equals(original, Files.readAllBytes(archive)), "source artifact modified");
         } finally { Files.deleteIfExists(archive); }
         Path iron = Path.of("legacy-mods/ironchest-1.19.2-14.2.7.jar");
-        if (Files.isRegularFile(iron)) check(Target263LegacyStaticItemResources.definitions(iron).size() == 7,
+        if (Files.isRegularFile(iron)) check(Target263LegacyStaticItemResources.definitions(iron).size() == 35,
                 "immutable source generated-model inventory changed");
         System.out.println("PASS: native generated-model definition codec/resource discovery, five source tint callbacks, explicit-model precedence and immutable artifact inventory");
     }

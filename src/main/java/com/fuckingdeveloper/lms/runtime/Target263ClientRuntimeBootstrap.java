@@ -22,6 +22,9 @@ public final class Target263ClientRuntimeBootstrap {
         modBus.addListener(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.ItemTintSources.class,
                 event -> event.register(net.minecraft.resources.Identifier.fromNamespaceAndPath("lms", "legacy_item_layer"),
                         com.fuckingdeveloper.lms.runtime.render.Target263LegacyItemTint.CODEC));
+        modBus.addListener(net.neoforged.neoforge.client.event.RegisterItemModelsEvent.class,
+                event -> event.register(net.minecraft.resources.Identifier.fromNamespaceAndPath("lms", "legacy_gui_item"),
+                        com.fuckingdeveloper.lms.runtime.render.Target263LegacyGuiItemModel.Unbaked.CODEC));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
                 net.neoforged.neoforge.client.event.ScreenEvent.Opening.class,
                 event -> Target263LegacyModListBridge.opening(event, sessions.get()));

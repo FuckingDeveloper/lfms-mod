@@ -41,9 +41,24 @@ public final class Target263LegacyStaticItemResources extends AbstractPackMetada
                      var reader = new InputStreamReader(input, StandardCharsets.UTF_8)) {
                     source = JsonParser.parseReader(reader).getAsJsonObject();
                 }
-                if (source.has("overrides") || source.has("loader") || !source.has("parent")
-                        || !PARENTS.contains(Identifier.parse(source.get("parent").getAsString()))) continue;
+                if (source.has("overrides") || source.has("loader") || !source.has("parent")) continue;
+                var parent = Identifier.parse(source.get("parent").getAsString());
+                boolean custom = parent.equals(Identifier.withDefaultNamespace("builtin/entity"));
+                if (!custom && !PARENTS.contains(parent)) continue;
                 var model = new JsonObject();
+                if (custom) {
+                    String base = "lms_legacy/item/" + itemPath.substring(0, itemPath.length() - 5);
+                    // builtin/entity is the source custom-render marker, not geometry.
+                    // Keep all actual source display/texture/model properties on a derived base.
+                    var baseModel = source.deepCopy();
+                    baseModel.remove("parent");
+                    if (archive.getEntry("assets/" + parts[1] + "/models/" + base + ".json") != null)
+                        throw new IllegalStateException("Derived source item base collides with an input resource: " + base);
+                    result.put(Identifier.fromNamespaceAndPath(parts[1], "models/" + base + ".json"),
+                            baseModel.toString().getBytes(StandardCharsets.UTF_8));
+                    model.addProperty("type", "lms:legacy_gui_item");
+                    model.addProperty("base", parts[1] + ":" + base);
+                } else {
                 model.addProperty("type", "minecraft:model");
                 model.addProperty("model", parts[1] + ":" + parts[2].substring("models/".length(), parts[2].length() - 5));
                 var tints = new JsonArray();
@@ -54,6 +69,7 @@ public final class Target263LegacyStaticItemResources extends AbstractPackMetada
                     tints.add(tint);
                 }
                 model.add("tints", tints);
+                }
                 var document = new JsonObject();
                 document.add("model", model);
                 result.put(Identifier.fromNamespaceAndPath(parts[1], "items/" + itemPath),
@@ -69,7 +85,7 @@ public final class Target263LegacyStaticItemResources extends AbstractPackMetada
         var definitions = definitions(artifact);
         if (definitions.isEmpty()) return null;
         var location = new PackLocationInfo("lms/legacy-item-definitions/" + artifact.getFileName(),
-                Component.literal("LMS legacy generated item models"), PackSource.BUILT_IN, Optional.empty());
+                Component.literal("LMS legacy item definitions"), PackSource.BUILT_IN, Optional.empty());
         var metadata = new Pack.Metadata(location.title(), PackCompatibility.COMPATIBLE, FeatureFlagSet.of(), List.of());
         var supplier = new Pack.ResourcesSupplier() {
             public PackMetadataResources openMetadata(PackLocationInfo ignored) {

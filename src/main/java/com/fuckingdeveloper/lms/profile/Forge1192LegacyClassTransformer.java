@@ -33,6 +33,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private static final Forge1192MappingLayer VANILLA_RELOCATIONS = new Forge1192MappingLayer();
     private static final java.util.Map<String, String> EXPLICIT_VANILLA_CLASS_RELOCATIONS = java.util.Map.ofEntries(
             java.util.Map.entry(SOURCE_MATERIAL, RUNTIME_MATERIAL),
+            java.util.Map.entry("net/minecraft/client/renderer/BlockEntityWithoutLevelRenderer", "com/fuckingdeveloper/lms/runtime/render/Forge1192CustomItemRenderer"),
+            java.util.Map.entry("net/minecraftforge/client/extensions/common/IClientItemExtensions", "com/fuckingdeveloper/lms/runtime/render/Forge1192ItemExtensions"),
             java.util.Map.entry("net/minecraft/world/level/biome/BiomeGenerationSettings$Builder", "net/minecraft/world/level/biome/BiomeGenerationSettings$PlainBuilder"),
             java.util.Map.entry("net/minecraft/client/model/ArmorStandArmorModel", "net/minecraft/client/model/object/armorstand/ArmorStandArmorModel"),
             java.util.Map.entry("net/minecraft/client/model/BoatModel", "net/minecraft/client/model/object/boat/BoatModel"),
@@ -291,6 +293,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyLootContextFamily(node);
         rewrites += rewriteLegacyDamageSourceSingletonComparisons(node);
         rewrites += Forge1192DamageSourceRewriter.rewrite(node);
+        rewrites += Forge1192CustomItemRewriter.rewrite(node);
         rewrites += rewriteLegacyBiomePrecipitationPresence(node);
         rewrites += rewriteLegacyChunkUnsavedMarks(node);
         rewrites += rewriteLegacyRecipeViewFamily(node);

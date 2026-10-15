@@ -103,14 +103,15 @@ public class LegacyMultiBufferSource {
         List<RecordedBatch> recorded = new ArrayList<>();
         batches.forEach((renderType, recorder) -> {
             List<Consumer<VertexConsumer>> operations = List.copyOf(recorder.operations);
-            if (!operations.isEmpty()) recorded.add(new RecordedBatch(renderType, operations));
+                if (!operations.isEmpty()) recorded.add(new RecordedBatch(renderType, operations, List.copyOf(recorder.positions)));
         });
         return new RecordedGeometry(List.copyOf(recorded));
     }
 
     private record RecordedBatch(
             LegacyRenderType renderType,
-            List<Consumer<VertexConsumer>> operations) {}
+            List<Consumer<VertexConsumer>> operations, List<Position> positions) {}
+    private record Position(float x, float y, float z) {}
 
     /** Immutable geometry extracted from one source renderer invocation. */
     public static final class RecordedGeometry {
@@ -118,6 +119,12 @@ public class LegacyMultiBufferSource {
 
         private RecordedGeometry(List<RecordedBatch> batches) {
             this.batches = batches;
+        }
+
+        public org.joml.Vector3fc[] extents() {
+            return batches.stream().flatMap(batch -> batch.positions().stream())
+                    .map(position -> new org.joml.Vector3f(position.x(), position.y(), position.z()))
+                    .toArray(org.joml.Vector3fc[]::new);
         }
 
         public void submit(SubmitNodeCollector submitter, PoseStack poseStack) {
@@ -200,9 +207,11 @@ public class LegacyMultiBufferSource {
 
     private static final class RecordingVertexConsumer implements VertexConsumer {
         private final List<Consumer<VertexConsumer>> operations = new ArrayList<>();
+        private final List<Position> positions = new ArrayList<>();
 
         @Override
         public VertexConsumer addVertex(float x, float y, float z) {
+            positions.add(new Position(x, y, z));
             operations.add(target -> target.addVertex(x, y, z));
             return this;
         }
