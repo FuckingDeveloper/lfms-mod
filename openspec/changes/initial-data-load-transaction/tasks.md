@@ -47,7 +47,7 @@ ERROR/FATAL/Caused-by diagnostics. The user confirms actual GUI behavior, beyond
 MCP's earlier prediction-only observation.
 
 Aerial fixture fully restored to original air (2704-position scan count0,
-not truncated). Seven new plant drops created during removal were removed by
-exact observed UUID; no item entities existed there before cleanup and none
-remain afterward. Inventory restored before human acceptance; subsequent user
+not truncated). Cleanup targeted seven observed plant-drop UUIDs: five were removed and two
+were already absent (possible native merging); no item entities existed near
+the fixture before cleanup and none were found there afterward. Inventory restored before human acceptance; subsequent user
 movement/control retained. Client remains running in the user's world.
