@@ -27,6 +27,17 @@ import org.objectweb.asm.Type;
  * claiming that removed Forge APIs have already been adapted.</p>
  */
 public final class Forge1192LegacyClassTransformer implements LegacyClassTransformer {
+    private final String physicalDistribution;
+
+    /** Distribution-neutral offline audit; runtime sessions must bind their physical side. */
+    public Forge1192LegacyClassTransformer() { this.physicalDistribution = null; }
+
+    public Forge1192LegacyClassTransformer(String physicalDistribution) {
+        if (!java.util.Set.of("CLIENT", "DEDICATED_SERVER").contains(physicalDistribution))
+            throw new IllegalArgumentException("Unknown physical distribution: " + physicalDistribution);
+        this.physicalDistribution = physicalDistribution;
+    }
+
     private static final String SOURCE_MATERIAL = "net/minecraft/world/level/material/Material";
     private static final String RUNTIME_MATERIAL =
             "com/fuckingdeveloper/lms/runtime/Forge1192VanillaConstructionBridge$LegacyMaterial";
@@ -231,7 +242,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // is still available. Namespace projection is intentionally second:
         // otherwise a heuristic relocation can destroy the semantic evidence
         // required by a removed-API adapter.
-        int rewrites = rewriteRemovedOptionalClientScreenConstructors(node);
+        int rewrites = physicalDistribution == null ? 0
+                : Forge1192DistributionFilter.apply(node, physicalDistribution);
+        rewrites += rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
         rewrites += rewriteLegacyEntityLevelFieldAccess(node);
@@ -5511,7 +5524,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     continue;
                 }
                 call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge$Client";
                 call.name = "addClientReloadListener";
                 call.desc = "(Lnet/minecraft/server/packs/resources/ReloadableResourceManager;"
                         + "Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V";
@@ -12245,7 +12258,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (call.owner.equals("net/neoforged/neoforge/client/event/AddClientReloadListenersEvent")
                         && call.name.equals("registerReloadListener") && call.desc.equals("(Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge";
+                    call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192EventBusBridge$Client";
                     call.name = "registerClientReloadListener";
                     call.desc = "(Lnet/neoforged/neoforge/client/event/AddClientReloadListenersEvent;Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V";
                     call.itf = false; rewrites++;

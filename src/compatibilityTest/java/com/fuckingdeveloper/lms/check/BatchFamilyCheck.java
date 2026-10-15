@@ -135,8 +135,8 @@ public final class BatchFamilyCheck {
             resources.registerReloadListener(new net.minecraft.client.resources.language.LanguageManager(null, "en_us", language -> {}));
             var event = new AddClientReloadListenersEvent(resources);
             var a = listener(); var b = listener();
-            Forge1192EventBusBridge.registerClientReloadListener(event, a);
-            Forge1192EventBusBridge.registerClientReloadListener(event, b);
+            Forge1192EventBusBridge.Client.registerClientReloadListener(event, a);
+            Forge1192EventBusBridge.Client.registerClientReloadListener(event, b);
             check(event.getRegistry().size() == 3 && event.getRegistry().containsValue(a) && event.getRegistry().containsValue(b), "client reload identity/key disambiguation");
         }
     }

@@ -22,6 +22,7 @@ public final class GameplayFamilyCheck {
             + "Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult;";
 
     public static void main(String[] args) throws Exception {
+        DistributionFilterCheck.run();
         SourceCanonicalInformationCheck.run();
         var transformer = new Forge1192LegacyClassTransformer();
         var child = node("fixture/PlayerSubclass", PLAYER);

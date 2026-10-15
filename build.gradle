@@ -139,6 +139,8 @@ tasks.named('runClient') {
     }
 }
 tasks.named('runServer') {
+    // Preserve the native dedicated console for bounded runtime probes and stop/save.
+    standardInput = System.in
     dependsOn installLaunchJar, prepareLaunchPlan
     doFirst {
         logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())

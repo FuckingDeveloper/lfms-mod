@@ -125,7 +125,8 @@ public final class LmsMod {
                         try {
                             runtimeSession = new Forge1192RuntimeSession(
                                     mod.modId(), mod.file(), dependencyDecision.artifacts(),
-                                    targetLoader, report.modAnnotationCandidates());
+                                    targetLoader, report.modAnnotationCandidates(),
+                                    net.neoforged.fml.loading.FMLEnvironment.getDist().name());
                         } catch (ClassNotFoundException e) {
                             LOG.warn("LMS runtime session blocked id={} artifact={} reason=entrypoint-linkage error={} message={}",
                                     mod.modId(), mod.file().getFileName(), e.getClass().getName(), e.getMessage());

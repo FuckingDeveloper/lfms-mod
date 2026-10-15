@@ -23,7 +23,7 @@ public record LegacyTextureStitchSpriteSource(net.minecraft.resources.Identifier
     @Override
     public void run(ResourceManager resources, Output output) {
         TextureAtlas atlas = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(atlasId);
-        for (var sprite : Forge1192EventBusBridge.collectLegacyTextureSprites(atlas)) {
+        for (var sprite : Forge1192EventBusBridge.Client.collectLegacyTextureSprites(atlas)) {
             new SingleFile(sprite).run(resources, output);
         }
     }

@@ -202,3 +202,16 @@ set_block, set_gamemode, set_movement, set_time, set_weather, start_using_item,
 stop_movement, stop_navigation, stop_using_item, summon_entity, swap_slots,
 teleport_player, travel_to, use_entity, use_item
 ```
+
+## Dedicated-server checks
+
+`./gradlew --console=plain runServer` uses the existing native console; Gradle
+forwards standard input. Use a persistent terminal for commands and `stop` so the
+server saves and the Gradle process exits normally. MCP Fabric's client bridge is
+not evidence of dedicated-server readiness. Check the real DEDICATED_SERVER log,
+source entrypoint states, data transaction and world readiness; then execute
+bounded native commands to verify actual registered content and callbacks.
+Keep the dedicated `run/world` save separate from the agreed singleplayer save.
+Do not run another build, native smoke or client against these dev classes while
+the server is alive. Restore temporary fixtures/tickets, issue `stop`, and confirm
+save logs and process exit before starting the client.

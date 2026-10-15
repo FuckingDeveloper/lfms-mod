@@ -46,13 +46,20 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     public Forge1192RuntimeSession(String modId, Path artifact, List<Path> dependencies,
                                    ClassLoader parent, List<String> entrypoints)
             throws java.io.IOException, ClassNotFoundException {
+        this(modId, artifact, dependencies, parent, entrypoints, null);
+    }
+
+    public Forge1192RuntimeSession(String modId, Path artifact, List<Path> dependencies,
+                                   ClassLoader parent, List<String> entrypoints, String physicalDistribution)
+            throws java.io.IOException, ClassNotFoundException {
         this.modId = Objects.requireNonNull(modId);
         this.artifact = Objects.requireNonNull(artifact);
         this.entrypoints = List.copyOf(entrypoints);
         if (this.entrypoints.size() != 1) {
             throw new IllegalStateException("Forge 1.19.2 runtime currently requires exactly one @Mod entrypoint");
         }
-        this.transformer = new Forge1192LegacyClassTransformer();
+        this.transformer = physicalDistribution == null ? new Forge1192LegacyClassTransformer()
+                : new Forge1192LegacyClassTransformer(physicalDistribution);
         this.loader = new ManagedLegacyClassLoader(artifact, dependencies, parent, transformer, Forge1192ModListView.sharedDependencies(dependencies));
         loader.linkOwnedClass(this.entrypoints.getFirst());
     }

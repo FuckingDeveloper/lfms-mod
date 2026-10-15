@@ -65,16 +65,6 @@ public final class Forge1192EventBusBridge {
             new AtomicBoolean();
     private static final AtomicBoolean DEFERRED_LIFECYCLE_CHANGED_CLIENT_STATE =
             new AtomicBoolean();
-    private static final List<PrioritizedListener<LegacyTextureStitchEvent.Pre>> TEXTURE_STITCH_PRE =
-            new CopyOnWriteArrayList<>();
-    private static final List<PrioritizedListener<LegacyTextureStitchEvent.Post>> TEXTURE_STITCH_POST =
-            new CopyOnWriteArrayList<>();
-    private static final java.util.Map<Identifier, java.util.Set<Identifier>> PREPARED_TEXTURE_SPRITES =
-            new java.util.concurrent.ConcurrentHashMap<>();
-    private static final java.util.Set<Identifier> EARLY_TEXTURE_STITCH_POST =
-            java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private static boolean textureStitchDispatcherRegistered;
-
     private Forge1192EventBusBridge() {}
 
     /**
@@ -94,35 +84,6 @@ public final class Forge1192EventBusBridge {
             key = Identifier.fromNamespaceAndPath(modId, base + "_" + suffix++);
         }
         event.addListener(key, listener);
-    }
-
-    /** Stage a source-era direct client reload-listener mutation into the target event. */
-    public static void addClientReloadListener(
-            ReloadableResourceManager ignored, PreparableReloadListener listener) {
-        String modId = Forge1192LifecycleBridge.requireActive().modId();
-        Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
-                net.neoforged.bus.api.EventPriority.NORMAL, false,
-                AddClientReloadListenersEvent.class,
-                event -> addNamedClientReloadListener(event, listener, modId));
-    }
-
-    public static void registerClientReloadListener(AddClientReloadListenersEvent event, PreparableReloadListener listener) {
-        addNamedClientReloadListener(event, java.util.Objects.requireNonNull(listener), Forge1192LifecycleBridge.requireActive().modId());
-    }
-
-    private static void addNamedClientReloadListener(
-            AddClientReloadListenersEvent event,
-            PreparableReloadListener listener,
-            String modId) {
-        String hash = Integer.toUnsignedString(listener.getClass().getName().hashCode(), 16);
-        String base = "legacy_client_reload/" + hash;
-        Identifier key = Identifier.fromNamespaceAndPath(modId, base);
-        int suffix = 1;
-        while (event.getRegistry().containsKey(key)) {
-            key = Identifier.fromNamespaceAndPath(modId, base + "_" + suffix++);
-        }
-        event.addListener(key, listener);
-        LEGACY_CLIENT_RELOAD_LISTENER_PUBLISHED.set(true);
     }
 
     /**
@@ -307,6 +268,206 @@ public final class Forge1192EventBusBridge {
                     event -> registerLegacyFuelComponents(event, (Consumer) listener));
             return;
         }
+        if (isClientCompatibilityEvent(eventType)) {
+            Client.registerListener(bus, priority, eventType, listener, receiveCanceled);
+            return;
+        }
+        if (eventType == LegacyVillagerTradesEvent.class) {
+            listen(bus, priority, receiveCanceled, ServerAboutToStartEvent.class,
+                    event -> dispatchLegacyVillagerTrades(event, (Consumer) listener));
+            return;
+        }
+        if (eventType == LegacyWandererTradesEvent.class) {
+            listen(bus, priority, receiveCanceled, ServerAboutToStartEvent.class,
+                    event -> dispatchLegacyWandererTrades(event, (Consumer) listener));
+            return;
+        }
+        for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
+            listen(bus, priority, receiveCanceled, (Class) concreteType, (Consumer) listener);
+        }
+    }
+
+    /**
+     * Forge 1.19.2 lifecycle callbacks ran after registered items had usable
+     * default state and could still contribute setup that affected those
+     * defaults. Minecraft 26.3 binds that state during data loading. Capture
+     * the source event and replay an event-parameter-independent handler after
+     * dynamic tags load but before the pending component set is applied.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static <T extends Event> void registerComponentBoundLifecycle(
+            IEventBus bus, net.neoforged.bus.api.EventPriority priority,
+            Class<T> eventType, Consumer<T> listener) {
+        if (net.neoforged.fml.loading.FMLEnvironment.getDist() == net.neoforged.api.distmarker.Dist.CLIENT)
+            Client.registerDeferredClientReloadReplay();
+        AtomicReference<T> pending = new AtomicReference<>();
+        AtomicBoolean invoked = new AtomicBoolean();
+        listen(bus, priority, false, eventType, event -> {
+            if (!pending.compareAndSet(null, event)) {
+                throw new IllegalStateException("Legacy lifecycle event was captured more than once: "
+                        + eventType.getName());
+            }
+            Target263InitialDataTransaction.sourceSetupCaptured();
+        });
+        listen(NeoForge.EVENT_BUS, priority, false, TagsUpdatedEvent.ServerDataLoad.class, event -> {
+            if (!event.shouldUpdateStaticData() || invoked.get()) return;
+            T lifecycleEvent = pending.getAndSet(null);
+            if (lifecycleEvent == null) {
+                throw new IllegalStateException(
+                        "Component binding began before the deferred legacy lifecycle event was captured: "
+                                + eventType.getName());
+            }
+            if (!invoked.compareAndSet(false, true)) return;
+            Target263DataComponentBindingBridge.runBeforeBinding(
+                    event.getServerResources(), event.getRegistries(),
+                    () -> {
+                        listener.accept(lifecycleEvent);
+                        DEFERRED_LIFECYCLE_CHANGED_CLIENT_STATE.set(true);
+                    });
+        });
+    }
+
+    private static void dispatchLegacyVillagerTrades(
+            ServerAboutToStartEvent event,
+            Consumer<LegacyVillagerTradesEvent> listener) {
+        event.getServer().registryAccess().lookupOrThrow(Registries.VILLAGER_PROFESSION)
+                .listElements()
+                .forEach(profession -> {
+                    var legacy = new LegacyVillagerTradesEvent(profession.value());
+                    listener.accept(legacy);
+                    legacy.preserveForTargetConsumption(event.getServer());
+                });
+    }
+
+    private static void dispatchLegacyWandererTrades(
+            ServerAboutToStartEvent event,
+            Consumer<LegacyWandererTradesEvent> listener) {
+        var legacy = new LegacyWandererTradesEvent();
+        listener.accept(legacy);
+        legacy.preserveForTargetConsumption(event.getServer());
+    }
+
+    private static void registerLegacyFuelComponents(
+            ModifyDefaultComponentsEvent event,
+            Consumer<LegacyFurnaceFuelBurnTimeEvent> listener) {
+        event.modifyMatching((item, components) -> true, (components, lookup, item) -> {
+            CookingFuel existing = components.get(DataComponents.COOKING_FUEL);
+            int initial = existing != null && existing.burnTime() instanceof ResolvableInt.Constant constant
+                    ? constant.value() : 0;
+            LegacyFurnaceFuelBurnTimeEvent legacy =
+                    new LegacyFurnaceFuelBurnTimeEvent(
+                            Forge1192EarlyItemStackBridge.create(item, 1, components.build()), initial);
+            listener.accept(legacy);
+            if (!legacy.overridden()) return;
+            ResolvableFloat speed = existing == null
+                    ? new ResolvableFloat.Constant(1.0F) : existing.speedMultiplier();
+            components.set(DataComponents.COOKING_FUEL,
+                    new CookingFuel(new ResolvableInt.Constant(legacy.getBurnTime()), speed));
+        });
+    }
+
+    private static List<Class<? extends Event>> concreteEventTypes(Class<? extends Event> eventType) {
+        if (eventType == ServerTickEvent.class)
+            return List.of(ServerTickEvent.Pre.class, ServerTickEvent.Post.class);
+        if (eventType == LevelTickEvent.class)
+            return List.of(LevelTickEvent.Pre.class, LevelTickEvent.Post.class);
+        if (eventType == PlayerTickEvent.class)
+            return List.of(PlayerTickEvent.Pre.class, PlayerTickEvent.Post.class);
+        if (eventType.getName().startsWith("net.neoforged.neoforge.client.event."))
+            return Client.concreteEventTypes(eventType);
+        return List.of(eventType);
+    }
+
+    private static <T extends Event> void invokeScoped(String modId, Consumer<T> listener, T event) {
+        try (var lifecycle = Forge1192LifecycleBridge.enterCallback(modId);
+             var mod = Forge1192RegistrationContext.enterCallbackMod(modId)) {
+            if (event instanceof RegisterEvent registration) {
+                try (var registry = Forge1192RegistrationContext.enterRegistration(registration)) {
+                    listener.accept(event);
+                } catch (RuntimeException | Error e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new IllegalStateException("Failed to close legacy registration scope", e);
+                }
+            } else if (event instanceof net.neoforged.neoforge.event.AddServerReloadListenersEvent reload) {
+                Target263ReloadLookupBridge.run(
+                        reload.getServerResources().getRegistryLookup(), () -> listener.accept(event));
+            } else {
+                listener.accept(event);
+            }
+        } catch (RuntimeException | Error e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to close legacy mod scope", e);
+        }
+    }
+
+    public static boolean post(IEventBus bus, Event event) {
+        Event posted = bus.post(event);
+        return posted instanceof ICancellableEvent cancellable && cancellable.isCanceled();
+    }
+
+    private static boolean isClientCompatibilityEvent(Class<?> eventType) {
+        return switch (eventType.getName()) {
+            case "com.fuckingdeveloper.lms.runtime.event.LegacyRenderHighlightBlockEvent",
+                 "com.fuckingdeveloper.lms.runtime.event.LegacyModelBakingCompletedEvent",
+                 "com.fuckingdeveloper.lms.runtime.event.LegacyTextureStitchEvent$Pre",
+                 "com.fuckingdeveloper.lms.runtime.event.LegacyTextureStitchEvent$Post",
+                 "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent",
+                 "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent$Block",
+                 "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent$Item",
+                 "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterGuiOverlaysEvent" -> true;
+            default -> false;
+        };
+    }
+
+    /** Loaded only for physical-client operations; common event dispatch must not link render types. */
+    public static final class Client {
+        private Client() {}
+    private static final List<PrioritizedListener<LegacyTextureStitchEvent.Pre>> TEXTURE_STITCH_PRE =
+            new CopyOnWriteArrayList<>();
+    private static final List<PrioritizedListener<LegacyTextureStitchEvent.Post>> TEXTURE_STITCH_POST =
+            new CopyOnWriteArrayList<>();
+    private static final java.util.Map<Identifier, java.util.Set<Identifier>> PREPARED_TEXTURE_SPRITES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Set<Identifier> EARLY_TEXTURE_STITCH_POST =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static boolean textureStitchDispatcherRegistered;
+
+    /** Stage a source-era direct client reload-listener mutation into the target event. */
+    public static void addClientReloadListener(
+            ReloadableResourceManager ignored, PreparableReloadListener listener) {
+        String modId = Forge1192LifecycleBridge.requireActive().modId();
+        Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
+                net.neoforged.bus.api.EventPriority.NORMAL, false,
+                AddClientReloadListenersEvent.class,
+                event -> addNamedClientReloadListener(event, listener, modId));
+    }
+
+    public static void registerClientReloadListener(AddClientReloadListenersEvent event, PreparableReloadListener listener) {
+        addNamedClientReloadListener(event, java.util.Objects.requireNonNull(listener), Forge1192LifecycleBridge.requireActive().modId());
+    }
+
+    private static void addNamedClientReloadListener(
+            AddClientReloadListenersEvent event,
+            PreparableReloadListener listener,
+            String modId) {
+        String hash = Integer.toUnsignedString(listener.getClass().getName().hashCode(), 16);
+        String base = "legacy_client_reload/" + hash;
+        Identifier key = Identifier.fromNamespaceAndPath(modId, base);
+        int suffix = 1;
+        while (event.getRegistry().containsKey(key)) {
+            key = Identifier.fromNamespaceAndPath(modId, base + "_" + suffix++);
+        }
+        event.addListener(key, listener);
+        LEGACY_CLIENT_RELOAD_LISTENER_PUBLISHED.set(true);
+    }
+
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        private static <T extends Event> void registerListener(IEventBus bus,
+                net.neoforged.bus.api.EventPriority priority, Class<T> eventType,
+                Consumer<T> listener, boolean receiveCanceled) {
         if (eventType == LegacyRenderHighlightBlockEvent.class) {
             listen(bus, priority, receiveCanceled, ExtractBlockOutlineRenderStateEvent.class,
                     event -> registerLegacyBlockHighlightRenderer(event, (Consumer) listener));
@@ -342,60 +503,28 @@ public final class Forge1192EventBusBridge {
                     event -> ((Consumer) listener).accept(new LegacyRegisterGuiOverlaysEvent(event)));
             return;
         }
-        if (eventType == LegacyVillagerTradesEvent.class) {
-            listen(bus, priority, receiveCanceled, ServerAboutToStartEvent.class,
-                    event -> dispatchLegacyVillagerTrades(event, (Consumer) listener));
-            return;
+            throw new IllegalStateException("Unadapted client event: " + eventType.getName());
         }
-        if (eventType == LegacyWandererTradesEvent.class) {
-            listen(bus, priority, receiveCanceled, ServerAboutToStartEvent.class,
-                    event -> dispatchLegacyWandererTrades(event, (Consumer) listener));
-            return;
-        }
-        for (Class<? extends Event> concreteType : concreteEventTypes(eventType)) {
-            listen(bus, priority, receiveCanceled, (Class) concreteType, (Consumer) listener);
-        }
-    }
 
-    /**
-     * Forge 1.19.2 lifecycle callbacks ran after registered items had usable
-     * default state and could still contribute setup that affected those
-     * defaults. Minecraft 26.3 binds that state during data loading. Capture
-     * the source event and replay an event-parameter-independent handler after
-     * dynamic tags load but before the pending component set is applied.
-     */
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private static <T extends Event> void registerComponentBoundLifecycle(
-            IEventBus bus, net.neoforged.bus.api.EventPriority priority,
-            Class<T> eventType, Consumer<T> listener) {
-        registerDeferredClientReloadReplay();
-        AtomicReference<T> pending = new AtomicReference<>();
-        AtomicBoolean invoked = new AtomicBoolean();
-        listen(bus, priority, false, eventType, event -> {
-            if (!pending.compareAndSet(null, event)) {
-                throw new IllegalStateException("Legacy lifecycle event was captured more than once: "
-                        + eventType.getName());
-            }
-            Target263InitialDataTransaction.sourceSetupCaptured();
-        });
-        listen(NeoForge.EVENT_BUS, priority, false, TagsUpdatedEvent.ServerDataLoad.class, event -> {
-            if (!event.shouldUpdateStaticData() || invoked.get()) return;
-            T lifecycleEvent = pending.getAndSet(null);
-            if (lifecycleEvent == null) {
-                throw new IllegalStateException(
-                        "Component binding began before the deferred legacy lifecycle event was captured: "
-                                + eventType.getName());
-            }
-            if (!invoked.compareAndSet(false, true)) return;
-            Target263DataComponentBindingBridge.runBeforeBinding(
-                    event.getServerResources(), event.getRegistries(),
-                    () -> {
-                        listener.accept(lifecycleEvent);
-                        DEFERRED_LIFECYCLE_CHANGED_CLIENT_STATE.set(true);
-                    });
-        });
-    }
-
+        private static List<Class<? extends Event>> concreteEventTypes(Class<? extends Event> eventType) {
+        if (eventType == ClientTickEvent.class)
+            return List.of(ClientTickEvent.Pre.class, ClientTickEvent.Post.class);
+        if (eventType == RenderLevelStageEvent.class)
+            return List.of(
+                    RenderLevelStageEvent.AfterSky.class,
+                    RenderLevelStageEvent.AfterOpaqueBlocks.class,
+                    RenderLevelStageEvent.AfterTranslucentBlocks.class,
+                    RenderLevelStageEvent.AfterTranslucentParticles.class,
+                    RenderLevelStageEvent.AfterWeather.class);
+        if (eventType == InputEvent.class)
+            return List.of(
+                    InputEvent.Key.class,
+                    InputEvent.MouseButton.Pre.class,
+                    InputEvent.MouseButton.Post.class,
+                    InputEvent.MouseScrollingEvent.class,
+                    InputEvent.InteractionKeyMappingTriggered.class);
+            return List.of(eventType);
+        }
     /**
      * Replay target client resources when a whole deferred source lifecycle
      * callback populated state after the initial client reload had completed.
@@ -466,7 +595,7 @@ public final class Forge1192EventBusBridge {
 
         withoutSubscriptionCapture(() -> Forge1192LifecycleBridge.requireActive().modEventBus().addListener(
                 net.neoforged.bus.api.EventPriority.HIGHEST, false,
-                TextureAtlasStitchedEvent.class, Forge1192EventBusBridge::dispatchLegacyTextureStitch));
+                TextureAtlasStitchedEvent.class, Client::dispatchLegacyTextureStitch));
         textureStitchDispatcherRegistered = true;
     }
 
@@ -586,97 +715,5 @@ public final class Forge1192EventBusBridge {
         });
     }
 
-    private static void dispatchLegacyVillagerTrades(
-            ServerAboutToStartEvent event,
-            Consumer<LegacyVillagerTradesEvent> listener) {
-        event.getServer().registryAccess().lookupOrThrow(Registries.VILLAGER_PROFESSION)
-                .listElements()
-                .forEach(profession -> {
-                    var legacy = new LegacyVillagerTradesEvent(profession.value());
-                    listener.accept(legacy);
-                    legacy.preserveForTargetConsumption(event.getServer());
-                });
-    }
-
-    private static void dispatchLegacyWandererTrades(
-            ServerAboutToStartEvent event,
-            Consumer<LegacyWandererTradesEvent> listener) {
-        var legacy = new LegacyWandererTradesEvent();
-        listener.accept(legacy);
-        legacy.preserveForTargetConsumption(event.getServer());
-    }
-
-    private static void registerLegacyFuelComponents(
-            ModifyDefaultComponentsEvent event,
-            Consumer<LegacyFurnaceFuelBurnTimeEvent> listener) {
-        event.modifyMatching((item, components) -> true, (components, lookup, item) -> {
-            CookingFuel existing = components.get(DataComponents.COOKING_FUEL);
-            int initial = existing != null && existing.burnTime() instanceof ResolvableInt.Constant constant
-                    ? constant.value() : 0;
-            LegacyFurnaceFuelBurnTimeEvent legacy =
-                    new LegacyFurnaceFuelBurnTimeEvent(
-                            Forge1192EarlyItemStackBridge.create(item, 1, components.build()), initial);
-            listener.accept(legacy);
-            if (!legacy.overridden()) return;
-            ResolvableFloat speed = existing == null
-                    ? new ResolvableFloat.Constant(1.0F) : existing.speedMultiplier();
-            components.set(DataComponents.COOKING_FUEL,
-                    new CookingFuel(new ResolvableInt.Constant(legacy.getBurnTime()), speed));
-        });
-    }
-
-    private static List<Class<? extends Event>> concreteEventTypes(Class<? extends Event> eventType) {
-        if (eventType == ServerTickEvent.class)
-            return List.of(ServerTickEvent.Pre.class, ServerTickEvent.Post.class);
-        if (eventType == LevelTickEvent.class)
-            return List.of(LevelTickEvent.Pre.class, LevelTickEvent.Post.class);
-        if (eventType == PlayerTickEvent.class)
-            return List.of(PlayerTickEvent.Pre.class, PlayerTickEvent.Post.class);
-        if (eventType == ClientTickEvent.class)
-            return List.of(ClientTickEvent.Pre.class, ClientTickEvent.Post.class);
-        if (eventType == RenderLevelStageEvent.class)
-            return List.of(
-                    RenderLevelStageEvent.AfterSky.class,
-                    RenderLevelStageEvent.AfterOpaqueBlocks.class,
-                    RenderLevelStageEvent.AfterTranslucentBlocks.class,
-                    RenderLevelStageEvent.AfterTranslucentParticles.class,
-                    RenderLevelStageEvent.AfterWeather.class);
-        if (eventType == InputEvent.class)
-            return List.of(
-                    InputEvent.Key.class,
-                    InputEvent.MouseButton.Pre.class,
-                    InputEvent.MouseButton.Post.class,
-                    InputEvent.MouseScrollingEvent.class,
-                    InputEvent.InteractionKeyMappingTriggered.class);
-        return List.of(eventType);
-    }
-
-    private static <T extends Event> void invokeScoped(String modId, Consumer<T> listener, T event) {
-        try (var lifecycle = Forge1192LifecycleBridge.enterCallback(modId);
-             var mod = Forge1192RegistrationContext.enterCallbackMod(modId)) {
-            if (event instanceof RegisterEvent registration) {
-                try (var registry = Forge1192RegistrationContext.enterRegistration(registration)) {
-                    listener.accept(event);
-                } catch (RuntimeException | Error e) {
-                    throw e;
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to close legacy registration scope", e);
-                }
-            } else if (event instanceof net.neoforged.neoforge.event.AddServerReloadListenersEvent reload) {
-                Target263ReloadLookupBridge.run(
-                        reload.getServerResources().getRegistryLookup(), () -> listener.accept(event));
-            } else {
-                listener.accept(event);
-            }
-        } catch (RuntimeException | Error e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to close legacy mod scope", e);
-        }
-    }
-
-    public static boolean post(IEventBus bus, Event event) {
-        Event posted = bus.post(event);
-        return posted instanceof ICancellableEvent cancellable && cancellable.isCanceled();
     }
 }
