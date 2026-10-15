@@ -11,6 +11,8 @@
     "Target263InstantNeighborOriginMixin",
     "Target263MutableStackTagMixin",
     "Target263ItemResourceSnapshotMixin",
+    "Target263ItemPropertiesAccess",
+    "Target263CreativeItemIntentMixin",
     "Target263VillagerTradeMixin",
     "Target263WanderingTraderTradeMixin",
     "Target263SingleRecipeResultAccess"

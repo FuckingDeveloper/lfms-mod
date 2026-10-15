@@ -411,8 +411,17 @@ public final class Forge1192VanillaConstructionBridge {
 
     private static void rememberCreativeTab(Item.Properties properties,
                                             net.minecraft.resources.Identifier itemId) {
-        CreativeModeTab tab = LEGACY_TABS_BY_PROPERTIES.remove(properties);
+        CreativeModeTab tab = LEGACY_TABS_BY_PROPERTIES.get(properties);
         if (tab != null) LEGACY_TABS_BY_ITEM_ID.put(itemId, tab);
+    }
+
+    /** Capture source tab intent when the target consumes the actual item key. */
+    public static void captureCreativeItem(Item.Properties properties) {
+        if (!LEGACY_TABS_BY_PROPERTIES.containsKey(properties)) return;
+        ResourceKey<Item> key = ((com.fuckingdeveloper.lms.mixin.Target263ItemPropertiesAccess)
+                (Object) properties).lms$itemId();
+        if (key == null) throw new IllegalStateException("Legacy creative item has no construction key");
+        rememberCreativeTab(properties, key.identifier());
     }
 
     public static void associateItemProperties(Item item, Item.Properties properties) {
