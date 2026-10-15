@@ -241,6 +241,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 owner -> isManagedSubtypeOf(owner,"net/minecraft/client/gui/screens/inventory/AbstractContainerScreen"),
                 owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"));
         rewrites += Forge1192BootstrapRewriter.rewrite(node);
+        rewrites += rewriteSourceContainerNbt(node);
         rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
         // superclass constructor is still visible. Later construction-shape
@@ -1099,8 +1100,21 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     /** Retain the removed source dispatcher dependency as an explicit
      * fail-closed facade; functional tessellation requires a later semantic
      * migration to the target extracted block render-state pipeline. */
-    private static int rewriteLegacyBlockRenderDispatcherFamily(ClassNode node) {
-        int rewrites = 0;
+    private int rewriteLegacyBlockRenderDispatcherFamily(ClassNode node) {
+        int rewrites = rewriteSemanticInstanceCalls(node,(opcode,owner,name,descriptor)-> {
+            if(opcode!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL||!owner.equals("net/minecraft/client/renderer/blockentity/BlockEntityRendererProvider$Context"))return null;
+            String canonical=isSrgMethodName(name)?SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,descriptor).orElse(null):name;
+            if(canonical==null)return null;
+            String target=switch(canonical+descriptor) {
+                case "getBlockEntityRenderDispatcher()Lnet/minecraft/client/renderer/blockentity/BlockEntityRenderDispatcher;" -> "blockEntityRenderDispatcher";
+                case "getEntityRenderer()Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;" -> "entityRenderer";
+                case "getModelSet()Lnet/minecraft/client/model/geom/EntityModelSet;" -> "entityModelSet";
+                case "getFont()Lnet/minecraft/client/gui/Font;" -> "font";
+                default -> null;
+            };
+            return target==null?null:new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/runtime/render/Forge1192RendererContextBridge",target,"(L"+owner+";"+descriptor.substring(1),false);
+        });
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
@@ -12319,7 +12333,33 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
     }
 
+    private static Handle sourceContainerNbtHandle(Handle handle) {
+        if(handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKESTATIC&&handle.getOwner().equals("net/minecraft/world/level/block/DoubleBlockCombiner")) {
+            String source="(Lnet/minecraft/world/level/block/entity/BlockEntityType;Ljava/util/function/Function;Ljava/util/function/Function;Lnet/minecraft/world/level/block/state/properties/DirectionProperty;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/LevelAccessor;Lnet/minecraft/core/BlockPos;Ljava/util/function/BiPredicate;)Lnet/minecraft/world/level/block/DoubleBlockCombiner$NeighborCombineResult;";
+            String projected=source.replace("/DirectionProperty;","/EnumProperty;");
+            String canonical=isSrgMethodName(handle.getName())?SRG_RUNTIME_RESOLVER.get().canonicalMethodName(handle.getOwner(),handle.getName(),source).orElse(null):handle.getName();
+            if((handle.getDesc().equals(source)||handle.getDesc().equals(projected))&&"combineWithNeigbour".equals(canonical))
+                return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192DoubleContainerBridge","combine",projected,false);
+        }
+        if(handle.getTag()!=org.objectweb.asm.Opcodes.H_INVOKESTATIC||!handle.getOwner().equals("net/minecraft/world/ContainerHelper"))return handle;
+        String canonical=isSrgMethodName(handle.getName())?SRG_RUNTIME_RESOLVER.get().canonicalMethodName(handle.getOwner(),handle.getName(),handle.getDesc()).orElse(null):handle.getName();
+        if(canonical==null)return handle;
+        boolean save=canonical.equals("saveAllItems")&&(handle.getDesc().equals("(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/NonNullList;)Lnet/minecraft/nbt/CompoundTag;")
+                ||handle.getDesc().equals("(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/NonNullList;Z)Lnet/minecraft/nbt/CompoundTag;"));
+        boolean load=canonical.equals("loadAllItems")&&handle.getDesc().equals("(Lnet/minecraft/nbt/CompoundTag;Lnet/minecraft/core/NonNullList;)V");
+        return save||load?new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192ContainerNbtBridge",canonical,handle.getDesc(),false):handle;
+    }
+    private static int rewriteSourceContainerNbt(ClassNode node) {
+        int changed=0;
+        for(var method:node.methods)for(var instruction:method.instructions)if(instruction instanceof MethodInsnNode call&&call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC) {
+            var original=new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,call.owner,call.name,call.desc,call.itf);var target=sourceContainerNbtHandle(original);
+            if(target.equals(original))continue;call.owner=target.getOwner();call.name=target.getName();call.desc=target.getDesc();call.itf=false;changed++;
+        }
+        return changed;
+    }
+
     private static Handle migrateHandle(Handle handle) {
+        handle = sourceContainerNbtHandle(handle);
         handle = Forge1192BootstrapRewriter.handle(handle);
         String owner = migrateInternalName(handle.getOwner());
         String desc = migrateDescriptor(handle.getDesc());

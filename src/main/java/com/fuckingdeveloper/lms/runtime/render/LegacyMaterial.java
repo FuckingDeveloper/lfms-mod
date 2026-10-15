@@ -38,14 +38,16 @@ public final class LegacyMaterial {
     public VertexConsumer buffer(
             LegacyMultiBufferSource buffers,
             Function<Identifier, LegacyRenderType> factory) {
-        throw unsupportedAtlasLookup();
+        var sprite=buffers.sprite(new net.minecraft.client.resources.model.sprite.SpriteId(atlasLocation,texture));
+        return new net.minecraft.client.renderer.SpriteCoordinateExpander(buffers.getBuffer(renderType(factory)),sprite);
     }
 
     public VertexConsumer buffer(
             LegacyMultiBufferSource buffers,
             Function<Identifier, LegacyRenderType> factory,
             boolean glint) {
-        throw unsupportedAtlasLookup();
+        if(glint)throw new UnsupportedOperationException("Source atlas material glint requires a verified native foil submission adapter");
+        return buffer(buffers,factory);
     }
 
     private UnsupportedOperationException unsupportedAtlasLookup() {

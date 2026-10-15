@@ -34,7 +34,7 @@ public interface Forge1192BlockEntityRendererBridge
             Vec3 cameraPosition,
             ModelFeatureRenderer.@Nullable CrumblingOverlay breakProgress) {
         BlockEntityRenderState.extractBase(blockEntity, state, breakProgress);
-        LegacyMultiBufferSource buffers = LegacyMultiBufferSource.recording();
+        LegacyMultiBufferSource buffers = LegacyMultiBufferSource.recording(net.minecraft.client.Minecraft.getInstance().getAtlasManager());
         lmsLegacyRender(blockEntity, partialTick, new PoseStack(), buffers,
                 state.lightCoords, OverlayTexture.NO_OVERLAY);
         state.geometry(buffers.finishRecording());

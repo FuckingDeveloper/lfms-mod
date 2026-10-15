@@ -10,7 +10,12 @@ import net.neoforged.bus.api.*;
 import net.neoforged.fml.ModContainer;
 import org.objectweb.asm.*;
 
-final class SourceContainerFamilyCheck {
+public final class SourceContainerFamilyCheck {
+    public static final class Probe extends Event {}
+    private static final List<String> AUTOMATIC=new ArrayList<>();
+    public static void record(String id){
+        check(Forge1192LifecycleBridge.requireActive().modId().equals(id),"automatic subscriber lost source ownership");AUTOMATIC.add(id);
+    }
     static void run(ModContainer host) throws Exception {
         var first=fixture("source_view_a","source_view_b");var second=fixture("source_view_b",null);
         var aDescriptor=new com.fuckingdeveloper.lms.discovery.LegacyModDescriptor(first,"source_view_a","FORGE_METADATA","[1.19.2]","fixture");
@@ -30,6 +35,8 @@ final class SourceContainerFamilyCheck {
             check(count.get()==0&&bv.getCustomExtension(LegacyConfigScreenFactory.class).isEmpty(),"source extension eager or crossed owner");
             check(av.getCustomExtension(LegacyConfigScreenFactory.class).orElseThrow()==source&&count.get()==1,"source extension identity lost");
             b.initialize();a.initialize();
+            AUTOMATIC.clear();bus.post(new Probe());
+            check(AUTOMATIC.equals(List.of("source_view_b","source_view_a")),"automatic source subscriptions missing or on wrong bus");
             try(var consumer=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(first,List.of(second),
                     SourceContainerFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer(),
                     Forge1192ModListView.sharedDependencies(List.of(second)))) {
@@ -43,6 +50,7 @@ final class SourceContainerFamilyCheck {
             check(wrapped.nativeOwner().orElseThrow()==host&&wrapped.getModInfo()==host.getModInfo(),"native owner/metadata replaced");
             check(Forge1192ModListView.merge(List.of(wrapped),List.of(av,bv)).stream().filter(v->v==av||v==bv).toList().equals(List.of(bv,av)),"actual source enumeration order");
         } finally {Files.deleteIfExists(first);Files.deleteIfExists(second);}
+        AUTOMATIC.clear();bus.post(new Probe());check(AUTOMATIC.isEmpty(),"closed automatic subscribers retained");
         try {Forge1192ModListView.sourceOwner("source_view_a");throw new AssertionError("closed source container retained");}
         catch(IllegalStateException expected){}
         System.out.println("PASS: source metadata/identity, dependency order, scoped lazy extensions, native owner, actual source lifecycle/lambda view and close cleanup");
@@ -66,12 +74,31 @@ final class SourceContainerFamilyCheck {
                 var shared=new ClassWriter(0);shared.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"fixture/Shared",null,"java/lang/Object",null);shared.visitEnd();
                 output.putNextEntry(new JarEntry("fixture/Shared.class"));output.write(shared.toByteArray());output.closeEntry();
             }
+            for(var entry:Map.of("fixture/Automatic",autoClass(id,true,false),"fixture/WrongSide",autoClass(id,false,false),"fixture/WrongOwner",autoClass(id,true,true)).entrySet()) {
+                output.putNextEntry(new JarEntry(entry.getKey()+".class"));output.write(entry.getValue());output.closeEntry();
+            }
             output.putNextEntry(new JarEntry("META-INF/mods.toml"));
             String toml="modLoader='javafml'\nloaderVersion='[43,)'\nlicense='Test'\n[[mods]]\nmodId='"+id+"'\nversion='1.0'\ndisplayName='Source "+id+"'\n";
             if(dependency!=null)toml+="[[dependencies."+id+"]]\nmodId='"+dependency+"'\nmandatory=true\nversionRange='[1,)'\n";
             output.write(toml.getBytes(java.nio.charset.StandardCharsets.UTF_8));output.closeEntry();
         }
         return jar;
+    }
+    private static byte[] autoClass(String id,boolean correctSide,boolean wrongOwner) {
+        String name=wrongOwner?"fixture/WrongOwner":correctSide?"fixture/Automatic":"fixture/WrongSide";
+        var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,name,null,correctSide&&!wrongOwner?"java/lang/Object":"fixture/MustNeverLoad",null);
+        var annotation=writer.visitAnnotation("Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber;",true);
+        annotation.visit("modid",wrongOwner?"unrelated_owner":id);
+        annotation.visitEnum("bus","Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus;","MOD");
+        var sides=annotation.visitArray("value");
+        String side=net.neoforged.fml.loading.FMLEnvironment.getDist().name();
+        if(!correctSide)side=side.equals("CLIENT")?"DEDICATED_SERVER":"CLIENT";
+        sides.visitEnum(null,"Lnet/minecraftforge/api/distmarker/Dist;",side);sides.visitEnd();annotation.visitEnd();
+        var method=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"onProbe","(Lcom/fuckingdeveloper/lms/check/SourceContainerFamilyCheck$Probe;)V",null,null);
+        method.visitAnnotation("Lnet/minecraftforge/eventbus/api/SubscribeEvent;",true).visitEnd();method.visitCode();
+        method.visitLdcInsn(id);method.visitMethodInsn(Opcodes.INVOKESTATIC,"com/fuckingdeveloper/lms/check/SourceContainerFamilyCheck","record","(Ljava/lang/String;)V",false);
+        method.visitInsn(Opcodes.RETURN);method.visitMaxs(0,0);method.visitEnd();writer.visitEnd();return writer.toByteArray();
     }
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
 }

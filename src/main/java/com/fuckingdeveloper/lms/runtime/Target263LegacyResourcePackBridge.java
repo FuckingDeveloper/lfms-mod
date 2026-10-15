@@ -97,30 +97,7 @@ public final class Target263LegacyResourcePackBridge {
     }
 
     private static Pack createAtlasExtensionPack() {
-        PackLocationInfo location = new PackLocationInfo(
-                "lms/legacy-atlas-bridge",
-                Component.literal("LMS legacy atlas bridge"),
-                PackSource.BUILT_IN,
-                Optional.empty());
-        Pack.Metadata metadata = new Pack.Metadata(
-                Component.literal("Runs legacy texture-stitch intent in the target sprite-source phase"),
-                PackCompatibility.COMPATIBLE,
-                FeatureFlagSet.of(),
-                List.of());
-        Pack.ResourcesSupplier resources = new Pack.ResourcesSupplier() {
-            @Override
-            public PackMetadataResources openMetadata(PackLocationInfo ignored) {
-                return new AtlasExtensionResources(location);
-            }
-
-            @Override
-            public java.util.stream.Stream<PackResources> openResources(
-                    PackLocationInfo ignored, Pack.Metadata ignoredMetadata) {
-                return java.util.stream.Stream.of(new AtlasExtensionResources(location));
-            }
-        };
-        return new Pack(location, resources, metadata,
-                new PackSelectionConfig(true, Pack.Position.TOP, false));
+        return Target263LegacyAtlasSources.createPack();
     }
 
     private static final class AtlasExtensionResources extends AbstractPackMetadataResources

@@ -127,3 +127,60 @@ thunk for the exact verified source render operation, retaining the original
 virtual source method. Missing ACC_BRIDGE is not evidence that rendering is absent.
 The extracted geometry/state model remains unchanged; linkage of this thunk does
 not establish every rendering operation used by the source renderer.
+
+### Automatic source event subscribers
+
+After the source mod constructor, index original own-artifact class annotations
+for Mod.EventBusSubscriber, using the source default FORGE bus, both physical
+sides, explicit modid or same-class @Mod owner fallback. Filter owner/side before
+loading a class. Install matching static subscriptions through the existing typed
+subscriber index and source owner scope. Do not enumerate all reflected methods or
+link wrong-side classes. An installation failure MUST propagate and roll back that
+automatic installation; session close MUST remove automatic subscriptions and
+release class references. This is source FML injection, independent of fixture IDs.
+
+### Per-atlas sprite intent
+
+Expose an appended sprite-source definition for every actual target AtlasManager
+entry, including atlases registered by native mods. Carry the definition ID in the
+source codec; the target manager resolves the genuine atlas/texture identity.
+Invoke source Pre before stitching that atlas, materialize exact requested sprites
+through native SingleFile sources, then preserve the existing verified Post checks.
+Do not hardcode chest or reference-mod atlas IDs. Source Pre dispatch is serialized
+even when the target schedules atlas preparation concurrently. Original artifact
+resources and existing native sprite-source definitions remain unchanged.
+
+Source renderer-context getters for the unchanged block-entity dispatcher, entity
+dispatcher, model set and font slots MAY use the target record accessors with the
+same verified service identity and descriptor. Apply the rule to calls and callable
+constants together. Removed block/item immediate-dispatch services remain distinct
+semantic boundaries; record naming alone does not establish equivalent services.
+
+### Source inventory NBT
+
+Adapt both source ContainerHelper.saveAllItems overloads and loadAllItems through
+one verified source slot/stack schema. Preserve returned destination identity,
+unsigned byte slot reads, byte slot writes, source empty-write policy, untouched
+unlisted slots and out-of-range filtering. Direct calls and callable constants
+MUST use the same rule. Reuse the proven source stack-tag projection for wire and
+persistence; unknown native component projections MUST fail explicitly rather
+than silently drop data. Source item serialization MUST retain proven damage,
+custom name, enchantments and arbitrary source data alongside count/identity.
+
+The verified source DoubleBlockCombiner operation retains its native algorithm and
+callbacks. Project the removed DirectionProperty to EnumProperty at the source ABI,
+then pass that same property to the target's widened Property parameter. A typed
+source bridge MUST retain the projected source descriptor for exact method-handle
+invocation; merely widening the handle's parameter descriptor is insufficient.
+Owner/member identity and complete source descriptor select this rule.
+
+### Atlas materials during geometry extraction
+
+A source material's explicit atlas/texture pair maps to target SpriteId. During
+native block-entity extraction, provide the actual published SpriteGetter to the
+recording buffer, resolve that pair and wrap its recording consumer with the native
+SpriteCoordinateExpander. Preserve source render-type factory caching and atlas
+texture selection. The immutable submission state MUST contain completed numeric
+geometry/UV data, not a live sprite getter or block entity. Unscoped bake-time
+sprite lookup and unproven foil rendering remain explicit boundaries. The target's
+unqualified MaterialBaker lookup is not equivalent to arbitrary explicit atlases.

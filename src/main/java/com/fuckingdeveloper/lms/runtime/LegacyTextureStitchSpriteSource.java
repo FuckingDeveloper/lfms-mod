@@ -9,12 +9,11 @@ import net.minecraft.data.AtlasIds;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.neoforged.neoforge.client.event.RegisterSpriteSourcesEvent;
 
-/** Target 26.3 sprite source that executes legacy block-atlas Pre intent before stitching. */
-public final class LegacyTextureStitchSpriteSource implements SpriteSource {
-    public static final LegacyTextureStitchSpriteSource INSTANCE = new LegacyTextureStitchSpriteSource();
-    public static final MapCodec<LegacyTextureStitchSpriteSource> CODEC = MapCodec.unit(INSTANCE);
+/** Target 26.3 sprite source that executes legacy per-atlas Pre intent before stitching. */
+public record LegacyTextureStitchSpriteSource(net.minecraft.resources.Identifier atlasId) implements SpriteSource {
+    public static final LegacyTextureStitchSpriteSource INSTANCE = new LegacyTextureStitchSpriteSource(AtlasIds.BLOCKS);
+    public static final MapCodec<LegacyTextureStitchSpriteSource> CODEC = net.minecraft.resources.Identifier.CODEC.optionalFieldOf("atlas",AtlasIds.BLOCKS).xmap(LegacyTextureStitchSpriteSource::new,LegacyTextureStitchSpriteSource::atlasId);
 
-    private LegacyTextureStitchSpriteSource() {}
 
     public static void register(RegisterSpriteSourcesEvent event) {
         event.register(net.minecraft.resources.Identifier.fromNamespaceAndPath(
@@ -23,7 +22,7 @@ public final class LegacyTextureStitchSpriteSource implements SpriteSource {
 
     @Override
     public void run(ResourceManager resources, Output output) {
-        TextureAtlas atlas = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS);
+        TextureAtlas atlas = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(atlasId);
         for (var sprite : Forge1192EventBusBridge.collectLegacyTextureSprites(atlas)) {
             new SingleFile(sprite).run(resources, output);
         }

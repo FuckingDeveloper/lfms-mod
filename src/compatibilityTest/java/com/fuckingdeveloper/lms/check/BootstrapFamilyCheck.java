@@ -22,6 +22,17 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 final class BootstrapFamilyCheck {
     static void run() throws Exception {
         registryAliases();
+        var atlasIds=List.of(net.minecraft.data.AtlasIds.BLOCKS,net.minecraft.data.AtlasIds.CHESTS,id("custom_atlas"));
+        var definitions=Target263LegacyAtlasSources.definitions(atlasIds);
+        check(definitions.size()==3,"per-atlas source definitions lost native/custom identity");
+        for(var atlas:atlasIds) {
+            var key=net.minecraft.resources.Identifier.fromNamespaceAndPath(atlas.getNamespace(),"atlases/"+atlas.getPath()+".json");
+            var json=com.google.gson.JsonParser.parseString(new String(definitions.get(key),java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            check(json.getAsJsonArray("sources").get(0).getAsJsonObject().get("atlas").getAsString().equals(atlas.toString()),"source sprite request routed into wrong atlas");
+            var value=new LegacyTextureStitchSpriteSource(atlas);
+            var codec=LegacyTextureStitchSpriteSource.CODEC.codec();
+            check(codec.parse(com.mojang.serialization.JsonOps.INSTANCE,codec.encodeStart(com.mojang.serialization.JsonOps.INSTANCE,value).getOrThrow()).getOrThrow().atlasId().equals(atlas),"native atlas source codec lost identity");
+        }
         constructionAndStages();
         var bus=BusBuilder.builder().build();
         var info=(IModInfo)Proxy.newProxyInstance(BootstrapFamilyCheck.class.getClassLoader(),new Class[]{IModInfo.class},(p,m,a)->{if(m.getName().equals("getModId"))return "bootstrap_probe";throw new AssertionError(m);});
@@ -84,6 +95,7 @@ final class BootstrapFamilyCheck {
                     var rendererNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(renderer)).accept(rendererNode,0);
                     var renderThunk=rendererNode.methods.stream().filter(m->m.name.equals("lmsLegacyRender")).findFirst().orElseThrow();
                     check(rendererNode.methods.stream().anyMatch(m->m.name.equals("m_6922_")),"direct source erased renderer callback was removed");
+                    check(rendererNode.methods.stream().filter(m->m.name.equals("<init>")).anyMatch(m->java.util.stream.StreamSupport.stream(m.instructions.spliterator(),false).anyMatch(i->i instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192RendererContextBridge")&&call.name.equals("blockEntityRenderDispatcher"))),"native renderer-context service getter not projected to actual record accessor");
                     new org.objectweb.asm.tree.analysis.Analyzer<>(new org.objectweb.asm.tree.analysis.BasicVerifier()).analyze(rendererNode.name,renderThunk);
 
                 }

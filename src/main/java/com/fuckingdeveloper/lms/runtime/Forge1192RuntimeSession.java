@@ -35,6 +35,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     private volatile Object entrypoint;
     private volatile IEventBus modEventBus;
     private volatile ModContainer hostContainer;
+    private final Forge1192AutomaticSubscribers automaticSubscribers=new Forge1192AutomaticSubscribers();
     private final Set<String> coremodHookBindings = new LinkedHashSet<>();
 
     public Forge1192RuntimeSession(String modId, Path artifact, ClassLoader parent, List<String> entrypoints)
@@ -86,6 +87,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
             Constructor<?> ctor = type.getDeclaredConstructor();
             if (!ctor.canAccess(null)) ctor.setAccessible(true);
             entrypoint = ctor.newInstance();
+            automaticSubscribers.install(artifact,modId,loader,eventBus);
             state = State.INITIALIZED;
         } catch (Throwable t) {
             blockReason = t.toString();
@@ -166,6 +168,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
             for (String binding : coremodHookBindings) unregister.invoke(null, binding);
             coremodHookBindings.clear();
         }
+        automaticSubscribers.close();
         Forge1192ModListView.unregister(this);
         loader.close();
         entrypoint = null;

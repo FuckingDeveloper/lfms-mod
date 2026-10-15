@@ -468,7 +468,7 @@ public final class Forge1192EventBusBridge {
         textureStitchDispatcherRegistered = true;
     }
 
-    public static java.util.Set<Identifier> collectLegacyTextureSprites(
+    public static synchronized java.util.Set<Identifier> collectLegacyTextureSprites(
             net.minecraft.client.renderer.texture.TextureAtlas atlas) {
         EARLY_TEXTURE_STITCH_POST.remove(atlas.location());
         var pre = new LegacyTextureStitchEvent.Pre(atlas);

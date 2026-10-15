@@ -19,6 +19,7 @@ public class LegacyMultiBufferSource {
     private final SubmitNodeCollector submitter;
     private final PoseStack poseStack;
     private final boolean recordingOnly;
+    private final net.minecraft.client.resources.model.sprite.SpriteGetter sprites;
     private final Map<LegacyRenderType, RecordingVertexConsumer> batches = new LinkedHashMap<>();
     private boolean flushed;
 
@@ -26,15 +27,20 @@ public class LegacyMultiBufferSource {
         this.submitter = null;
         this.poseStack = null;
         this.recordingOnly = false;
+        this.sprites = null;
     }
 
     public LegacyMultiBufferSource(SubmitNodeCollector submitter, PoseStack poseStack) {
         this.submitter = Objects.requireNonNull(submitter, "submitter");
         this.poseStack = Objects.requireNonNull(poseStack, "poseStack");
         this.recordingOnly = false;
+        this.sprites = null;
     }
 
-    private LegacyMultiBufferSource(boolean recordingOnly) {
+    private LegacyMultiBufferSource(boolean recordingOnly) { this(recordingOnly,null); }
+
+    private LegacyMultiBufferSource(boolean recordingOnly,net.minecraft.client.resources.model.sprite.SpriteGetter sprites) {
+        this.sprites = sprites;
         this.submitter = null;
         this.poseStack = null;
         this.recordingOnly = recordingOnly;
@@ -43,6 +49,14 @@ public class LegacyMultiBufferSource {
     /** Begin an extraction-phase recording that can be submitted later. */
     public static LegacyMultiBufferSource recording() {
         return new LegacyMultiBufferSource(true);
+    }
+
+    public static LegacyMultiBufferSource recording(net.minecraft.client.resources.model.sprite.SpriteGetter sprites) {
+        return new LegacyMultiBufferSource(true,Objects.requireNonNull(sprites));
+    }
+    public net.minecraft.client.renderer.texture.TextureAtlasSprite sprite(net.minecraft.client.resources.model.sprite.SpriteId id) {
+        if(sprites==null)throw new UnsupportedOperationException("Source atlas material rendering has no published target SpriteGetter context");
+        return Objects.requireNonNull(sprites.get(id),"Target sprite getter returned null");
     }
 
     /** Exact Forge 1.19.2 SRG ABI used by legacy bytecode. */

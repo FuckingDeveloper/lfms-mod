@@ -1,17 +1,27 @@
 package com.fuckingdeveloper.lms.runtime;
 
+import com.mojang.serialization.Dynamic;
+import net.minecraft.SharedConstants;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.util.datafix.DataFixers;
+import net.minecraft.util.datafix.fixes.References;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.tags.ItemTags;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 /** Target adapter for item semantics that moved into default components. */
 public final class Forge1192ItemBridge {
+    private static final int FORGE_1192_DATA_VERSION = 3120;
+
     private Forge1192ItemBridge() {}
 
     private static final ClassValue<java.util.Optional<java.lang.invoke.MethodHandle>>
@@ -217,6 +227,31 @@ public final class Forge1192ItemBridge {
         return stack.has(DataComponents.CUSTOM_NAME);
     }
 
+    /** Decode the complete Forge 1.19.2 stack schema through target data fixes. */
+    public static ItemStack of(CompoundTag legacy) {
+        Dynamic<Tag> fixed = DataFixers.getDataFixer().update(
+                References.ITEM_STACK,
+                new Dynamic<>(NbtOps.INSTANCE, legacy.copy()),
+                FORGE_1192_DATA_VERSION,
+                SharedConstants.getCurrentVersion().dataVersion().version());
+        HolderLookup.Provider registries = registryProvider();
+        return ItemStack.OPTIONAL_CODEC.parse(
+                registries.createSerializationContext(NbtOps.INSTANCE), fixed.getValue())
+                .getOrThrow(error -> new IllegalArgumentException(
+                        "Invalid Forge 1.19.2 ItemStack NBT after target data fix: " + error));
+    }
+
+    private static HolderLookup.Provider registryProvider() {
+        var scoped = Target263DataComponentBindingBridge.currentRegistries();
+        if (scoped.isPresent()) return scoped.get();
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null) return server.registryAccess();
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null) return minecraft.level.registryAccess();
+        throw new IllegalStateException(
+                "Legacy ItemStack deserialization requires an active reload, server, or world registry context");
+    }
+
     /** Store a source-era arbitrary stack tag in the target custom-data component. */
     public static void addTagElement(ItemStack stack, String key, Tag value) {
         getOrCreateTag(stack).put(key, value);
@@ -272,11 +307,6 @@ public final class Forge1192ItemBridge {
 
     /** Preserve the exact Forge 1.19.2 ItemStack NBT schema. */
     public static CompoundTag save(ItemStack stack, CompoundTag destination) {
-        var id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        destination.putString("id", id == null ? "minecraft:air" : id.toString());
-        destination.putByte("Count", (byte) stack.getCount());
-        CompoundTag legacyTag = getTag(stack);
-        if (legacyTag != null) destination.put("tag", legacyTag.copy());
-        return destination;
+        return Forge1192StackNbtBridge.save(stack,destination);
     }
 }
