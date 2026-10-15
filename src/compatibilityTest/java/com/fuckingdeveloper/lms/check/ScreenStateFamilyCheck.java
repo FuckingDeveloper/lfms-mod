@@ -28,6 +28,7 @@ public final class ScreenStateFamilyCheck {
     public static void run() throws Exception {
         var transformer = new Forge1192LegacyClassTransformer();
         var parent = screen("fixture/StateParent", BASE, false);
+        addPassEvents(parent);
         var child = screen("fixture/StateChild", parent.name, true);
         Map<String, byte[]> originals = Map.of(parent.name, bytes(parent), child.name, bytes(child));
         transformer.bindManagedClassBytes(originals::get);
@@ -74,6 +75,7 @@ public final class ScreenStateFamilyCheck {
         check(!Modifier.isFinal(AbstractContainerScreen.class.getDeclaredField("imageWidth").getModifiers())
                 && !Modifier.isFinal(AbstractContainerScreen.class.getDeclaredField("imageHeight").getModifiers()), "native dimension mutability was not applied");
         var parent = screen("fixture/StateParent", BASE, false);
+        addPassEvents(parent);
         var child = screen("fixture/StateChild", parent.name, true);
         var caller = caller(child.name);
         var path = Files.createTempFile("lms-screen-state-source", ".jar");
@@ -88,6 +90,13 @@ public final class ScreenStateFamilyCheck {
             var unsafeField = sun.misc.Unsafe.class.getDeclaredField("theUnsafe"); unsafeField.setAccessible(true);
             var unsafe = (sun.misc.Unsafe)unsafeField.get(null);
             var screen = (AbstractContainerScreen<?>)unsafe.allocateInstance(childType);
+            childType.getMethod("pass",boolean.class).invoke(screen,false);
+            check(!(boolean)childType.getMethod("pass").invoke(screen),"native screen gameplay-input gate not preserved");
+            var passHandle=(MethodHandle)childType.getMethod("passHandle").invoke(null);
+            check(passHandle.type().equals(MethodType.methodType(void.class,loader.linkOwnedClass(parent.name.replace('/','.')),boolean.class)),"source screen field handle type changed");
+            passHandle.invoke(screen,false);
+            try { childType.getMethod("pass",boolean.class).invoke(screen,true); throw new AssertionError("unproven input passthrough accepted"); }
+            catch(java.lang.reflect.InvocationTargetException expectedFailure) {check(expectedFailure.getCause() instanceof UnsupportedOperationException,"wrong passEvents boundary");}
             var callerType = loader.linkOwnedClass(caller.name.replace('/', '.'));
             var lookup = MethodHandles.privateLookupIn(childType, MethodHandles.lookup());
             var update = lookup.findVirtual(childType, "state", MethodType.methodType(void.class, int.class, int.class, int.class, int.class, Slot.class));
@@ -106,6 +115,14 @@ public final class ScreenStateFamilyCheck {
         catch (Throwable failure) { throw new IllegalStateException("Native source screen fixture failed", failure); }
         check(Arrays.equals(immutable, Files.readAllBytes(path)), "source screen JAR changed");
         System.out.println("PASS: actual native container state, once-only source overrides/super/lambda dispatch, protected width/height writes after construction, live state and genuine absent hovered slot; no screen/window opened");
+    }
+    private static void addPassEvents(ClassNode node) {
+        var write=new MethodNode(Opcodes.ACC_PUBLIC,"pass","(Z)V",null,null);node.methods.add(write);
+        write.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));write.instructions.add(new VarInsnNode(Opcodes.ILOAD,1));write.instructions.add(new FieldInsnNode(Opcodes.PUTFIELD,node.name,"f_96546_","Z"));write.instructions.add(new InsnNode(Opcodes.RETURN));
+        var read=new MethodNode(Opcodes.ACC_PUBLIC,"pass","()Z",null,null);node.methods.add(read);
+        read.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));read.instructions.add(new FieldInsnNode(Opcodes.GETFIELD,node.name,"f_96546_","Z"));read.instructions.add(new InsnNode(Opcodes.IRETURN));
+        var handle=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"passHandle","()Ljava/lang/invoke/MethodHandle;",null,null);node.methods.add(handle);
+        handle.instructions.add(new LdcInsnNode(new Handle(Opcodes.H_PUTFIELD,node.name,"f_96546_","Z",false)));handle.instructions.add(new InsnNode(Opcodes.ARETURN));
     }
     private static ClassNode screen(String name, String parent, boolean child) {
         var node = node(name, parent);

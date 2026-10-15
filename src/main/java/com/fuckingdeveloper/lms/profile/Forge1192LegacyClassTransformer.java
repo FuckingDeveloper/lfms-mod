@@ -8521,6 +8521,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         node.methods.addAll(adapters); return rewrites;
     }
     private Handle widgetCoordinateBridge(ClassNode node, FieldHierarchy own, String owner, String name, String descriptor, int opcode) {
+        if (descriptor.equals("Z") && (name.equals("f_96546_") || name.equals("passEvents"))
+                && (opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.PUTFIELD)) {
+            String declaration = sourceFieldOwner(node.name, own, owner, name, descriptor, new java.util.HashSet<>());
+            String screen = "net/minecraft/client/gui/screens/Screen";
+            String canonical = declaration == null ? null : SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalFieldName(declaration,name,descriptor)).orElse(name);
+            if (screen.equals(declaration) && "passEvents".equals(canonical)) {
+                boolean read = opcode == org.objectweb.asm.Opcodes.GETFIELD;
+                return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/render/Forge1192ScreenInputBridge",
+                        read ? "getPassEvents" : "setPassEvents", "(L"+screen+";"+(read?")Z":"Z)V"),false);
+            }
+        }
         String widget = "net/minecraft/client/gui/components/AbstractWidget";
         if (!descriptor.equals("I") || !(name.equals("x") || name.equals("y"))
                 || (opcode != org.objectweb.asm.Opcodes.GETFIELD && opcode != org.objectweb.asm.Opcodes.PUTFIELD)) return null;
@@ -8545,17 +8556,18 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         };
         if (opcode == -1) return value;
         String owner = handle.getOwner(), name = handle.getName(), descriptor = handle.getDesc();
+        Handle bridge = widgetCoordinateBridge(node, own, owner, name, descriptor, opcode);
         String renamed = renamedVanillaField(new FieldInsnNode(opcode, owner, name, descriptor));
         if (renamed != null) {
             name = renamed;
-        } else if (name.startsWith("f_") && SRG_RUNTIME_RESOLVER.isPresent()) {
+        } else if (bridge == null && name.startsWith("f_") && SRG_RUNTIME_RESOLVER.isPresent()) {
             String declaration = sourceFieldOwner(node.name, own, owner, name, descriptor, new java.util.HashSet<>());
             if (declaration == null || !declaration.startsWith("net/minecraft/")) return value;
             var resolved = SRG_RUNTIME_RESOLVER.get().resolveField(declaration, name, descriptor);
             if (!resolved.resolved()) return value;
             owner = resolved.owner(); name = resolved.name(); descriptor = resolved.descriptor();
         }
-        Handle bridge = widgetCoordinateBridge(node, own, owner, name, descriptor, opcode);
+        if (bridge == null) bridge = widgetCoordinateBridge(node, own, owner, name, descriptor, opcode);
         if (bridge == null && owner.equals(handle.getOwner()) && name.equals(handle.getName()) && descriptor.equals(handle.getDesc())) return value;
         boolean instance = opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.PUTFIELD;
         boolean read = opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.GETSTATIC;

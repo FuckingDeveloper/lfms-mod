@@ -212,3 +212,13 @@ verified Container inheritance and the exact source member descriptor select thi
 family. Counter increment/decrement retain the native engine, supplying the actual
 player interaction range to the changed increment operation. No source chest logic
 or fixture identity selects adaptation.
+
+### Screen gameplay-input gate
+
+The pinned target KeyboardHandler and Minecraft tick route gameplay input only
+when no screen exists. Source Screen.passEvents=false therefore preserves this
+native policy without additional state; reads return that actual blocked policy.
+A true write MUST fail explicitly until input passthrough is adapted. Exact source
+field declaration (including hidden-field negatives) selects the bridge. Callable
+field references MUST retain source receiver/value types. isInGameUi controls
+background/HUD behavior and MUST NOT be substituted for gameplay-input routing.
