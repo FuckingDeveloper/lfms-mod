@@ -14,7 +14,7 @@ public final class SourceContainerFamilyCheck {
     public static final class Probe extends Event {}
     private static final List<String> AUTOMATIC=new ArrayList<>();
     public static void record(String id){
-        check(Forge1192LifecycleBridge.requireActive().modId().equals(id),"automatic subscriber lost source ownership");AUTOMATIC.add(id);
+        check(Forge1192LifecycleBridge.requireActive().modId().equals(id)&&Forge1192RegistrationContext.requireModId().equals(id),"automatic subscriber lost lifecycle/namespace ownership");AUTOMATIC.add(id);
     }
     static void run(ModContainer host) throws Exception {
         var first=fixture("source_view_a","source_view_b");var second=fixture("source_view_b",null);
@@ -37,6 +37,31 @@ public final class SourceContainerFamilyCheck {
             b.initialize();a.initialize();
             AUTOMATIC.clear();bus.post(new Probe());
             check(AUTOMATIC.equals(List.of("source_view_b","source_view_a")),"automatic source subscriptions missing or on wrong bus");
+            try(var lifecycle=Forge1192LifecycleBridge.enterCallback(a.modId());var namespace=Forge1192RegistrationContext.enterMod(a.modId())) {
+                var before=Forge1192LifecycleBridge.requireActive();AUTOMATIC.clear();bus.post(new Probe());
+                check(AUTOMATIC.equals(List.of("source_view_b","source_view_a")),"nested real bus dispatch skipped/reordered source owners");
+                check(Forge1192LifecycleBridge.requireActive()==before&&Forge1192RegistrationContext.requireModId().equals(a.modId()),"nested bus dispatch leaked callback owner");
+                try(var nestedLifecycle=Forge1192LifecycleBridge.enterCallback(b.modId());var nestedNamespace=Forge1192RegistrationContext.enterCallbackMod(b.modId())){
+                    check(Forge1192RegistrationContext.checkPrefix("entry",false).getNamespace().equals(b.modId()),"nested namespace inherited initiator");
+                    throw new IllegalArgumentException("fixture callback failure");
+                }catch(IllegalArgumentException expected){}
+                check(Forge1192LifecycleBridge.requireActive()==before&&Forge1192RegistrationContext.requireModId().equals(a.modId()),"failing callback leaked lifecycle/namespace");
+                try{Forge1192RegistrationContext.enterMod(b.modId());throw new AssertionError("ordinary mod scope admitted cross-owner reentry");}catch(IllegalStateException expected){}
+                var constructor=net.neoforged.neoforge.registries.RegisterEvent.class.getDeclaredConstructor(net.minecraft.resources.ResourceKey.class,net.minecraft.core.Registry.class);constructor.setAccessible(true);
+                var isolated=new net.minecraft.core.MappedRegistry<Object>((net.minecraft.resources.ResourceKey)net.minecraft.core.registries.Registries.SOUND_EVENT,com.mojang.serialization.Lifecycle.stable());
+                var event=constructor.newInstance(net.minecraft.core.registries.Registries.SOUND_EVENT,isolated);
+                try(var registration=Forge1192RegistrationContext.enterRegistration(event)){
+                    try{Forge1192RegistrationContext.enterCallbackMod(b.modId());throw new AssertionError("callback borrowed foreign registry phase");}catch(IllegalStateException expected){}
+                    try(var sameOwner=Forge1192RegistrationContext.enterCallbackMod(a.modId())){
+                        try{registration.close();throw new AssertionError("registration scope closed through nested callback frame");}catch(IllegalStateException expected){}
+                    }
+                    check(Forge1192RegistrationContext.requireActive().event()==event&&Forge1192RegistrationContext.requireModId().equals(a.modId()),"rejected callback disturbed active registry ownership");
+                }
+            }
+            var outer=Forge1192RegistrationContext.enterMod(a.modId());var inner=Forge1192RegistrationContext.enterMod(a.modId());
+            try{outer.close();throw new AssertionError("same-owner out-of-order closure accepted");}catch(IllegalStateException expected){}
+            inner.close();outer.close();try{inner.close();throw new AssertionError("double scope closure accepted");}catch(IllegalStateException expected){}
+            try{Forge1192RegistrationContext.requireModId();throw new AssertionError("callback namespace leaked after close");}catch(IllegalStateException expected){}
             try(var consumer=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(first,List.of(second),
                     SourceContainerFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer(),
                     Forge1192ModListView.sharedDependencies(List.of(second)))) {

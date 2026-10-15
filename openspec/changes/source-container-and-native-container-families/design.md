@@ -243,3 +243,12 @@ presented by the native Category.label operation. Native categories retain nativ
 labels. Resolve category identity through the registered source intent, not a
 fixture ID or guessed language key. Labels remain translatable components so
 native language reloads continue to apply; no source resources are rewritten.
+
+### Nested source callback namespace
+
+Ordinary synchronous event dispatch MAY switch source owners. The callback's
+namespace scope MUST match its lifecycle owner and MUST restore the caller on
+normal return or failure. Explicit construction/recorded mod scopes retain their
+cross-owner rejection. An active target RegisterEvent MUST NOT be inherited by a
+different source owner. All namespace scopes, including same-owner re-entry,
+MUST enforce thread ownership and identity-based LIFO closure.

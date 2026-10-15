@@ -25,6 +25,8 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class Forge1192RegistrationContext {
     private static final ThreadLocal<String> CURRENT_MOD = new ThreadLocal<>();
+    private record ModFrame(String modId, ModFrame previous) {}
+    private static final ThreadLocal<ModFrame> CURRENT_FRAME = new ThreadLocal<>();
     private static final ThreadLocal<RegisterEvent> CURRENT_EVENT = new ThreadLocal<>();
     private static final Map<String, Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>>> PENDING =
             new HashMap<>();
@@ -53,24 +55,23 @@ public final class Forge1192RegistrationContext {
         }
     }
 
-    public static AutoCloseable enterMod(String modId) {
-        Objects.requireNonNull(modId, "modId");
-        String active = CURRENT_MOD.get();
-        if (active != null) {
-            if (!active.equals(modId)) {
-                throw new IllegalStateException("Cannot enter legacy mod scope for " + modId
-                        + " while " + active + " is active");
-            }
-            // Synchronous target-to-legacy callbacks retain the owning mod's
-            // namespace. Registry-event nesting remains independently forbidden.
-            return () -> {};
-        }
-        Thread owner = Thread.currentThread();
-        CURRENT_MOD.set(modId);
-        return () -> {
-            if (Thread.currentThread() != owner || !Objects.equals(CURRENT_MOD.get(), modId))
-                throw new IllegalStateException("Legacy mod scope closed out of order or on another thread");
-            CURRENT_MOD.remove();
+    public static AutoCloseable enterMod(String modId) {return activateMod(modId,false);}
+
+    /** Dispatch may switch source owners; an active registry event may not cross owners. */
+    public static AutoCloseable enterCallbackMod(String modId) {return activateMod(modId,true);}
+
+    private static AutoCloseable activateMod(String modId,boolean callback) {
+        Objects.requireNonNull(modId,"modId");String previous=CURRENT_MOD.get();
+        RegisterEvent event=CURRENT_EVENT.get();
+        if(previous!=null&&!previous.equals(modId)&&(!callback||event!=null))
+            throw new IllegalStateException("Cannot enter legacy mod scope for "+modId+" while "+previous+" is active"+(event==null?"":" in a registry phase"));
+        var frame=new ModFrame(modId,CURRENT_FRAME.get());Thread owner=Thread.currentThread();
+        CURRENT_FRAME.set(frame);CURRENT_MOD.set(modId);
+        return ()->{
+            if(Thread.currentThread()!=owner||CURRENT_FRAME.get()!=frame||CURRENT_EVENT.get()!=event)
+                throw new IllegalStateException("Legacy mod scope closed out of order, across a registry phase, or on another thread");
+            if(frame.previous()==null)CURRENT_FRAME.remove();else CURRENT_FRAME.set(frame.previous());
+            if(previous==null)CURRENT_MOD.remove();else CURRENT_MOD.set(previous);
         };
     }
 
@@ -84,6 +85,7 @@ public final class Forge1192RegistrationContext {
         String modId = CURRENT_MOD.get();
         if (modId == null) throw new IllegalStateException("Legacy registration scope requires an active mod scope");
         Thread owner = Thread.currentThread();
+        ModFrame frame = CURRENT_FRAME.get();
         CURRENT_EVENT.set(event);
         try {
             flushPending(modId, event);
@@ -92,7 +94,8 @@ public final class Forge1192RegistrationContext {
             throw e;
         }
         return () -> {
-            if (Thread.currentThread() != owner || CURRENT_EVENT.get() != event)
+            if (Thread.currentThread() != owner || CURRENT_EVENT.get() != event
+                    || CURRENT_FRAME.get() != frame || !Objects.equals(CURRENT_MOD.get(), modId))
                 throw new IllegalStateException("Legacy registration scope closed out of order or on another thread");
             synchronized (PENDING) {
                 COMPLETED.computeIfAbsent(modId, ignored -> new HashSet<>()).add(event.getRegistryKey());
