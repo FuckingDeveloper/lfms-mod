@@ -54,6 +54,12 @@ final class NativeConfigFamilyCheck {
         var external=Path.of("legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
         var dependency=Path.of("lms/dependencies/CarbonConfig-1.19.2-2.0.2.jar/3d6c721d4d977672-Primitive Collections-0.8.9.jar");
         if(Files.exists(external)&&Files.exists(dependency))try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(external,List.of(dependency),NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+            var editType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonEditBox");
+            var edit=(net.minecraft.client.gui.components.EditBox)editType.getConstructor(net.minecraft.client.gui.Font.class,int.class,int.class,int.class,int.class).newInstance(null,0,0,120,20);
+            check(edit instanceof com.fuckingdeveloper.lms.runtime.render.Forge1192EditBox,"source edit-box constructor did not retain target-native adaptation");
+            var editNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(editType.getName())).accept(editNode,0);
+            for(var method:editNode.methods)for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.owner.equals(editType.getName().replace('.','/')))check(!call.name.startsWith("m_"),"immutable edit-box retained unresolved self/inherited operation: "+call.name+call.desc);
+            edit.setValue("probe");var state=editType.getMethod("getState").invoke(edit);check(state.getClass().getMethod("getValue").invoke(state).equals("probe"),"immutable source text-state responder did not receive native edit");
             var listType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonDynamicList");
             var sourceList=(com.fuckingdeveloper.lms.runtime.render.Forge1192ContainerSelectionList<?>)listType.getConstructor(net.minecraft.client.Minecraft.class,int.class,int.class,int.class,int.class,int.class).newInstance(null,320,240,30,180,20);
             check(sourceList.lms$getHeight()==240&&sourceList.lms$getTop()==30&&sourceList.lms$getBottom()==180,"source screen height and viewport conflated");

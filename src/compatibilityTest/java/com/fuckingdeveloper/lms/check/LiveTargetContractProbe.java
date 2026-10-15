@@ -151,6 +151,7 @@ public final class LiveTargetContractProbe {
         GameRulesFamilyCheck.run();
         NativeConfigFamilyCheck.run();
         SelectionListFamilyCheck.run();
+        EditBoxFamilyCheck.run();
         AtlasMaterialFamilyCheck.run();
         BonemealFamilyCheck.run();
         ComponentJsonCheck.run();

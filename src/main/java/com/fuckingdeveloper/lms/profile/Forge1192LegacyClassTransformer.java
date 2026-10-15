@@ -242,6 +242,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"));
         rewrites += Forge1192BootstrapRewriter.rewrite(node);
         rewrites += rewriteSourceContainerNbt(node);
+        rewrites += Forge1192EditBoxRewriter.rewrite(node,
+                owner -> owner.equals(node.name)?isManagedSubtypeOf(node,"net/minecraft/client/gui/components/EditBox"):isManagedSubtypeOf(owner,"net/minecraft/client/gui/components/EditBox"),
+                (name,desc)->SRG_RUNTIME_RESOLVER.get().canonicalMethodName("net/minecraft/client/gui/components/EditBox",name,desc).orElse(null));
         rewrites += Forge1192SelectionListRewriter.rewrite(node,new Forge1192SelectionListRewriter.Evidence(){
             public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):isManagedSubtypeOf(owner,root);}
             public String method(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null);}

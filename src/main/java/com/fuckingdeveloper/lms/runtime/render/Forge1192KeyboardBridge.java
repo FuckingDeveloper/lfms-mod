@@ -41,7 +41,10 @@ public final class Forge1192KeyboardBridge {
     public static int getScanCode(InputEvent.Key event){return event.getKey();}
     public static int getAction(InputEvent.Key event){return event.getAction();}
     public static int getModifiers(InputEvent.Key event){
-        int nativeFlags=event.getModifiers(),source=0;
+        return sourceModifiers(event.getModifiers());
+    }
+    public static int sourceModifiers(int nativeFlags){
+        int source=0;
         if((nativeFlags&InputConstants.MOD_SHIFT)!=0)source|=1;
         if((nativeFlags&InputConstants.MOD_CONTROL)!=0)source|=2;
         if((nativeFlags&InputConstants.MOD_ALT)!=0)source|=4;
@@ -49,6 +52,11 @@ public final class Forge1192KeyboardBridge {
         if((nativeFlags&InputConstants.MOD_CAPS_LOCK)!=0)source|=16;
         if((nativeFlags&InputConstants.MOD_NUM_LOCK)!=0)source|=32;
         return source;
+    }
+    public static int nativeModifiers(int source){
+        if((source&~63)!=0)throw new UnsupportedOperationException("Unmapped source modifier bits: "+source);
+        int result=0;int[] nativeBits={InputConstants.MOD_SHIFT,InputConstants.MOD_CONTROL,InputConstants.MOD_ALT,InputConstants.MOD_SUPER,InputConstants.MOD_CAPS_LOCK,InputConstants.MOD_NUM_LOCK};
+        for(int i=0;i<nativeBits.length;i++)if((source&(1<<i))!=0)result|=nativeBits[i];return result;
     }
     public static boolean matches(KeyMapping mapping,int sourceKey,int normalizedPhysical){
         if(sourceKey==-1)return false; // No raw scan-only bindings are admitted.
