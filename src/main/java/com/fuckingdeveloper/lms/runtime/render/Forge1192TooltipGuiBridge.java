@@ -2,7 +2,6 @@ package com.fuckingdeveloper.lms.runtime.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 
@@ -62,19 +61,47 @@ public final class Forge1192TooltipGuiBridge {
         scope().texture = java.util.Objects.requireNonNull(texture, "tooltip texture");
         scope().textureObject = null;
     }
+    public static void blit(PoseStack pose, int x, int y, float u, float v,
+                            int width, int height, int textureWidth, int textureHeight) {
+        blit(pose,x,y,width,height,u,v,width,height,textureWidth,textureHeight);
+    }
+    public static void blit(PoseStack pose, int x, int y, int width, int height, float u, float v,
+                            int sourceWidth, int sourceHeight, int textureWidth, int textureHeight) {
+        drawBlit(pose,x,y,0,u,v,width,height,sourceWidth,sourceHeight,textureWidth,textureHeight);
+    }
     public static void blit(PoseStack pose, int x, int y, int z, float u, float v,
                             int width, int height, int textureWidth, int textureHeight) {
-        Scope scope = scope();
-        if(scope.colorWriteMask!=com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALL)
-            throw new UnsupportedOperationException("Masked source direct GUI blit is not adapted");
-        var transform=Forge1192GuiPlaneBridge.planar(pose.last().pose());
-        if (scope.texture == null) throw new IllegalStateException("Legacy tooltip blit has no bound texture");
-        Forge1192GuiPlaneBridge.submit(Forge1192GuiPlaneBridge.depth(pose.last().pose(),z));
-        scope.graphics.pose().pushMatrix();
-        try {
-            scope.graphics.pose().mul(transform);
-            scope.graphics.blit(RenderPipelines.GUI_TEXTURED, scope.texture, x, y, u, v,
-                    width, height, textureWidth, textureHeight, scope.color);
-        }finally{scope.graphics.pose().popMatrix();}
+        drawBlit(pose,x,y,z,u,v,width,height,width,height,textureWidth,textureHeight);
     }
+    private static void drawBlit(PoseStack pose,int x,int y,int z,float u,float v,int width,int height,
+                                 int sourceWidth,int sourceHeight,int textureWidth,int textureHeight) {
+        drawUv(pose,x,y,z,width,height,u/textureWidth,(u+sourceWidth)/textureWidth,v/textureHeight,(v+sourceHeight)/textureHeight);
+    }
+    public static void blit(PoseStack pose,int x,int y,int z,int width,int height,net.minecraft.client.renderer.texture.TextureAtlasSprite sprite) {
+        drawUv(pose,x,y,z,width,height,sprite.getU0(),sprite.getU1(),sprite.getV0(),sprite.getV1());
+    }
+    private static void drawUv(PoseStack pose,int x,int y,int z,int width,int height,float u0,float u1,float v0,float v1) {
+        Scope scope = scope();
+        var buffer=new LegacyGuiBuffer();
+        // Source GuiComponent.innerBlit selects POSITION_TEX but preserves blend/color/mask and binding.
+        scope.shader=LegacyGuiShader.POSITION_TEX;
+        buffer.begin(LegacyVertexFormatMode.QUADS,LegacyDefaultVertexFormat.f_85817_);
+        var matrix=pose.last().pose();
+        buffer.vertex(matrix,x,y+height,z).setUv(u0,v1);
+        buffer.vertex(matrix,x+width,y+height,z).setUv(u1,v1);
+        buffer.vertex(matrix,x+width,y,z).setUv(u1,v0);
+        buffer.vertex(matrix,x,y,z).setUv(u0,v0);
+        buffer.finish();
+    }
+    public static void fill(PoseStack pose,int x0,int y0,int x1,int y1,int color) {
+        if(x0<x1){int swap=x0;x0=x1;x1=swap;}
+        if(y0<y1){int swap=y0;y0=y1;y1=swap;}
+        var scope=scope();scope.blend=true;scope.textureEnabled=false;scope.shader=LegacyGuiShader.POSITION_COLOR;
+        var buffer=new LegacyGuiBuffer();buffer.begin(LegacyVertexFormatMode.QUADS,LegacyDefaultVertexFormat.f_85815_);
+        var matrix=pose.last().pose();
+        buffer.vertex(matrix,x0,y1,0).setColor(color);buffer.vertex(matrix,x1,y1,0).setColor(color);
+        buffer.vertex(matrix,x1,y0,0).setColor(color);buffer.vertex(matrix,x0,y0,0).setColor(color);buffer.finish();
+        scope.textureEnabled=true;scope.blend=false;
+    }
+
 }

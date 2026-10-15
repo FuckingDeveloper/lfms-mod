@@ -222,3 +222,16 @@ A true write MUST fail explicitly until input passthrough is adapted. Exact sour
 field declaration (including hidden-field negatives) selects the bridge. Callable
 field references MUST retain source receiver/value types. isInGameUi controls
 background/HUD behavior and MUST NOT be substituted for gameplay-input routing.
+
+### Inherited static GUI texture blits
+
+Resolve removed GuiComponent operations through the verified source roots
+AbstractWidget and AbstractContainerEventHandler, preserving managed method hiding.
+The three static numeric texture-blit overloads preserve explicit/default-zero Z,
+source rectangle versus destination dimensions, exact UVs and planar pose. Calls,
+LDC/indy handles and nested dynamic constants MUST use the same rule. Record
+geometry through the existing scoped GUI buffer, retaining source shader selection,
+bound texture, tint, blend and color-mask state in immutable native render data.
+Sprite UVs come from the genuine native sprite while retaining the source bound
+texture. Static fills retain source coordinate normalization, ARGB and once-only
+blend/texture state changes. Receiver-depth overloads remain unadapted.

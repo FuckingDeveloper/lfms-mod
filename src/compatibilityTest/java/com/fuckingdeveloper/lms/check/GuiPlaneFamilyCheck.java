@@ -62,8 +62,49 @@ public final class GuiPlaneFamilyCheck {
         check(restored.points().get(2).x()==23.25F&&restored.points().get(2).y()==25.5F,"reciprocal scale did not restore XY");
         check(((List<?>)strata.get(scaledState)).size()==2,"scaled local Z=200 and restored Z=100 must occupy equal native planes");
         try{Forge1192WidgetGraphicsBridge.extract((pose,x,y,partial)->{Forge1192ContainerGraphicsBridge.setShader(Forge1192ContainerGraphicsBridge::positionColorShader);pose.translate(0,0,100);quad(pose);pose.translate(0,0,-50);quad(pose);},graphics,0,0,0);throw new AssertionError("descending geometry accepted");}catch(UnsupportedOperationException expected){}
+        var blitState=new GuiRenderState();set(graphics,"guiRenderState",blitState);
+        // Geometry-only CPU texture fixture: no GPU resource/window is claimed by this probe.
+        var cpuTexture=(CpuTexture)unsafe.allocateInstance(CpuTexture.class);
+        Forge1192WidgetGraphicsBridge.extract((pose,x,y,partial)->{
+            LegacyGuiTextureHandles.setShaderTexture(0,cpuTexture);
+            Forge1192TooltipGuiBridge.shaderColor(0.5F,1,1,1);
+            Forge1192ContainerGraphicsBridge.disableBlend();
+            Forge1192ContainerGraphicsBridge.colorMask(true,false,true,false);
+            Forge1192TooltipGuiBridge.blit(pose,10,20,16F,32F,32,16,128,256);
+            Forge1192TooltipGuiBridge.blit(pose,10,20,64,48,16F,32F,32,16,128,256);
+            Forge1192TooltipGuiBridge.blit(pose,10,20,100,16F,32F,32,16,128,256);
+        },graphics,0,0,0);
+        var blits=new ArrayList<GuiElementRenderState>();blitState.forEachElement(blits::add,GuiRenderState.TraverseRange.ALL);
+        check(blits.size()==3,"source static blit family lost recorded primitives");
+        var first=(LegacyGuiBuffer.QuadState)blits.get(0);var scaledBlit=(LegacyGuiBuffer.QuadState)blits.get(1);
+        check(first.points().get(0).x()==10&&first.points().get(0).y()==36&&first.points().get(0).u()==0.125F&&first.points().get(0).v()==0.1875F,"source texture rectangle/UV origin changed");
+        check(scaledBlit.points().get(1).x()==74&&scaledBlit.points().get(1).y()==68&&scaledBlit.points().get(1).u()==0.375F&&scaledBlit.points().get(1).v()==0.1875F,"scaled destination stretched source UV rectangle");
+        check(first.points().stream().allMatch(point->point.color()==0xFF7FFFFF),"source blit tint lost");
+        check(first.pipeline().getColorTargetStates().getFirst().blendFunction().isEmpty()&&first.pipeline().getColorTargetStates().getFirst().writeMask()==5,"source blit blend/write-mask state lost");
+        check(((List<?>)strata.get(blitState)).size()==2,"explicit source blit depth did not select native stratum");
+        var fillState=new GuiRenderState();set(graphics,"guiRenderState",fillState);
+        Forge1192WidgetGraphicsBridge.extract((pose,x,y,partial)->{
+            Forge1192TooltipGuiBridge.fill(pose,10,20,30,40,0x80402010);
+        },graphics,0,0,0);
+        var fills=new ArrayList<GuiElementRenderState>();fillState.forEachElement(fills::add,GuiRenderState.TraverseRange.ALL);
+        var fill=(LegacyGuiBuffer.QuadState)fills.getFirst();
+        check(fill.bounds().equals(new ScreenRectangle(10,20,20,20))&&fill.points().stream().allMatch(point->point.color()==0x80402010),"source reversed fill bounds/ARGB changed");
+        check(fill.pipeline().getColorTargetStates().getFirst().blendFunction().isPresent(),"source fill blending not enabled");
+        var spriteState=new GuiRenderState();set(graphics,"guiRenderState",spriteState);
+        try(var contents=new net.minecraft.client.renderer.texture.SpriteContents(net.minecraft.resources.Identifier.parse("fixture:blit"),new net.minecraft.client.resources.metadata.animation.FrameSize(16,16),new com.mojang.blaze3d.platform.NativeImage(16,16,true))) {
+            var sprite=new AtlasMaterialFamilyCheck.Sprite(net.minecraft.resources.Identifier.parse("fixture:atlas"),contents);
+            Forge1192WidgetGraphicsBridge.extract((pose,x,y,partial)->{LegacyGuiTextureHandles.setShaderTexture(0,cpuTexture);Forge1192TooltipGuiBridge.blit(pose,10,20,0,32,32,sprite);},graphics,0,0,0);
+            var sprites=new ArrayList<GuiElementRenderState>();spriteState.forEachElement(sprites::add,GuiRenderState.TraverseRange.ALL);
+            var spriteQuad=(LegacyGuiBuffer.QuadState)sprites.getFirst();
+            check(spriteQuad.points().getFirst().u()==sprite.getU0()&&spriteQuad.points().getFirst().v()==sprite.getV1(),"sprite blit ignored actual native atlas UVs");
+        }
+
         try{Forge1192GuiPlaneBridge.submit(0);throw new AssertionError("source depth scope leaked");}catch(IllegalStateException expected){}
         System.out.println("PASS: actual native GUI strata and immutable quad projection, source Z=100, independent Z scales, half-scale/restoration and explicit local depths, XY preservation, equal/disabled/descending planes, 3D/perspective/mixed-plane rejection and failure scope restoration");
+    }
+    public static final class CpuTexture extends net.minecraft.client.renderer.texture.AbstractTexture {
+        @Override public com.mojang.renderpearl.api.textures.GpuTextureView getTextureView(){return null;}
+        @Override public com.mojang.renderpearl.api.textures.GpuSampler getSampler(){return null;}
     }
     private static void quad(PoseStack pose){quad(pose,0);}
     private static void quad(PoseStack pose,float z){var buffer=new LegacyGuiBuffer();buffer.begin(LegacyVertexFormatMode.QUADS,LegacyDefaultVertexFormat.f_85815_);for(float[] xy:new float[][]{{0,0},{0,16},{16,16},{16,0}})buffer.vertex(pose.last().pose(),xy[0],xy[1],z).setColor(-1);buffer.finish();}

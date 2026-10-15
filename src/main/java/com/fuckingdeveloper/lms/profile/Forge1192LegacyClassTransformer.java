@@ -4466,8 +4466,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 if (SRG_RUNTIME_RESOLVER.isPresent()) {
                     var canonical = SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner, name, descriptor);
                     if (canonical.isPresent()) return owner + "#" + canonical.get();
-                    // Source AbstractWidget extends GuiComponent; the target removed that ancestry.
-                    if (owner.equals("net/minecraft/client/gui/components/AbstractWidget")) {
+                    // Verified source roots whose target generation removed GuiComponent ancestry.
+                    if (owner.equals("net/minecraft/client/gui/components/AbstractWidget")
+                            || owner.equals("net/minecraft/client/gui/components/events/AbstractContainerEventHandler")) {
                         var base = SRG_RUNTIME_RESOLVER.get().canonicalMethodName("net/minecraft/client/gui/GuiComponent", name, descriptor);
                         if (base.isPresent()) return "net/minecraft/client/gui/GuiComponent#" + base.get();
                     }
@@ -4489,6 +4490,27 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return null;
     }
 
+    private Handle sourceStaticBlitHandle(ClassNode node, Handle handle) {
+        if (handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKESTATIC) return handle;
+        String pose = "Lcom/mojang/blaze3d/vertex/PoseStack;";
+        String operation;
+        if (java.util.Set.of("("+pose+"IIIFFIIII)V", "("+pose+"IIIIFFIIII)V", "("+pose+"IIFFIIII)V",
+                "("+pose+"IIIIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;)V").contains(handle.getDesc())) operation="blit";
+        else if(handle.getDesc().equals("("+pose+"IIIII)V")) operation="fill";
+        else return handle;
+        if (!("net/minecraft/client/gui/GuiComponent#"+operation).equals(sourceGuiMethod(node,handle.getOwner(),handle.getName(),handle.getDesc()))) return handle;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge",operation,handle.getDesc(),false);
+    }
+    private Object sourceStaticBlitConstant(ClassNode node, Object value) {
+        if (value instanceof Handle handle) return sourceStaticBlitHandle(node,handle);
+        if (value instanceof ConstantDynamic dynamic) {
+            var args=new Object[dynamic.getBootstrapMethodArgumentCount()];boolean changed=false;
+            for(int i=0;i<args.length;i++){Object old=dynamic.getBootstrapMethodArgument(i);args[i]=sourceStaticBlitConstant(node,old);changed|=args[i]!=old;}
+            return changed?new ConstantDynamic(dynamic.getName(),dynamic.getDescriptor(),dynamic.getBootstrapMethod(),args):value;
+        }
+        return value;
+    }
+
     private int rewriteWidgetPrimitiveFamily(ClassNode node) {
         int count = 0;
         String pose = "Lcom/mojang/blaze3d/vertex/PoseStack;";
@@ -4501,7 +4523,15 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 field.owner = "com/fuckingdeveloper/lms/runtime/Target263LegacyWidgetAssets";
                 field.name = "WIDGETS"; field.desc = "Lnet/minecraft/resources/Identifier;"; count++;
             }
+            if (instruction instanceof LdcInsnNode ldc) {
+                Object next=sourceStaticBlitConstant(node,ldc.cst);if(next!=ldc.cst){ldc.cst=next;count++;}
+            } else if (instruction instanceof InvokeDynamicInsnNode indy) for(int i=0;i<indy.bsmArgs.length;i++) {
+                Object next=sourceStaticBlitConstant(node,indy.bsmArgs[i]);if(next!=indy.bsmArgs[i]){indy.bsmArgs[i]=next;count++;}
+            }
             if (!(instruction instanceof MethodInsnNode call) || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESTATIC) continue;
+            var original=new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,call.owner,call.name,call.desc,call.itf);
+            var blit=sourceStaticBlitHandle(node,original);
+            if(!blit.equals(original)){call.owner=blit.getOwner();call.name=blit.getName();call.itf=false;count++;continue;}
             if (call.owner.equals("net/minecraftforge/client/gui/ScreenUtils")) {
                 boolean border = call.name.equals("blitWithBorder") && java.util.Set.of(
                         "("+pose+"IIIIIIIIIF)V", "("+pose+"IIIIIIIIIIIIF)V",

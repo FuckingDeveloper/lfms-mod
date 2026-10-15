@@ -10,6 +10,7 @@ import java.util.*;
 public final class WidgetExtractionFamilyCheck {
     private static final String POSE="Lcom/mojang/blaze3d/vertex/PoseStack;";
     public static void run() {
+        blitFamily();
         var parent=fixture("fixture/SourceButton","net/minecraft/client/gui/components/AbstractButton");
         var child=fixture("fixture/ChildButton",parent.name);
         var transformer=new Forge1192LegacyClassTransformer();
@@ -35,6 +36,28 @@ public final class WidgetExtractionFamilyCheck {
         check(tiles.stream().anyMatch(t->t.width()==3 && t.height()==7 && t.u()==2 && t.v()==48),"remainder tile stretches texture");
         for(var tile:tiles)check(tile.x()>=10&&tile.y()>=20&&tile.x()+tile.width()<=33&&tile.y()+tile.height()<=31,"tile escapes source destination");
         System.out.println("PASS: source widget extraction, final-native boundary, inherited depth/texture hiding and tiled remainder geometry");
+    }
+    private static void blitFamily() {
+        var signatures=List.of("("+POSE+"IIIFFIIII)V","("+POSE+"IIIIFFIIII)V","("+POSE+"IIFFIIII)V","("+POSE+"IIIII)V","("+POSE+"IIIIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;)V");
+        var names=List.of("m_93143_","m_93160_","m_93133_","m_93172_","m_93200_");
+        for(String base:List.of("net/minecraft/client/gui/screens/Screen","net/minecraft/client/gui/components/AbstractWidget","java/lang/Object")) {
+            var node=new ClassNode();node.version=Opcodes.V17;node.access=Opcodes.ACC_PUBLIC|Opcodes.ACC_ABSTRACT;node.name="fixture/BlitOwner";node.superName=base;
+            var method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"references","()V",null,null);node.methods.add(method);
+            for(int i=0;i<names.size();i++) {
+                var handle=new Handle(Opcodes.H_INVOKESTATIC,node.name,names.get(i),signatures.get(i),false);
+                var boot=new Handle(Opcodes.H_INVOKESTATIC,"fixture/Bootstrap","constant","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;",false);
+                method.instructions.add(new LdcInsnNode(handle));method.instructions.add(new InsnNode(Opcodes.POP));
+                method.instructions.add(new LdcInsnNode(new ConstantDynamic("nested","Ljava/lang/Object;",boot,handle)));method.instructions.add(new InsnNode(Opcodes.POP));
+            }
+            method.instructions.add(new InsnNode(Opcodes.RETURN));
+            var mapped=transformed(new Forge1192LegacyClassTransformer(),node);
+            int adapted=0;
+            for(var instruction:mapped.methods.getFirst().instructions)if(instruction instanceof LdcInsnNode ldc) {
+                var h=ldc.cst instanceof Handle handle?handle:(Handle)((ConstantDynamic)ldc.cst).getBootstrapMethodArgument(0);
+                if(h.getOwner().endsWith("Forge1192TooltipGuiBridge")) {check(Set.of("blit","fill").contains(h.getName())&&signatures.contains(h.getDesc()),"blit overload ABI changed");adapted++;}
+            }
+            check(adapted==(base.equals("java/lang/Object")?0:10),"inherited static blit or unrelated owner resolved incorrectly: "+base);
+        }
     }
     private static ClassNode fixture(String name,String parent) {
         var node=new ClassNode();node.version=Opcodes.V17;node.access=Opcodes.ACC_PUBLIC|Opcodes.ACC_ABSTRACT;node.name=name;node.superName=parent;
