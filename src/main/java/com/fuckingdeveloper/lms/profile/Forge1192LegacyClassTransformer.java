@@ -242,6 +242,10 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"));
         rewrites += Forge1192BootstrapRewriter.rewrite(node);
         rewrites += rewriteSourceContainerNbt(node);
+        rewrites += Forge1192ContainerUsersRewriter.rewrite(node,
+                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/Container") : isManagedSubtypeOf(owner,"net/minecraft/world/Container"),
+                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/block/entity/ContainerOpenersCounter") : isManagedSubtypeOf(owner,"net/minecraft/world/level/block/entity/ContainerOpenersCounter"),
+                (owner,name,desc) -> isSrgMethodName(name) ? SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null) : name);
         rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
         // superclass constructor is still visible. Later construction-shape

@@ -199,3 +199,16 @@ retain source identity for SRG resolution. Do not infer nested-class aliases fro
 a relocated outer class or claim all entity behavior from structural identity.
 `tools/GenerateEntityRelocations.java` reproduces this evidence without loading or
 modifying original source/target classes.
+
+### Container users and opener tracking
+
+Preserve source Container.startOpen/stopOpen(Player) callbacks while routing source
+calls through the target ContainerUser contract. Native callbacks into managed
+containers MUST deliver the original Player identity once; nonplayer native users
+MUST fail explicitly until a source interpretation is designed. Source superclass
+calls retain special dispatch. Generated call/handle thunks retain exact source
+receiver/parameter types, including inherited owners and nested constants. Only
+verified Container inheritance and the exact source member descriptor select this
+family. Counter increment/decrement retain the native engine, supplying the actual
+player interaction range to the changed increment operation. No source chest logic
+or fixture identity selects adaptation.
