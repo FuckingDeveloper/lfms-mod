@@ -41,7 +41,7 @@ final class GameRulesFamilyCheck {
         check(count[0]>0&&count[1]>0&&events.size()==rules.availableRules().count()&&events.size()==count[0]+count[1],"native source visitor inventory lost/duplicated definitions");
         sourceVisitor(events.size());
         check(net.minecraft.server.MinecraftServer.class.getMethod("getGameRules").getReturnType()==GameRules.class&&net.minecraft.server.level.ServerLevel.class.getMethod("getGameRules").getReturnType()==GameRules.class,"native rule accessor ABI changed");
-        var external=Path.of("run/legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
+        var external=Path.of("legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
         if(Files.exists(external))try(var jar=new JarFile(external.toFile())) {
             var transformer=new Forge1192LegacyClassTransformer();transformer.bindManagedClassBytes(name->{var entry=jar.getJarEntry(name+".class");if(entry==null)return null;try(var in=jar.getInputStream(entry)){return in.readAllBytes();}});
             String name="carbonconfiglib/gui/impl/minecraft/MinecraftConfig";byte[] bytes;try(var in=jar.getInputStream(jar.getJarEntry(name+".class"))){bytes=in.readAllBytes();}

@@ -46,13 +46,28 @@ final class NativeConfigFamilyCheck {
         try{Forge1192ModContainerView.nativeView(other).dispatchConfigEvent(Forge1192NativeConfigBridge.reloading(source));throw new AssertionError("cross-owner event accepted");}catch(IllegalArgumentException expected){}
         check(events.get()==1,"rejected event produced side effects");
         sourceHandles(source);
-        var external=Path.of("run/legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
-        var dependency=Path.of("run/lms/dependencies/CarbonConfig-1.19.2-2.0.2.jar/3d6c721d4d977672-Primitive Collections-0.8.9.jar");
+        var resolver=com.fuckingdeveloper.lms.mapping.Forge1192SrgRuntimeResolver.load(Path.of(".")).orElseThrow();
+        var pathGetter=resolver.resolve("net/minecraft/server/MinecraftServer","m_129843_","(Lnet/minecraft/world/level/storage/LevelResource;)Ljava/nio/file/Path;");
+        check(pathGetter.resolved()&&pathGetter.name().equals("getWorldPath"),"packaged unobfuscated owner failed exact method resolution: "+pathGetter);
+        check(!resolver.resolve("net/minecraft/client/Minecraft","m_129843_","(Lnet/minecraft/world/level/storage/LevelResource;)Ljava/nio/file/Path;").resolved(),"unrelated owner accepted by descriptor");
+        check(!resolver.resolve("net/minecraft/server/MinecraftServer","m_129843_","()Ljava/nio/file/Path;").resolved(),"wrong descriptor accepted");
+        var external=Path.of("legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
+        var dependency=Path.of("lms/dependencies/CarbonConfig-1.19.2-2.0.2.jar/3d6c721d4d977672-Primitive Collections-0.8.9.jar");
         if(Files.exists(external)&&Files.exists(dependency))try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(external,List.of(dependency),NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
             var type=loader.linkOwnedClass("carbonconfiglib.gui.impl.forge.ForgeConfig");var consumer=type.getConstructor(Forge1192ModConfigView.class).newInstance(source);
             check(type.getMethod("getModId").invoke(consumer).equals("config_probe"),"immutable source config consumer lost actual ownership");
-            check(((Enum<?>)type.getMethod("getConfigType").invoke(consumer)).name().equals("COMMON"),"immutable source consumer observed native enum name");
+            check(((Enum<?>)type.getMethod("getConfigType").invoke(consumer)).name().equals("SHARED"),"immutable source consumer lost COMMON-to-SHARED projection");
             check(type.getMethod("getRootNode").invoke(consumer)!=null,"actual source config root construction failed");
+            try(var jar=new java.util.jar.JarFile(external.toFile())) {
+                String name="carbonconfiglib/impl/internal/BackupManager";byte[] bytes;try(var in=jar.getInputStream(jar.getJarEntry(name+".class"))){bytes=in.readAllBytes();}
+                var transformed=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer().transform(name.replace('/','.'),bytes).bytes()).accept(transformed,0);
+                var names=new java.util.HashSet<String>();
+                for(var method:transformed.methods)for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call&&java.util.Set.of("net/minecraft/server/MinecraftServer","net/minecraft/client/server/IntegratedServer").contains(call.owner)) {
+                    check(!call.name.startsWith("m_"),"immutable backup consumer retained unadapted server call: "+call.name);names.add(call.name);
+                }
+                check(names.containsAll(java.util.Set.of("getWorldPath","overworld")),"backup consumer world ownership accessors lost");
+            }
+
         }
 
         System.out.println("PASS: genuine native config/spec/data/path ownership, source enum identity, actual correction count/cache reset, atomic file save separate from exactly-once reload, restart/owner/unloaded boundaries");

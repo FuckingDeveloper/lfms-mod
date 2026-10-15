@@ -67,7 +67,7 @@ public final class LegacySrgIndex {
         List<Match> byName = findBySrgName(legacyName);
         List<Match> ownerMatches = byName.stream()
                 .filter(match -> !match.owners().isEmpty()
-                        && match.owners().getFirst().equals(obfuscatedOwner.get()))
+                        && match.owners().getFirst().replace('/', '.').equals(obfuscatedOwner.get().replace('/', '.')))
                 .toList();
         String obfuscatedDescriptor = mojmap.obfuscateDescriptor(legacyDescriptor);
         List<Match> exact = ownerMatches.stream()

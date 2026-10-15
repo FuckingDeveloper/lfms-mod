@@ -231,7 +231,7 @@ public final class Forge1192SrgRuntimeResolver {
             return new FieldResolution(internalOwner, srgName, descriptor, false, "Legacy owner absent from Mojang mappings");
         }
         var srgFields = srg.findFieldsBySrgName(srgName).stream()
-                .filter(field -> !field.owners().isEmpty() && field.owners().getFirst().equals(obfuscatedOwner.get()))
+                .filter(field -> !field.owners().isEmpty() && field.owners().getFirst().replace('/', '.').equals(obfuscatedOwner.get().replace('/', '.')))
                 .toList();
         if (srgFields.size() != 1 || srgFields.getFirst().names().isEmpty()) {
             return new FieldResolution(internalOwner, srgName, descriptor, false, "SRG field identity missing or ambiguous");
@@ -267,7 +267,7 @@ public final class Forge1192SrgRuntimeResolver {
         if (obfuscatedOwner.isEmpty()) return Optional.empty();
         var srgFields = srg.findFieldsBySrgName(srgName).stream()
                 .filter(field -> !field.owners().isEmpty()
-                        && field.owners().getFirst().equals(obfuscatedOwner.get()))
+                        && field.owners().getFirst().replace('/', '.').equals(obfuscatedOwner.get().replace('/', '.')))
                 .toList();
         if (srgFields.size() != 1 || srgFields.getFirst().names().isEmpty())
             return Optional.empty();
@@ -298,7 +298,7 @@ public final class Forge1192SrgRuntimeResolver {
         }
         var srgFields = srg.findFieldsBySrgName(srgName).stream()
                 .filter(field -> !field.owners().isEmpty()
-                        && field.owners().getFirst().equals(obfuscatedOwner.get()))
+                        && field.owners().getFirst().replace('/', '.').equals(obfuscatedOwner.get().replace('/', '.')))
                 .toList();
         if (srgFields.size() != 1 || srgFields.getFirst().names().isEmpty()) {
             return new FieldResolution(sourceOwner, srgName, sourceDescriptor, false,
