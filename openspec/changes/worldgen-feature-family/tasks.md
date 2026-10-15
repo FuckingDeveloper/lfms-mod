@@ -65,3 +65,17 @@ minecraft:logs and prevents_nearby_leaf_decay queries rejected its wood. Source
 procedural pack bytecode supplies tags/blocks/logs, while the native loader queries
 tags/block. Stable-tree acceptance therefore remains open until the generic
 source tag-resource path projection is verified. See legacy-tag-resource-paths.
+
+Additional native gameplay evidence after explicit tag reload: the region file
+r.19.19.mca did not exist before travel to (10000,100,10000). No block placement
+commands were issued there. MCP then observed naturally generated source tin and
+silver ore near Y=20, plus 45 deepslate uranium ores within radius 25 around
+(10000,-35,10000). The mixed ore scan reported 286 matches but was truncated;
+no complete population count is claimed. This verifies actual biome-driven
+generation in a previously uncreated region under the accepted native policy,
+superseding the earlier untested-natural-generation limitation for these ores.
+
+A fresh rubber tree retained 5 logs/50 leaves over 1200 native sprint ticks after
+explicit reload; the adjacent leaf retained distance=1/persistent=false. First-load
+procedural tag timing and fresh-process tree-persistence acceptance remain open.
+Overall milestone remains 6 with these observed level-7 gameplay subpaths.

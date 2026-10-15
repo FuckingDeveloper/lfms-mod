@@ -226,3 +226,31 @@ lifecycle must migrate together. Source and target base soil/replacement rules
 are observably different. worldgen-feature-family/proposal.md records the
 concrete native-versus-source policy decision requested under AGENTS.md section
 22. No runtime fix or new gameplay acceptance is claimed for this report.
+
+2026-10-15 worldgen follow-up: the accepted native policy now reaches actual
+source sapling growth and registered native ore execution. MCP observed a rubber
+tree, obstruction preserving a sapling, a second tree after obstruction removal,
+stone/deepslate tin replacements and all 7 placed ores surviving client re-entry.
+The original FeatureConfiguration crash is removed. This does not prove natural
+ore generation in new chunks or complete source worldgen coverage.
+
+Runtime acceptance also reproduced intact-tree leaf loss (7 logs remained, leaves
+fell from 64 to 25). Source procedural tag resources use old plural registry
+folders. legacy-tag-resource-paths projects five verified tag-directory families
+for artifact and procedural packs; native smoke and wrapper checks pass. After
+native reload, MCP confirms source wood in logs/prevents_nearby_leaf_decay and a
+new tree's nonpersistent leaves have distance=1 next to its trunk.
+
+First-load lifecycle remains OPEN: source procedural tag definitions are produced
+by the component-deferred setup callback after the first tag-loading pass. A
+selective helper deferral experiment failed because later setup consumes earlier
+helper results; the experiment was removed. Preserve source order while designing
+that lifecycle boundary. No automatic reload/frozen-tag mutation is implemented.
+Independent creative-search tooltip null-player errors, forge global-loot-list
+parsing, common tag defaults/copper recipes and CarbonConfig remain open.
+
+Further acceptance supersedes the natural-ore limitation above for the observed
+variants: a previously absent region around (10000,10000) generated source tin,
+silver and deepslate uranium naturally. The post-reload fresh tree retained all
+5 logs and 50 leaves over 1200 native sprint ticks; tick frequency returned to
+20 TPS. First-load procedural-tag timing and other backlog items remain open.
