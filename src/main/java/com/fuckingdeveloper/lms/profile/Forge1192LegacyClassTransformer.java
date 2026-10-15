@@ -73,6 +73,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemModelGenerator", "com/fuckingdeveloper/lms/runtime/render/LegacyItemModelGenerator"),
             java.util.Map.entry("net/minecraft/client/renderer/block/model/ItemOverrides", "com/fuckingdeveloper/lms/runtime/render/LegacyItemOverrides"),
             java.util.Map.entry("net/minecraft/client/gui/screens/SoundOptionsScreen", "net/minecraft/client/gui/screens/options/SoundOptionsScreen"),
+            java.util.Map.entry("net/minecraftforge/common/ToolAction", "net/neoforged/neoforge/common/ItemAbility"),
+            java.util.Map.entry("net/minecraftforge/common/ToolActions", "com/fuckingdeveloper/lms/runtime/Forge1192ToolActions"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyRenderType"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType$CompositeRenderType", "com/fuckingdeveloper/lms/runtime/render/LegacyCompositeRenderType"),
             java.util.Map.entry("net/minecraft/client/renderer/RenderType$CompositeState", "com/fuckingdeveloper/lms/runtime/render/LegacyCompositeState"),
@@ -236,6 +238,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyContainerScreenStateFamily(node);
         rewrites += rewriteLegacyButtonConstructionAndPress(node);
         rewrites += rewriteLegacyBlockDataFamily(node);
+        rewrites += Forge1192ToolActionRewriter.callbacks(node, isManagedSubtypeOf(node, "net/minecraft/world/item/Item"));
+        rewrites += rewriteSemanticInstanceCalls(node, Forge1192ToolActionRewriter::stateQuery);
         rewrites += rewriteLegacyBlockPosConstruction(node);
         rewrites += rewriteLegacyChunkPosFamily(node);
         rewrites += rewriteLegacyChatEventFamily(node);
