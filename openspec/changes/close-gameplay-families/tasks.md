@@ -262,3 +262,28 @@ a complete radius-30 scan; all wood and 449 leaves remained after 1200 native
 ticks. This is generation acceptance after explicit tag reload, not resolution
 of the first-load procedural-tag timing or complete leaf-persistence gap. Exact
 evidence and the single boundary-leaf loss are in worldgen-feature-family/tasks.md.
+
+
+2026-10-15 runtime31/32 verified follow-up:
+- MCP actual starvation with source quantum armor reduces health 20 -> 18 without
+  the removed DamageSource constructor/category-query crashes.
+- At hunger zero an actual filled tin can restores foodLevel 0 -> 2 and saturation
+  2; source empty-can stack increases 2 -> 3.
+- With armor removed to exclude recharge, an actual survival oak break reduces
+  source chainsaw charge 1000 -> 950 EU. Normal shutdown and runtime32 restart
+  retain charge 950 in minecraft:custom_data. Other tool callbacks and independent
+  charged-copy gameplay remain separate acceptance items.
+- User confirms Iron Chests has 21 creative entries and seven working upgrade
+  icons. The 14 custom chest icons remain OPEN: runtime32 reached original source
+  geometry but failed in the transparent renderer's removed dispatcher-camera
+  query. See source-custom-item-rendering for the current general adapter work.
+- Later source-native-config-views and related UI-family acceptance supersedes
+  the historical CarbonConfig startup/input blockers above for observed normal
+  configuration paths; the recorded 32-symbol GUI audit still has explicit gaps.
+
+Runtime34 supersedes the chest GUI blocker above for the observed container path:
+MCP opens a native test container with all 14 source chest variants, visual
+inspection confirms distinct original material images, and the log has no new
+runtime error. The general adapter preserves the source renderer/BER callbacks
+and fixes transparent-renderer camera observation plus native GUI identity.
+Creative-tab user re-entry and held/world item rendering remain open.

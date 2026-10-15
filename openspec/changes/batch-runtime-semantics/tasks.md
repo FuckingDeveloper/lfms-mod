@@ -46,9 +46,10 @@ hook after the migrated fall-distance getter; it failed on ItemStack.m_41622_.
 - [x] User confirms jumping no longer crashes; broader fall variants are unverified.
 - [ ] Place/remove mechanisms; open generator, change slots, close/reopen.
 - [ ] Tin cables with first insulation: visual connections and updates after removal.
-- [ ] Charged chainsaw in survival: charge delta and independent copied-stack state.
+- [x] Charged chainsaw in survival with armor removed: actual oak mining reduced source charge 1000 -> 950 EU (runtime31); restart retained 950 EU (runtime32).
+- [ ] Independent copied charged-stack gameplay state.
 - [x] User confirms canned food consumption and can return.
-- [ ] Hunger recovery after consumption.
+- [x] MCP runtime31: filled tin can consumed at hunger zero, foodLevel 0 -> 2, saturation 2, empty cans 2 -> 3.
 
 CarbonConfig remains blocked on input event/key registration semantics, managed
 container iteration and source reflection mapping. GLFW and SDL integer key/scancode
