@@ -1,5 +1,12 @@
 # Compatibility Architecture Specification
 
+For the source IForgeBlock facade, target extension ancestry MUST preserve the
+more-specific relationship of source child interface defaults. The verified
+landing/running particle hooks MUST retain once-only callback dispatch and their
+boolean suppression result. A facade detached from the native extension MUST NOT
+introduce competing defaults. Restored ancestry alone MUST NOT be treated as
+proof of equivalence for other source hook signatures.
+
 ## Purpose
 
 LMS MUST be designed as a compatibility engine across two independent version axes:

@@ -15,7 +15,7 @@ import net.minecraft.world.level.material.FluidState;
  * old interface default directly, so merely renaming the interface would both
  * break linkage and omit the legacy destroy callback.</p>
  */
-public interface LegacyIForgeBlock {
+public interface LegacyIForgeBlock extends net.neoforged.neoforge.common.extensions.IBlockExtension {
     private Block self() {
         return (Block) this;
     }
