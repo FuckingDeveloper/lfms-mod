@@ -329,6 +329,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyKeyMappingConstruction(node);
         rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
         rewrites += Forge1192WorldgenRewriter.rewrite(node, this::isManagedSubtypeOf, this::isLegacyUnitMapCodecField);
+        rewrites += Forge1192LootModifierRewriter.rewrite(node, this::isManagedSubtypeOf, this::isLegacyUnitMapCodecField);
         rewrites += rewriteLegacyComposterRegistrations(node);
         rewrites += rewriteLegacyMixinPropertyAccessors(node);
         rewrites += rewriteLegacyFixedBufferRegistration(node);

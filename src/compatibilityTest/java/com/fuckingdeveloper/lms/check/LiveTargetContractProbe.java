@@ -144,6 +144,7 @@ public final class LiveTargetContractProbe {
         GuiPlaneFamilyCheck.run();
         WorldgenFamilyCheck.run();
         LegacyTagResourceCheck.run();
+        LootModifierFamilyCheck.run();
         CreativeConstructionFamilyCheck.run();
         StaticItemResourcesCheck.run();
         CustomItemRenderingCheck.run();

@@ -17,3 +17,13 @@ The source namespace/path identity MUST select the corresponding target
 precedence, malformed layouts MUST fail explicitly, and legacy artifacts MUST
 remain unchanged. This GUI adaptation MUST NOT be claimed as proof of world
 sign-model, hanging-sign, animation, or arbitrary custom UV compatibility.
+
+For a source generation that selects global loot modifiers through an ordered
+resource-stack list, LMS MUST preserve list replacement, last-occurrence order,
+and exclusion of unlisted source definitions. Migrating to target per-modifier
+priority MUST retain the source group order at the target default priority;
+native higher/lower priorities remain authoritative and equal-priority interleaving
+with native modifiers remains unspecified. The control document MUST NOT be
+parsed as a modifier definition. Adaptation MUST be confined to the corresponding
+reload consumer and MUST preserve native lookup of selected IDs. Missing or
+undecodable selected modifiers MUST fail explicitly, without losing entries.
