@@ -54,6 +54,25 @@ final class NativeConfigFamilyCheck {
         var external=Path.of("legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
         var dependency=Path.of("lms/dependencies/CarbonConfig-1.19.2-2.0.2.jar/3d6c721d4d977672-Primitive Collections-0.8.9.jar");
         if(Files.exists(external)&&Files.exists(dependency))try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(external,List.of(dependency),NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+            var listType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonDynamicList");
+            var sourceList=(com.fuckingdeveloper.lms.runtime.render.Forge1192ContainerSelectionList<?>)listType.getConstructor(net.minecraft.client.Minecraft.class,int.class,int.class,int.class,int.class,int.class).newInstance(null,320,240,30,180,20);
+            check(sourceList.lms$getHeight()==240&&sourceList.lms$getTop()==30&&sourceList.lms$getBottom()==180,"source screen height and viewport conflated");
+            listType.getMethod("setWidth",int.class).invoke(sourceList,280);check(sourceList.lms$getWidth()==280&&sourceList.lms$getRight()==280,"immutable source list geometry writes disconnected");
+            check(sourceList.lms$children().isEmpty(),"source list constructed with fabricated entries");
+            var listNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(listType.getName())).accept(listNode,0);
+            for(var method:listNode.methods)for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.name.startsWith("lms$")) {
+                var current=Class.forName(call.owner.replace('/','.'),false,loader);boolean found=false;
+                for(var ownerType=current;ownerType!=null;ownerType=ownerType.getSuperclass())for(var candidate:ownerType.getDeclaredMethods())if(candidate.getName().equals(call.name)&&org.objectweb.asm.Type.getMethodDescriptor(candidate).equals(call.desc))found=true;
+                check(found,"unlinked source list operation: "+call.owner+"#"+call.name+call.desc);
+            }
+
+            var rowType=loader.linkOwnedClass("carbonconfiglib.gui.screens.ConfigListScreen$ConfigEntry");
+            var rowNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(rowType.getName())).accept(rowNode,0);int widgets=0;
+            for(var method:rowNode.methods)for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call){
+                check(!call.name.equals("m_6305_"),"source row retained old widget render dispatch");
+                if(call.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192WidgetGraphicsBridge")&&call.name.equals("render"))widgets++;
+            }
+            check(widgets>0,"immutable row's native widget render path was not adapted");
             var type=loader.linkOwnedClass("carbonconfiglib.gui.impl.forge.ForgeConfig");var consumer=type.getConstructor(Forge1192ModConfigView.class).newInstance(source);
             check(type.getMethod("getModId").invoke(consumer).equals("config_probe"),"immutable source config consumer lost actual ownership");
             check(((Enum<?>)type.getMethod("getConfigType").invoke(consumer)).name().equals("SHARED"),"immutable source consumer lost COMMON-to-SHARED projection");

@@ -242,6 +242,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"));
         rewrites += Forge1192BootstrapRewriter.rewrite(node);
         rewrites += rewriteSourceContainerNbt(node);
+        rewrites += Forge1192SelectionListRewriter.rewrite(node,new Forge1192SelectionListRewriter.Evidence(){
+            public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):isManagedSubtypeOf(owner,root);}
+            public String method(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null);}
+            public String fieldOwner(String owner,String name,String desc){return sourceFieldOwner(node.name,fieldHierarchy(node),owner,name,desc,new java.util.HashSet<>());}
+            public String field(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner,name,desc).orElse(null);}
+        });
         rewrites += Forge1192NativeConfigRewriter.rewrite(node);
         rewrites += Forge1192GameRulesRewriter.rewrite(node,
                 owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor") : isManagedSubtypeOf(owner,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor"),
@@ -4739,7 +4745,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }else if(call.owner.equals("com/mojang/blaze3d/systems/RenderSystem")){
                     var stateCall=guiShaderHandle(new Handle(call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC?org.objectweb.asm.Opcodes.H_INVOKESTATIC:org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL,call.owner,call.name,call.desc,call.itf));
                     if(stateCall!=null){call.owner=stateCall.getOwner();call.name=stateCall.getName();call.desc=stateCall.getDesc();call.itf=false;rewrites++;continue;}
-                    if(java.util.Set.of("enableDepthTest","disableDepthTest").contains(canonical)&&call.desc.equals("()V")){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
+                    if((canonical.equals("enableScissor")&&call.desc.equals("(IIII)V"))||(canonical.equals("disableScissor")&&call.desc.equals("()V"))){call.owner="com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge";call.name=canonical;call.itf=false;rewrites++;}
+                    else if(java.util.Set.of("enableDepthTest","disableDepthTest").contains(canonical)&&call.desc.equals("()V")){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
                     else if(canonical.equals("colorMask")&&call.desc.equals("(ZZZZ)V")){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
                     else if(canonical.equals("setShader")&&call.desc.equals("(Ljava/util/function/Supplier;)V")) {call.owner=render;call.name="setShader";call.itf=false;rewrites++;}
                     else if(call.desc.equals("()V")&&java.util.Set.of("enableBlend","disableBlend","defaultBlendFunc","enableTexture","disableTexture").contains(canonical)){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
@@ -6876,6 +6883,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (!(insn instanceof MethodInsnNode call)) continue;
 
+
+                if(call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                        &&call.desc.equals("(Lcom/mojang/blaze3d/vertex/PoseStack;IIF)V")
+                        &&"net/minecraft/client/gui/components/AbstractWidget#render".equals(sourceGuiMethod(node,call.owner,call.name,call.desc))){
+                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);call.owner="com/fuckingdeveloper/lms/runtime/render/Forge1192WidgetGraphicsBridge";call.name="render";
+                    call.desc="(Lnet/minecraft/client/gui/components/AbstractWidget;"+call.desc.substring(1);call.itf=false;rewrites++;continue;
+                }
 
                 // Target 26.3 renamed the source Level day/night predicates
                 // while retaining their exact fixed-time and sky-darkness
@@ -12457,6 +12471,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        String selectionView = Forge1192SelectionListRewriter.relocation(value);
+        if(selectionView != null)return selectionView;
         String configView = Forge1192NativeConfigRewriter.relocation(value);
         if (configView != null) return configView;
         String ruleView = Forge1192GameRulesRewriter.relocation(value);
@@ -12679,7 +12695,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateDescriptor(String descriptor) {
-        String migrated = Forge1192NativeConfigRewriter.descriptor(Forge1192GameRulesRewriter.descriptor(descriptor));
+        String migrated = Forge1192SelectionListRewriter.descriptor(Forge1192NativeConfigRewriter.descriptor(Forge1192GameRulesRewriter.descriptor(descriptor)));
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             migrated = migrated.replace(relocation.getKey(), relocation.getValue());
         }

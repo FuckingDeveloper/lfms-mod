@@ -26,6 +26,7 @@ public final class Forge1192TooltipGuiBridge {
         Phase phase=Phase.TOOLTIP;
         LegacyGuiShader shader;
         LegacyGuiBuffer buffer;
+        boolean sourceScissor;
         Scope(GuiGraphicsExtractor graphics) { this.graphics = graphics; }
     }
     private Forge1192TooltipGuiBridge() {}
@@ -44,7 +45,7 @@ public final class Forge1192TooltipGuiBridge {
     }
     static void extractGui(GuiGraphicsExtractor graphics, Phase phase, Runnable callback) {
         var previous=ACTIVE.get();var scope=new Scope(java.util.Objects.requireNonNull(graphics));scope.phase=phase; ACTIVE.set(scope);
-        try {callback.run();} finally {if(previous==null)ACTIVE.remove();else ACTIVE.set(previous);}
+        try {callback.run();} finally {if(scope.sourceScissor)graphics.disableScissor();if(previous==null)ACTIVE.remove();else ACTIVE.set(previous);}
     }
     static GuiGraphicsExtractor graphics(LegacyTooltipItemRenderer renderer) {
         Scope scope = scope();
@@ -53,6 +54,20 @@ public final class Forge1192TooltipGuiBridge {
             throw new UnsupportedOperationException("Masked source GUI item/decorations are not adapted");
         return scope.graphics;
     }
+    /** Source OpenGL scissors use framebuffer pixels and a bottom-left origin.
+     * Recover the GUI rectangle on the target integer GUI grid; replace only
+     * this scope's source clip, retaining the enclosing native viewport. */
+    public static void enableScissor(int x,int y,int width,int height) {
+        var scope=scope();var window=net.minecraft.client.Minecraft.getInstance().getWindow();
+        int[] rect=guiScissor(x,y,width,height,window.getWidth(),window.getHeight(),scope.graphics.guiWidth(),scope.graphics.guiHeight());
+        if(scope.sourceScissor)scope.graphics.disableScissor();
+        scope.graphics.enableScissor(rect[0],rect[1],rect[2],rect[3]);scope.sourceScissor=true;
+    }
+    public static int[] guiScissor(int x,int y,int width,int height,int pixelsWide,int pixelsHigh,int guiWide,int guiHigh){
+        if(width<0||height<0||pixelsWide<=0||pixelsHigh<=0||guiWide<=0||guiHigh<=0)throw new IllegalArgumentException("Invalid source framebuffer scissor geometry");
+        return new int[]{(int)Math.round((double)x*guiWide/pixelsWide),(int)Math.round(((double)pixelsHigh-y-height)*guiHigh/pixelsHigh),(int)Math.round(((double)x+width)*guiWide/pixelsWide),(int)Math.round(((double)pixelsHigh-y)*guiHigh/pixelsHigh)};
+    }
+    public static void disableScissor(){var scope=scope();if(scope.sourceScissor){scope.graphics.disableScissor();scope.sourceScissor=false;}}
     public static void shaderColor(float red, float green, float blue, float alpha) {
         scope().color = ARGB.colorFromFloat(alpha, red, green, blue);
     }
