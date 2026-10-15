@@ -7925,7 +7925,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .filter(relocation -> relocation.getValue().equals(targetOwner))
                 .toList();
         if (sources.size() > 1) return null;
-        String sourceOwner = sources.isEmpty() ? targetOwner : sources.getFirst().getKey();
+        String entitySource = Forge1192EntityRelocations.sourceOwner(targetOwner);
+        String sourceOwner = entitySource != null ? entitySource : sources.isEmpty() ? targetOwner : sources.getFirst().getKey();
         String sourceDescriptor = reverseExplicitVanillaRelocations(targetDescriptor);
         if (sourceOwner.equals(targetOwner) && sourceDescriptor.equals(targetDescriptor)) return null;
         return SRG_RUNTIME_RESOLVER.get().resolveRelocatedMethod(
@@ -7937,9 +7938,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             source = source.replace(relocation.getValue(), relocation.getKey());
         }
-        return source.replace(
+        return Forge1192EntityRelocations.reverseDescriptor(source.replace(
                 "net/minecraft/resources/Identifier",
-                "net/minecraft/resources/ResourceLocation");
+                "net/minecraft/resources/ResourceLocation"));
     }
 
     /**
@@ -12448,6 +12449,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         if (bootstrapRelocation != null) return bootstrapRelocation;
         String worldgenRelocation = Forge1192WorldgenRewriter.relocation(value);
         if (worldgenRelocation != null) return worldgenRelocation;
+        String entityRelocation = Forge1192EntityRelocations.targetOwner(value);
+        if (entityRelocation != null) return entityRelocation;
         String explicitVanillaRelocation = EXPLICIT_VANILLA_CLASS_RELOCATIONS.get(value);
         if (explicitVanillaRelocation != null) return explicitVanillaRelocation;
         // IForgeItem was a Forge extension interface mixed into Item in 1.19.2.
@@ -12623,6 +12626,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             migrated = migrated.replace(relocation.getKey(), relocation.getValue());
         }
+        migrated = Forge1192EntityRelocations.projectDescriptor(migrated);
         migrated = Forge1192BootstrapRewriter.descriptor(migrated);
         return migrated
                 .replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/runtime/Forge1192DistExecutorBridge")

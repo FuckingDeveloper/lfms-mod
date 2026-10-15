@@ -22,6 +22,18 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 final class BootstrapFamilyCheck {
     static void run() throws Exception {
         registryAliases();
+        var entityClasses=new java.util.HashMap<String,String>();
+        for(var field:net.minecraft.world.entity.EntityTypes.class.getFields())if(field.getType()==net.minecraft.world.entity.EntityType.class&&field.getGenericType() instanceof java.lang.reflect.ParameterizedType generic&&generic.getActualTypeArguments()[0] instanceof Class<?> implementation) {
+            var value=(net.minecraft.world.entity.EntityType<?>)field.get(null);
+            entityClasses.put(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(value).toString(),org.objectweb.asm.Type.getInternalName(implementation));
+        }
+        var entityEvidence=com.fuckingdeveloper.lms.profile.Forge1192EntityRelocations.entries();
+        check(entityEvidence.size()>40,"registry-derived entity relocation inventory unexpectedly empty");
+        for(var entry:entityEvidence)check(entry.target().equals(entityClasses.get(entry.id())),"entity target identity differs from actual native registry declaration: "+entry.id());
+        String entityDescriptor="(Lnet/minecraft/world/entity/animal/Cat;[Lnet/minecraft/world/entity/animal/Wolf;)Lnet/minecraft/world/entity/animal/Cat$UnprovenNested;";
+        var projected=com.fuckingdeveloper.lms.profile.Forge1192EntityRelocations.projectDescriptor(entityDescriptor);
+        check(projected.contains("/animal/feline/Cat;")&&projected.contains("/animal/wolf/Wolf;")&&projected.contains("/animal/Cat$UnprovenNested;"),"registry entity projection inferred an unverified nested class or lost array identity");
+        check(com.fuckingdeveloper.lms.profile.Forge1192EntityRelocations.reverseDescriptor(projected).equals(entityDescriptor),"source entity identity lost for SRG reverse resolution");
         var atlasIds=List.of(net.minecraft.data.AtlasIds.BLOCKS,net.minecraft.data.AtlasIds.CHESTS,id("custom_atlas"));
         var definitions=Target263LegacyAtlasSources.definitions(atlasIds);
         check(definitions.size()==3,"per-atlas source definitions lost native/custom identity");

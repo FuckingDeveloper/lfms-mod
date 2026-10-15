@@ -184,3 +184,18 @@ texture selection. The immutable submission state MUST contain completed numeric
 geometry/UV data, not a live sprite getter or block entity. Unscoped bake-time
 sprite lookup and unproven foil rendering remain explicit boundaries. The target's
 unqualified MaterialBaker lookup is not equivalent to arbitrary explicit atlases.
+
+### Entity implementation relocation evidence
+
+Derive source/target entity class identity by matching canonical entity registry
+IDs and direct constructor factory handles in the pinned vanilla registry bytecode.
+Trace only verified builder receiver chains whose fluent methods return this;
+opaque factories, missing IDs and ambiguous implementations remain unadapted.
+The target's ResourceKey declarations MUST resolve through the verified ENTITY_TYPE
+key constructor, not field-name coincidence. Record reproducible constructor
+pairs and class hashes; use immutable indexed forward/reverse maps in transformation
+hot paths. Apply exact class tokens to descriptors/signatures/casts/handles and
+retain source identity for SRG resolution. Do not infer nested-class aliases from
+a relocated outer class or claim all entity behavior from structural identity.
+`tools/GenerateEntityRelocations.java` reproduces this evidence without loading or
+modifying original source/target classes.
