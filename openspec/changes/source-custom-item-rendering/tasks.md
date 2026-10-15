@@ -8,3 +8,9 @@
 - [x] Runtime33 MCP opens all 14 source GUI callbacks without a crash; identifies shared obsidian image as native GUI cache aliasing.
 - [x] Runtime34 MCP repeats all 14 source callbacks; visual inspection confirms distinct source material icons with no new error. Test barrel is emptied/removed and original inventory retained.
 - [ ] User creative-tab re-entry acceptance; held/world contexts remain open.
+
+Runtime38 follow-up (deferred-custom-item-contexts) extends the original GUI-only
+subset to seven proven native submission contexts. Actual first-person right-hand
+and mixed five-item container rendering now pass; ground/shelf/bounds/outline and
+initial contents synchronization remain open. Earlier GUI-only limitations above
+are historical and must not be treated as completion of all world contexts.

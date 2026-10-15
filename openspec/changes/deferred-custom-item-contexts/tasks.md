@@ -1,0 +1,10 @@
+- [x] Verify actual native callback timing, caller contexts, final pose/light/overlay and early-bounds consumers.
+- [x] Specify late source callbacks with isolated item snapshots and explicit unsupported bounds contexts.
+- [x] Implement seven source display contexts through native special-model submission.
+- [x] Verify native context/pose/lighting, isolated NBT/count/component-removal snapshots, callback timing/count and rejection boundaries.
+- [x] Run `compatibilityTest nativeCompatibilitySmoke compileLaunchJava` successfully.
+- [x] Runtime38 MCP and visual checks: mixed five-item contents and first-person right-hand Iron Chest; no new runtime error.
+- [x] Restore exact original container stacks, selected slot, player position and view direction.
+- [ ] Human offhand/third-person/item-frame acceptance.
+- [ ] Pre-submission geometry bounds for dropped items and target shelves; outline semantics.
+- [ ] Diagnose initial client contents presentation after restart (server Items present, display refreshes after an inventory change).

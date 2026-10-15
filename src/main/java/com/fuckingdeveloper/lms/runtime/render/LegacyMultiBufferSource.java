@@ -32,10 +32,15 @@ public class LegacyMultiBufferSource {
     }
 
     public LegacyMultiBufferSource(SubmitNodeCollector submitter, PoseStack poseStack) {
+        this(submitter,poseStack,null);
+    }
+
+    public LegacyMultiBufferSource(SubmitNodeCollector submitter, PoseStack poseStack,
+            net.minecraft.client.resources.model.sprite.SpriteGetter sprites) {
         this.submitter = Objects.requireNonNull(submitter, "submitter");
         this.poseStack = Objects.requireNonNull(poseStack, "poseStack");
         this.recordingOnly = false;
-        this.sprites = null;
+        this.sprites = sprites;
     }
 
     private LegacyMultiBufferSource(boolean recordingOnly) { this(recordingOnly,null); }

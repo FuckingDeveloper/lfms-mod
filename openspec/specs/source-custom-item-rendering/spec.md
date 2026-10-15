@@ -7,9 +7,22 @@ geometry and display transforms rather than substitute reference-mod geometry.
 For the current target, GUI extraction MAY invoke a complete source renderByItem
 override with the proven native GUI light (15728880) and NO_OVERLAY. Extraction
 MUST copy the input stack and freeze geometry and actual vertex bounds. Submitted
-state MUST NOT retain a live source stack or block entity. Non-GUI lighting is an
-explicit functional gap and MUST remain diagnosed until equivalent semantics are
-established.
+state MUST NOT retain a live source stack or block entity.
+
+For NONE, FIRST_PERSON_LEFT_HAND, FIRST_PERSON_RIGHT_HAND, THIRD_PERSON_LEFT_HAND,
+THIRD_PERSON_RIGHT_HAND, HEAD and FIXED, the target adapter MAY invoke the original
+source custom-render callback at native special-model submission, where actual
+light/overlay and the transformed pose are available. Extraction MUST retain only
+an isolated identifier/count/component-map snapshot preserving the captured prototype and patch and source display context. Each
+submission MUST materialize a fresh stack, resolve the actual source renderer,
+invoke it exactly once, and submit through the native collector. Mutable source
+custom data MUST be isolated both at capture and materialization. Submitted state
+MUST NOT capture a live source renderer, block entity, input stack or pose.
+
+GROUND, target-only contexts and pre-submission bounds for deferred models remain
+explicit gaps until their semantics are established. Bounds requests MUST fail
+explicitly; dummy bounds and a second source callback with guessed lighting are
+forbidden. Unsupported outline semantics MUST remain explicit as well.
 
 Lazy source extension materialization MAY be used only when original bytecode
 proves registration consists exclusively of allocation, pure outer capture and

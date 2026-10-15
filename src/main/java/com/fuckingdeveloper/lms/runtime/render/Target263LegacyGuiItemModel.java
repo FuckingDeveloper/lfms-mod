@@ -15,7 +15,7 @@ import net.minecraft.world.item.*;
 import org.joml.*;
 import org.jspecify.annotations.Nullable;
 
-/** Proven full-bright GUI extraction; world lighting contexts remain unsupported. */
+/** GUI geometry extraction plus native late submission for proven non-GUI contexts. */
 public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matrix4fc transformation,
                                           ItemModel missing) implements ItemModel {
     private static final SpecialModelRenderer<LegacyMultiBufferSource.RecordedGeometry> SUBMIT = new SpecialModelRenderer<>() {
@@ -28,6 +28,10 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
     @Override public void update(ItemStackRenderState output, ItemStack stack, ItemModelResolver resolver,
             ItemDisplayContext display, @Nullable ClientLevel level, @Nullable ItemOwner owner, int seed) {
         if (display != ItemDisplayContext.GUI) {
+            if(Target263DeferredCustomItem.supports(display)) {
+                installDeferred(output,stack,display);
+                return;
+            }
             missing.update(output, stack, resolver, display, level, owner, seed);
             return;
         }
@@ -36,6 +40,17 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
                 stack.copy(), display, new PoseStack(), buffers, 15728880, OverlayTexture.NO_OVERLAY);
         var geometry = buffers.finishRecording();
         installGeometry(output, stack, geometry);
+    }
+
+    public void installDeferred(ItemStackRenderState output,ItemStack stack,ItemDisplayContext display) {
+        if(!Target263DeferredCustomItem.supports(display))throw new UnsupportedOperationException("Unsupported source custom item display: "+display);
+        var argument=new Target263DeferredCustomItem.Argument(Target263CustomItemSnapshot.capture(stack),display);
+        output.appendModelIdentityElement(this);output.appendModelIdentityElement(argument);
+        output.setAnimated();
+        var layer=output.newLayer();layer.setLocalTransform(transformation);
+        layer.setExtents(Target263DeferredCustomItem::unavailableBounds);
+        layer.setupSpecialModel(Target263DeferredCustomItem.INSTANCE,argument);
+        properties.applyToLayer(layer,display);
     }
 
     public void installGeometry(ItemStackRenderState output, ItemStack stack, LegacyMultiBufferSource.RecordedGeometry geometry) {
@@ -58,7 +73,7 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
         public static final MapCodec<Unbaked> CODEC = Identifier.CODEC.fieldOf("base").xmap(Unbaked::new, Unbaked::base);
         public void resolveDependencies(ResolvableModel.Resolver resolver) { resolver.markDependency(base); }
         public ItemModel bake(ItemModel.BakingContext context, Matrix4fc transform) {
-            com.mojang.logging.LogUtils.getLogger().warn("LMS source custom item model {} supports GUI extraction only; held/world contexts retain the missing model", base);
+            com.mojang.logging.LogUtils.getLogger().warn("LMS source custom item model {} supports GUI and deferred hand/head/fixed/nested draws; ground/shelf/bounds/outline contexts remain unsupported", base);
             var baker = context.blockModelBaker(); var model = baker.getModel(base);
             var properties = ModelRenderProperties.fromResolvedModel(baker, model, model.getTopTextureSlots());
             return new Target263LegacyGuiItemModel(properties, new Matrix4f(transform), context.missingItemModel(transform));
