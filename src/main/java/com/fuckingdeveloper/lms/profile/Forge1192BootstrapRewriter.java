@@ -67,11 +67,12 @@ final class Forge1192BootstrapRewriter {
                 if(menu)menuSlices.add(java.util.List.copyOf(part));
             }
             if(!safe||menuSlices.isEmpty())continue;
-            var sites=new java.util.ArrayList<MethodInsnNode>();
+            record ListenerSite(MethodNode caller,MethodInsnNode call) {}
+            var sites=new java.util.ArrayList<ListenerSite>();
             for(var caller:node.methods)for(var instruction:caller.instructions)if(instruction instanceof MethodInsnNode call
                     &&call.owner.equals("net/minecraftforge/eventbus/api/IEventBus")&&call.name.equals("addListener")&&call.desc.equals("(Ljava/util/function/Consumer;)V")
                     &&realBefore(call) instanceof InvokeDynamicInsnNode lambda&&lambda.bsm.getName().equals("metafactory")) {
-                for(var arg:lambda.bsmArgs)if(arg instanceof Handle handle&&handle.getOwner().equals(node.name)&&handle.getName().equals(method.name)&&handle.getDesc().equals(source))sites.add(call);
+                for(var arg:lambda.bsmArgs)if(arg instanceof Handle handle&&handle.getOwner().equals(node.name)&&handle.getName().equals(method.name)&&handle.getDesc().equals(source))sites.add(new ListenerSite(caller,call));
             }
             if(sites.isEmpty())continue;
             String name="lms$menuRegistrations$"+additions.size();
@@ -85,7 +86,8 @@ final class Forge1192BootstrapRewriter {
                 for(var instruction:slice)method.instructions.remove(instruction);
             }
             hook.instructions.add(new InsnNode(Opcodes.RETURN));additions.add(hook);
-            for(var site:sites)for(var caller:node.methods)if(caller.instructions.indexOf(site)>=0) {
+            for(var binding:sites) {
+                var caller=binding.caller();var site=binding.call();
                 // Both operands are category-1 references. Retain the exact source bus once.
                 caller.instructions.insertBefore(site,new InsnNode(Opcodes.DUP2));
                 var code=new InsnList();code.add(new InsnNode(Opcodes.POP));
@@ -93,7 +95,7 @@ final class Forge1192BootstrapRewriter {
                         new Handle(Opcodes.H_INVOKESTATIC,"java/lang/invoke/LambdaMetafactory","metafactory","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",false),
                         Type.getMethodType("(Ljava/lang/Object;)V"),new Handle(Opcodes.H_INVOKESTATIC,node.name,name,target,false),Type.getMethodType(target)));
                 code.add(new MethodInsnNode(Opcodes.INVOKEINTERFACE,"net/minecraftforge/eventbus/api/IEventBus","addListener","(Ljava/util/function/Consumer;)V",true));
-                caller.instructions.insert(site,code);break;
+                caller.instructions.insert(site,code);
             }
         }
         node.methods.addAll(additions);return additions.size();
