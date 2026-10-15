@@ -10,7 +10,7 @@ there is no complete-mod functional-support claim.
 | --- | --- |
 | Old saved cables | CLOSED/retired by explicit user decision; no repair or reconstruction requested |
 | Global loot modifiers | Observed path FIXED by a general source-list/codec/target-order family; runtime48 executes original hemp drop and shears exclusion; source-global-loot-order records scope |
-| First-load procedural tags / fresh-process leaf persistence | OPEN. Whole setup needs dynamic defaults, but publishes tags after initial tag loading. Early whole-setup experiment runtime47 failed on actual trim_material/lapis; removed without changing pre-existing edits. No hidden reload or fake registry entries |
+| First-load procedural tags / fresh-process leaf persistence | FIXED for the observed source path by the approved bounded two-phase initial data transaction. Runtime49 cold entry has log/decay tags before manual reload; a fresh tree retains 5 logs/44 leaves over 1200 ticks and save/re-entry. Setup runs once; ordinary reload and generator GUI pass. See initial-data-load-transaction/tasks.md |
 | Transparent chest initial display | OPEN source-behavior limitation. Source load directly fills inventory without marking display dirty; no general missing Forge callback identified. User explicitly rejected mod-specific extension; none implemented |
 | Null-player creative-search tooltip | OPEN source-behavior limitation. Original 1.19.2 Minecraft search supplies null, Forge forwards it, original handler dereferences it. No player substitution/listener suppression implemented |
 

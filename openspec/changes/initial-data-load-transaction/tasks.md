@@ -3,7 +3,7 @@
 - [x] Implement bounded native transaction and final-context client replay.
 - [x] Compile and focused/native checks.
 - [x] Cold runtime tags/leaf persistence without manual reload.
-- [ ] Ordinary reload, legacy loot and world re-entry regression.
+- [x] Ordinary reload, legacy loot and world re-entry regression.
 
 Runtime49 cold-process evidence (before any explicit /reload): bootstrap starts
 00:59:14, original IC2 CommonSetup runs once at 00:59:15, final data starts
@@ -38,3 +38,16 @@ at the aerial fixture returned false; actual held-bone-meal growth succeeded.
 Temporary aerial fixture (previously entirely air): x -214..-202, y119..134,
 z7..19. Contains the fresh tree and a 5x5 soil platform/bonemeal plants, retained
 only for save/re-entry acceptance. Temporary loot barrel cleared and removed.
+
+Final runtime49 acceptance: the user saves/exits/reopens Новый мир in the same
+client and confirms generator GUI opens/closes/reopens. MCP reads exactly the
+same 5 wood/44 leaves after re-entry; the wood remains in the prevention tag.
+The log still has one bootstrap/final pair and one original CommonSetup. No
+ERROR/FATAL/Caused-by diagnostics. The user confirms actual GUI behavior, beyond
+MCP's earlier prediction-only observation.
+
+Aerial fixture fully restored to original air (2704-position scan count0,
+not truncated). Seven new plant drops created during removal were removed by
+exact observed UUID; no item entities existed there before cleanup and none
+remain afterward. Inventory restored before human acceptance; subsequent user
+movement/control retained. Client remains running in the user's world.
