@@ -167,11 +167,13 @@ public final class LiveTargetContractProbe {
     static final class ProbeExtractor extends net.minecraft.client.renderer.extract.LevelExtractor {
         Set<BlockPos> dirtied = new HashSet<>();
         BlockPos block; BlockState oldState; BlockState newState;
+        int updateFlags;
         ProbeExtractor() { super(null, null, null); }
         @Override public void setSectionDirty(int x, int y, int z) { dirtied.add(new BlockPos(x, y, z)); }
         @Override public void setBlockDirty(BlockPos pos, BlockState oldState, BlockState newState) {
             this.block = pos; this.oldState = oldState; this.newState = newState;
         }
+        @Override public void blockChanged(BlockPos pos, int flags) { this.block=pos;this.updateFlags=flags; }
     }
     static final class ProbeGui extends net.minecraft.client.gui.Gui {
         net.minecraft.client.gui.screens.Screen supplied;
@@ -220,6 +222,9 @@ public final class LiveTargetContractProbe {
             var old = Blocks.STONE.defaultBlockState(); var updated = Blocks.DIRT.defaultBlockState();
             com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setBlockDirty(renderer, BlockPos.ZERO, old, updated);
             check(extractor.block == BlockPos.ZERO && extractor.oldState == old && extractor.newState == updated, "conditional native block invalidation changed operands");
+            var packetPos=new BlockPos(-238,85,36);
+            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.blockChanged(renderer,null,packetPos,null,null,10);
+            check(extractor.block==packetPos && extractor.updateFlags==10,"native blockChanged lost position/flag identity");
             var detached = (net.minecraft.client.renderer.LevelRenderer)allocate.invoke(unsafe, net.minecraft.client.renderer.LevelRenderer.class);
             try { com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirty(detached, 0, 0, 0); throw new AssertionError("detached renderer silently updated active world"); }
             catch (IllegalStateException expectedFailure) {}

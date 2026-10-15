@@ -26,6 +26,12 @@ public final class Forge1192RenderInvalidationBridge {
         extractor(renderer).setBlockDirty(pos, oldState, newState);
     }
 
+    /** Source blockChanged never reads world/states; both generations retain flag bit 8. */
+    public static void blockChanged(LevelRenderer renderer, net.minecraft.world.level.BlockGetter world,
+            BlockPos pos, BlockState oldState, BlockState newState, int flags) {
+        extractor(renderer).blockChanged(pos, flags);
+    }
+
     public static void setSectionDirty(LevelRenderer renderer, int x, int y, int z) {
         extractor(renderer).setSectionDirty(x, y, z);
     }

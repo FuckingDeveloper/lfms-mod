@@ -497,6 +497,10 @@ delegate the verified block/section dirty operations to the native level extract
 bound to the same active renderer. It MUST retain conditional state comparison,
 inclusive bounds and neighbor padding. An unrelated or detached renderer MUST fail
 explicitly rather than updating the active world through a substituted receiver.
+For the source blockChanged notification, the adapter MUST preserve position
+identity, all update flags and the native bit-8 dirty-section decision. World
+and old/new states MAY be discarded only because source bytecode does not read
+those operands; the target extractor MUST remain responsible for section padding.
 
 When source screen-transition ownership moves from the Minecraft client to a
 target GUI owner, LMS MAY delegate the verified source transition operation to

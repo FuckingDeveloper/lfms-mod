@@ -121,8 +121,9 @@ public final class SlotRenderFamilyCheck {
         var child = node("fixture/RendererSubclass", RENDERER);
         transformer.bindManagedClassBytes(name -> name.equals(child.name) ? bytes(child) : null);
         String state = "Lnet/minecraft/world/level/block/state/BlockState;";
-        String[] names = {"m_109494_", "m_109721_", "m_109770_", "m_109490_"};
-        String[] descriptors = {"(IIIIII)V", "(Lnet/minecraft/core/BlockPos;" + state + state + ")V", "(III)V", "(III)V"};
+        String[] names = {"m_109494_", "m_109721_", "m_109770_", "m_109490_", "m_109544_"};
+        String[] descriptors = {"(IIIIII)V", "(Lnet/minecraft/core/BlockPos;" + state + state + ")V", "(III)V", "(III)V",
+                "(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;" + state + state + "I)V"};
         for (int i = 0; i < names.length; i++) {
             for (String owner : List.of(RENDERER, child.name)) {
                 var fixture = call(owner, names[i], descriptors[i], Opcodes.INVOKEVIRTUAL);

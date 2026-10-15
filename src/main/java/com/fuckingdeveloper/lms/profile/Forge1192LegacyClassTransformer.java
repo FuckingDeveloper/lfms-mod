@@ -1388,6 +1388,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private static Handle legacyRenderInvalidationMember(String renderer, String name, String desc) {
         String canonical = SRG_RUNTIME_RESOLVER.flatMap(resolver -> resolver.canonicalMethodName(renderer, name, desc)).orElse(name);
         boolean verified = switch (canonical) {
+            case "blockChanged" -> desc.equals("(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/state/BlockState;I)V");
             case "setBlocksDirty" -> desc.equals("(IIIIII)V");
             case "setSectionDirty", "setSectionDirtyWithNeighbors" -> desc.equals("(III)V");
             case "setBlockDirty" -> desc.equals("(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/state/BlockState;)V");
