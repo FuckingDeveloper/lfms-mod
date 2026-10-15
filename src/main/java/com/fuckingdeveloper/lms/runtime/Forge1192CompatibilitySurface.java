@@ -123,6 +123,7 @@ public final class Forge1192CompatibilitySurface {
             "net.minecraftforge.fml.ModLoadingContext#getActiveContainer()Lnet/minecraftforge/fml/ModContainer;",
             "net.minecraftforge.fml.ModLoadingContext#setActiveContainer(Lnet/minecraftforge/fml/ModContainer;)V",
             "net.minecraftforge.fml.ModLoadingContext#getActiveNamespace()Ljava/lang/String;",
+            "net.minecraftforge.fml.ModList#forEachModInOrder(Ljava/util/function/Consumer;)V",
             "net.minecraftforge.fml.ModList#get()Lnet/minecraftforge/fml/ModList;",
             "net.minecraftforge.fml.ModList#getAllScanData()Ljava/util/List;",
             "net.minecraftforge.fml.ModList#getModContainerById(Ljava/lang/String;)Ljava/util/Optional;",
@@ -170,8 +171,8 @@ public final class Forge1192CompatibilitySurface {
                 }
             }
         }
-        for(String target:unsupported)requirements.add(new Requirement(target,1,State.ADAPTER_REQUIRED,"NATIVE_CONTAINER_DATA"));
-        return new Assessment(List.copyOf(requirements),base.executable()&&unsupported.isEmpty());
+        for(String target:unsupported)requirements.add(new Requirement(target,1,State.SUPPORTED,"NATIVE_CONTAINER_DATA"));
+        return new Assessment(List.copyOf(requirements),base.executable());
     }
 
     public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries) {

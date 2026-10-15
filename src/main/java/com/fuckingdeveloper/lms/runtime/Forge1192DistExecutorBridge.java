@@ -32,44 +32,34 @@ public final class Forge1192DistExecutorBridge {
     public static <T> T unsafeRunForDist(
             Supplier<? extends T> clientTarget,
             Supplier<? extends T> dedicatedServerTarget) {
-        Objects.requireNonNull(clientTarget, "clientTarget");
-        Objects.requireNonNull(dedicatedServerTarget, "dedicatedServerTarget");
         Object selected = FMLEnvironment.getDist() == Dist.CLIENT
                 ? clientTarget.get()
                 : dedicatedServerTarget.get();
         // Forge 1.19.2 unsafeRunForDist uses an outer supplier to defer
         // linking the physical-side implementation and an inner supplier to
         // construct/return the actual value. Preserve both lazy boundaries.
-        if (selected instanceof Supplier<?> factory) {
-            @SuppressWarnings("unchecked")
-            T value = (T) factory.get();
-            return value;
-        }
         @SuppressWarnings("unchecked")
-        T value = (T) selected;
+        T value=(T)((Supplier<?>)selected).get();
         return value;
     }
 
     public static void unsafeRunWhenOn(Dist dist, Supplier<? extends Runnable> toRun) {
-        Objects.requireNonNull(dist, "dist");
-        Objects.requireNonNull(toRun, "toRun");
         if (matches(dist)) {
             Objects.requireNonNull(toRun.get(), "DistExecutor runnable").run();
         }
     }
 
-    public static <T> T unsafeCallWhenOn(Dist dist, Supplier<? extends Supplier<T>> toCall) {
-        Objects.requireNonNull(dist, "dist");
-        Objects.requireNonNull(toCall, "toCall");
+    public static <T> T unsafeCallWhenOn(Dist dist, Supplier<? extends java.util.concurrent.Callable<T>> toCall) {
         if (!matches(dist)) return null;
-        return Objects.requireNonNull(toCall.get(), "DistExecutor callable").get();
+        try { return Objects.requireNonNull(toCall.get(), "DistExecutor callable").call(); }
+        catch (Exception failure) { throw new RuntimeException(failure); }
     }
 
     public static void safeRunWhenOn(Dist dist, Supplier<? extends Runnable> toRun) {
         unsafeRunWhenOn(dist, toRun);
     }
 
-    public static <T> T safeCallWhenOn(Dist dist, Supplier<? extends Supplier<T>> toCall) {
+    public static <T> T safeCallWhenOn(Dist dist, Supplier<? extends java.util.concurrent.Callable<T>> toCall) {
         return unsafeCallWhenOn(dist, toCall);
     }
 }

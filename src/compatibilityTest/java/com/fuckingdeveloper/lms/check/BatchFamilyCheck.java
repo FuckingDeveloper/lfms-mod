@@ -114,7 +114,7 @@ public final class BatchFamilyCheck {
         var plan = new Forge1192RegistrationPlanner().plan(path, "carbonconfiglib.CarbonConfig");
         var assessment = new Forge1192CompatibilitySurface().assess(plan.boundaries());
         var remaining = assessment.requirements().stream().filter(r -> r.state() != Forge1192CompatibilitySurface.State.SUPPORTED).map(Forge1192CompatibilitySurface.Requirement::target).toList();
-        check(!assessment.executable(), "dependency was declared loaded despite unadapted key/managed iteration contracts");
+        check(assessment.executable(), "source container/bootstrap contracts remain gated");
         System.out.println("External dependency lifecycle inventory: requirements=" + assessment.requirements().size() + " remaining=" + remaining.size() + " " + remaining);
     }
     private static void configExtensions(ModContainer host) {

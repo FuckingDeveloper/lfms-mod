@@ -29,7 +29,7 @@ public final class Forge1192ConfigScreenBridge {
         return container.getCustomExtension(type);
     }
     public static Optional<BiFunction<Minecraft, Screen, Screen>> getScreenFactoryFor(IModInfo info) {
-        return ModList.get().getModContainerById(info.getModId()).flatMap(container ->
-                getCustomExtension(container, LegacyConfigScreenFactory.class).map(factory -> ((LegacyConfigScreenFactory)factory).screenFunction()));
+        return com.fuckingdeveloper.lms.runtime.Forge1192ModListView.get().getModContainerById(info.getModId()).flatMap(container ->
+                container.getCustomExtension(LegacyConfigScreenFactory.class).map(factory -> ((LegacyConfigScreenFactory)factory).screenFunction()));
     }
 }

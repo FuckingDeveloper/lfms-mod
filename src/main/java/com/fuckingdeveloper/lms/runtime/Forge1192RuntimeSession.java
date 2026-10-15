@@ -52,10 +52,11 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
             throw new IllegalStateException("Forge 1.19.2 runtime currently requires exactly one @Mod entrypoint");
         }
         this.transformer = new Forge1192LegacyClassTransformer();
-        this.loader = new ManagedLegacyClassLoader(artifact, dependencies, parent, transformer);
+        this.loader = new ManagedLegacyClassLoader(artifact, dependencies, parent, transformer, Forge1192ModListView.sharedDependencies(dependencies));
         loader.linkOwnedClass(this.entrypoints.getFirst());
     }
 
+    ManagedLegacyClassLoader managedLoader() { return loader; }
     public String modId() { return modId; }
     public Path artifact() { return artifact; }
     public State state() { return state; }
@@ -72,6 +73,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
         if (state != State.LINKED) throw new IllegalStateException("Cannot bind event bus in state " + state);
         this.modEventBus = Objects.requireNonNull(eventBus);
         this.hostContainer = Objects.requireNonNull(container);
+        Forge1192ModListView.register(this);
     }
 
     public synchronized void initialize() throws Exception {
@@ -164,6 +166,7 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
             for (String binding : coremodHookBindings) unregister.invoke(null, binding);
             coremodHookBindings.clear();
         }
+        Forge1192ModListView.unregister(this);
         loader.close();
         entrypoint = null;
         state = State.CLOSED;

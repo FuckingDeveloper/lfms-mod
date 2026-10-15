@@ -119,6 +119,16 @@ public final class Forge1192LifecycleBridge {
         return requireActive();
     }
 
+    public static Forge1192ModContainerView getSourceActiveContainer(Object token) {
+        Context context=requireActive();
+        if(token!=context)throw new IllegalStateException("Source lifecycle token escaped its owner scope");
+        Object active=context.container().active();
+        if(active==null||active==context.container())return Forge1192ModListView.sourceOwner(context.modId());
+        if(active instanceof Forge1192ModContainerView view)return view;
+        if(active instanceof ModContainer nativeContainer)return Forge1192ModListView.wrap(nativeContainer);
+        throw new IllegalStateException("Unsupported source active container override: "+active.getClass());
+    }
+
     public static ModContainer getActiveContainer(Object token) {
         Context context = requireActive();
         if (token != context) throw new IllegalStateException("Legacy ModLoadingContext token escaped its LMS scope");

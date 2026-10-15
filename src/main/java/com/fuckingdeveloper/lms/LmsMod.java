@@ -49,6 +49,7 @@ public final class LmsMod {
 
     public LmsMod(IEventBus modBus, ModContainer hostContainer) {
         modBus.addListener(this::onPayloadRegistration);
+        modBus.addListener(com.fuckingdeveloper.lms.runtime.Target263SourceNameLock::register);
         modBus.addListener(com.fuckingdeveloper.lms.runtime.worldgen.Target263WorldgenAdapter::register);
         modBus.addListener(com.fuckingdeveloper.lms.runtime.worldgen.Target263WorldgenPack::addPackFinders);
         modBus.addListener(com.fuckingdeveloper.lms.runtime.recipe.Forge1192UpgradeRecipe::registerSerializer);
@@ -76,7 +77,7 @@ public final class LmsMod {
                             (first, duplicate) -> first));
             LOG.info("LMS discovery: {} candidate(s) in {}", mods.size(), directory.toAbsolutePath());
             Forge1192Profile profile = new Forge1192Profile();
-            for (LegacyModDescriptor mod : mods) {
+            for (LegacyModDescriptor mod : com.fuckingdeveloper.lms.runtime.Forge1192SessionOrder.order(mods,profile)) {
                 LOG.info("LMS candidate={} id={} loader={} minecraft={} profile={}",
                         mod.file().getFileName(), mod.modId(), mod.loader(), mod.minecraftVersion(),
                         profile.supports(mod) ? profile.id() : "UNRESOLVED");

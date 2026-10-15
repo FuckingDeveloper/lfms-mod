@@ -22,6 +22,7 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 final class BootstrapFamilyCheck {
     static void run() throws Exception {
         registryAliases();
+        constructionAndStages();
         var bus=BusBuilder.builder().build();
         var info=(IModInfo)Proxy.newProxyInstance(BootstrapFamilyCheck.class.getClassLoader(),new Class[]{IModInfo.class},(p,m,a)->{if(m.getName().equals("getModId"))return "bootstrap_probe";throw new AssertionError(m);});
         var host=new ModContainer(info){public IEventBus getEventBus(){return bus;}};
@@ -70,13 +71,33 @@ final class BootstrapFamilyCheck {
             check(plan.complete(),"immutable source bootstrap graph incomplete");
             var assessment=new Forge1192CompatibilitySurface().assess(plan.boundaries());
             if(entry.startsWith("carbon")) {
-                var gaps=assessment.requirements().stream().filter(r->r.state()==Forge1192CompatibilitySurface.State.ADAPTER_REQUIRED).toList();
-                check(!assessment.executable()&&gaps.size()==1&&gaps.getFirst().target().startsWith("net.minecraftforge.fml.ModList#forEachModInOrder"),"source managed iteration must remain gated until a real source container view exists");
+                check(assessment.executable(),"source container/bootstrap contracts remain gated");
             } else {
                 check(assessment.executable(),"source Forge bootstrap still has an unadapted active boundary: "+artifact);
+                try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(jar,BootstrapFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+                    loader.linkOwnedClass(entry);
+                    var node=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(entry)).accept(node,0);
+                    var registration=node.methods.stream().filter(m->m.desc.equals("(Lnet/neoforged/neoforge/client/event/RegisterMenuScreensEvent;)V")).findFirst().orElseThrow();
+                    check(java.util.stream.StreamSupport.stream(registration.instructions.spliterator(),false).filter(i->i instanceof org.objectweb.asm.tree.MethodInsnNode c&&c.name.equals("registerDuringPhase")).count()==7,"source pure menu callback was not relocated completely");
+                    new org.objectweb.asm.tree.analysis.Analyzer<>(new org.objectweb.asm.tree.analysis.BasicVerifier()).analyze(node.name,registration);
+                    String renderer="com.progwml6.ironchest.client.render.IronChestRenderer";loader.linkOwnedClass(renderer);
+                    var rendererNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(renderer)).accept(rendererNode,0);
+                    var renderThunk=rendererNode.methods.stream().filter(m->m.name.equals("lmsLegacyRender")).findFirst().orElseThrow();
+                    check(rendererNode.methods.stream().anyMatch(m->m.name.equals("m_6922_")),"direct source erased renderer callback was removed");
+                    new org.objectweb.asm.tree.analysis.Analyzer<>(new org.objectweb.asm.tree.analysis.BasicVerifier()).analyze(rendererNode.name,renderThunk);
+
+                }
+                try(var archive=new java.util.jar.JarFile(jar.toFile());var in=archive.getInputStream(archive.getJarEntry(entry.replace('.','/')+".class"))) {
+                    var node=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(in).accept(node,0);
+                    var mixed=node.methods.stream().filter(m->m.desc.equals("(Lnet/minecraftforge/fml/event/lifecycle/FMLClientSetupEvent;)V")).findFirst().orElseThrow();
+                    mixed.instructions.insert(new org.objectweb.asm.tree.MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,"fixture/Effects","touch","()V",false));
+                    var rewriter=Class.forName("com.fuckingdeveloper.lms.profile.Forge1192BootstrapRewriter").getDeclaredMethod("menuSetupCallbacks",org.objectweb.asm.tree.ClassNode.class,java.util.function.Predicate.class,java.util.function.Predicate.class);rewriter.setAccessible(true);
+                    check((Integer)rewriter.invoke(null,node,(java.util.function.Predicate<String>)(owner->true),(java.util.function.Predicate<String>)(owner->true))==0&&mixed.desc.contains("FMLClientSetupEvent"),"mixed source setup was moved to an earlier target phase");
+                }
+
                 var artifactAssessment=new Forge1192CompatibilitySurface().assess(plan.boundaries(),jar);
-                check(!artifactAssessment.executable()&&artifactAssessment.requirements().stream().anyMatch(r->r.adapter().equals("NATIVE_CONTAINER_DATA")),
-                        "unsupported native container persistence must reject before partial constructor execution");
+                check(artifactAssessment.executable()&&artifactAssessment.requirements().stream().anyMatch(r->r.adapter().equals("NATIVE_CONTAINER_DATA")),
+                        "native container persistence family absent from preflight inventory");
             }
             if(entry.startsWith("com.progwml6"))check(plan.boundaries().stream().anyMatch(b->b.phase()==Forge1192RegistrationPlanner.ExecutionPhase.DATA_GENERATION),"datagen callback phase not retained");
         }
@@ -85,6 +106,38 @@ final class BootstrapFamilyCheck {
         var dormant=new Forge1192RegistrationPlanner.Boundary("datagen","net.minecraftforge.data.event.GatherDataEvent","includeClient","()Z",Forge1192RegistrationPlanner.ExecutionPhase.DATA_GENERATION);
         check(!new Forge1192CompatibilitySurface().assess(List.of(dormant,boundary)).executable(),"inactive visit hid runtime reachability");
         System.out.println("PASS: source bootstrap preflight phases, native deferred isolated registration/ownership/early/late access, lazy builder/explicit direction/login failure, named SDL keys and actual empty config view; gameplay not inferred");
+    }
+    private static void constructionAndStages() throws Exception {
+        var calls=new AtomicInteger();
+        var builder=com.fuckingdeveloper.lms.runtime.LegacyBlockEntityTypeBuilder.m_155273_((pos,state)->{
+            calls.incrementAndGet();return new ContainerPersistenceFamilyCheck.Container();
+        },net.minecraft.world.level.block.Blocks.CHEST);
+        var blocks=builder.getClass().getDeclaredField("blocks");blocks.setAccessible(true);
+        check(calls.get()==0&&blocks.get(builder).equals(java.util.Set.of(net.minecraft.world.level.block.Blocks.CHEST)),"source builder eagerly invoked factory/lost valid-block intent");
+        // Never unfreeze the builtin registry after this smoke process has completed bootstrap.
+        try{builder.m_58966_(null);throw new AssertionError("construction bypassed frozen native lifecycle");}
+        catch(IllegalStateException expected){check(expected.getMessage().contains("frozen"),"unexpected native construction failure");}
+        var current=net.neoforged.fml.loading.FMLEnvironment.getDist();
+        var other=current==net.neoforged.api.distmarker.Dist.CLIENT?net.neoforged.api.distmarker.Dist.DEDICATED_SERVER:net.neoforged.api.distmarker.Dist.CLIENT;
+        check(Forge1192DistExecutorBridge.unsafeCallWhenOn(other,()->{throw new AssertionError("inactive branch obtained");})==null,"inactive source Callable result changed");
+        check(Forge1192DistExecutorBridge.unsafeCallWhenOn(current,()->()->"called").equals("called"),"source Callable confused with Supplier");
+        var failure=new java.io.IOException("source callable");
+        try{Forge1192DistExecutorBridge.unsafeCallWhenOn(current,()->()->{throw failure;});throw new AssertionError("source exception swallowed");}
+        catch(RuntimeException expected){check(expected.getCause()==failure,"source Callable exception wrapping changed");}
+        var type=Forge1192VanillaConstructionBridge.menuType((id,inventory)->{throw new AssertionError("menu factory invoked eagerly");});
+        check(type.requiredFeatures().equals(net.minecraft.world.flag.FeatureFlags.VANILLA_SET),"source MenuType default feature set changed");
+        var queue=new com.fuckingdeveloper.lms.runtime.render.Forge1192MenuScreenBridge.Queue();
+        net.minecraft.client.gui.screens.MenuScreens.ScreenConstructor factory=(menu,inventory,title)->{throw new AssertionError("screen factory invoked eagerly");};
+        queue.add(type,factory,"probe");
+        try{queue.add(type,factory,"duplicate");throw new AssertionError("duplicate menu screen admitted");}catch(IllegalStateException expected){}
+        var nativeScreens=new java.util.HashMap<net.minecraft.world.inventory.MenuType<?>,net.minecraft.client.gui.screens.MenuScreens.ScreenConstructor<?,?>>();
+        nativeScreens.put(type,factory);
+        var event=new net.neoforged.neoforge.client.event.RegisterMenuScreensEvent(nativeScreens);
+        try{queue.flush(event);throw new AssertionError("native duplicate overwritten");}catch(IllegalStateException expected){}
+        check(queue.pendingCount()==1,"failed native screen registration lost pending intent");
+        nativeScreens.clear();queue.flush(event);
+        check(nativeScreens.get(type)==factory&&queue.pendingCount()==0,"native screen factory identity/flush lost");
+        try{queue.add(type,factory,"late");throw new AssertionError("late menu screen admitted");}catch(IllegalStateException expected){}
     }
     private static void registryAliases() throws Exception {
         var node=new org.objectweb.asm.tree.ClassNode();node.name="fixture/RegistryAliases";

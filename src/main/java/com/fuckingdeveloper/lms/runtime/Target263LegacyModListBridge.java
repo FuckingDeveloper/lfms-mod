@@ -38,11 +38,37 @@ public final class Target263LegacyModListBridge {
             if (added == 0) return;
             event.setNewScreen((Screen) Access.CONSTRUCTOR.newInstance(
                     Access.PARENT.get(screen), mods.build(), Access.FOLDER.get(screen),
-                    Access.CONFIG.get(screen), Access.VERSION.get(screen)));
+                    sourceConfigFactory(Access.CONFIG.get(screen)), Access.VERSION.get(screen)));
             com.mojang.logging.LogUtils.getLogger().info("LMS legacy-mod-list entriesAdded={}", added);
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException("Cannot project managed legacy mods into target 26.3 mod list", failure);
         }
+    }
+
+    /** Wrap the package-private target service, offering only genuine registered source extensions. */
+    private static Object sourceConfigFactory(Object nativeFactory) {
+        Class<?> service=Access.CONFIG.getType();
+        return java.lang.reflect.Proxy.newProxyInstance(service.getClassLoader(),new Class<?>[]{service},(proxy,method,args)-> {
+            if(method.getDeclaringClass()==Object.class) return switch(method.getName()) {
+                case "equals" -> proxy==args[0];
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "toString" -> "LMS source/native configuration screen service";
+                default -> throw new IllegalStateException("Unexpected Object method: "+method);
+            };
+            if(!method.getName().equals("create"))throw new IllegalStateException("Changed target configuration service: "+method);
+            ModDisplayInfo display=(ModDisplayInfo)args[0];
+            var source=Forge1192ModListView.get().getModContainerById(display.id());
+            if(source.isPresent()&&source.get().nativeOwner().isEmpty()) {
+                var extension=source.get().getCustomExtension(com.fuckingdeveloper.lms.runtime.render.LegacyConfigScreenFactory.class);
+                if(extension.isPresent()) {
+                    var factory=(com.fuckingdeveloper.lms.runtime.render.LegacyConfigScreenFactory)extension.get();
+                    return (java.util.function.UnaryOperator<Screen>)(parent->factory.screenFunction().apply(net.minecraft.client.Minecraft.getInstance(),parent));
+                }
+            }
+            method.setAccessible(true);
+            try{return method.invoke(nativeFactory,args);}
+            catch(java.lang.reflect.InvocationTargetException failure){throw failure.getCause();}
+        });
     }
 
     public static ModDisplayInfo displayInfo(Forge1192RuntimeSession session) {

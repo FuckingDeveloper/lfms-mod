@@ -145,6 +145,8 @@ public final class LiveTargetContractProbe {
         WorldgenFamilyCheck.run();
         LegacyTagResourceCheck.run();
         BootstrapFamilyCheck.run();
+        SourceContainerFamilyCheck.run(host);
+        ContainerPersistenceFamilyCheck.run();
         BonemealFamilyCheck.run();
         ComponentJsonCheck.run();
         ItemWireFamilyCheck.run();

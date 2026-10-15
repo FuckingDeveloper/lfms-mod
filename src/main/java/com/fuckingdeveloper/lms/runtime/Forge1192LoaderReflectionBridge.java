@@ -11,6 +11,11 @@ public final class Forge1192LoaderReflectionBridge {
     private Forge1192LoaderReflectionBridge(){}
     public static Object getPrivateValue(Class<?> owner,Object receiver,String name){
         Objects.requireNonNull(owner);Objects.requireNonNull(name);
+        if(owner==Forge1192ModContainerView.class&&name.equals("configs")) {
+            var view=(Forge1192ModContainerView)receiver;
+            return view.nativeOwner().map(Forge1192LoaderReflectionBridge::sourceConfigs)
+                    .orElseGet(()->new EnumMap<>(ModConfig.Type.class));
+        }
         if(owner==ModContainer.class&&name.equals("configs"))return sourceConfigs((ModContainer)receiver);
         // Named loader/library fields retain their exact actual declaration. SRG
         // Minecraft reflection requires a separate verified mapping operation.

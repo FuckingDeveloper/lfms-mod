@@ -26,6 +26,7 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
     private final JarFile jar;
     private final List<JarFile> dependencyJars;
     private final LegacyClassTransformer transformer;
+    private final java.util.Map<Path,ManagedLegacyClassLoader> dependencyOwners;
     private final java.util.Map<String, byte[]> definedClassBytes = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ManagedLegacyClassLoader(Path artifact, ClassLoader targetLoader) throws IOException {
@@ -40,7 +41,19 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     public ManagedLegacyClassLoader(Path artifact, List<Path> dependencies, ClassLoader targetLoader,
                                     LegacyClassTransformer transformer) throws IOException {
+        this(artifact,dependencies,targetLoader,transformer,java.util.Map.of());
+    }
+
+    public ManagedLegacyClassLoader(Path artifact,List<Path> dependencies,ClassLoader targetLoader,
+            LegacyClassTransformer transformer,java.util.Map<Path,ManagedLegacyClassLoader> owners) throws IOException {
         super(Objects.requireNonNull(targetLoader, "targetLoader"));
+        this.dependencyOwners = new java.util.HashMap<>();
+        for(var entry:owners.entrySet()) {
+            Path normalized=entry.getKey().toAbsolutePath().normalize();
+            if(dependencies.stream().noneMatch(path->path.toAbsolutePath().normalize().equals(normalized)))
+                throw new IllegalArgumentException("Class owner is not an admitted dependency: "+normalized);
+            this.dependencyOwners.put(normalized,Objects.requireNonNull(entry.getValue()));
+        }
         this.artifact = artifact.toAbsolutePath().normalize();
         this.jar = new JarFile(this.artifact.toFile(), false);
         this.dependencyJars = new ArrayList<>();
@@ -134,12 +147,25 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
                     // A CNFE here can represent a transformation/linkage failure
                     // wrapped by findClass; parent fallback would erase the
                     // evidence and misreport the owned class as simply missing.
-                    loaded = findClass(name);
+                    ManagedLegacyClassLoader dependencyOwner = dependencyOwner(name);
+                    loaded = dependencyOwner == null ? findClass(name) : dependencyOwner.loadClass(name);
                 }
             }
             if (resolve) resolveClass(loaded);
             return loaded;
         }
+    }
+
+    public boolean providesArtifact(Path candidate) {
+        Path normalized=candidate.toAbsolutePath().normalize();
+        return artifact.equals(normalized)||dependencyJars.stream().anyMatch(jar->Path.of(jar.getName()).equals(normalized));
+    }
+    private ManagedLegacyClassLoader dependencyOwner(String binaryName) {
+        String entry=binaryName.replace('.','/')+".class";
+        if(jar.getJarEntry(entry)!=null)return null;
+        for(JarFile dependency:dependencyJars)if(dependency.getJarEntry(entry)!=null)
+            return dependencyOwners.get(Path.of(dependency.getName()));
+        return null;
     }
 
     @Override
@@ -180,6 +206,7 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     @Override
     public void close() throws IOException {
+        dependencyOwners.clear();
         IOException failure = null;
         for (JarFile dependencyJar : dependencyJars) try { dependencyJar.close(); } catch (IOException e) { failure = e; }
         try { jar.close(); } catch (IOException e) { failure = e; }
