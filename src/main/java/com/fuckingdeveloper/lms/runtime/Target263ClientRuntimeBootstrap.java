@@ -19,6 +19,9 @@ public final class Target263ClientRuntimeBootstrap {
             java.util.function.Supplier<java.util.List<Forge1192RuntimeSession>> sessions) {
         modBus.addListener(com.fuckingdeveloper.lms.runtime.render.Forge1192MenuScreenBridge::flush);
         modBus.addListener(RegisterSpriteSourcesEvent.class, LegacyTextureStitchSpriteSource::register);
+        modBus.addListener(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.ItemTintSources.class,
+                event -> event.register(net.minecraft.resources.Identifier.fromNamespaceAndPath("lms", "legacy_item_layer"),
+                        com.fuckingdeveloper.lms.runtime.render.Target263LegacyItemTint.CODEC));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
                 net.neoforged.neoforge.client.event.ScreenEvent.Opening.class,
                 event -> Target263LegacyModListBridge.opening(event, sessions.get()));

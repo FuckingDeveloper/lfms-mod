@@ -76,6 +76,8 @@ public final class Target263LegacyResourcePackBridge {
                 if (packType == PackType.CLIENT_RESOURCES) {
                     Pack signGuiPack = Target263LegacySignGuiResources.createPack(artifact);
                     if (signGuiPack != null) output.accept(signGuiPack);
+                    Pack itemModels = Target263LegacyStaticItemResources.createPack(artifact);
+                    if (itemModels != null) output.accept(itemModels);
                 }
             });
         });
