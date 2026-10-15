@@ -88,3 +88,18 @@ same subscriber and bus after unregister. Such provenance MUST use weak ownershi
 keys, retain the original owner on duplicate registration, and restore thread
 context after registration. An unknown owner MUST fail explicitly; class/package
 names MUST NOT substitute for recorded provenance.
+
+### Two-phase initial data transaction
+
+When an ordered source setup needs authoritative dynamic defaults and publishes
+static-tag/reloadable data, a target adapter MAY perform two explicit native data
+phases before world publication. The bootstrap phase MUST execute source setup
+once at the supported pre-binding boundary. The final phase MUST re-read native
+static tags and reloadable data using the same world/dimension registries and
+resource manager. Both phases MUST retain native component/tag binding lifecycle.
+Failure of either phase MUST prevent world publication and preserve native cleanup.
+Client listener replay MUST use the final phase's registry context. The adapter
+MUST NOT repeat source setup, mutate frozen registries, loop until loading succeeds,
+or apply this extra phase to ordinary reloads or subsequent world opens once setup
+has been consumed. Changes to world-generation/dimension data after its registry
+construction remain outside this contract and MUST NOT be claimed supported.

@@ -50,3 +50,9 @@ Path projection is verified independently; first-load procedural declarations
 remain an open lifecycle compatibility gap. A future solution must preserve source
 execution order and avoid duplicate callback execution, frozen-tag mutation or
 an automatic reload that conceals the timing defect.
+
+The user-approved initial-data-load-transaction explicitly supersedes this last
+restriction for a bounded two-phase initial world-open transaction. Its bootstrap
+phase executes ordered setup once; the final ordinary native data load consumes
+its static-tag/reloadable declarations before the world is published. No retry
+loop, frozen-tag mutation or repeated source setup is permitted.

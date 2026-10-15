@@ -4,6 +4,7 @@
   "mixins": [
     "Target263SourceToolDefaultMixin",
     "Target263LegacyLootManagerMixin",
+    "Target263InitialDataTransactionMixin",
     "Target263BlockCapabilityMixin",
     "Target263ContainerStateAccess",
     "Target263TagValueOutputAccess",

@@ -1,6 +1,6 @@
 # Proposed explicit two-phase initial data transaction
 
-Status: DESIGN DECISION REQUIRED; not implemented or accepted.
+Status: ACCEPTED by the user on 2026-10-16; implementation/verification pending.
 
 ## Observed dependency cycle
 
@@ -36,7 +36,7 @@ remain explicit until a separately verified dependency contract exists.
 
 ## Contract change and costs
 
-This would explicitly replace the prohibition against an automatic server reload
+This explicitly replaces the prohibition against an automatic server reload
 in legacy-tag-resource-paths/design.md for this initial-load transaction only.
 It must not be disguised as a timing fix in the existing single-pass contract.
 It repeats native data work and can increase first-world-entry duration. It must

@@ -376,6 +376,7 @@ public final class Forge1192EventBusBridge {
                 throw new IllegalStateException("Legacy lifecycle event was captured more than once: "
                         + eventType.getName());
             }
+            Target263InitialDataTransaction.sourceSetupCaptured();
         });
         listen(NeoForge.EVENT_BUS, priority, false, TagsUpdatedEvent.ServerDataLoad.class, event -> {
             if (!event.shouldUpdateStaticData() || invoked.get()) return;
@@ -405,6 +406,7 @@ public final class Forge1192EventBusBridge {
                 net.neoforged.bus.api.EventPriority.LOWEST, false,
                 TagsUpdatedEvent.ServerDataLoad.class, event -> {
                     if (!event.shouldUpdateStaticData()
+                            || Target263InitialDataTransaction.bootstrapActive()
                             || !LEGACY_CLIENT_RELOAD_LISTENER_PUBLISHED.get()) return;
                     net.minecraft.client.Minecraft minecraft =
                             net.minecraft.client.Minecraft.getInstance();
