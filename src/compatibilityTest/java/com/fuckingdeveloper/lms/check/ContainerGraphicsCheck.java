@@ -25,6 +25,14 @@ public final class ContainerGraphicsCheck {
         check(bounds.left()==10 && bounds.top()==20 && bounds.width()==21 && bounds.height()==21,"fractional quad bounds lost");
         var state=new LegacyGuiBuffer.QuadState(points,RenderPipelines.GUI,TextureSetup.noTexture(),null,bounds);
         points.clear();check(state.points().size()==4 && state.points().getFirst().u()==0.1F && state.points().getFirst().color()==0x80112233,"deferred source data aliases mutable batch");
+        for(String receiver:List.of("com/mojang/blaze3d/vertex/BufferBuilder","fixture/UnrelatedVertexHelper")){
+            var fixture=new ClassNode();fixture.version=Opcodes.V17;fixture.access=Opcodes.ACC_PUBLIC;fixture.name="fixture/InheritedVertex";fixture.superName="java/lang/Object";
+            var method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"vertex","(L"+receiver+";)Lcom/mojang/blaze3d/vertex/VertexConsumer;",null,null);fixture.methods.add(method);
+            method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));for(int i=0;i<3;i++)method.instructions.add(new InsnNode(Opcodes.DCONST_0));method.instructions.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL,receiver,"m_5483_","(DDD)Lcom/mojang/blaze3d/vertex/VertexConsumer;",false));method.instructions.add(new InsnNode(Opcodes.ARETURN));
+            var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);fixture.accept(writer);var projected=new ClassNode();new ClassReader(new Forge1192LegacyClassTransformer().transform(fixture.name.replace('/','.'),writer.toByteArray()).bytes()).accept(projected,0);
+            MethodInsnNode operation=null;for(var instruction:projected.methods.getFirst().instructions)if(instruction instanceof MethodInsnNode call)operation=call;
+            check(operation!=null&&(receiver.startsWith("com/mojang/")?operation.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192VertexConsumerBridge")&&operation.name.equals("addVertex"):operation.owner.equals(receiver)&&operation.name.equals("m_5483_")),"inherited vertex rule lost owner identity or descriptor-only negative");
+        }
         var escaped=new ClassNode();escaped.name="fixture/EscapedGuiBatch";escaped.superName="java/lang/Object";escaped.version=Opcodes.V17;escaped.access=Opcodes.ACC_PUBLIC;
         var escapeMethod=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"escaped","()Lcom/mojang/blaze3d/vertex/Tesselator;",null,null);
         escapeMethod.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC,"com/mojang/blaze3d/vertex/Tesselator","m_85913_","()Lcom/mojang/blaze3d/vertex/Tesselator;",false));escapeMethod.instructions.add(new InsnNode(Opcodes.ARETURN));escaped.methods.add(escapeMethod);

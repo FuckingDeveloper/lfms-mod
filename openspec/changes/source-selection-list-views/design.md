@@ -33,3 +33,10 @@ native extractor through the existing planar GUI bridge. Selection MUST verify
 source declaration ownership and MUST NOT bypass managed render overrides. Source
 planar pose, visible/hover lifecycle and native content callbacks are retained.
 Unproven special handles and managed full-render overrides remain unsupported.
+
+Inherited source BufferBuilder fluent vertex/channel calls MUST use the same
+verified VertexConsumer semantic operations as interface-owned calls. A GUI batch
+MUST NOT leave calls requiring the original BufferBuilder receiver after its
+producer has projected to the scoped GUI buffer. Source identity and verified
+ancestry, not descriptor coincidence, select these operations. Managed overrides
+and escaped concrete-buffer handles remain separate unproven boundaries.

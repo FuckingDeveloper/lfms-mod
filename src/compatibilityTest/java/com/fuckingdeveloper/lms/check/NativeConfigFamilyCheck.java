@@ -54,6 +54,13 @@ final class NativeConfigFamilyCheck {
         var external=Path.of("legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
         var dependency=Path.of("lms/dependencies/CarbonConfig-1.19.2-2.0.2.jar/3d6c721d4d977672-Primitive Collections-0.8.9.jar");
         if(Files.exists(external)&&Files.exists(dependency))try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(external,List.of(dependency),NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+            var guiType=loader.linkOwnedClass("carbonconfiglib.gui.base.helpers.GuiUtils");
+            check(guiType.getDeclaredMethods().length>0,"immutable GUI helper verification did not execute");
+            var guiNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(guiType.getName())).accept(guiNode,0);int projectedBatches=0;
+            for(var method:guiNode.methods){boolean projected=false;for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.owner.equals("com/fuckingdeveloper/lms/runtime/render/LegacyGuiTesselator"))projected=true;
+                if(projected){projectedBatches++;for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call)check(!call.owner.equals("com/mojang/blaze3d/vertex/BufferBuilder"),"projected GUI batch retained incompatible concrete buffer receiver: "+method.name+"/"+call.name);}
+            }
+            check(projectedBatches>0,"actual GUI batch projection was not inspected");
             var editType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonEditBox");
             var edit=(net.minecraft.client.gui.components.EditBox)editType.getConstructor(net.minecraft.client.gui.Font.class,int.class,int.class,int.class,int.class).newInstance(null,0,0,120,20);
             check(edit instanceof com.fuckingdeveloper.lms.runtime.render.Forge1192EditBox,"source edit-box constructor did not retain target-native adaptation");

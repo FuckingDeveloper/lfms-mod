@@ -7917,7 +7917,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
      * so the removed source endVertex operation has no additional target-side
      * action after all channels have been written.
      */
-    private static int rewriteLegacyVertexConsumerFamily(ClassNode node) {
+    private int rewriteLegacyVertexConsumerFamily(ClassNode node) {
         final String owner = "com/mojang/blaze3d/vertex/VertexConsumer";
         final String result = "L" + owner + ";";
         final String bridge =
@@ -7936,8 +7936,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         for (var method : node.methods) {
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
-                        || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE
-                        || !call.owner.equals(owner)) continue;
+                        || (call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEINTERFACE
+                            && call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL)
+                        || (!call.owner.equals(owner)
+                            && !(call.owner.equals("com/mojang/blaze3d/vertex/BufferBuilder")
+                                && isManagedSubtypeOf(call.owner,owner)))) continue;
                 if (call.name.equals("m_5483_") && call.desc.equals("(DDD)" + result)) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = bridge;
@@ -7959,6 +7962,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 String targetName = directNames.get(call.name + call.desc);
                 if (targetName == null) continue;
                 call.name = targetName;
+                call.owner = owner;
+                call.setOpcode(org.objectweb.asm.Opcodes.INVOKEINTERFACE);
+                call.itf = true;
                 rewrites++;
             }
         }
