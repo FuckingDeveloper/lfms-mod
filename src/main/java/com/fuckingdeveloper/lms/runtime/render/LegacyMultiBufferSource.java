@@ -77,7 +77,7 @@ public class LegacyMultiBufferSource {
         }
         if (flushed) throw new IllegalStateException("Legacy render buffer already flushed");
         return batches.computeIfAbsent(Objects.requireNonNull(renderType, "renderType"),
-                ignored -> new RecordingVertexConsumer());
+                type -> new RecordingVertexConsumer(type == LegacyRenderType.m_110504_()));
     }
 
     public void flush() {
@@ -238,13 +238,18 @@ public class LegacyMultiBufferSource {
     }
 
     private static final class RecordingVertexConsumer implements VertexConsumer {
+        private final boolean sourceLines;
+        private RecordingVertexConsumer(boolean sourceLines) { this.sourceLines=sourceLines; }
         private final List<Consumer<VertexConsumer>> operations = new ArrayList<>();
         private final List<Position> positions = new ArrayList<>();
 
         @Override
         public VertexConsumer addVertex(float x, float y, float z) {
             positions.add(new Position(x, y, z));
-            operations.add(target -> target.addVertex(x, y, z));
+            operations.add(target -> {
+                if(sourceLines)Forge1192VertexConsumerBridge.sourceLineVertex(target,x,y,z);
+                else target.addVertex(x,y,z);
+            });
             return this;
         }
 

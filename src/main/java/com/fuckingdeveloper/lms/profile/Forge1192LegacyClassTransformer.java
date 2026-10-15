@@ -384,6 +384,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyAdvancementDisplayFamily(node);
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
+        rewrites += Forge1192PoseMatrixDrawRewriter.rewrite(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteLegacyBlockCapabilityQueries(node);
         rewrites += rewriteLegacyLivingFallFamily(node);

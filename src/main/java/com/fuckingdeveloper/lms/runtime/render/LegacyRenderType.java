@@ -119,7 +119,7 @@ public class LegacyRenderType extends LegacyRenderStateShard {
             case LEASH -> RenderTypes.leash();
             case WATER_MASK -> RenderTypes.waterMask();
             case LIGHTNING -> RenderTypes.lightning();
-            case LINES -> RenderTypes.lines();
+            case LINES -> RenderTypes.linesTranslucent();
             default -> throw new UnsupportedOperationException(
                     "Forge 1.19.2 render type "
                             + (customName == null ? kind : customName)

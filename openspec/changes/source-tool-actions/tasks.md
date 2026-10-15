@@ -11,7 +11,11 @@
 - [x] Runtime40: selecting the original AdvancedHoe through MCP passes the
   ToolActions/state-query blocker and reaches actual shape drawing. The next
   causal blocker is the source pose-matrix vertex ABI, recorded separately.
-- [ ] Complete interactive preview/use acceptance after the drawing blocker.
+- [x] Runtime42 MCP: preview followed by use on a temporary dirt block succeeds;
+  server get_block confirms minecraft:farmland[moisture=0]. Native raycast confirms
+  the top face within reach. No new runtime exception. Original charged tool,
+  inventory, position, view and selected slot restored; both temporary blocks
+  removed. Creative-mode test does not establish survival energy consumption.
 
 Compatibility is functionally partial. Vanilla axe-strip table migration,
 stackless tool callback semantics and modern shield/mining consumers are not

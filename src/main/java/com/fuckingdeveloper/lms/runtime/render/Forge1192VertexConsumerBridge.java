@@ -12,6 +12,21 @@ public final class Forge1192VertexConsumerBridge {
         return consumer.addVertex((float) x, (float) y, (float) z);
     }
 
+    /** Source normal(Matrix3f,...) multiplies without renormalizing the result. */
+    public static VertexConsumer normal(VertexConsumer consumer, org.joml.Matrix3f matrix, float x, float y, float z) {
+        var normal=matrix.transform(x,y,z,new org.joml.Vector3f());
+        return consumer.setNormal(normal.x(),normal.y(),normal.z());
+    }
+
+    /** Source RenderType.lines uses LineStateShard's window-scaled default. */
+    public static float sourceLineWidth(int framebufferWidth) {
+        return Math.max(2.5F, framebufferWidth / 1920.0F * 2.5F);
+    }
+
+    public static void sourceLineVertex(VertexConsumer consumer, float x, float y, float z) {
+        consumer.addVertex(x,y,z).setLineWidth(sourceLineWidth(net.minecraft.client.Minecraft.getInstance().getWindow().getWidth()));
+    }
+
     /**
      * Target 26.3 finalizes the current vertex when the next vertex begins or
      * when its mesh is built. All source channels were already applied before
