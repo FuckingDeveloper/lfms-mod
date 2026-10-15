@@ -57,7 +57,7 @@ public final class Forge1192ContainerGraphicsBridge {
     public static void disableBlend(){Forge1192TooltipGuiBridge.scope().blend=false;}
     public static void enableTexture(){Forge1192TooltipGuiBridge.scope().textureEnabled=true;}
     public static void disableTexture(){Forge1192TooltipGuiBridge.scope().textureEnabled=false;}
-    public static void defaultBlendFunc(){Forge1192TooltipGuiBridge.scope();} // Exact source factors are the target TRANSLUCENT pipeline.
+    public static void defaultBlendFunc(){Forge1192TooltipGuiBridge.scope().blendFunction=LegacyGuiBlend.DEFAULT;}
 
     static Matrix3x2f planar(PoseStack poses) {
         return Forge1192GuiPlaneBridge.planar(poses.last().pose());

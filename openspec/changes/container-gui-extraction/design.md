@@ -90,3 +90,47 @@ errors, and the blocked CarbonConfig lifecycle remain separate open gaps.
 Executed verification: `./gradlew compatibilityTest nativeCompatibilitySmoke
 compileLaunchJava`, then `./gradlew runClient -PlmsTestWorld='Новый мир'` and the
 MCP interactions above. No screenshot/log/run state belongs in source control.
+
+## Scoped GUI state family coverage
+
+The exact source public `setShaderTexture(int, ResourceLocation)` and internal
+`_setShaderTexture(int, ResourceLocation)` entrypoints MAY normalize to the same
+scoped texture-binding operation during GUI extraction. Source bytecode proves
+that the public entrypoint calls the internal one on the render thread; target
+extraction already executes there. Both MUST retain the evaluated unit and
+texture identity, and reject unsupported units and unscoped use. The adjacent
+verified native texture-object producer/binder pair MAY use either entrypoint.
+Raw numeric texture identifiers outside that pair remain unsupported.
+
+All proven source RenderSystem GUI state operations MUST share exact
+owner/canonical-member/descriptor selection for direct calls, method handles,
+invokedynamic arguments and nested constants. Adding a verified operation MUST
+NOT require a separate mapping for every call encoding. Unknown operations MUST
+remain visible as compatibility gaps; they MUST NOT become no-ops. Fixture GUI
+classes SHOULD be audited together for residual external linkage failures before
+requesting another interactive test. Structural audit is not rendering proof.
+
+Verified GlStateManager blend/depth/texture enable/disable wrappers MUST feed the
+same scoped state as their RenderSystem counterparts. This does not authorize
+arbitrary raw GL operations or custom blend/depth functions.
+
+Source Window framebuffer width/height and logical GUI width/height queries MAY
+use their exact native counterparts. Pixel and logical dimensions MUST stay
+distinct. NativeImage width/height and InputStream PNG reading MAY use native
+operations; read retains RGBA decoding and closes the input on success/failure
+with native allocation cleanup. Source format-selecting reads remain a separate
+boundary. These identities MUST apply equally to calls and handles.
+
+## Source blend equations
+
+Source blend-factor enum types MUST retain their distinct identities, declaration
+order, names and numeric `value` fields. Supported factor calls MUST create native
+ADD blend equations for color and alpha separately; two-factor calls use the same
+factors for both. The exact source default is SRC_ALPHA/ONE_MINUS_SRC_ALPHA for
+color and ONE/ZERO for alpha (not the target TRANSLUCENT alpha equation).
+Blend enable and blend factors are independent scoped state. Each submitted quad
+MUST snapshot both equations and write mask into its native pipeline. Changing
+source state later MUST NOT change a submitted quad. Native pipeline caches MUST
+not contain managed classes or classloaders. Constant-color/alpha factors require
+unproven blend-constant state and MUST fail explicitly. Raw integer blend calls,
+custom blend operations and unsupported topology remain gaps.

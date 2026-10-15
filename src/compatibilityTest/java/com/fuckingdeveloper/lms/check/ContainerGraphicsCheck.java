@@ -14,7 +14,76 @@ import java.util.jar.*;
 
 public final class ContainerGraphicsCheck {
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}
+    private static void stateFamily() {
+        String rs="com/mojang/blaze3d/systems/RenderSystem";
+        var operations=new java.util.LinkedHashMap<String,String>();
+        operations.put("m_157179_(ILnet/minecraft/resources/ResourceLocation;)V","shaderTexture");
+        operations.put("m_157456_(ILnet/minecraft/resources/ResourceLocation;)V","shaderTexture");
+        operations.put("setShaderColor(FFFF)V","shaderColor");
+        operations.put("enableScissor(IIII)V","enableScissor");operations.put("disableScissor()V","disableScissor");
+        operations.put("colorMask(ZZZZ)V","colorMask");operations.put("setShader(Ljava/util/function/Supplier;)V","setShader");
+        for(String name:List.of("enableBlend","disableBlend","defaultBlendFunc","enableDepthTest","disableDepthTest","enableTexture","disableTexture"))operations.put(name+"()V",name);
+        for(String name:List.of("enableBlend","disableBlend","enableDepthTest","disableDepthTest","enableTexture","disableTexture"))operations.put("com/mojang/blaze3d/platform/GlStateManager|_"+name+"()V",name);
+        for(String name:List.of("getWidth","getHeight","getGuiScaledWidth","getGuiScaledHeight"))operations.put("com/mojang/blaze3d/platform/Window|"+name+"()I",name);
+        for(String name:List.of("getWidth","getHeight"))operations.put("com/mojang/blaze3d/platform/NativeImage|"+name+"()I",name);
+        operations.put("com/mojang/blaze3d/platform/NativeImage|read(Ljava/io/InputStream;)Lcom/mojang/blaze3d/platform/NativeImage;","read");
+        String factors="Lcom/mojang/blaze3d/platform/GlStateManager$SourceFactor;Lcom/mojang/blaze3d/platform/GlStateManager$DestFactor;";
+        operations.put("m_69408_("+factors+")V","blendFunc");operations.put("m_69416_("+factors+factors+")V","blendFuncSeparate");
+        for(var operation:operations.entrySet()) {
+            int separator=operation.getKey().indexOf('|');String owner=separator<0?rs:operation.getKey().substring(0,separator),identity=operation.getKey().substring(separator+1);
+            int split=identity.indexOf('(');String name=identity.substring(0,split),desc=identity.substring(split);
+            boolean nativeOperation=owner.endsWith("/Window")||owner.endsWith("/NativeImage");
+            boolean virtual=nativeOperation&&!name.equals("read");
+            String parameters=virtual?"(L"+owner+";"+desc.substring(1):desc;
+            String probeDescriptor=Type.getMethodDescriptor(Type.VOID_TYPE,Type.getArgumentTypes(parameters));
+            String expectedOwner=nativeOperation?owner:operation.getValue().startsWith("blendFunc")?"com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend":java.util.Set.of("shaderTexture","shaderColor","enableScissor","disableScissor").contains(operation.getValue())?"com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge":"com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge";
+            var fixture=new ClassNode();fixture.version=Opcodes.V17;fixture.access=Opcodes.ACC_PUBLIC;fixture.name="fixture/GuiStateFamily";fixture.superName="java/lang/Object";
+            var method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"calls",probeDescriptor,null,null);fixture.methods.add(method);
+            int local=0;for(Type type:Type.getArgumentTypes(parameters)){method.instructions.add(new VarInsnNode(type.getOpcode(Opcodes.ILOAD),local));local+=type.getSize();}
+            method.instructions.add(new MethodInsnNode(virtual?Opcodes.INVOKEVIRTUAL:Opcodes.INVOKESTATIC,owner,name,desc,false));
+            if(Type.getReturnType(desc)!=Type.VOID_TYPE)method.instructions.add(new InsnNode(Opcodes.POP));
+            var handle=new Handle(virtual?Opcodes.H_INVOKEVIRTUAL:Opcodes.H_INVOKESTATIC,owner,name,desc,false);
+            method.instructions.add(new LdcInsnNode(handle));method.instructions.add(new InsnNode(Opcodes.POP));
+            method.instructions.add(new InvokeDynamicInsnNode("call","()Ljava/lang/Runnable;",new Handle(Opcodes.H_INVOKESTATIC,"java/lang/invoke/LambdaMetafactory","metafactory","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",false),Type.getMethodType(desc),handle,Type.getMethodType(desc)));
+            method.instructions.add(new InsnNode(Opcodes.POP));
+            var nested=new ConstantDynamic("nested","Ljava/lang/invoke/MethodHandle;",new Handle(Opcodes.H_INVOKESTATIC,"java/lang/invoke/ConstantBootstraps","explicitCast","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;",false),handle);
+            method.instructions.add(new LdcInsnNode(nested));method.instructions.add(new InsnNode(Opcodes.POP));method.instructions.add(new InsnNode(Opcodes.RETURN));
+            var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);fixture.accept(writer);var result=new ClassNode();new ClassReader(new Forge1192LegacyClassTransformer().transform(fixture.name.replace('/','.'),writer.toByteArray()).bytes()).accept(result,0);
+            int references=0;
+            for(var instruction:result.methods.getFirst().instructions){
+                Handle projected=null;
+                if(instruction instanceof MethodInsnNode call){references++;check(call.owner.equals(expectedOwner)&&call.name.equals(operation.getValue()),"GUI state direct call drift: "+operation.getKey());}
+                else if(instruction instanceof LdcInsnNode ldc){if(ldc.cst instanceof Handle h)projected=h;else if(ldc.cst instanceof ConstantDynamic c)projected=(Handle)c.getBootstrapMethodArgument(0);}
+                else if(instruction instanceof InvokeDynamicInsnNode indy)projected=(Handle)indy.bsmArgs[1];
+                if(projected!=null){references++;check(projected.getOwner().equals(expectedOwner)&&projected.getName().equals(operation.getValue()),"GUI state handle drift: "+operation.getKey());}
+            }
+            check(references==4,"GUI state encoding coverage incomplete");
+        }
+        var resolver=com.fuckingdeveloper.lms.mapping.Forge1192SrgRuntimeResolver.load(Path.of(".")).orElseThrow();
+        check(resolver.canonicalMethodName(rs,"m_157179_","(ILnet/minecraft/resources/ResourceLocation;)V").orElseThrow().equals("_setShaderTexture"),"internal source binder identity guessed");
+    }
+    private static void blendFamily() {
+        var src=LegacyGuiBlend.SourceFactor.SRC_ALPHA;var dst=LegacyGuiBlend.DestFactor.ONE_MINUS_SRC_ALPHA;
+        check(LegacyGuiBlend.SourceFactor.values().length==15&&LegacyGuiBlend.DestFactor.values().length==14,"source factor enum identity/order lost");
+        check(src.ordinal()==11&&src.value==770&&src.f_84751_==770&&dst.value==771&&dst.f_84646_==771,"source factor ordinal/numeric ABI changed");
+        var replaceAlpha=LegacyGuiBlend.equation(src,dst,LegacyGuiBlend.SourceFactor.ONE,LegacyGuiBlend.DestFactor.ZERO);
+        var retainAlpha=LegacyGuiBlend.equation(src,dst,LegacyGuiBlend.SourceFactor.ZERO,LegacyGuiBlend.DestFactor.ONE);
+        check(replaceAlpha.equals(LegacyGuiBlend.DEFAULT)&&!replaceAlpha.equals(com.mojang.renderpearl.api.pipeline.BlendFunction.TRANSLUCENT),"source default alpha replaced with target default");
+        for(boolean texture:new boolean[]{false,true})for(int mask=0;mask<16;mask++) {
+            var first=LegacyGuiBuffer.pipeline(texture,Optional.of(replaceAlpha),mask);var second=LegacyGuiBuffer.pipeline(texture,Optional.of(retainAlpha),mask);
+            check(first!=second&&first.getColorTargetStates().getFirst().blendFunction().orElseThrow().equals(replaceAlpha)&&second.getColorTargetStates().getFirst().blendFunction().orElseThrow().equals(retainAlpha),"separate alpha equations share or mutate submitted pipeline");
+            check(first==LegacyGuiBuffer.pipeline(texture,Optional.of(replaceAlpha),mask),"native blend pipeline cache lost identity");
+        }
+        for(var source:LegacyGuiBlend.SourceFactor.values())for(var destination:LegacyGuiBlend.DestFactor.values()) {
+            boolean constant=source.name().contains("CONSTANT")||destination.name().contains("CONSTANT");
+            try{var equation=LegacyGuiBlend.equation(source,destination,source,destination);check(!constant,"unproven blend constant accepted");check(equation.color().equals(equation.alpha()),"two-factor blend lost alpha equation");}
+            catch(UnsupportedOperationException expected){check(constant,"supported factor rejected");}
+        }
+        try{LegacyGuiBlend.blendFunc(src,dst);throw new AssertionError("unscoped blend state accepted");}catch(IllegalStateException expected){}
+    }
     public static void run() throws Exception {
+        stateFamily();
+        blendFamily();
         check(Forge1192ContainerGraphicsBridge.sourceTextColor(0x404040)==0xFF404040 && Forge1192ContainerGraphicsBridge.sourceTextColor(0x02404040)==0xFF404040 && Forge1192ContainerGraphicsBridge.sourceTextColor(0x80404040)==0x80404040,"source font alpha normalization lost");
         var points=new ArrayList<LegacyGuiBuffer.Point>();
         points.add(new LegacyGuiBuffer.Point(10.25F,20.5F,0,0.1F,0.8F,0x80112233));

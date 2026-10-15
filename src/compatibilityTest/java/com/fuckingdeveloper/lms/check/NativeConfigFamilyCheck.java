@@ -54,6 +54,7 @@ final class NativeConfigFamilyCheck {
         var external=Path.of("legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
         var dependency=Path.of("lms/dependencies/CarbonConfig-1.19.2-2.0.2.jar/3d6c721d4d977672-Primitive Collections-0.8.9.jar");
         if(Files.exists(external)&&Files.exists(dependency))try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(external,List.of(dependency),NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+            auditGuiLinkage(external,loader);
             var guiType=loader.linkOwnedClass("carbonconfiglib.gui.base.helpers.GuiUtils");
             check(guiType.getDeclaredMethods().length>0,"immutable GUI helper verification did not execute");
             var guiNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(guiType.getName())).accept(guiNode,0);int projectedBatches=0;
@@ -109,6 +110,61 @@ final class NativeConfigFamilyCheck {
         }
 
         System.out.println("PASS: genuine native config/spec/data/path ownership, source enum identity, actual correction count/cache reset, atomic file save separate from exactly-once reload, restart/owner/unloaded boundaries");
+    }
+    /** Inspect the entire fixture GUI surface in one pass, without initializing target classes. */
+    private static void auditGuiLinkage(Path artifact,com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader loader) throws Exception {
+        var missing=new TreeSet<String>();var classes=new HashMap<String,org.objectweb.asm.tree.ClassNode>();int inspected=0;
+        try(var jar=new java.util.jar.JarFile(artifact.toFile())) {
+            for(var entry:java.util.Collections.list(jar.entries())) {
+                if(!entry.getName().startsWith("carbonconfiglib/gui/")||!entry.getName().endsWith(".class"))continue;
+                String name=entry.getName().substring(0,entry.getName().length()-6);
+                try {
+                    var type=loader.linkOwnedClass(name.replace('/','.'));
+                    var node=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(type.getName())).accept(node,0);inspected++;
+                    type.getDeclaredMethods(); // Also force JVM verification of every method, not just the first executed callback.
+                    for(var method:node.methods){var sites=new TreeSet<String>();for(var instruction:method.instructions){
+                        if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call) auditGuiMember(call.owner,call.name,call.desc,false,classes,sites);
+                        else if(instruction instanceof org.objectweb.asm.tree.FieldInsnNode field) auditGuiMember(field.owner,field.name,field.desc,true,classes,sites);
+                        else if(instruction instanceof org.objectweb.asm.tree.LdcInsnNode ldc) auditGuiConstant(ldc.cst,classes,sites);
+                        else if(instruction instanceof org.objectweb.asm.tree.InvokeDynamicInsnNode indy)for(Object value:indy.bsmArgs)auditGuiConstant(value,classes,sites);
+                    }
+                    if(!sites.isEmpty())System.out.println("GUI-LINKAGE-SITES: "+name+"#"+method.name+method.desc+" => "+sites);missing.addAll(sites);
+                    }
+                }catch(LinkageError|ReflectiveOperationException failure){missing.add(name+" [class verification] "+failure);}
+            }
+        }
+        check(inspected>0,"immutable GUI audit inspected no classes");
+        for(String gap:missing){
+            check(!gap.startsWith("com/mojang/blaze3d/platform/Window#m_")&&!gap.startsWith("com/mojang/blaze3d/platform/NativeImage#m_"),"proven GUI dimension/image family retained residual call: "+gap);
+            check(!gap.startsWith("com/mojang/blaze3d/platform/GlStateManager#m_"),"proven scoped GL state family retained residual call: "+gap);
+            System.out.println("GUI-LINKAGE-GAP: "+gap);
+        }
+        System.out.println("GUI-LINKAGE-AUDIT: classes="+inspected+" uniqueExternalGaps="+missing.size()+"; structural coverage only");
+    }
+    private static void auditGuiConstant(Object value,Map<String,org.objectweb.asm.tree.ClassNode> classes,Set<String> missing) throws Exception {
+        if(value instanceof org.objectweb.asm.Handle h)auditGuiMember(h.getOwner(),h.getName(),h.getDesc(),h.getTag()<=org.objectweb.asm.Opcodes.H_PUTSTATIC,classes,missing);
+        else if(value instanceof org.objectweb.asm.ConstantDynamic c)for(int i=0;i<c.getBootstrapMethodArgumentCount();i++)auditGuiConstant(c.getBootstrapMethodArgument(i),classes,missing);
+    }
+    private static void auditGuiMember(String owner,String name,String descriptor,boolean field,Map<String,org.objectweb.asm.tree.ClassNode> classes,Set<String> missing) throws Exception {
+        if(!owner.startsWith("net/minecraft/")&&!owner.startsWith("com/mojang/")&&!owner.startsWith("com/fuckingdeveloper/lms/"))return;
+        if(!guiMemberExists(owner,name,descriptor,field,classes,new HashSet<>()))missing.add(owner+"#"+name+descriptor);
+    }
+    private static boolean guiMemberExists(String owner,String name,String descriptor,boolean field,Map<String,org.objectweb.asm.tree.ClassNode> classes,Set<String> visited) throws Exception {
+        if(owner==null||!visited.add(owner))return false;
+        if(!classes.containsKey(owner)) {
+            try(var input=NativeConfigFamilyCheck.class.getClassLoader().getResourceAsStream(owner+".class")) {
+                org.objectweb.asm.tree.ClassNode node=null;
+                if(input!=null){node=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(input).accept(node,org.objectweb.asm.ClassReader.SKIP_CODE|org.objectweb.asm.ClassReader.SKIP_DEBUG|org.objectweb.asm.ClassReader.SKIP_FRAMES);}
+                classes.put(owner,node);
+            }
+        }
+        var node=classes.get(owner);if(node==null)return false;
+        if(field){for(var member:node.fields)if(member.name.equals(name)&&member.desc.equals(descriptor))return true;}
+        else for(var member:node.methods)if(member.name.equals(name)&&member.desc.equals(descriptor))return true;
+        if(name.equals("<init>"))return false;
+        if(guiMemberExists(node.superName,name,descriptor,field,classes,visited))return true;
+        for(String parent:node.interfaces)if(guiMemberExists(parent,name,descriptor,field,classes,visited))return true;
+        return false;
     }
     private static void sourceHandles(Forge1192ModConfigView config) throws Exception {
         String owner="fixture/NativeConfigHandles",source="net/minecraftforge/fml/config/ModConfig",event="net/minecraftforge/fml/event/config/ModConfigEvent$Reloading";

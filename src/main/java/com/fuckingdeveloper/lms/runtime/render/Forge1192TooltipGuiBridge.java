@@ -18,6 +18,7 @@ public final class Forge1192TooltipGuiBridge {
         net.minecraft.client.renderer.texture.AbstractTexture textureObject;
         int color = -1;
         boolean blend = true;
+        com.mojang.renderpearl.api.pipeline.BlendFunction blendFunction=LegacyGuiBlend.DEFAULT;
         boolean depthTest = true;
         final Forge1192GuiPlaneBridge.Order planes=new Forge1192GuiPlaneBridge.Order();
         boolean flatItemLighting;
@@ -111,7 +112,7 @@ public final class Forge1192TooltipGuiBridge {
     public static void fill(PoseStack pose,int x0,int y0,int x1,int y1,int color) {
         if(x0<x1){int swap=x0;x0=x1;x1=swap;}
         if(y0<y1){int swap=y0;y0=y1;y1=swap;}
-        var scope=scope();scope.blend=true;scope.textureEnabled=false;scope.shader=LegacyGuiShader.POSITION_COLOR;
+        var scope=scope();scope.blend=true;scope.blendFunction=LegacyGuiBlend.DEFAULT;scope.textureEnabled=false;scope.shader=LegacyGuiShader.POSITION_COLOR;
         var buffer=new LegacyGuiBuffer();buffer.begin(LegacyVertexFormatMode.QUADS,LegacyDefaultVertexFormat.f_85815_);
         var matrix=pose.last().pose();
         buffer.vertex(matrix,x0,y1,0).setColor(color);buffer.vertex(matrix,x1,y1,0).setColor(color);

@@ -4649,14 +4649,49 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         }
         return 1;
     }
+    /** One source identity table for direct state calls and recursive handle constants. */
+    private static final java.util.Map<String,String> GUI_STATE_OPERATIONS = java.util.Map.ofEntries(
+            java.util.Map.entry("setShaderTexture(ILnet/minecraft/resources/ResourceLocation;)V", "shaderTexture"),
+            java.util.Map.entry("_setShaderTexture(ILnet/minecraft/resources/ResourceLocation;)V", "shaderTexture"),
+            java.util.Map.entry("setShaderColor(FFFF)V", "shaderColor"),
+            java.util.Map.entry("enableScissor(IIII)V", "enableScissor"),
+            java.util.Map.entry("disableScissor()V", "disableScissor"),
+            java.util.Map.entry("enableDepthTest()V", "enableDepthTest"),
+            java.util.Map.entry("disableDepthTest()V", "disableDepthTest"),
+            java.util.Map.entry("colorMask(ZZZZ)V", "colorMask"),
+            java.util.Map.entry("setShader(Ljava/util/function/Supplier;)V", "setShader"),
+            java.util.Map.entry("enableBlend()V", "enableBlend"),
+            java.util.Map.entry("disableBlend()V", "disableBlend"),
+            java.util.Map.entry("defaultBlendFunc()V", "defaultBlendFunc"),
+            java.util.Map.entry("enableTexture()V", "enableTexture"),
+            java.util.Map.entry("disableTexture()V", "disableTexture"));
     private static Handle guiShaderHandle(Handle handle) {
         if (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESTATIC
-                && handle.getOwner().equals("com/mojang/blaze3d/systems/RenderSystem") && SRG_RUNTIME_RESOLVER.isPresent()) {
+                && java.util.Set.of("com/mojang/blaze3d/systems/RenderSystem","com/mojang/blaze3d/platform/GlStateManager").contains(handle.getOwner()) && SRG_RUNTIME_RESOLVER.isPresent()) {
             String operation = SRG_RUNTIME_RESOLVER.get().canonicalMethodName(handle.getOwner(),handle.getName(),handle.getDesc()).orElse(handle.getName());
-            String projected = operation.equals("setShaderTexture") && handle.getDesc().equals("(ILnet/minecraft/resources/ResourceLocation;)V") ? "shaderTexture"
-                    : operation.equals("setShaderColor") && handle.getDesc().equals("(FFFF)V") ? "shaderColor" : null;
+            if(handle.getOwner().equals("com/mojang/blaze3d/platform/GlStateManager")) {
+                if(!java.util.Set.of("_enableBlend","_disableBlend","_enableDepthTest","_disableDepthTest","_enableTexture","_disableTexture").contains(operation))return null;
+                operation=operation.substring(1);
+            }
+            String factors="Lcom/mojang/blaze3d/platform/GlStateManager$SourceFactor;Lcom/mojang/blaze3d/platform/GlStateManager$DestFactor;";
+            if((operation.equals("blendFunc")&&handle.getDesc().equals("("+factors+")V"))
+                    ||(operation.equals("blendFuncSeparate")&&handle.getDesc().equals("("+factors+factors+")V")))
+                return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend",operation,handle.getDesc(),false);
+            String projected = GUI_STATE_OPERATIONS.get(operation + handle.getDesc());
             if (projected != null) return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
-                    "com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge",projected,handle.getDesc(),false);
+                    java.util.Set.of("shaderTexture","shaderColor","enableScissor","disableScissor").contains(projected)
+                            ? "com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge"
+                            : "com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge",
+                    projected,handle.getDesc(),false);
+        }
+        if(SRG_RUNTIME_RESOLVER.isPresent()) {
+            String operation=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(handle.getOwner(),handle.getName(),handle.getDesc()).orElse(handle.getName());
+            boolean dimensions=handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL&&handle.getDesc().equals("()I")
+                    && ((handle.getOwner().equals("com/mojang/blaze3d/platform/Window")&&java.util.Set.of("getWidth","getHeight","getGuiScaledWidth","getGuiScaledHeight").contains(operation))
+                    || (handle.getOwner().equals("com/mojang/blaze3d/platform/NativeImage")&&java.util.Set.of("getWidth","getHeight").contains(operation)));
+            boolean imageRead=handle.getTag()==org.objectweb.asm.Opcodes.H_INVOKESTATIC&&handle.getOwner().equals("com/mojang/blaze3d/platform/NativeImage")
+                    &&operation.equals("read")&&handle.getDesc().equals("(Ljava/io/InputStream;)Lcom/mojang/blaze3d/platform/NativeImage;");
+            if(dimensions||imageRead)return new Handle(handle.getTag(),handle.getOwner(),operation,handle.getDesc(),false);
         }
         if (handle.getTag() != org.objectweb.asm.Opcodes.H_INVOKESTATIC
                 || !handle.getOwner().equals("net/minecraft/client/renderer/GameRenderer")
@@ -4708,7 +4743,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     var consumer=next;while(consumer!=null&&consumer.getOpcode()<0)consumer=consumer.getNext();
                     if(consumer instanceof MethodInsnNode binding&&binding.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC
                             &&binding.owner.equals("com/mojang/blaze3d/systems/RenderSystem")&&binding.desc.equals("(II)V")
-                            &&SRG_RUNTIME_RESOLVER.get().canonicalMethodName(binding.owner,binding.name,binding.desc).orElse(binding.name).equals("setShaderTexture")){
+                            &&SRG_RUNTIME_RESOLVER.get().canonicalMethodName(binding.owner,binding.name,binding.desc).map(name -> java.util.Set.of("setShaderTexture","_setShaderTexture").contains(name)).orElse(false)){
                         method.instructions.remove(getter);binding.owner="com/fuckingdeveloper/lms/runtime/render/LegacyGuiTextureHandles";binding.name="setShaderTexture";binding.desc="(ILnet/minecraft/client/renderer/texture/AbstractTexture;)V";binding.itf=false;rewrites++;
                     }
                 }
@@ -4734,6 +4769,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     }
                 }
                 if(!(insn instanceof MethodInsnNode call))continue;
+                if(java.util.Set.of("com/mojang/blaze3d/platform/GlStateManager","com/mojang/blaze3d/platform/Window","com/mojang/blaze3d/platform/NativeImage").contains(call.owner)) {
+                    int tag=call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC?org.objectweb.asm.Opcodes.H_INVOKESTATIC:call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL?org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL:-1;
+                    var adapted=tag<0?null:guiShaderHandle(new Handle(tag,call.owner,call.name,call.desc,call.itf));
+                    if(adapted!=null){call.owner=adapted.getOwner();call.name=adapted.getName();call.desc=adapted.getDesc();call.itf=false;rewrites++;continue;}
+                }
                 if(call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC && call.owner.equals("com/mojang/blaze3d/platform/Lighting") && call.desc.equals("()V")) {
                     String lighting=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(call.owner,call.name,call.desc).orElse(call.name);
                     if(lighting.equals("setupFor3DItems")||lighting.equals("setupForFlatItems")){call.owner=render;call.name=lighting;call.itf=false;rewrites++;continue;}
@@ -4748,11 +4788,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }else if(call.owner.equals("com/mojang/blaze3d/systems/RenderSystem")){
                     var stateCall=guiShaderHandle(new Handle(call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESTATIC?org.objectweb.asm.Opcodes.H_INVOKESTATIC:org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL,call.owner,call.name,call.desc,call.itf));
                     if(stateCall!=null){call.owner=stateCall.getOwner();call.name=stateCall.getName();call.desc=stateCall.getDesc();call.itf=false;rewrites++;continue;}
-                    if((canonical.equals("enableScissor")&&call.desc.equals("(IIII)V"))||(canonical.equals("disableScissor")&&call.desc.equals("()V"))){call.owner="com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge";call.name=canonical;call.itf=false;rewrites++;}
-                    else if(java.util.Set.of("enableDepthTest","disableDepthTest").contains(canonical)&&call.desc.equals("()V")){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
-                    else if(canonical.equals("colorMask")&&call.desc.equals("(ZZZZ)V")){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
-                    else if(canonical.equals("setShader")&&call.desc.equals("(Ljava/util/function/Supplier;)V")) {call.owner=render;call.name="setShader";call.itf=false;rewrites++;}
-                    else if(call.desc.equals("()V")&&java.util.Set.of("enableBlend","disableBlend","defaultBlendFunc","enableTexture","disableTexture").contains(canonical)){call.owner=render;call.name=canonical;call.itf=false;rewrites++;}
                 }else if(call.owner.equals("net/minecraft/client/gui/Font")&&call.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                         &&(canonical.equals("draw")||canonical.equals("drawShadow")) && call.desc.startsWith("(Lcom/mojang/blaze3d/vertex/PoseStack;")&&call.desc.endsWith("FFI)I")){
                     var parameters=org.objectweb.asm.Type.getArgumentTypes(call.desc);
@@ -12480,6 +12515,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        if (value.equals("com/mojang/blaze3d/platform/GlStateManager$SourceFactor")) return "com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend$SourceFactor";
+        if (value.equals("com/mojang/blaze3d/platform/GlStateManager$DestFactor")) return "com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend$DestFactor";
+
         String selectionView = Forge1192SelectionListRewriter.relocation(value);
         if(selectionView != null)return selectionView;
         String configView = Forge1192NativeConfigRewriter.relocation(value);
