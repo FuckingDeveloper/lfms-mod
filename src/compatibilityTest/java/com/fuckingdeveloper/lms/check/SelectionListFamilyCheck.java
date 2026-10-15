@@ -44,11 +44,24 @@ final class SelectionListFamilyCheck {
         for(var n:List.of(node,child)){
             var method=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_STATIC,"widthHandle","()Ljava/lang/invoke/MethodHandle;",null,null);n.methods.add(method);method.instructions.add(new org.objectweb.asm.tree.LdcInsnNode(new org.objectweb.asm.Handle(org.objectweb.asm.Opcodes.H_GETFIELD,n.name,"f_93388_","I",false)));method.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));
         }
+        var focus=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PROTECTED,"m_5694_","()Z",null,null);
+        child.methods.add(focus);focus.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ICONST_1));focus.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));
+        var baseFocus=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC,"baseFocus","()Z",null,null);
+        child.methods.add(baseFocus);baseFocus.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));baseFocus.instructions.add(new org.objectweb.asm.tree.MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESPECIAL,name,"m_5694_","()Z",false));baseFocus.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.IRETURN));
+        for(var n:List.of(node,child)){
+            var method=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_STATIC,"focusHandle","()Ljava/lang/invoke/MethodHandle;",null,null);
+            n.methods.add(method);method.instructions.add(new org.objectweb.asm.tree.LdcInsnNode(new org.objectweb.asm.Handle(org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL,n.name,"m_5694_","()Z",false)));method.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));
+        }
         var path=java.nio.file.Files.createTempFile("lms-selection-source", ".jar");try(var jar=new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(path))){for(var n:List.of(node,child)){var writer=new org.objectweb.asm.ClassWriter(org.objectweb.asm.ClassWriter.COMPUTE_MAXS);n.accept(writer);jar.putNextEntry(new java.util.jar.JarEntry(n.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();}}
         var original=java.nio.file.Files.readAllBytes(path);
         try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,SelectionListFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())){
             for(String n:List.of(name,hidden)){
                 var type=loader.linkOwnedClass(n.replace('/','.'));var value=type.getConstructor(net.minecraft.client.Minecraft.class,int.class,int.class,int.class,int.class,int.class).newInstance(null,320,240,30,180,20);
+                check(((Forge1192ContainerSelectionList<?>)value).lms$isFocused()==n.equals(hidden),"source focus override dispatch lost");
+                if(n.equals(hidden))check(!(boolean)type.getMethod("baseFocus").invoke(value),"source focus super call redispatched override");
+                var focusHandle=(java.lang.invoke.MethodHandle)type.getMethod("focusHandle").invoke(null);
+                check(focusHandle.type().equals(java.lang.invoke.MethodType.methodType(boolean.class,type)),"source focus handle receiver widened");
+                try{check((boolean)focusHandle.invokeWithArguments(value)==n.equals(hidden),"source focus handle dispatch lost");}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}
                 if(n.equals(hidden))type.getField("f_93388_").setInt(value,17);
                 var handle=(java.lang.invoke.MethodHandle)type.getMethod("widthHandle").invoke(null);
                 check(handle.type().equals(java.lang.invoke.MethodType.methodType(int.class,type)),"source field handle receiver type widened");

@@ -40,3 +40,10 @@ MUST NOT leave calls requiring the original BufferBuilder receiver after its
 producer has projected to the scoped GUI buffer. Source identity and verified
 ancestry, not descriptor coincidence, select these operations. Managed overrides
 and escaped concrete-buffer handles remain separate unproven boundaries.
+
+The source AbstractSelectionList `isFocused()Z` extension hook MUST remain separate
+from target AbstractWidget focus state. Its source base implementation returns
+false; source overrides, virtual calls, superclass calls and method handles MUST
+retain source dispatch through `lms$isFocused`. Initial narration of the immutable
+source list MUST be exercised before rendering, and residual SRG list calls MUST
+be audited rather than limiting linkage checks to already projected operations.

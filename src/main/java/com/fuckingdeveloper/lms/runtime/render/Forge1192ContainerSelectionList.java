@@ -46,6 +46,8 @@ public abstract class Forge1192ContainerSelectionList<E extends Forge1192Contain
         int offset=(int)Math.floor(y-lms$y0)-lms$headerHeight+(int)scrollAmount()-4,index=offset/lms$itemHeight;
         return x<lms$getScrollbarPosition()&&x>=left&&x<=left+getRowWidth()&&index>=0&&offset>=0&&index<getItemCount()?lms$getEntry(index):null;
     }
+    /** Source AbstractSelectionList focus extension hook; distinct from target widget focus. */
+    public boolean lms$isFocused(){return false;}
     public boolean lms$isSelectedItem(int index){return false;}
     public void lms$setRenderSelection(boolean value){selection=value;}
     public void lms$setRenderBackground(boolean value){background=value;}

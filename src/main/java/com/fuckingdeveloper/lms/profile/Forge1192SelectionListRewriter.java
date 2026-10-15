@@ -16,7 +16,7 @@ final class Forge1192SelectionListRewriter {
         Map.entry("getWidth","()I"),Map.entry("getHeight","()I"),Map.entry("getTop","()I"),Map.entry("getBottom","()I"),Map.entry("getLeft","()I"),Map.entry("getRight","()I"),
         Map.entry("getMaxPosition","()I"),Map.entry("getScrollAmount","()D"),Map.entry("setScrollAmount","(D)V"),Map.entry("getMaxScroll","()I"),Map.entry("getScrollBottom","()I"),
         Map.entry("getScrollbarPosition","()I"),Map.entry("getRowTop","(I)I"),Map.entry("getRowBottom","(I)I"),Map.entry("getEntryAtPosition","(DD)L"+ROOT+"$Entry;"),
-        Map.entry("isSelectedItem","(I)Z"),Map.entry("updateSize","(IIII)V"),Map.entry("setLeftPos","(I)V"),Map.entry("scroll","(I)V"),
+        Map.entry("isFocused","()Z"),Map.entry("isSelectedItem","(I)Z"),Map.entry("updateSize","(IIII)V"),Map.entry("setLeftPos","(I)V"),Map.entry("scroll","(I)V"),
         Map.entry("setRenderSelection","(Z)V"),Map.entry("setRenderBackground","(Z)V"),Map.entry("setRenderTopAndBottom","(Z)V"),Map.entry("setRenderHeader","(ZI)V"),
         Map.entry("clickedHeader","(II)V"),Map.entry("updateScrollingState","(DDI)V"),
         Map.entry("mouseClicked","(DDI)Z"),Map.entry("mouseReleased","(DDI)Z"),Map.entry("mouseDragged","(DDIDD)Z"),Map.entry("mouseScrolled","(DDD)Z"),Map.entry("keyPressed","(III)Z"));
