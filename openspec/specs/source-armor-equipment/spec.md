@@ -25,3 +25,8 @@ mirror the actual source callback result, not its requested argument. Copies MUS
 isolate mutable damage data. The native DAMAGE component mirror MUST stay within
 the native MAX_DAMAGE representation while source raw overshoot remains visible
 to the source broken-item semantics. No fixture identity may select this rule.
+
+Source CombatRules pure helpers MUST retain their verified source physical and
+magic absorption results and public constant identities. A source three-float
+call MUST NOT fabricate victim/weapon context for a target contextual overload.
+This facade MUST NOT replace or bypass the native target damage pipeline.

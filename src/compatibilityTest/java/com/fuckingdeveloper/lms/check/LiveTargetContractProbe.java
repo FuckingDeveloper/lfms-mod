@@ -148,6 +148,7 @@ public final class LiveTargetContractProbe {
         InitialDataTransactionCheck.run();
         ArmorEquipmentFamilyCheck.run();
         DamageDataFamilyCheck.run();
+        try { CombatRuleFamilyCheck.run(); } catch (Throwable failure) { throw new AssertionError(failure); }
         BlockExtensionDefaultsCheck.run();
         AttributeOperationFamilyCheck.run();
         CreativeConstructionFamilyCheck.run();

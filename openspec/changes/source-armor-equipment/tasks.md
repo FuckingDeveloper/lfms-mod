@@ -4,7 +4,11 @@
 - [x] Focused/native checks and compilation (`compatibilityTest nativeCompatibilitySmoke compileLaunchJava`, check57), including live tag/native damage projection and normal-plus-outline submissions.
 - [x] Runtime51: actual registered bronze armor defaults and four-slot attributes 3/8/6/3 match immutable fixture material; bronze chest durability 240, explicit hazmat durability 64.
 - [x] Runtime51: human F5 acceptance of quantum helmet/leggings/boots and CF pack textures; no ERROR/FATAL or causal exception in log. Exact original equipment/charge/modules restored, temporary storage removed.
-- [ ] Runtime repair and damage behavior.
+- [x] Runtime repair and damage behavior (runtime55 anvil, runtime56 player physical hit).
+- [x] Runtime55: real anvil result has native DAMAGE=40 and source Damage=40; MCP reports damage 40/240. Actual player hit writes both damage values=1, then exposes source pure CombatRules linkage blocker (source-combat-rules).
 - [x] Verify offhand/third-person/frame submission contracts in native checks, add scoped shelf FIXED projection and native outline materials/colors, including nested propagation.
-- [ ] Runtime acceptance of shelf/outline and remaining offhand/third-person/frame visuals.
+- [x] Runtime acceptance of shelf/outline and offhand/third-person/frame visuals (runtime53/55, human F5).
 - [x] Runtime53: native shelf with iron, crystal and trapped diamond source chest items; correct textured geometry and native placement visually observed.
+- [x] Runtime55: textured normal geometry plus outline alongside a native glowing-stone control; source chest in a native item frame and first-person offhand visually observed. Human F5 confirms offhand third-person texture.
+- [x] Runtime56: source CombatRules no longer fails; armor=8, physical damage=4 reduces health from 20 to 16.96, native/source damage both become 1. No runtime ERROR/FATAL/causal exception observed.
+- [x] Restore the test world's inventory/gear/XP/position after unintended knockback/fall death; see source-combat-rules/design.md for evidence and the remaining death statistic.

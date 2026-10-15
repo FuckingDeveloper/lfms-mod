@@ -5,7 +5,7 @@
 - [x] Run `compatibilityTest nativeCompatibilitySmoke compileLaunchJava` successfully.
 - [x] Runtime38 MCP and visual checks: mixed five-item contents and first-person right-hand Iron Chest; no new runtime error.
 - [x] Restore exact original container stacks, selected slot, player position and view direction.
-- [ ] Human offhand/third-person/item-frame acceptance.
+- [x] Runtime55: MCP visual offhand/item-frame acceptance and human F5 third-person acceptance (source-armor-equipment).
 - [x] Pre-submission geometry bounds for native dropped items (ground-custom-item-rendering, runtime39).
-- [ ] Target shelf bounds and outline semantics.
+- [x] Target shelf bounds and outline semantics (source-armor-equipment, runtime53/55 native glowing-item control).
 - [ ] Diagnose initial client contents presentation after restart (server Items present, display refreshes after an inventory change).
