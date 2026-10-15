@@ -1,5 +1,23 @@
 # Gameplay family backlog — Forge 1.19.2 to target 26.3
 
+## Current P1 snapshot — 2026-10-16
+
+This snapshot supersedes historical open/closed statements below for these items.
+Overall compatibility remains world-load with selected functional paths verified;
+there is no complete-mod functional-support claim.
+
+| Item | Status and first causal boundary |
+| --- | --- |
+| Old saved cables | CLOSED/retired by explicit user decision; no repair or reconstruction requested |
+| Global loot modifiers | Observed path FIXED by a general source-list/codec/target-order family; runtime48 executes original hemp drop and shears exclusion; source-global-loot-order records scope |
+| First-load procedural tags / fresh-process leaf persistence | OPEN. Whole setup needs dynamic defaults, but publishes tags after initial tag loading. Early whole-setup experiment runtime47 failed on actual trim_material/lapis; removed without changing pre-existing edits. No hidden reload or fake registry entries |
+| Transparent chest initial display | OPEN source-behavior limitation. Source load directly fills inventory without marking display dirty; no general missing Forge callback identified. User explicitly rejected mod-specific extension; none implemented |
+| Null-player creative-search tooltip | OPEN source-behavior limitation. Original 1.19.2 Minecraft search supplies null, Forge forwards it, original handler dereferences it. No player substitution/listener suppression implemented |
+
+Fresh cable placement/save/re-entry and model connection tests from runtime44–46
+are separate from the retired historical cables. Remaining P2 rendering/armor and
+broader configuration/recipe gaps are not closed by the current P1 batch.
+
 ## Evidence and acceptance
 
 Highest observed overall milestone: **6, world load**. The user's 2026-10-14
