@@ -8471,6 +8471,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     var resolved = SRG_RUNTIME_RESOLVER.get().resolveRelocatedField(
                             field.owner, field.name, field.desc, field.owner,
                             "Lnet/minecraft/core/Holder;");
+                    if (!resolved.resolved()) resolved = SRG_RUNTIME_RESOLVER.get().resolveRelocatedField(
+                            field.owner, field.name, field.desc, field.owner,
+                            "Lnet/minecraft/core/Holder$Reference;");
                     if (resolved.resolved()) {
                         field.owner = resolved.owner();
                         field.name = resolved.name();

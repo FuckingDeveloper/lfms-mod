@@ -152,6 +152,7 @@ public final class LiveTargetContractProbe {
         GroundCustomItemCheck.run();
         ToolActionFamilyCheck.run();
         PoseMatrixDrawCheck.run();
+        SoundHolderFieldCheck.run();
         DamageDescriptorFamilyCheck.run();
         BootstrapFamilyCheck.run();
         SourceContainerFamilyCheck.run(host);
