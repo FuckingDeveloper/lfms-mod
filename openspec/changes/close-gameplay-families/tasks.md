@@ -254,3 +254,11 @@ variants: a previously absent region around (10000,10000) generated source tin,
 silver and deepslate uranium naturally. The post-reload fresh tree retained all
 5 logs and 50 leaves over 1200 native sprint ticks; tick frequency returned to
 20 TPS. First-load procedural-tag timing and other backlog items remain open.
+
+Natural rubber-tree generation is now observed as well: an initially absent
+region in a newly visited swamp contained source rubber logs and leaves without
+sapling/bonemeal/feature-placement commands. MCP found 45 wood and 450 leaves in
+a complete radius-30 scan; all wood and 449 leaves remained after 1200 native
+ticks. This is generation acceptance after explicit tag reload, not resolution
+of the first-load procedural-tag timing or complete leaf-persistence gap. Exact
+evidence and the single boundary-leaf loss are in worldgen-feature-family/tasks.md.

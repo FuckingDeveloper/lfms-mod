@@ -79,3 +79,26 @@ A fresh rubber tree retained 5 logs/50 leaves over 1200 native sprint ticks afte
 explicit reload; the adjacent leaf retained distance=1/persistent=false. First-load
 procedural tag timing and fresh-process tree-persistence acceptance remain open.
 Overall milestone remains 6 with these observed level-7 gameplay subpaths.
+
+## Natural rubber-tree acceptance, 2026-10-15
+
+With the same MCP-connected integrated server after the previously recorded
+explicit reload, `execute positioned 20000 90 20000 run locate biome
+minecraft:swamp` located (19808,90,20736). Region r.38.40.mca did not exist before
+travel. No sapling, bone meal, block placement or feature-placement command was
+used at this location. A radius-30 scan around (19808,70,20736) found 45 source
+rubber-wood blocks and 450 source leaves (495 matches; full scan, no truncation).
+An example trunk is (19796,76,20732); its adjacent source leaf at
+(19797,78,20732) had distance=1, persistent=false. This confirms actual natural
+rubber-tree generation through the native biome/placement path, rather than
+inferring it from sapling growth or registry presence.
+
+A subsequent 1200 native sprint ticks retained all 45 logs and 449/450 leaves.
+The one lost leaf was (19815,76,20764), near the scan boundary; its supporting
+wood may be outside the sampled sphere, and its original distance was not read.
+No complete leaf-retention claim or diagnosis of that single decay is inferred.
+The native tick query returned normal 20 TPS, with game time advancing from
+213485 to 214918. No new causal exception appeared. Player position/dimension
+and orientation were restored after inspection. First-load procedural-tag timing
+and fresh-process tree persistence remain open; this observation does not remove
+those earlier limitations.
