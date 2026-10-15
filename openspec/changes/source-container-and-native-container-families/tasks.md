@@ -10,7 +10,7 @@
 - [x] Migrate source widget narration into the target widget narration phase.
 - [x] Adapt source builder/menu construction and physical-side Callable semantics.
 - [x] Stage source menu-screen intent into the target registration event.
-- [ ] Complete wrapper compatibility/native smoke verification for final changes.
-- [ ] Verify both initialized sessions and actual registered content in a world.
-- [ ] Verify chest inventory/open/reopen/persistence through MCP.
+- [x] Complete wrapper compatibility/native smoke verification for final changes.
+- [x] Verify both initialized sessions and actual registered content in a world.
+- [x] Verify chest inventory/open/reopen/persistence through MCP.
 - [ ] Verify configuration screen access and document remaining editing gaps.
