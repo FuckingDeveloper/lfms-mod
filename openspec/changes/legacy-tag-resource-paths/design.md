@@ -19,6 +19,20 @@ No block identities, generated trees or registry bindings may be fabricated.
 This does not define forge-to-c common-tag identity migration, JSON schema
 migration, arbitrary registry-directory aliases or complete recipe compatibility.
 
+## Intrinsic source-loader namespace discovery
+
+Forge 1.19.2 always exposes the intrinsic `forge` mod namespace. Procedural
+source packs can enumerate namespaces through source ModList and publish
+resources for that namespace. Native NeoForge metadata correctly reports
+`neoforge`, so forwarding the resulting namespace set alone loses source data.
+
+The source procedural pack adapter MUST include `forge` in server-data namespace
+discovery, independently of target mod-list membership. It MUST still query the
+actual source pack for every resource and MUST NOT manufacture definitions,
+change tag IDs, alias arbitrary namespaces or fabricate a Forge mod container.
+Client resources and native packs MUST remain unaffected. This preserves the
+source loader's intrinsic data discovery; it does not repair late declarations.
+
 ## First-load timing limitation
 
 The first client check after path projection still lacked log membership. A native

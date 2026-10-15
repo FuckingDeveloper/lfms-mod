@@ -58,6 +58,41 @@ final class LegacyTagResourceCheck {
         data.put(id("tags/blocks/nested/probe.json"),"reload");
         check(read(pack.getResource(PackType.SERVER_DATA,id("tags/block/nested/probe.json"))).equals("reload"),"source reload data cached");
         pack.close();check(closes[0]==1,"source ownership");
+        proceduralNamespace();
+    }
+    private static void proceduralNamespace() throws Exception {
+        var key=Identifier.fromNamespaceAndPath("forge","tags/items/dusts/probe.json");
+        var queries=new ArrayList<String>();
+        var source=new com.fuckingdeveloper.lms.runtime.Forge1192LegacyPackResourcesAccess() {
+            public InputStream lms$legacyGetRootResource(String p) { return null; }
+            public InputStream lms$legacyGetResource(PackType t,Identifier i) throws IOException {
+                if(!i.equals(key)) throw new FileNotFoundException(i.toString());
+                return new ByteArrayInputStream("{\"values\":[\"minecraft:coal\"]}".getBytes(StandardCharsets.UTF_8));
+            }
+            public Collection<Identifier> lms$legacyListResources(PackType t,String n,String d,java.util.function.Predicate<Identifier> p) {
+                queries.add(n+":"+d);
+                return n.equals("forge")&&key.getPath().startsWith(d)&&p.test(key)?List.of(key):List.of();
+            }
+            public Set<String> lms$legacyNamespaces(PackType t) { return Set.of("neoforge","probe"); }
+            public String lms$legacyPackName() { return "procedural-probe"; }
+            public void close() {}
+        };
+        var projected=com.fuckingdeveloper.lms.runtime.Forge1192PackRepositoryBridge.create(
+                "probe",Component.literal("probe"),true,()->source,
+                com.fuckingdeveloper.lms.runtime.Forge1192PackRepositoryBridge.metadata(Component.literal("probe"),9),
+                net.minecraft.server.packs.repository.Pack.Position.TOP,PackSource.BUILT_IN);
+        var resources=projected.open().toList();
+        check(!resources.getFirst().getNamespaces(PackType.CLIENT_RESOURCES).contains("forge"),"client namespace changed");
+        try(var manager=new net.minecraft.server.packs.resources.MultiPackResourceManager(PackType.SERVER_DATA,resources)) {
+            var found=manager.listResources("tags/item",i->true);
+            var nativeKey=Identifier.fromNamespaceAndPath("forge","tags/item/dusts/probe.json");
+            check(found.containsKey(nativeKey),"native manager never discovered intrinsic source data");
+            try(var input=found.get(nativeKey).open()) {
+                check(new String(input.readAllBytes(),StandardCharsets.UTF_8).contains("minecraft:coal"),"source resource bytes lost");
+            }
+            check(queries.contains("forge:tags/items"),"source namespace was not queried");
+            check(manager.getResource(Identifier.fromNamespaceAndPath("forge","tags/item/absent.json")).isEmpty(),"source data fabricated");
+        }
     }
     private static Identifier id(String p){return Identifier.fromNamespaceAndPath("probe",p);}
     private static String read(IoSupplier<InputStream> s)throws Exception{check(s!=null,"missing supplier");try(var in=s.get()){return new String(in.readAllBytes(),StandardCharsets.UTF_8);}}

@@ -128,7 +128,15 @@ public final class Forge1192PackRepositoryBridge {
 
         @Override
         public java.util.Set<String> getNamespaces(PackType type) {
-            return legacy.lms$legacyNamespaces(type);
+            var declared = legacy.lms$legacyNamespaces(type);
+            if (type != PackType.SERVER_DATA || declared.contains("forge")) return declared;
+            // Source Forge is an intrinsic mod/resource namespace. Procedural
+            // packs may derive namespaces from ModList, where the target now
+            // exposes NeoForge. Retain discovery of actual source forge data;
+            // listing still decides which resources exist.
+            var namespaces = new java.util.LinkedHashSet<>(declared);
+            namespaces.add("forge");
+            return java.util.Collections.unmodifiableSet(namespaces);
         }
 
         @Override

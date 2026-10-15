@@ -30,3 +30,21 @@ Final MCP observation: all 5 logs and 50 nonpersistent leaves remained after
 `tick query` confirmed normal 20 TPS afterwards. This strengthens the earlier
 75-second wall-clock observation, which alone could be affected by focus pauses.
 The first-load and fresh-process tree-persistence gaps remain open.
+
+## Intrinsic namespace follow-up, 2026-10-15
+
+- [x] Inspect immutable procedural PackResources: namespace enumeration comes
+  from ModList, while real tag declarations include source loader namespace data.
+- [x] Restore intrinsic Forge server-data namespace discovery without changing
+  source/native container metadata or manufacturing resources.
+- [x] Exercise the actual native MultiPackResourceManager with a procedural
+  source that lists real forge tag data but derives namespaces from target mods.
+  Native discovery, source bytes, missing lookups and client exclusion pass.
+- [x] `./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava`
+  passes (`/tmp/lms-creative-namespace-check.log`, local only).
+- [x] Runtime 28: after explicit native `/reload`, server command item predicates
+  confirm `ic2:dust_coal` belongs to both `forge:dusts/coal` and
+  `ic2:coal_and_charcoal`. The earlier missing-tag error no longer occurs.
+
+This closes the reload namespace-discovery defect. The first-load declaration
+timing defect and native-common-tag/default identity migration remain open.
