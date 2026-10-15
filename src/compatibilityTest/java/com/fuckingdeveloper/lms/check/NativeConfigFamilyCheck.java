@@ -86,6 +86,7 @@ final class NativeConfigFamilyCheck {
                 check(found,"unlinked source list operation: "+call.owner+"#"+call.name+call.desc);
             }
 
+            immutableScrollConsumer(loader,sourceList);
             var rowType=loader.linkOwnedClass("carbonconfiglib.gui.screens.ConfigListScreen$ConfigEntry");
             var rowNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(rowType.getName())).accept(rowNode,0);int widgets=0;
             for(var method:rowNode.methods)for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call){
@@ -111,6 +112,39 @@ final class NativeConfigFamilyCheck {
 
         System.out.println("PASS: genuine native config/spec/data/path ownership, source enum identity, actual correction count/cache reset, atomic file save separate from exactly-once reload, restart/owner/unloaded boundaries");
     }
+    private static void immutableScrollConsumer(com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader sourceLoader,com.fuckingdeveloper.lms.runtime.render.Forge1192ContainerSelectionList<?> list) throws Exception {
+        String parent="carbonconfiglib/gui/base/widgets/CarbonDynamicList$DynamicEntry",owner="fixture/ImmutableScrollRow";
+        var node=new org.objectweb.asm.tree.ClassNode();node.version=org.objectweb.asm.Opcodes.V17;node.access=org.objectweb.asm.Opcodes.ACC_PUBLIC;node.name=owner;node.superName=parent;
+        node.fields.add(new org.objectweb.asm.tree.FieldNode(org.objectweb.asm.Opcodes.ACC_PUBLIC,"widgets","Ljava/util/List;",null,null));
+        for(String name:List.of("children","narratables")) {
+            var m=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC,name,"()Ljava/util/List;",null,null);node.methods.add(m);
+            if(name.equals("children")){m.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));m.instructions.add(new org.objectweb.asm.tree.FieldInsnNode(org.objectweb.asm.Opcodes.GETFIELD,owner,"widgets","Ljava/util/List;"));}
+            else m.instructions.add(new org.objectweb.asm.tree.MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,"java/util/List","of","()Ljava/util/List;",true));
+            m.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));
+        }
+        var writer=new org.objectweb.asm.ClassWriter(org.objectweb.asm.ClassWriter.COMPUTE_MAXS);node.accept(writer);var path=Files.createTempFile("lms-immutable-scroll-row", ".jar");
+        try(var jar=new java.util.jar.JarOutputStream(Files.newOutputStream(path))){jar.putNextEntry(new java.util.jar.JarEntry(owner+".class"));jar.write(writer.toByteArray());jar.closeEntry();}
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,sourceLoader,new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+            var type=loader.linkOwnedClass(owner.replace('/','.'));var base=sourceLoader.linkOwnedClass(parent.replace('/','.'));
+            var unsafeField=sun.misc.Unsafe.class.getDeclaredField("theUnsafe");unsafeField.setAccessible(true);var unsafe=(sun.misc.Unsafe)unsafeField.get(null);
+            var height=base.getDeclaredField("itemheight");height.setAccessible(true);var location=base.getDeclaredField("location");location.setAccessible(true);var listOwner=base.getDeclaredField("owner");listOwner.setAccessible(true);
+            var calls=new AtomicInteger();var consumes=new boolean[]{true};var received=new double[4];
+            var child=new net.minecraft.client.gui.components.events.GuiEventListener(){
+                public boolean isMouseOver(double x,double y){return true;}
+                public boolean mouseScrolled(double x,double y,double horizontal,double vertical){calls.incrementAndGet();received[0]=x;received[1]=y;received[2]=horizontal;received[3]=vertical;return consumes[0];}
+                public void setFocused(boolean value){} public boolean isFocused(){return false;}
+            };
+            // Callback/geometry-only fixture: bypass the original row constructor's client/font dependency.
+            @SuppressWarnings("rawtypes") var entries=(java.util.List)list.lms$children();
+            for(int i=0;i<12;i++){var row=unsafe.allocateInstance(type);height.setInt(row,20);location.set(row,new int[]{52,34+i*20,220,20});listOwner.set(row,list);type.getField("widgets").set(row,List.of(child));entries.add(row);}
+            check(list.mouseScrolled(100,38,0,-1),"immutable source list did not consume nested child scroll");
+            check(calls.get()==1&&Arrays.equals(received,new double[]{100,38,0,-1})&&list.lms$getScrollAmount()==0,"immutable source child operands/once-only consumption lost");
+            consumes[0]=false;check(list.mouseScrolled(100,38,0,-1),"immutable source parent fallback lost");
+            check(calls.get()==2&&list.lms$getScrollAmount()>0,"declined source child scroll did not reach original parent scrolling");
+            entries.clear();list.lms$setScrollAmount(0);
+        }
+        System.out.println("PASS: original immutable list -> entry -> native child scroll operands, once-only true consumption and false parent fallback; no screen lifecycle simulated");
+    }
     /** Inspect the entire fixture GUI surface in one pass, without initializing target classes. */
     private static void auditGuiLinkage(Path artifact,com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader loader) throws Exception {
         var missing=new TreeSet<String>();var classes=new HashMap<String,org.objectweb.asm.tree.ClassNode>();int inspected=0;
@@ -135,6 +169,8 @@ final class NativeConfigFamilyCheck {
         }
         check(inspected>0,"immutable GUI audit inspected no classes");
         for(String gap:missing){
+            check(!gap.contains("[class verification]"),"GUI class verification regressed: "+gap);
+            check(!gap.contains("#m_6050_(DDD)Z"),"supported source scroll retained residual call: "+gap);
             check(!gap.startsWith("com/mojang/blaze3d/platform/Window#m_")&&!gap.startsWith("com/mojang/blaze3d/platform/NativeImage#m_"),"proven GUI dimension/image family retained residual call: "+gap);
             check(!gap.startsWith("com/mojang/blaze3d/platform/GlStateManager#m_"),"proven scoped GL state family retained residual call: "+gap);
             System.out.println("GUI-LINKAGE-GAP: "+gap);

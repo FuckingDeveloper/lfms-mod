@@ -251,6 +251,13 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             public String fieldOwner(String owner,String name,String desc){return sourceFieldOwner(node.name,fieldHierarchy(node),owner,name,desc,new java.util.HashSet<>());}
             public String field(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner,name,desc).orElse(null);}
         });
+        rewrites += Forge1192GuiScrollRewriter.rewrite(node,new Forge1192GuiScrollRewriter.Evidence(){
+            public boolean listener(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192GuiScrollRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192GuiScrollRewriter.ROOT);}
+            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192GuiScrollRewriter.ROOT,name,descriptor).orElse(null);}
+            public ClassNode managed(String owner){return readManagedClass(owner);}
+            public ClassNode hierarchy(String owner){try{var bytes=hierarchyBytes(owner);if(bytes==null)return null;var type=new ClassNode();new ClassReader(bytes).accept(type,ClassReader.SKIP_CODE|ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);return type;}catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}}
+            public String sourceDeclaration(String owner){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,"m_6050_","(DDD)Z").filter("mouseScrolled"::equals).map(ignored->owner).orElse(null);}
+        });
         rewrites += Forge1192NativeConfigRewriter.rewrite(node);
         rewrites += Forge1192GameRulesRewriter.rewrite(node,
                 owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor") : isManagedSubtypeOf(owner,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor"),

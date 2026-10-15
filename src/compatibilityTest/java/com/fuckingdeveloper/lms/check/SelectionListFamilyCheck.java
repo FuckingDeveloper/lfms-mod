@@ -2,6 +2,8 @@ package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.runtime.render.*;
 import com.mojang.blaze3d.vertex.PoseStack;
+import org.objectweb.asm.*;
+import org.objectweb.asm.tree.*;
 import java.util.*;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
@@ -16,6 +18,7 @@ final class SelectionListFamilyCheck {
         public boolean lms$mouseClicked(double x,double y,int button){clicks++;return false;}
     }
     static void run() throws Exception {
+        scrollDispatch();
         sourceHandlesAndHiding();
         var list=new Forge1192ContainerSelectionList<Row>(null,320,240,30,180,20){};
         var first=new Row();var second=new Row();list.lms$children().add(first);list.lms$children().add(second);
@@ -33,6 +36,53 @@ final class SelectionListFamilyCheck {
         try{Forge1192TooltipGuiBridge.disableScissor();throw new AssertionError("unscoped scissors accepted");}catch(IllegalStateException expected){}
         System.out.println("PASS: native tracked entry identity/mutation, source viewport/row geometry/hover, once-only pointer callbacks, source scroll clamp/step and framebuffer scissor projection; real extraction requires client");
     }
+    private static void scrollDispatch() throws Exception {
+        check(Forge1192GuiScrollBridge.sourceAmount(true,3,0)==3&&Forge1192GuiScrollBridge.sourceAmount(true,3,-2)==-2&&Forge1192GuiScrollBridge.sourceAmount(false,3,0)==0&&Forge1192GuiScrollBridge.sourceAmount(false,3,-2)==-2,"source macOS axis normalization changed");
+        String listener="net/minecraft/client/gui/components/events/GuiEventListener",base="fixture/ScrollBase",child="fixture/ScrollChild";
+        var nodes=new ArrayList<ClassNode>();
+        for(String name:List.of(base,child)) {
+            var node=new ClassNode();node.version=Opcodes.V17;node.access=Opcodes.ACC_PUBLIC;node.name=name;node.superName=name.equals(base)?"java/lang/Object":base;nodes.add(node);
+            if(name.equals(base)){
+                node.interfaces.add(listener);node.fields.add(new FieldNode(Opcodes.ACC_PUBLIC,"calls","I",null,null));
+                var focus=new MethodNode(Opcodes.ACC_PUBLIC,"isFocused","()Z",null,null);focus.instructions.add(new InsnNode(Opcodes.ICONST_0));focus.instructions.add(new InsnNode(Opcodes.IRETURN));node.methods.add(focus);
+                var set=new MethodNode(Opcodes.ACC_PUBLIC,"setFocused","(Z)V",null,null);set.instructions.add(new InsnNode(Opcodes.RETURN));node.methods.add(set);
+                var defaults=new MethodNode(Opcodes.ACC_PUBLIC,"baseDefault","(DDD)Z",null,null);node.methods.add(defaults);scrollArguments(defaults);defaults.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,listener,"m_6050_","(DDD)Z",true));defaults.instructions.add(new InsnNode(Opcodes.IRETURN));
+            }
+            var init=new MethodNode(Opcodes.ACC_PUBLIC,"<init>","()V",null,null);node.methods.add(init);init.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));init.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,node.superName,"<init>","()V",false));init.instructions.add(new InsnNode(Opcodes.RETURN));
+            var callback=new MethodNode(Opcodes.ACC_PUBLIC,"m_6050_","(DDD)Z",null,null);node.methods.add(callback);
+            callback.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));callback.instructions.add(new InsnNode(Opcodes.DUP));callback.instructions.add(new FieldInsnNode(Opcodes.GETFIELD,base,"calls","I"));callback.instructions.add(new IntInsnNode(Opcodes.BIPUSH,name.equals(base)?1:10));callback.instructions.add(new InsnNode(Opcodes.IADD));callback.instructions.add(new FieldInsnNode(Opcodes.PUTFIELD,base,"calls","I"));
+            if(name.equals(base))callback.instructions.add(new InsnNode(Opcodes.ICONST_1));else{scrollArguments(callback);callback.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,base,"m_6050_","(DDD)Z",false));}
+            callback.instructions.add(new InsnNode(Opcodes.IRETURN));
+            for(boolean nested:new boolean[]{false,true}) {
+                var getter=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,nested?"nestedHandle":"handle","()Ljava/lang/invoke/MethodHandle;",null,null);node.methods.add(getter);
+                var handle=new Handle(name.equals(base)?Opcodes.H_INVOKEINTERFACE:Opcodes.H_INVOKEVIRTUAL,name.equals(base)?listener:name,"m_6050_","(DDD)Z",name.equals(base));
+                Object value=nested?new ConstantDynamic("scroll","Ljava/lang/invoke/MethodHandle;",new Handle(Opcodes.H_INVOKESTATIC,"java/lang/invoke/ConstantBootstraps","explicitCast","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;",false),handle):handle;
+                getter.instructions.add(new LdcInsnNode(value));getter.instructions.add(new InsnNode(Opcodes.ARETURN));
+            }
+            var lambda=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"lambda","(L"+listener+";DD)Ljava/util/function/DoublePredicate;",null,null);node.methods.add(lambda);
+            lambda.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));lambda.instructions.add(new VarInsnNode(Opcodes.DLOAD,1));lambda.instructions.add(new VarInsnNode(Opcodes.DLOAD,3));
+            lambda.instructions.add(new InvokeDynamicInsnNode("test",lambda.desc,new Handle(Opcodes.H_INVOKESTATIC,"java/lang/invoke/LambdaMetafactory","metafactory","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",false),Type.getMethodType("(D)Z"),new Handle(Opcodes.H_INVOKEINTERFACE,listener,"m_6050_","(DDD)Z",true),Type.getMethodType("(D)Z")));lambda.instructions.add(new InsnNode(Opcodes.ARETURN));
+        }
+        var inherited=new ClassNode();inherited.version=Opcodes.V17;inherited.access=Opcodes.ACC_PUBLIC;inherited.name="fixture/ScrollInherited";inherited.superName=child;var init=new MethodNode(Opcodes.ACC_PUBLIC,"<init>","()V",null,null);inherited.methods.add(init);init.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));init.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,child,"<init>","()V",false));init.instructions.add(new InsnNode(Opcodes.RETURN));nodes.add(inherited);
+        var unrelated=new ClassNode();unrelated.version=Opcodes.V17;unrelated.access=Opcodes.ACC_PUBLIC;unrelated.name="fixture/UnrelatedScroll";unrelated.superName="java/lang/Object";
+        var same=new MethodNode(Opcodes.ACC_PUBLIC,"m_6050_","(DDD)Z",null,null);same.instructions.add(new InsnNode(Opcodes.ICONST_1));same.instructions.add(new InsnNode(Opcodes.IRETURN));unrelated.methods.add(same);
+        var nativeHandle=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"nativeHandle","()Ljava/lang/invoke/MethodHandle;",null,null);unrelated.methods.add(nativeHandle);nativeHandle.instructions.add(new LdcInsnNode(new Handle(Opcodes.H_INVOKEINTERFACE,listener,"mouseScrolled","(DDDD)Z",true)));nativeHandle.instructions.add(new InsnNode(Opcodes.ARETURN));
+        var all=new ArrayList<ClassNode>(nodes);all.add(unrelated);
+        var path=java.nio.file.Files.createTempFile("lms-scroll-dispatch", ".jar");try(var jar=new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(path))){for(var node:all){var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);node.accept(writer);jar.putNextEntry(new java.util.jar.JarEntry(node.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();}}
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,SelectionListFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+            var unrelatedType=loader.linkOwnedClass(unrelated.name.replace('/','.'));check(unrelatedType.getDeclaredMethod("m_6050_",double.class,double.class,double.class)!=null,"descriptor coincidence rewrote unrelated scroll member");
+            var unchanged=(java.lang.invoke.MethodHandle)unrelatedType.getMethod("nativeHandle").invoke(null);check(unchanged.type().equals(java.lang.invoke.MethodType.methodType(boolean.class,GuiEventListener.class,double.class,double.class,double.class,double.class)),"native four-argument descriptor rewritten as source scroll");
+            for(var node:nodes){var type=loader.linkOwnedClass(node.name.replace('/','.'));var value=(GuiEventListener)type.getConstructor().newInstance();int increment=node.name.equals(base)?1:11;
+                check(Forge1192GuiScrollBridge.mouseScrolled(value,100,38,-1)&&type.getField("calls").getInt(value)==increment,"native scroll lost inherited/source-super dispatch");
+                check(!(boolean)type.getMethod("baseDefault",double.class,double.class,double.class).invoke(value,100.,38.,-1.),"source interface default was redispatched virtually");
+                for(String name:List.of("handle","nestedHandle")){var handle=(java.lang.invoke.MethodHandle)type.getMethod(name).invoke(null);check(handle.type().parameterType(0)==(node.name.equals(base)?GuiEventListener.class:loader.linkOwnedClass(child.replace('/','.'))),"source scroll handle receiver widened");try{check((boolean)handle.invokeWithArguments(value,100.,38.,-1.),"scroll handle returned wrong consumption");}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}}
+                var lambda=(java.util.function.DoublePredicate)type.getMethod("lambda",GuiEventListener.class,double.class,double.class).invoke(null,value,100.,38.);check(lambda.test(-1.),"real source scroll lambda did not link/dispatch");
+                check(type.getField("calls").getInt(value)==4*increment,"source input callback duplicated");
+                check(value.mouseScrolled(100,38,1,-1)&&type.getField("calls").getInt(value)==5*increment,"diagonal native scroll did not retain source vertical dispatch");
+            }
+        }
+    }
+    private static void scrollArguments(MethodNode method){method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));method.instructions.add(new VarInsnNode(Opcodes.DLOAD,1));method.instructions.add(new VarInsnNode(Opcodes.DLOAD,3));method.instructions.add(new VarInsnNode(Opcodes.DLOAD,5));}
     private static void sourceHandlesAndHiding() throws Exception {
         String source="net/minecraft/client/gui/components/ContainerObjectSelectionList",name="fixture/SourceSelectionList",hidden="fixture/HiddenSelectionList";
         var node=new org.objectweb.asm.tree.ClassNode();node.version=org.objectweb.asm.Opcodes.V17;node.access=org.objectweb.asm.Opcodes.ACC_PUBLIC;node.name=name;node.superName=source;

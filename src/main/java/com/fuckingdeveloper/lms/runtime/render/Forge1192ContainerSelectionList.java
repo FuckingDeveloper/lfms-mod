@@ -103,7 +103,7 @@ public abstract class Forge1192ContainerSelectionList<E extends Forge1192Contain
             lms$setScrollAmount(scrollAmount()+dy*Math.max(1.0,Math.max(1,lms$getMaxScroll())/(double)(viewport-thumb)));
         }return true;
     }
-    @Override public boolean mouseScrolled(double x,double y,double dx,double dy){return lms$mouseScrolled(x,y,dy);}
+    @Override public boolean mouseScrolled(double x,double y,double dx,double dy){return lms$mouseScrolled(x,y,Forge1192GuiScrollBridge.verticalAmount(dx,dy));}
     public boolean lms$mouseScrolled(double x,double y,double amount){lms$setScrollAmount(scrollAmount()-amount*lms$itemHeight/2.0);return true;}
     public boolean lms$keyPressed(int key,int scan,int modifiers){throw new UnsupportedOperationException("Source selection-list keyboard navigation is not adapted");}
     public abstract static class Entry<E extends Entry<E>> extends ContainerObjectSelectionList.Entry<E>{
@@ -118,7 +118,7 @@ public abstract class Forge1192ContainerSelectionList<E extends Forge1192Contain
         public boolean lms$mouseReleased(double x,double y,int button){return super.mouseReleased(event(x,y,button));}
         @Override public boolean mouseDragged(MouseButtonEvent event,double dx,double dy){return lms$mouseDragged(event.x(),event.y(),event.button(),dx,dy);}
         public boolean lms$mouseDragged(double x,double y,int button,double dx,double dy){return super.mouseDragged(event(x,y,button),dx,dy);}
-        @Override public boolean mouseScrolled(double x,double y,double dx,double dy){return lms$mouseScrolled(x,y,dy);}
+        @Override public boolean mouseScrolled(double x,double y,double dx,double dy){return lms$mouseScrolled(x,y,Forge1192GuiScrollBridge.verticalAmount(dx,dy));}
         public boolean lms$mouseScrolled(double x,double y,double amount){return super.mouseScrolled(x,y,0,amount);}
     }
 }
