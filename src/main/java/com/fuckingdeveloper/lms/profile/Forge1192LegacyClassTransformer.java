@@ -237,6 +237,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockPosConstruction(node);
         rewrites += rewriteLegacyChunkPosFamily(node);
         rewrites += rewriteLegacyChatEventFamily(node);
+        rewrites += Forge1192BootstrapRewriter.menuSetupCallbacks(node,
+                owner -> isManagedSubtypeOf(owner,"net/minecraft/client/gui/screens/inventory/AbstractContainerScreen"),
+                owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"));
         rewrites += Forge1192BootstrapRewriter.rewrite(node);
         rewrites += rewriteLegacyNetworkFacade(node);
         // Preserve the authoritative legacy identity while the direct source
@@ -293,6 +296,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEarlyClientPlayerReads(node);
         rewrites += rewriteLegacyCachedMinecraftReads(node);
         rewrites += rewriteLegacyTooltipComponent(node);
+        rewrites += rewriteSourceWidgetNarration(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyStringRepresentableOverride(node);
         rewrites += rewriteVerifiedVanillaOverrides(node);
@@ -628,13 +632,30 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             wrappers.add(wrapper); rewrites++;
         }
         for (var method : node.methods) for (var instruction : method.instructions) {
+            if (!(instruction instanceof MethodInsnNode call) || call.getOpcode()!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                    || !call.desc.equals("(Lnet/minecraft/nbt/CompoundTag;)Z")
+                    || !(call.name.equals("m_59631_") || call.name.equals("m_59634_"))
+                    || !isManagedSubtypeOf(call.owner,"net/minecraft/world/level/block/entity/RandomizableContainerBlockEntity")) continue;
+            String sourceIdentity=sourceGuiMethod(node,call.owner,call.name,call.desc);
+            String expected="net/minecraft/world/level/block/entity/RandomizableContainerBlockEntity#"+(call.name.equals("m_59631_")?"tryLoadLootTable":"trySaveLootTable");
+            if(!expected.equals(sourceIdentity))throw new IllegalStateException("Unadapted source loot helper override: "+call.owner+"#"+call.name);
+            call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
+            call.owner="com/fuckingdeveloper/lms/runtime/Forge1192ContainerDataBridge";
+            call.name=call.name.equals("m_59631_")?"tryLoadLootTable":"trySaveLootTable";
+            call.desc="(Lnet/minecraft/world/level/block/entity/RandomizableContainerBlockEntity;Lnet/minecraft/nbt/CompoundTag;)Z";
+            call.itf=false;rewrites++;
+        }
+        for (var method : node.methods) for (var instruction : method.instructions) {
             if (!(instruction instanceof MethodInsnNode call) || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKESPECIAL) continue;
             var member = blockDataMember(call.name, call.desc);
             if (member == null || !isManagedSubtypeOf(call.owner, base)) continue;
             if (!method.name.startsWith("lms$source")) throw new IllegalStateException("Source-super block data call lacks an established callback context: " + node.name + "#" + method.name);
             if (inheritedSourceDataCallback(call.owner, member)) { call.name = member.alias(); rewrites++; continue; }
-            if (!call.owner.equals(base)) throw new IllegalStateException("Unadapted native subclass block data semantics: " + call.owner + "#" + call.name);
-            var thunk = sourceBaseDataThunk(node, member, wrappers.size()); wrappers.add(thunk);
+            boolean containerBase = (call.owner.equals("net/minecraft/world/level/block/entity/BaseContainerBlockEntity")
+                    || call.owner.equals("net/minecraft/world/level/block/entity/RandomizableContainerBlockEntity"))
+                    && (member.alias().equals("lms$sourceLoad") || member.alias().equals("lms$sourceSave"));
+            if (!call.owner.equals(base) && !containerBase) throw new IllegalStateException("Unadapted native subclass block data semantics: " + call.owner + "#" + call.name);
+            var thunk = sourceBaseDataThunk(node, member, wrappers.size(), containerBase); wrappers.add(thunk);
             call.owner = node.name; call.name = thunk.name; call.itf = false; rewrites++;
         }
         rewrites += rewriteSemanticInstanceCalls(node, (opcode, owner, name, desc) -> {
@@ -646,7 +667,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         });
         node.methods.addAll(wrappers); return rewrites;
     }
-    private static org.objectweb.asm.tree.MethodNode sourceBaseDataThunk(ClassNode node, BlockDataMember member, int ordinal) {
+    private static org.objectweb.asm.tree.MethodNode sourceBaseDataThunk(ClassNode node, BlockDataMember member, int ordinal, boolean containerBase) {
         String base = "net/minecraft/world/level/block/entity/BlockEntity", bridge = "com/fuckingdeveloper/lms/runtime/Forge1192BlockDataBridge";
         String name = "lms$baseData$" + ordinal;
         if (node.methods.stream().anyMatch(method -> method.name.equals(name))) throw new IllegalStateException("Source block data thunk collision: " + node.name);
@@ -676,7 +697,34 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             code.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
             code.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, save ? "finishSourceSave" : "finishSourceLoad", "(L" + base + ";Lnet/minecraft/nbt/CompoundTag;)V", false));
         }
+        if (containerBase) {
+            code.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
+            code.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
+            code.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/runtime/Forge1192ContainerDataBridge", save ? "saveBase" : "loadBase",
+                    "(Lnet/minecraft/world/level/block/entity/BaseContainerBlockEntity;Lnet/minecraft/nbt/CompoundTag;)V", false));
+        }
         code.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN)); return thunk;
+    }
+
+    /** The target widget owns tooltip narration; source code supplies its widget narration. */
+    private int rewriteSourceWidgetNarration(ClassNode node) {
+        String widget="net/minecraft/client/gui/components/AbstractWidget";
+        String descriptor="(Lnet/minecraft/client/gui/narration/NarrationElementOutput;)V";
+        if(!isManagedSubtypeOf(node,widget))return 0;
+        int count=0;
+        for(var method:node.methods) {
+            if(method.name.equals("m_142291_")&&method.desc.equals(descriptor)) {
+                if((method.access&org.objectweb.asm.Opcodes.ACC_STATIC)!=0)throw new IllegalStateException("Static source widget narration override");
+                method.name="updateWidgetNarration";count++;
+            }
+            for(var instruction:method.instructions)if(instruction instanceof MethodInsnNode call
+                    &&call.getOpcode()==org.objectweb.asm.Opcodes.INVOKESPECIAL&&call.name.equals("m_142291_")
+                    &&call.desc.equals(descriptor)&&isManagedSubtypeOf(call.owner,widget)) {
+                call.name="updateWidgetNarration";count++;
+            }
+        }
+        return count;
     }
 
     /** Execute the source graphical-tooltip ABI during target GUI extraction. */
@@ -1109,6 +1157,25 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 .findFirst()
                 .orElse(null);
         if (renderBridge == null) {
+            var direct=node.methods.stream().filter(method->method.desc.equals(sourceRenderDescriptor)
+                    &&(method.name.equals("m_6922_")||method.name.equals("render"))
+                    &&(method.access&org.objectweb.asm.Opcodes.ACC_PUBLIC)!=0
+                    &&(method.access&(org.objectweb.asm.Opcodes.ACC_STATIC|org.objectweb.asm.Opcodes.ACC_ABSTRACT))==0).findFirst().orElse(null);
+            if(direct!=null) {
+                var thunk=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
+                        "lmsLegacyRender",sourceRenderDescriptor,null,null);
+                thunk.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));
+                thunk.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,1));
+                thunk.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD,2));
+                thunk.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,3));
+                thunk.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,4));
+                thunk.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,5));
+                thunk.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,6));
+                thunk.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,node.name,direct.name,direct.desc,false));
+                thunk.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));node.methods.add(thunk);
+                node.interfaces.set(interfaceIndex,"com/fuckingdeveloper/lms/runtime/render/Forge1192BlockEntityRendererBridge");
+                return 2;
+            }
             if ((node.access & org.objectweb.asm.Opcodes.ACC_ABSTRACT) != 0) return 0;
             throw new IllegalStateException("Concrete Forge 1.19.2 block-entity renderer "
                     + node.name + " has no verified erased render bridge "
@@ -11663,17 +11730,17 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 }
                 if (call.owner.equals("net/neoforged/fml/ModLoadingContext")
                         && call.name.equals("getActiveContainer")
-                        && call.desc.equals("()Lnet/neoforged/fml/ModContainer;")) {
+                        && call.desc.equals("()Lcom/fuckingdeveloper/lms/runtime/Forge1192ModContainerView;")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
-                    call.name = "getActiveContainer";
-                    call.desc = "(Ljava/lang/Object;)Lnet/neoforged/fml/ModContainer;";
+                    call.name = "getSourceActiveContainer";
+                    call.desc = "(Ljava/lang/Object;)Lcom/fuckingdeveloper/lms/runtime/Forge1192ModContainerView;";
                     call.itf = false;
                     rewrites++;
                 }
                 if (call.owner.equals("net/neoforged/fml/ModLoadingContext")
                         && call.name.equals("setActiveContainer")
-                        && call.desc.equals("(Lnet/neoforged/fml/ModContainer;)V")) {
+                        && call.desc.equals("(Lcom/fuckingdeveloper/lms/runtime/Forge1192ModContainerView;)V")) {
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
                     call.owner = "com/fuckingdeveloper/lms/runtime/Forge1192LifecycleBridge";
                     call.name = "setActiveContainer";

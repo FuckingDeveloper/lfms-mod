@@ -836,3 +836,11 @@ Static implementation codecs and data-driven feature definitions MUST remain
 separate lifecycle operations. Definitions MUST enter native data loading before
 registry freeze; runtime placement MUST NOT mutate frozen registries. Unknown
 feature/configuration families remain explicit gaps. See worldgen-feature-family.
+
+Source loader ModList/ModContainer semantics MAY be represented by source views
+that wrap genuine native containers or own genuine managed sessions. Such views
+MUST remain outside native FML membership, preserve source ownership and actual
+artifact metadata, and exclude rejected/closed sessions from loaded enumeration.
+Source references MUST remain consistent across descriptors, lambdas and casts.
+Native extension/config access MUST retain the actual native owner; a managed
+session MUST NOT inherit the host LMS container's identity or extensions.
