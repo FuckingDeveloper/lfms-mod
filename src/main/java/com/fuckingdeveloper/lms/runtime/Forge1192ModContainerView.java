@@ -40,5 +40,6 @@ public class Forge1192ModContainerView {
         Supplier<?> supplier; synchronized(extensions){supplier=extensions.get(type);}
         return supplier==null?Optional.empty():Optional.ofNullable(supplier.get());
     }
+    public void dispatchConfigEvent(net.neoforged.fml.event.config.ModConfigEvent event){Forge1192NativeConfigBridge.dispatch(this,event);}
     void clear(){synchronized(extensions){extensions.clear();}}
 }

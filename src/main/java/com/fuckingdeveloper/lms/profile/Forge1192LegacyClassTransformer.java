@@ -242,6 +242,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"));
         rewrites += Forge1192BootstrapRewriter.rewrite(node);
         rewrites += rewriteSourceContainerNbt(node);
+        rewrites += Forge1192NativeConfigRewriter.rewrite(node);
         rewrites += Forge1192GameRulesRewriter.rewrite(node,
                 owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor") : isManagedSubtypeOf(owner,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor"),
                 new Forge1192GameRulesRewriter.Names() {
@@ -12456,6 +12457,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        String configView = Forge1192NativeConfigRewriter.relocation(value);
+        if (configView != null) return configView;
         String ruleView = Forge1192GameRulesRewriter.relocation(value);
         if (ruleView != null) return ruleView;
         if (value.equals("net/minecraftforge/client/event/RegisterClientReloadListenersEvent"))
@@ -12676,7 +12679,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateDescriptor(String descriptor) {
-        String migrated = Forge1192GameRulesRewriter.descriptor(descriptor);
+        String migrated = Forge1192NativeConfigRewriter.descriptor(Forge1192GameRulesRewriter.descriptor(descriptor));
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             migrated = migrated.replace(relocation.getKey(), relocation.getValue());
         }
