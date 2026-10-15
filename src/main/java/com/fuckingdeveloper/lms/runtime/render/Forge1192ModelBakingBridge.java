@@ -276,9 +276,11 @@ public final class Forge1192ModelBakingBridge {
         public void collectParts(
                 BlockAndTintGetter level, BlockPos pos, BlockState state,
                 RandomSource random, List<BlockStateModelPart> output) {
+            var snapshot = level.getModelData(pos);
+            Target263ModelDataTrace.log(pos, "positioned-snapshot", snapshot);
             output.add(new LegacyBlockPart(
                     legacy, state, random, java.util.Objects.requireNonNull(
-                            legacy.getModelData(level, pos, state, level.getModelData(pos)),
+                            legacy.getModelData(level, pos, state, snapshot),
                             "Legacy baked model returned null model data"), level, pos, fallbackMaterial));
         }
 

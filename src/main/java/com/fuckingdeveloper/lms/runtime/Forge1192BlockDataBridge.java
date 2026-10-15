@@ -73,6 +73,7 @@ public final class Forge1192BlockDataBridge {
     }
     public static void load(BlockEntity entity, ValueInput input) {
         var access = inputAccess(input);
+        com.fuckingdeveloper.lms.runtime.render.Target263ModelDataTrace.log(entity.getBlockPos(), "native-load", access.lms$root());
         invoke(entity, Operation.LOAD, access.lms$root().copy(), new Frame(entity, input.lookup(), null, access.lms$reporter()));
     }
     public static void save(BlockEntity entity, ValueOutput output) {
@@ -81,10 +82,13 @@ public final class Forge1192BlockDataBridge {
         invoke(entity, Operation.SAVE, tagged.buildResult(), new Frame(entity, outputLookup(access), tagged, access.lms$reporter()));
     }
     public static CompoundTag updateTag(BlockEntity entity, HolderLookup.Provider lookup) {
-        return (CompoundTag)invoke(entity, Operation.UPDATE, null, new Frame(entity, Objects.requireNonNull(lookup), null, ProblemReporter.DISCARDING));
+        var tag = (CompoundTag)invoke(entity, Operation.UPDATE, null, new Frame(entity, Objects.requireNonNull(lookup), null, ProblemReporter.DISCARDING));
+        com.fuckingdeveloper.lms.runtime.render.Target263ModelDataTrace.log(entity.getBlockPos(), "server-update-tag", tag);
+        return tag;
     }
     public static void handleUpdateTag(BlockEntity entity, ValueInput input) {
         var access = inputAccess(input);
+        com.fuckingdeveloper.lms.runtime.render.Target263ModelDataTrace.log(entity.getBlockPos(), "client-handle-tag", access.lms$root());
         invoke(entity, Operation.HANDLE, access.lms$root().copy(), new Frame(entity, input.lookup(), null, access.lms$reporter()));
     }
     private static Frame frame(BlockEntity entity) {

@@ -146,6 +146,22 @@ These interface limits do not justify weakening any LMS fail-fast contract.
 
 ## Log collection and result handling
 
+For an initial block-model synchronization investigation, opt into the existing
+LMS boundary trace for one explicit position:
+
+```bash
+LMS_TRACE_MODEL_POS='x,y,z' ./gradlew runClient -PlmsTestWorld='<test-world-directory>' > /tmp/lms-model-sync.log 2>&1
+rg -n 'model-data trace|/ERROR\]|/FATAL\]|^Caused by:' /tmp/lms-model-sync.log
+```
+
+Replace `x,y,z` with actual integer coordinates. This logs persistent input,
+initial tag output/input and the positioned model-data snapshot; it does not query
+live block entities from rendering workers or change refresh timing. Distinguish
+missing saved block-entity records from lost initial callbacks before changing
+compatibility behavior. Inspecting a block through a native command can itself
+trigger Minecraft's lazy creation of a missing entity, so capture initial traces
+and saved data before such queries. The trace is disabled when the variable is absent.
+
 Use structured MCP responses for observations and the following exact filter for
 causal Java/runtime evidence:
 
