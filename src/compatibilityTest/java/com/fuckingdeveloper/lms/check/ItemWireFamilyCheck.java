@@ -33,7 +33,7 @@ public final class ItemWireFamilyCheck {
             check(wire.readableBytes()==1 && Forge1192FluidPacketBridge.readFluidStack(wire)==net.neoforged.neoforge.fluids.FluidStack.EMPTY,"source buffer fluid presence/empty sentinel lost");wire.clear();
             Forge1192FluidPacketBridge.writeFluidStack(wire,Forge1192EarlyFluidStackBridge.create(net.minecraft.world.level.material.Fluids.WATER,19));
             check(wire.getByte(0)==1 && Forge1192FluidPacketBridge.readFluidStack(wire).getAmount()==19 && wire.readableBytes()==0,"buffer fluid wrapper omitted presence discriminator");wire.clear();
-            var stack=Forge1192EarlyItemStackBridge.create(Items.DIAMOND_SWORD,1);stack.setDamageValue(7);Forge1192ItemBridge.setTag(stack,tag.copy());
+            var stack=Forge1192EarlyItemStackBridge.create(Items.DIAMOND_SWORD,1);Forge1192ItemBridge.setTag(stack,tag.copy());stack.setDamageValue(7);
             Forge1192ItemWireBridge.writeItem(wire,stack);var read=Forge1192ItemWireBridge.readItem(wire);
             check(read.getItem()==stack.getItem()&&read.getCount()==1&&read.getDamageValue()==7&&Forge1192ItemBridge.getTag(read).getIntOr("charge",0)==42,"source item identity/count/damage/custom NBT roundtrip lost");
             check(Forge1192ItemBridge.getTag(read)!=Forge1192ItemBridge.getTag(stack),"decoded tag aliases sender tag");wire.clear();

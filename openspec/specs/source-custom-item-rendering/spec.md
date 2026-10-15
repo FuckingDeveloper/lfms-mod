@@ -26,12 +26,21 @@ input stack and entity owner, restore nested scopes and clear on failure. The
 adapter MUST freeze actual vertex bounds, apply the original GROUND model
 transform, and preserve native bob/spin/count/spread placement. Submission MUST
 reuse this geometry without a second source callback or a live stack/entity.
-Unscoped GROUND extraction and unsupported outlines MUST fail explicitly.
+Unscoped GROUND extraction MUST fail explicitly.
 
 Target-only contexts and pre-submission bounds for deferred models remain
 explicit gaps until their semantics are established. Bounds requests MUST fail
 explicitly; dummy bounds and a second source callback with guessed lighting are
-forbidden. Unsupported outline semantics MUST remain explicit as well.
+forbidden.
+
+For native outline submissions, recorded source batches MUST select the actual
+target RenderType.outline() and enforce the native ARGB outline color on every
+vertex. Batches without an outline variant MUST be omitted from that pass, as in
+the target ItemFeatureRenderer. As in SubmitNodeCollection.submitItem, the normal
+material draw MUST remain present alongside the extra outline submission. Both
+MUST reuse the same geometry, UVs and pose without repeating extraction callbacks.
+Nested native items MUST receive the same outline color. Deferred source draws
+MUST run once per native submission using its actual light, overlay and pose.
 
 Lazy source extension materialization MAY be used only when original bytecode
 proves registration consists exclusively of allocation, pure outer capture and
@@ -62,3 +71,11 @@ GUI atlas identity MUST distinguish actual extracted custom-render arguments,
 including geometry and selected materials; equal model display properties and
 component patches are insufficient. The adapter MUST preserve native per-frame
 invalidation for source callbacks with observable dynamic state.
+
+For native shelves, ON_SHELF MAY invoke the original source FIXED callback during
+extraction, with the shelf's actual packed light and NO_OVERLAY. A matching
+output/stack/shelf-owner/context scope MUST prevent cross-context use. Source
+geometry MUST be recorded once and its actual bounds submitted through the
+native shelf's scale, orientation and bottom/center alignment. Source FIXED is
+an explicit accepted projection for a target-only context; native ON_SHELF model
+transforms remain authoritative. No guessed bounds/light or second callback.

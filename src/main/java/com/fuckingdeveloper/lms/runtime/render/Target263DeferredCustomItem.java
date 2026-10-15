@@ -28,10 +28,9 @@ public final class Target263DeferredCustomItem implements SpecialModelRenderer<T
     public static void draw(Forge1192CustomItemRenderer renderer,ItemStack stack,ItemDisplayContext display,
             PoseStack pose,SubmitNodeCollector output,int light,int overlay,int outline,SpriteGetter sprites) {
         if(!supports(display))throw new UnsupportedOperationException("Deferred source custom item context: "+display);
-        if(outline!=0)throw new UnsupportedOperationException("Source custom item outline submission is not adapted");
         var buffers=new LegacyMultiBufferSource(output,pose,sprites);
         renderer.m_108829_(stack,display,pose,buffers,light,overlay);
-        buffers.flush();
+        buffers.flush(outline);
     }
     public static Vector3fc[] unavailableBounds() {
         throw new UnsupportedOperationException("Deferred source custom item bounds require source geometry before final target lighting is available");

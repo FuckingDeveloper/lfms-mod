@@ -24,6 +24,21 @@ public final class Forge1192AttributeBridge {
         instance.removeModifier(identifier(uuid));
     }
 
+    /** Source maps can contain registered attribute values or projected native holders. */
+    @SuppressWarnings("unchecked")
+    public static net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> holder(Object value) {
+        if (value instanceof net.minecraft.core.Holder<?> holder
+                && holder.value() instanceof net.minecraft.world.entity.ai.attributes.Attribute)
+            return (net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute>) holder;
+        if (value instanceof net.minecraft.world.entity.ai.attributes.Attribute attribute) {
+            var registry = net.minecraft.core.registries.BuiltInRegistries.ATTRIBUTE;
+            var key = registry.getResourceKey(attribute).orElseThrow(() ->
+                    new IllegalStateException("Source attribute is not registered: " + attribute));
+            return registry.getOrThrow(key);
+        }
+        throw new IllegalArgumentException("Source modifier key is not an attribute: " + value);
+    }
+
     private static Identifier identifier(UUID uuid) {
         if (uuid == null) throw new IllegalArgumentException("Legacy attribute modifier UUID is null");
         return Identifier.fromNamespaceAndPath(LEGACY_NAMESPACE, uuid.toString());

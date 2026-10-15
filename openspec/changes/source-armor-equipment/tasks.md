@@ -1,0 +1,10 @@
+- [x] Inspect source ArmorItem/material/fixture override family and exact native ABI.
+- [x] Implement construction/default attribute and repair semantics.
+- [x] Implement source worn-texture extraction and derived native assets.
+- [x] Focused/native checks and compilation (`compatibilityTest nativeCompatibilitySmoke compileLaunchJava`, check57), including live tag/native damage projection and normal-plus-outline submissions.
+- [x] Runtime51: actual registered bronze armor defaults and four-slot attributes 3/8/6/3 match immutable fixture material; bronze chest durability 240, explicit hazmat durability 64.
+- [x] Runtime51: human F5 acceptance of quantum helmet/leggings/boots and CF pack textures; no ERROR/FATAL or causal exception in log. Exact original equipment/charge/modules restored, temporary storage removed.
+- [ ] Runtime repair and damage behavior.
+- [x] Verify offhand/third-person/frame submission contracts in native checks, add scoped shelf FIXED projection and native outline materials/colors, including nested propagation.
+- [ ] Runtime acceptance of shelf/outline and remaining offhand/third-person/frame visuals.
+- [x] Runtime53: native shelf with iron, crystal and trapped diamond source chest items; correct textured geometry and native placement visually observed.

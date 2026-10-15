@@ -37,7 +37,15 @@ final class GroundCustomItemCheck {
             });
             reject(() -> Target263GroundItemExtraction.requireLight(state, stack, null));
             Target263GroundItemExtraction.extract(state, stack, null, 1, 1,
-                    () -> reject(() -> Target263GroundItemExtraction.requireLight(state, stack, null)));
+                    () -> check(Target263GroundItemExtraction.requireLight(state, stack, null) == 1, "outline lost native light"));
+
+            Target263GroundItemExtraction.extractShelf(state,stack,null,0x234567,()->{
+                check(Target263GroundItemExtraction.requireShelfLight(state,stack,null)==0x234567,"shelf light lost");
+                reject(()->Target263GroundItemExtraction.requireLight(state,stack,null));
+                reject(()->Target263GroundItemExtraction.requireShelfLight(nested,stack,null));
+            });
+            reject(()->Target263GroundItemExtraction.requireShelfLight(state,stack,null));
+            net.minecraft.client.renderer.blockentity.ShelfRenderer.class.getDeclaredMethods();
 
             int[] calls = {0};
             var renderer = new Forge1192CustomItemRenderer(null, null) {
@@ -63,17 +71,21 @@ final class GroundCustomItemCheck {
                     && bounds.maxX == 16.5 && bounds.maxY == 21.5 && bounds.maxZ == 26.5, "actual geometry/model transformed bounds lost: " + bounds);
             var positions = new ArrayList<Vector3f>();
             var lightValues = new ArrayList<List<Integer>>();
+            var colors = new ArrayList<Integer>();
+            var types = new ArrayList<net.minecraft.client.renderer.rendertype.RenderType>();
             var consumer = (VertexConsumer) Proxy.newProxyInstance(GroundCustomItemCheck.class.getClassLoader(), new Class[]{VertexConsumer.class}, (p,m,a) -> {
                 if(m.getName().equals("addVertex")) {
                     if(a.length == 4 && a[0] instanceof PoseStack.Pose vertexPose)
                         positions.add(new Vector3f((float)a[1], (float)a[2], (float)a[3]).mulPosition(vertexPose.pose()));
                     else positions.add(new Vector3f((float)a[0], (float)a[1], (float)a[2]));
                 }
+                if(m.getName().equals("setColor")) colors.add((int)a[0]);
                 if(m.getName().equals("setUv2")) lightValues.add(List.of((int)a[0], (int)a[1]));
                 return p;
             });
             var collector = (SubmitNodeCollector) Proxy.newProxyInstance(GroundCustomItemCheck.class.getClassLoader(), new Class[]{SubmitNodeCollector.class}, (p,m,a) -> {
                 check(m.getName().equals("submitCustomGeometry"), "native geometry submission bypassed");
+                types.add((net.minecraft.client.renderer.rendertype.RenderType)a[1]);
                 ((SubmitNodeCollector.CustomGeometryRenderer)a[2]).render(((PoseStack)a[0]).last(), consumer);
                 return null;
             });
@@ -83,9 +95,19 @@ final class GroundCustomItemCheck {
             check(calls[0] == 1 && positions.size() == 4, "stack submission repeated source callback");
             check(positions.getFirst().equals(new Vector3f(14.5F, 25.5F, 36.5F)), "ground vertex transformed twice");
             check(lightValues.equals(List.of(List.of(0x3456, 0x12), List.of(0x3456, 0x12))), "recorded light lost");
+            state.submit(pose, collector, 0x123456, OverlayTexture.NO_OVERLAY, 0xFF123456);
+            check(calls[0] == 1 && positions.size() == 8, "outline repeated source extraction or omitted normal geometry");
+            check(types.getLast() == types.getFirst().outline().orElseThrow(), "native outline type not selected");
+            check(colors.equals(List.of(0xFF123456, 0xFF123456)), "outline color not enforced per vertex");
+            var noOutline = LegacyMultiBufferSource.recording();
+            noOutline.getBuffer(LegacyRenderType.m_110488_(net.minecraft.resources.Identifier.parse("probe:eyes")))
+                    .addVertex(0,0,0).setColor(-1);
+            int previousTypes = types.size();
+            noOutline.finishRecording().submit(collector, pose, 0xFF123456);
+            check(types.size() == previousTypes + 1 && !types.getLast().isOutline(), "non-outline material lost normal draw or participated in outline");
             check(pose.last().pose().equals(new Matrix4f().translation(10,20,30)), "native parent pose leaked");
         });
-        System.out.println("PASS: GROUND native light scope, mismatch/outline rejection, nested failure cleanup, single source callback, isolated stack, actual transformed bounds and repeated native submission");
+        System.out.println("PASS: GROUND native light scope, mismatch rejection, native outline materials/colors, nested failure cleanup, single source callback, isolated stack, actual transformed bounds and repeated native submission");
     }
     private static void reject(Runnable action) {
         try { action.run(); throw new AssertionError("unsupported ground extraction admitted"); }

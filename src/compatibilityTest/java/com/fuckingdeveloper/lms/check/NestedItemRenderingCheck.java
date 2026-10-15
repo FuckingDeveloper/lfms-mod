@@ -15,6 +15,7 @@ final class NestedItemRenderingCheck {
         sourceAliases(false);
         sourceAliases(true);
         NativeDefaultComponentFixture.run(() -> {
+            var outlines=new ArrayList<Integer>();
             var calls=new ArrayList<String>(); var poses=new ArrayList<Float>();
             ItemStack original=com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge.create(Items.STICK);
             original.setCount(4);
@@ -22,7 +23,7 @@ final class NestedItemRenderingCheck {
                 public Integer extractArgument(ItemStack s){throw new AssertionError("late extraction");}
                 public void getExtents(java.util.function.Consumer<org.joml.Vector3fc> out){throw new AssertionError("invented extents");}
                 public void submit(Integer count,PoseStack pose,SubmitNodeCollector output,int light,int overlay,boolean foil,int outline) {
-                    calls.add("submit:"+count+":"+light+":"+overlay);poses.add(pose.last().pose().m30());
+                    outlines.add(outline);calls.add("submit:"+count+":"+light+":"+overlay);poses.add(pose.last().pose().m30());
                 }
             };
             var resolver=new ItemModelResolver(null) {
@@ -44,6 +45,8 @@ final class NestedItemRenderingCheck {
             var collector=(SubmitNodeCollector)java.lang.reflect.Proxy.newProxyInstance(NestedItemRenderingCheck.class.getClassLoader(),new Class[]{SubmitNodeCollector.class},(p,m,a)->{throw new AssertionError(m);});
             geometry.submit(collector,parent);
             check(calls.equals(List.of("extract","submit:4:123:456")) && poses.equals(List.of(102.5F)),"deferred native submission lost pose/count/light/overlay or repeated extraction");
+            geometry.submit(collector,parent,0xFF123456);
+            check(outlines.equals(List.of(0,0xFF123456)),"nested native outline propagation lost");
             check(parent.last().pose().m30()==100,"nested submission leaked parent pose");
             try { Forge1192NestedItemBridge.renderStatic(resolver,original,ItemDisplayContext.FIRST_PERSON_LEFT_HAND,1,2,new PoseStack(),LegacyMultiBufferSource.recording(),0);
                 throw new AssertionError("unproven independent handedness admitted"); } catch(UnsupportedOperationException expected) {}

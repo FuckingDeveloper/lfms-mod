@@ -21,8 +21,7 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
     private static final SpecialModelRenderer<LegacyMultiBufferSource.RecordedGeometry> SUBMIT = new SpecialModelRenderer<>() {
         public void submit(LegacyMultiBufferSource.RecordedGeometry geometry, PoseStack pose, SubmitNodeCollector output,
                 int light, int overlay, boolean foil, int outline) {
-            if (outline != 0) throw new UnsupportedOperationException("Source custom item outline submission is not adapted");
-            geometry.submit(output, pose);
+            geometry.submit(output, pose, outline);
         }
         public void getExtents(java.util.function.Consumer<Vector3fc> output) { throw new UnsupportedOperationException("Extents are extracted from actual source geometry"); }
         public LegacyMultiBufferSource.RecordedGeometry extractArgument(ItemStack stack) { throw new UnsupportedOperationException("Source geometry requires native extraction inputs"); }
@@ -30,7 +29,7 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
 
     @Override public void update(ItemStackRenderState output, ItemStack stack, ItemModelResolver resolver,
             ItemDisplayContext display, @Nullable ClientLevel level, @Nullable ItemOwner owner, int seed) {
-        if (display != ItemDisplayContext.GUI && display != ItemDisplayContext.GROUND) {
+        if (display != ItemDisplayContext.GUI && display != ItemDisplayContext.GROUND && display != ItemDisplayContext.ON_SHELF) {
             if(Target263DeferredCustomItem.supports(display)) {
                 installDeferred(output,stack,display);
                 return;
@@ -39,9 +38,11 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
             return;
         }
         int light = display == ItemDisplayContext.GUI ? 15728880
+                : display == ItemDisplayContext.ON_SHELF ? Target263GroundItemExtraction.requireShelfLight(output, stack, owner)
                 : Target263GroundItemExtraction.requireLight(output, stack, owner);
         var geometry = recordGeometry(Forge1192CustomItemBridge.extensions(stack.getItem()).getCustomRenderer(),
-                stack, display, light, Minecraft.getInstance().getAtlasManager());
+                stack, display == ItemDisplayContext.ON_SHELF ? ItemDisplayContext.FIXED : display,
+                light, Minecraft.getInstance().getAtlasManager());
         installGeometry(output, stack, geometry, display);
     }
 
@@ -87,7 +88,7 @@ public record Target263LegacyGuiItemModel(ModelRenderProperties properties, Matr
         public static final MapCodec<Unbaked> CODEC = Identifier.CODEC.fieldOf("base").xmap(Unbaked::new, Unbaked::base);
         public void resolveDependencies(ResolvableModel.Resolver resolver) { resolver.markDependency(base); }
         public ItemModel bake(ItemModel.BakingContext context, Matrix4fc transform) {
-            com.mojang.logging.LogUtils.getLogger().warn("LMS source custom item model {} supports GUI, native item-entity GROUND and deferred hand/head/fixed/nested draws; shelf/deferred-bounds/outline contexts remain unsupported", base);
+            com.mojang.logging.LogUtils.getLogger().warn("LMS source custom item model {} supports GUI, native item-entity GROUND, shelf FIXED projection, native outlines and deferred hand/head/fixed/nested draws; unscoped bounds remain unsupported", base);
             var baker = context.blockModelBaker(); var model = baker.getModel(base);
             var properties = ModelRenderProperties.fromResolvedModel(baker, model, model.getTopTextureSlots());
             return new Target263LegacyGuiItemModel(properties, new Matrix4f(transform), context.missingItemModel(transform));

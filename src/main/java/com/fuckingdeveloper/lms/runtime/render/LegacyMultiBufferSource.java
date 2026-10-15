@@ -81,13 +81,17 @@ public class LegacyMultiBufferSource {
     }
 
     public void flush() {
+        flush(0);
+    }
+
+    public void flush(int outlineColor) {
         if (submitter == null) {
             throw new UnsupportedOperationException(
                     "Forge 1.19.2 immediate MultiBufferSource rendering has no direct Minecraft 26.3 target");
         }
         if (flushed) throw new IllegalStateException("Legacy render buffer already flushed");
         flushed = true;
-        snapshot().submit(submitter, poseStack, false);
+        snapshot().submit(submitter, poseStack, false, outlineColor);
     }
 
     /** Freeze extraction output into an immutable target-submittable value. */
@@ -152,51 +156,63 @@ public class LegacyMultiBufferSource {
         }
 
         public void submit(SubmitNodeCollector submitter, PoseStack poseStack) {
-            submit(submitter, poseStack, true);
+            submit(submitter, poseStack, 0);
+        }
+
+        public void submit(SubmitNodeCollector submitter, PoseStack poseStack, int outlineColor) {
+            submit(submitter, poseStack, true, outlineColor);
         }
 
         private void submit(SubmitNodeCollector submitter, PoseStack poseStack,
-                boolean applySubmissionPose) {
+                boolean applySubmissionPose, int outlineColor) {
             Objects.requireNonNull(submitter, "submitter");
             Objects.requireNonNull(poseStack, "poseStack");
             for (RecordedBatch batch : batches) {
-                submitter.submitCustomGeometry(poseStack,
-                        batch.renderType().requireTargetRenderType(), (pose, target) -> {
-                            VertexConsumer output = applySubmissionPose
-                                    ? new PoseTransformingVertexConsumer(pose, target)
-                                    : target;
-                            batch.operations().forEach(operation -> operation.accept(output));
-                        });
+                var type = batch.renderType().requireTargetRenderType();
+                submitBatch(submitter, poseStack, batch, type, applySubmissionPose, 0);
+                if (outlineColor != 0) type.outline().ifPresent(outline ->
+                        submitBatch(submitter, poseStack, batch, outline, applySubmissionPose, outlineColor));
             }
             for (var item : items) {
                 PoseStack nestedPose = applySubmissionPose ? poseStack : new PoseStack();
                 nestedPose.pushPose();
                 try {
                     nestedPose.mulPose(item.pose());
-                    item.state().submit(nestedPose, submitter, item.light(), item.overlay(), 0);
+                    item.state().submit(nestedPose, submitter, item.light(), item.overlay(), outlineColor);
                 } finally { nestedPose.popPose(); }
             }
+        }
+        private static void submitBatch(SubmitNodeCollector submitter, PoseStack poseStack, RecordedBatch batch,
+                net.minecraft.client.renderer.rendertype.RenderType type, boolean applySubmissionPose, int outlineColor) {
+            submitter.submitCustomGeometry(poseStack, type, (pose, target) -> {
+                VertexConsumer output = applySubmissionPose || outlineColor != 0
+                        ? new PoseTransformingVertexConsumer(pose, target, applySubmissionPose, outlineColor) : target;
+                batch.operations().forEach(operation -> operation.accept(output));
+            });
         }
     }
 
     /** Applies the target block-position pose after source-local transforms. */
     private record PoseTransformingVertexConsumer(
-            PoseStack.Pose pose, VertexConsumer delegate) implements VertexConsumer {
+            PoseStack.Pose pose, VertexConsumer delegate, boolean applyPose, int outlineColor) implements VertexConsumer {
         @Override
         public VertexConsumer addVertex(float x, float y, float z) {
-            delegate.addVertex(pose, x, y, z);
+            if (applyPose) delegate.addVertex(pose, x, y, z);
+            else delegate.addVertex(x, y, z);
+            if (outlineColor != 0) delegate.setColor(outlineColor);
             return this;
         }
 
         @Override
         public VertexConsumer setColor(int red, int green, int blue, int alpha) {
-            delegate.setColor(red, green, blue, alpha);
+            if (outlineColor != 0) delegate.setColor(outlineColor);
+            else delegate.setColor(red, green, blue, alpha);
             return this;
         }
 
         @Override
         public VertexConsumer setColor(int color) {
-            delegate.setColor(color);
+            delegate.setColor(outlineColor != 0 ? outlineColor : color);
             return this;
         }
 
@@ -226,7 +242,8 @@ public class LegacyMultiBufferSource {
 
         @Override
         public VertexConsumer setNormal(float x, float y, float z) {
-            delegate.setNormal(pose, x, y, z);
+            if (applyPose) delegate.setNormal(pose, x, y, z);
+            else delegate.setNormal(x, y, z);
             return this;
         }
 

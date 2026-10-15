@@ -354,6 +354,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyItemStackConstruction(node);
         rewrites += rewriteLegacyItemStackComparison(node);
         rewrites += rewriteLegacyDiggerItemChecks(node);
+        rewrites += Forge1192AttributeOperationRewriter.rewrite(node);
         rewrites += rewriteLegacyAttributeModifiers(node);
         rewrites += rewriteLegacyBlockHighlightEvent(node);
         rewrites += rewriteLegacyRenderLivingEventAccessors(node);
@@ -9674,6 +9675,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         }
                     }
                     if (constructor != null && constructor.desc.equals(legacyConstructor)) {
+                        var firstArgument = duplicate.getNext();
                         method.instructions.remove(allocation);
                         method.instructions.remove(duplicate);
                         var factory = new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,
@@ -9681,7 +9683,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                                 "modifier", "(Ljava/util/UUID;Ljava/lang/String;DL" + operation + ";)L"
                                         + modifier + ";", false);
                         method.instructions.set(constructor, factory);
-                        next = factory.getNext();
+                        next = firstArgument;
                         rewrites++;
                     }
                 } else if (insn instanceof FieldInsnNode field

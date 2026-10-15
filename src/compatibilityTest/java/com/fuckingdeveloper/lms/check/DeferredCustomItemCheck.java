@@ -33,9 +33,10 @@ final class DeferredCustomItemCheck {
             for(var display:ItemDisplayContext.values())check(Target263DeferredCustomItem.supports(display)==admitted.contains(display),"unsupported context admitted: "+display);
             for(var display:admitted)try { verifyNativeDraw(snapshot,display); } catch(Exception failure){throw new AssertionError(failure);}
         });
-        System.out.println("PASS: seven deferred source contexts, no extraction callback, once-per-submit source draw, actual varying light/overlay/pose, isolated count/component/NBT snapshot and native vertex submission without double transforms; early bounds/outline rejection");
+        System.out.println("PASS: seven deferred source contexts, no extraction callback, once-per-submit source draw, actual varying light/overlay/pose, isolated count/component/NBT snapshot and native vertex submission without double transforms; early bounds rejection and native outlines");
     }
     private static void verifyNativeDraw(Target263CustomItemSnapshot snapshot,ItemDisplayContext display) throws Exception {
+        var colors=new ArrayList<Integer>();var types=new ArrayList<net.minecraft.client.renderer.rendertype.RenderType>();
         var calls=new ArrayList<List<Integer>>();var vertices=new ArrayList<Vector3f>();var uv=new ArrayList<List<Integer>>();
         var expectedPose=new Matrix4f().translation(10,20,30).translate(-0.5F,-0.5F,-0.5F).rotateY(0.3F);
         var renderer=new Forge1192CustomItemRenderer(null,null) {
@@ -75,12 +76,14 @@ final class DeferredCustomItemCheck {
         },argument);
         var vertex=(VertexConsumer)Proxy.newProxyInstance(DeferredCustomItemCheck.class.getClassLoader(),new Class[]{VertexConsumer.class},(p,m,a)->{
             if(m.getName().equals("addVertex"))vertices.add(new Vector3f((float)a[0],(float)a[1],(float)a[2]));
+            else if(m.getName().equals("setColor"))colors.add((int)a[0]);
             else if(m.getName().equals("setUv1") || m.getName().equals("setUv2"))uv.add(List.of((int)a[0],(int)a[1]));
             else throw new AssertionError(m);
             return p;
         });
         var collector=(SubmitNodeCollector)Proxy.newProxyInstance(DeferredCustomItemCheck.class.getClassLoader(),new Class[]{SubmitNodeCollector.class},(p,m,a)->{
             check(m.getName().equals("submitCustomGeometry"),"source bypassed native custom geometry");
+            types.add((net.minecraft.client.renderer.rendertype.RenderType)a[1]);
             ((SubmitNodeCollector.CustomGeometryRenderer)a[2]).render(((PoseStack)a[0]).last(),vertex);return null;
         });
         var parent=new PoseStack();parent.translate(10,20,30);
@@ -91,8 +94,10 @@ final class DeferredCustomItemCheck {
         check(vertices.size()==2 && vertices.getFirst().equals(point,0.00001F) && vertices.getLast().equals(point,0.00001F),"source geometry was transformed twice");
         check(uv.equals(List.of(List.of(0x3456,0x12),List.of(0x4321,0x65),List.of(0x3344,0x22),List.of(0x4433,0x55))),"source light/overlay vertex data changed");
         check(parent.last().pose().equals(new Matrix4f().translation(10,20,30)),"source draw leaked native parent pose");
-        try{Target263DeferredCustomItem.draw(renderer,snapshot.materialize(),display,parent,collector,1,2,1,id->null);
-            throw new AssertionError("unsupported outline admitted");}catch(UnsupportedOperationException expected){}
+        state.submit(parent,collector,0x123456,0x654321,0xFF998877);
+        check(calls.size()==3 && vertices.size()==4 && vertices.getLast().equals(point,0.00001F),"outline duplicated callback/transforms or omitted normal geometry");
+        check(types.getLast()==types.getFirst().outline().orElseThrow(),"deferred native outline type lost");
+        check(colors.equals(List.of(0xFF998877)),"deferred outline color lost");
     }
     private static void check(boolean value,String reason){if(!value)throw new AssertionError(reason);}
 }

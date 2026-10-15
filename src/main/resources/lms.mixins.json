@@ -5,6 +5,7 @@
     "Target263SourceToolDefaultMixin",
     "Target263LegacyLootManagerMixin",
     "Target263InitialDataTransactionMixin",
+    "Target263ArmorRepairMixin",
     "Target263BlockCapabilityMixin",
     "Target263ContainerStateAccess",
     "Target263TagValueOutputAccess",
@@ -13,6 +14,7 @@
     "Target263QueuedNeighborOriginMixin",
     "Target263InstantNeighborOriginMixin",
     "Target263MutableStackTagMixin",
+    "Target263ItemDamageDefaultsMixin",
     "Target263ItemResourceSnapshotMixin",
     "Target263ItemPropertiesAccess",
     "Target263CreativeItemIntentMixin",
@@ -21,6 +23,11 @@
     "Target263SingleRecipeResultAccess"
   ],
   "client": [
+    "Target263ArmorExtractionMixin",
+    "Target263ArmorClassificationMixin",
+    "Target263ShelfItemExtractionMixin",
+    "Target263ArmorAssetsMixin",
+    "Target263ArmorLayerTextureMixin",
     "Target263GroundItemExtractionMixin",
     "Target263KeyCategoryLabelMixin",
     "Target263EntityRenderStateMixin",

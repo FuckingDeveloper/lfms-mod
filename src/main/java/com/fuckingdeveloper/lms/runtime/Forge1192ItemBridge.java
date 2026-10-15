@@ -258,8 +258,8 @@ public final class Forge1192ItemBridge {
     }
 
     public static boolean hasTag(ItemStack stack) {
-        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
-        return data != null && !data.tag.isEmpty();
+        var tag = getTag(stack);
+        return tag != null && !tag.isEmpty();
     }
 
     /** Return the live source-era tag view, not a detached target copy. */
