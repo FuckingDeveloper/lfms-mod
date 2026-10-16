@@ -175,3 +175,23 @@ ERROR/FATAL at probe completion. Existing eight-file dirty baseline is retained.
 Current level remains6 plus verified level7 functional subpaths; remaining
 mechanism widgets/comparators, custom equipment and native energy flags retain
 separate gaps rather than being closed by copper or loading alone.
+
+## Runtime60 ->61 overlay background correction
+
+Runtime60 human dropdown activation reaches the child screen but crashes in
+native Screen.extractBackground with "Can only blur once per frame". Source
+Forge does not automatically draw a full-screen background per screen layer.
+642940b confines the target default-background omission to managed ordinary
+source overlays above the bottom entry of the real native Gui stack; native/
+root/off-stack/container background contracts remain unchanged. Native subtitle
+tail and render events survive. Source instance push/pop and all original
+resize/selection/cancel paths are adapted along with the static family.
+
+Wrapper compatibilityTest/nativeCompatibilitySmoke/compileLaunchJava passed
+in batch-check-17, including actual applied target injection/accessor and native
+multi-layer blur/reset invariants. Runtime61 Quick Play opens the world in
+creative with expected health/food/XP/position and no fresh ERROR/FATAL at handoff.
+Manual request pending for dropdown selection and numeric editor/save/reopen.
+This startup is not evidence that the remaining configuration workflow passed;
+level remains6 plus previously verified level7 functional subpaths. No gameplay
+fixtures or original config values were changed during this run.
