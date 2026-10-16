@@ -9,15 +9,17 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="FuckingDeveloper"
 displayURL="https://www.fuckingdeveloper.com"
-iconFile="lms_logo.png"
+iconFile="lms_logo_pixel.png"
+iconBlur=false
+bannerFile="lms_banner.png"
 description='''
 Old mods. New Minecraft.
 
-LMS (Legacy Mod Support) is an experimental compatibility project
-exploring how legacy Forge mods can be discovered and adapted for
-modern NeoForge environments.
+LMS (Legacy Mod Support) adapts original legacy Forge/FML mod binaries
+for modern Minecraft and NeoForge through version profiles and runtime bridges.
 
-Current status: early development. Legacy mod execution is not yet supported.
+Experimental: compatibility is incomplete and varies by mod and API family.
+Current target: Minecraft 26.3 / NeoForge. First source profile: Forge 1.19.2.
 
 Created by FuckingDeveloper | 2026
 Website: www.fuckingdeveloper.com

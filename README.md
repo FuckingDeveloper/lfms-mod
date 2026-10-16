@@ -1,5 +1,7 @@
 # LMS — Legacy Mod Support
 
+![LMS — Old mods. New Minecraft.](src/main/resources/lms_banner.png)
+
 Binary-first compatibility system for legacy Minecraft Forge/FML mods on modern NeoForge.
 
 **Target:** Minecraft 26.3, NeoForge 26.3.0.58-beta, Java 25.  
