@@ -37,6 +37,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     private final TransformationPipeline pipeline;
     private final SemanticInvocationRewriter semanticInvocations = new SemanticInvocationRewriter(this::isManagedSubtypeOf);
     private final Forge1192BlockDataRewriter blockDataRewriter;
+    private final java.util.Map<String,java.util.Optional<String>> projectileCanonicalMethods = new java.util.concurrent.ConcurrentHashMap<>();
     private final Forge1192MethodDeclarations methodDeclarations = new Forge1192MethodDeclarations(owner -> {
         try { return this.managedClassBytes == null ? null : this.managedClassBytes.find(owner); }
         catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
@@ -312,6 +313,12 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("catalogued-source-methods",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192MethodRules.rewrite(node, methodDeclarations, semanticInvocations)),
+            new TransformationPipeline.Pass("source-item-projectiles",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192ProjectileRewriter.rewrite(node,new Forge1192ProjectileRewriter.Evidence(){
+                        public boolean subtype(String owner,String base){return owner.equals(base)||isManagedSubtypeOf(owner,base);}
+                        public String canonical(String owner,String name,String desc){return projectileCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(owner,name,desc))).orElse(null);}
+                    },semanticInvocations)),
             new TransformationPipeline.Pass("Forge1192SoundEventRewriter.rewrite",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192SoundEventRewriter.rewrite(node, Forge1192LegacyClassTransformer::matchingConstructor)),
@@ -755,6 +762,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("rewriteAllNamespaceReferences",
                     TransformationPipeline.Phase.NAMESPACE_PROJECTION,
                     node -> rewriteAllNamespaceReferences(node)),
+            new TransformationPipeline.Pass("target-item-projectile-construction",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> Forge1192ProjectileRewriter.construction(node)),
             new TransformationPipeline.Pass("rewriteLegacyBlockCapabilityQueries",
                     TransformationPipeline.Phase.TARGET_SHAPE,
                     node -> rewriteLegacyBlockCapabilityQueries(node)),
@@ -12808,6 +12818,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
 
         String selectionView = Forge1192SelectionListRewriter.relocation(value);
         if(selectionView != null)return selectionView;
+        if (value.equals(Forge1192ProjectileRewriter.SOURCE)) return Forge1192ProjectileRewriter.target();
         String configView = Forge1192NativeConfigRewriter.relocation(value);
         if (configView != null) return configView;
         String ruleView = Forge1192GameRulesRewriter.relocation(value);
@@ -13035,6 +13046,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
 
     private static String migrateDescriptor(String descriptor) {
         String migrated = Forge1192SelectionListRewriter.descriptor(Forge1192NativeConfigRewriter.descriptor(Forge1192GameRulesRewriter.descriptor(descriptor)));
+        migrated = migrated.replace("L"+Forge1192ProjectileRewriter.SOURCE+";","L"+Forge1192ProjectileRewriter.target()+";")
+                .replace("L"+Forge1192ProjectileRewriter.SOURCE+"<","L"+Forge1192ProjectileRewriter.target()+"<");
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             migrated = migrated.replace(relocation.getKey(), relocation.getValue());
         }
