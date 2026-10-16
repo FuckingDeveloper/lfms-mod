@@ -113,6 +113,46 @@ public final class LiveTargetContractProbe {
             catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
         });
         check(field.get(nativeOnly[0]) == null, "native notification guessed the active callback's source origin");
+        for (var producer : List.of(Blocks.COMPARATOR, Blocks.REPEATER, Blocks.OBSERVER)) {
+            Class<?> owner = producer == Blocks.OBSERVER ? net.minecraft.world.level.block.ObserverBlock.class
+                    : net.minecraft.world.level.block.DiodeBlock.class;
+            var directed = Arrays.stream(owner.getDeclaredMethods()).filter(method ->
+                    method.getName().contains("lms$directedOrigin") && method.getParameterCount() == 6
+                            && method.getParameterTypes()[0] == net.minecraft.world.level.Level.class
+                            && method.getParameterTypes()[5] == BlockPos.class
+                            && method.getParameterTypes()[4] == com.llamalad7.mixinextras.injector.wrapoperation.Operation.class)
+                    .findFirst().orElseThrow();
+            directed.setAccessible(true);
+            var sourcePos = new BlockPos.MutableBlockPos(17, 18, 19);
+            var destination = new BlockPos(16, 18, 19);
+            Object[] queued = new Object[1];
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<Void> enqueue = arguments -> {
+                check(arguments[0] == null && arguments[1] == destination && arguments[2] == producer
+                        && arguments[3] == null, "directed notification changed native arguments");
+                check(Forge1192NeighborBridge.captureNotification().position().equals(sourcePos),
+                        "native producer did not retain its own origin");
+                try { queued[0] = constructor.newInstance(destination, producer, null); }
+                catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+                return null;
+            };
+            directed.invoke(producer, null, destination, producer, null, enqueue, sourcePos);
+            sourcePos.set(0, 0, 0);
+            var retained = (Forge1192NeighborBridge.Origin)field.get(queued[0]);
+            check(retained.position().equals(new BlockPos(17, 18, 19)), "queued producer origin aliases mutable position");
+            check(Forge1192NeighborBridge.captureNotification() == null && Forge1192NeighborBridge.capture() == null,
+                    "directed producer leaked its origin into subsequent native notifications");
+            com.llamalad7.mixinextras.injector.wrapoperation.Operation<Void> failure = arguments -> { throw new IllegalArgumentException("directed probe"); };
+            Forge1192NeighborBridge.notify(origin, null, () -> {
+                try {
+                    directed.invoke(producer, null, destination, producer, null, failure, sourcePos);
+                    throw new AssertionError("directed failure swallowed");
+                } catch (java.lang.reflect.InvocationTargetException expected) {
+                    check(expected.getCause() instanceof IllegalArgumentException, "directed failure changed");
+                } catch (ReflectiveOperationException unexpected) { throw new IllegalStateException(unexpected); }
+                check(Forge1192NeighborBridge.captureNotification() == origin && Forge1192NeighborBridge.capture() == origin,
+                        "directed failure did not restore enclosing origin");
+            });
+        }
         renderInvalidation();
         var slot = new net.minecraft.world.inventory.Slot(null, 7, 3, 4);
         Forge1192SlotBridge.setX(slot, -1000); Forge1192SlotBridge.setY(slot, 1000);

@@ -15,6 +15,7 @@
     "Target263MultiNeighborOriginMixin",
     "Target263QueuedNeighborOriginMixin",
     "Target263InstantNeighborOriginMixin",
+    "Target263DirectedNeighborOriginMixin",
     "Target263MutableStackTagMixin",
     "Target263ItemDamageDefaultsMixin",
     "Target263ItemResourceSnapshotMixin",
