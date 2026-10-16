@@ -56,3 +56,9 @@ restriction for a bounded two-phase initial world-open transaction. Its bootstra
 phase executes ordered setup once; the final ordinary native data load consumes
 its static-tag/reloadable declarations before the world is published. No retry
 loop, frozen-tag mutation or repeated source setup is permitted.
+
+The user-approved common-tag-identity-projection is a narrow exception to tag
+namespace/path preservation: verified standard Forge tag declarations project
+consistently to their proven target declarations in key construction, source tag
+definition paths and nested tag references. Unmatched/custom identities and
+native packs retain the preservation rule. No blanket forge-to-c rewrite applies.

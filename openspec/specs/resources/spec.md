@@ -27,3 +27,18 @@ with native modifiers remains unspecified. The control document MUST NOT be
 parsed as a modifier definition. Adaptation MUST be confined to the corresponding
 reload consumer and MUST preserve native lookup of selected IDs. Missing or
 undecodable selected modifiers MUST fail explicitly, without losing entries.
+
+For an admitted source-generation standard common-tag declaration with a verified
+modern counterpart, LMS MAY canonicalize its tag identity to that counterpart.
+Admission MUST use the exact registry and pinned source declaration together with
+an actual target declaration and verified path/member correspondence. Namespace
+prefixes or descriptor coincidence alone MUST NOT select migration. Managed
+source key construction/codecs, source tag definition paths and nested tag
+references MUST use the same table. Unknown/custom identifiers and plain element
+IDs MUST remain unchanged. Explicit native-shaped entries in a source pack MUST
+win over projected entries; native resource-stack replacement/order semantics
+MUST remain authoritative. Direct lookup, enumeration and namespace discovery
+MUST agree, and procedural source data MUST NOT be cached across native load
+phases. This exception MUST NOT be applied to native packs or arbitrary JSON
+schemas. Public source key construction MUST preserve fresh object identity;
+factory interning MUST retain the authoritative target key identity.

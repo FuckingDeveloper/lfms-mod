@@ -245,6 +245,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         int rewrites = physicalDistribution == null ? 0
                 : Forge1192DistributionFilter.apply(node, physicalDistribution);
         rewrites += Forge1192SoundEventRewriter.rewrite(node, Forge1192LegacyClassTransformer::matchingConstructor);
+        rewrites += Forge1192CommonTagRewriter.rewrite(node);
         rewrites += rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
@@ -8940,19 +8941,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 || !field.owner.startsWith("net/neoforged/neoforge/common/Tags$")
                 || !field.desc.equals("Lnet/minecraft/tags/TagKey;")) return null;
         String nested = field.owner.substring(field.owner.lastIndexOf('$') + 1);
-        String targetName = switch (nested + '#' + field.name) {
-            case "Blocks#COBBLESTONE", "Items#COBBLESTONE" -> "COBBLESTONES";
-            case "Blocks#GLASS", "Items#GLASS" -> "GLASS_BLOCKS";
-            case "Blocks#GRAVEL", "Items#GRAVEL" -> "GRAVELS";
-            case "Blocks#SANDSTONE" -> "SANDSTONE_BLOCKS";
-            case "Blocks#STONE", "Items#STONE" -> "STONES";
-            case "Items#INGOTS_BRICK" -> "BRICKS_NORMAL";
-            case "Items#INGOTS_NETHER_BRICK" -> "BRICKS_NETHER";
-            case "Items#OBSIDIAN" -> "OBSIDIANS";
-            case "Items#SHEARS" -> "TOOLS_SHEAR";
-            case "Biomes#IS_WATER" -> "IS_AQUATIC";
-            default -> null;
-        };
+        String targetName = com.fuckingdeveloper.lms.runtime.Target263CommonTagNames.renamed(nested, field.name);
         if (targetName == null) return null;
         try {
             byte[] bytes = targetAbiBytes(field.owner);

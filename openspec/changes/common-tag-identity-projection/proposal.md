@@ -1,6 +1,6 @@
 # Verified common-tag identity projection
 
-Status: proposed; user decision pending.
+Status: ACCEPTED by the user on 2026-10-16.
 
 ## Evidence
 
@@ -37,8 +37,8 @@ It also makes source dynamically constructed keys observe the same modern
 identity already selected for verified static Forge common-tag constants.
 Source custom namespaces and unmatched forge identities remain preserved.
 
-Do not implement the contract change until accepted (AGENTS.md sections1/22).
-After acceptance, inspect all reference-artifact tag creation/resource uses and
+User approval satisfies the contract decision (AGENTS.md sections1/22).
+Inspect all reference-artifact tag creation/resource uses and
 actual source/native definitions; implement the proven family together, test
 wrong registries/unknown IDs/explicit native precedence/JSON references, then
 verify original copper recipe in a cold dev client without manual reload.
