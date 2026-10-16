@@ -146,3 +146,32 @@ restored, Stone Age revoked. Server saturation20 is authoritative (MCP client
 state retained stale11); no blanket effect clearing. Crash/startup explosion
 terrain limitation is documented in source-damage-singleton-traversal/design.md.
 Configuration backups for the next human UI batch are in /tmp only.
+
+## Runtime60 standard tags and nested editor family
+
+User accepted the shared standard-tag identity contract. 39cc7d8 implements the
+source declaration table and target admission, source key factories/constructors/
+codecs and source tag resource/reference projection. Native checks and the cold
+client verify the formerly blocked copper recipe: one copper ore -> two copper
+dusts, with800EU consumed by original ticks. Real GUI reopen and Shift extraction
+succeed. Unknown tag IDs/registries remain unchanged. No manual reload and no
+original artifact changes. compatibilityTest/nativeCompatibilitySmoke/
+compileLaunchJava passed together in batch-check-15.
+
+73cd154 adapts source Forge layered push/pop/clear to the existing target Gui
+stack. Runtime59 user testing and actual log prove enum/numeric editors both
+failed at pushExternalScreen, while boolean save and an actual ZIP backup worked.
+The test-only auto-backup toggle is restored false; background RAW_IRON and audio
+master0.5 were unchanged. Runtime60 human request covers enum/numeric edits,
+save/reopen and return to parent; functional acceptance is pending. Source
+getGuiFarPlane and arbitrary immediate layer rendering are not claimed.
+
+Runtime60 probe stayed creative. The original crafting table was temporarily
+copied into an empty player slot, then restored. Test block/ore/dust removed;
+server inventory and client structured inventory match the captured runtime60
+baseline after native inventory click synchronization. XP progress, position,
+camera and selection restored. No nearby test item entities and no fresh
+ERROR/FATAL at probe completion. Existing eight-file dirty baseline is retained.
+Current level remains6 plus verified level7 functional subpaths; remaining
+mechanism widgets/comparators, custom equipment and native energy flags retain
+separate gaps rather than being closed by copper or loading alone.
