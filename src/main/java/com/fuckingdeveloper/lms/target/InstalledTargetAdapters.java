@@ -19,5 +19,8 @@ public final class InstalledTargetAdapters {
             blockDataLookup(HolderLookup.Provider lookup) {
         return Target263BlockDataStorage.lookup(lookup);
     }
+    public static org.objectweb.asm.Handle lifecycleWorkBridge(String sourceDescriptor) {
+        return com.fuckingdeveloper.lms.target.neoforge263.Target263LifecycleWorkLayout.bridge(sourceDescriptor);
+    }
     public static BlockDataTargetLayout blockDataCallbacks() { return Target263BlockDataLayout.layout(); }
 }

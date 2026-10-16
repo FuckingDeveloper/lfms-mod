@@ -178,6 +178,7 @@ public final class LiveTargetContractProbe {
                 && !Modifier.isFinal(slot.getClass().getDeclaredField("y").getModifiers()), "native mutable coordinate access transforms not applied");
         SlotRenderFamilyCheck.run();
         SubscriberIndexCheck.run(bus, host);
+        LifecycleWorkFamilyCheck.run();
         BlockDataFamilyCheck.run();
         ChunkUnloadOrderCheck.run(bus,host);
         PlayerMessageFamilyCheck.run();

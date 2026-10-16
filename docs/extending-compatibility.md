@@ -42,6 +42,13 @@ come from the selected layout, including the native binding bridge owner. The li
 before creating a source bootstrap. Synthetic alternate-layout tests prove
 parameterization only, not another supported target.
 
+`MethodRuleCatalog` now provides the first shared method-rule path between
+transformation and admission. The initial lifecycle-work family is declared by
+`Forge1192MethodRules`, resolved through pinned source method headers and managed
+raw bytes, with native bridge ABI supplied by the installed target adapter.
+It does not replace all existing handwritten rules yet. See the
+[batch admission report](compatibility-batch-report.md).
+
 ## Adding a source profile
 
 - Establish exact source ABI/mapping/lifecycle evidence and its immutable fixtures.

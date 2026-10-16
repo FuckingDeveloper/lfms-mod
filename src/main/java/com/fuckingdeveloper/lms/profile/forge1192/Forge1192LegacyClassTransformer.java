@@ -37,6 +37,10 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     private final TransformationPipeline pipeline;
     private final SemanticInvocationRewriter semanticInvocations = new SemanticInvocationRewriter(this::isManagedSubtypeOf);
     private final Forge1192BlockDataRewriter blockDataRewriter;
+    private final Forge1192MethodDeclarations methodDeclarations = new Forge1192MethodDeclarations(owner -> {
+        try { return this.managedClassBytes == null ? null : this.managedClassBytes.find(owner); }
+        catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+    });
 
     /** Distribution-neutral offline audit for the explicitly installed target build. */
     public Forge1192LegacyClassTransformer() {
@@ -240,6 +244,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             hierarchyEvidence.clear(); hierarchyParentEvidence.clear(); subtypeEvidence.clear();
             fieldHierarchyEvidence.clear();
             blockDataRewriter.clearEvidence();
+            methodDeclarations.clear();
             buttonPressHierarchyEvidence.clear();
             guiItemGetterEvidence.clear(); guiItemUtilityEvidence.clear(); configuredFeatureInitializers.clear(); itemComponentInitializers.clear(); legacyUnitMapCodecFields.clear();
         } finally { evidenceLock.writeLock().unlock(); }
@@ -304,6 +309,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("physical-distribution",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> physicalDistribution == null ? 0 : Forge1192DistributionFilter.apply(node, physicalDistribution)),
+            new TransformationPipeline.Pass("catalogued-source-methods",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192MethodRules.rewrite(node, methodDeclarations, semanticInvocations)),
             new TransformationPipeline.Pass("Forge1192SoundEventRewriter.rewrite",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192SoundEventRewriter.rewrite(node, Forge1192LegacyClassTransformer::matchingConstructor)),

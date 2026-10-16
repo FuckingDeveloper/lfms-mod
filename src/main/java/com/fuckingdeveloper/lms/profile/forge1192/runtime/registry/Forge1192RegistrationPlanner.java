@@ -19,11 +19,12 @@ import java.util.jar.JarFile;
 public final class Forge1192RegistrationPlanner {
     public record MethodKey(String owner, String name, String descriptor) {}
     public enum ExecutionPhase { RUNTIME, DATA_GENERATION }
-    public record Boundary(String source, String owner, String name, String descriptor, ExecutionPhase phase) {
-        public Boundary(String source,String owner,String name,String descriptor){this(source,owner,name,descriptor,ExecutionPhase.RUNTIME);}
+    public record Boundary(String source, String owner, String name, String descriptor, ExecutionPhase phase, int opcode) {
+        public Boundary(String source,String owner,String name,String descriptor){this(source,owner,name,descriptor,ExecutionPhase.RUNTIME,-1);}
+        public Boundary(String source,String owner,String name,String descriptor,ExecutionPhase phase){this(source,owner,name,descriptor,phase,-1);}
     }
     private record Work(MethodKey method,ExecutionPhase phase){}
-    private record Call(MethodKey method,ExecutionPhase phase){}
+    private record Call(MethodKey method,ExecutionPhase phase,int opcode){}
     public record Plan(int inspectedMethods, boolean complete, List<Boundary> boundaries,
                        List<String> unresolved, String reason) {}
 
@@ -35,7 +36,7 @@ public final class Forge1192RegistrationPlanner {
         Set<Work> visited = new HashSet<>();
         Set<Boundary> boundaries = new TreeSet<>(Comparator.comparing(Boundary::source)
                 .thenComparing(Boundary::owner).thenComparing(Boundary::name)
-                .thenComparing(Boundary::descriptor).thenComparing(Boundary::phase));
+                .thenComparing(Boundary::descriptor).thenComparing(Boundary::phase).thenComparingInt(Boundary::opcode));
         Set<String> unresolved = new TreeSet<>();
         Map<String, ClassInfo> cache = new HashMap<>();
 
@@ -59,7 +60,7 @@ public final class Forge1192RegistrationPlanner {
                     ExecutionPhase phase=work.phase()==ExecutionPhase.DATA_GENERATION?work.phase():edge.phase();
                     if (call.owner().startsWith("net/minecraftforge/")) {
                         boundaries.add(new Boundary(current.toString(), call.owner().replace('/', '.'),
-                                call.name(), call.descriptor(), phase));
+                                call.name(), call.descriptor(), phase, edge.opcode()));
                     } else if (jar.getJarEntry(call.owner() + ".class") != null
                             && !visited.contains(new Work(call,phase))) {
                         pending.addLast(new Work(call,phase));
@@ -123,6 +124,11 @@ public final class Forge1192RegistrationPlanner {
         return info;
     }
 
+    private static int handleOpcode(Handle handle) {
+        return switch(handle.getTag()) { case Opcodes.H_INVOKEVIRTUAL -> Opcodes.INVOKEVIRTUAL;
+            case Opcodes.H_INVOKEINTERFACE -> Opcodes.INVOKEINTERFACE; case Opcodes.H_INVOKESTATIC -> Opcodes.INVOKESTATIC;
+            case Opcodes.H_INVOKESPECIAL, Opcodes.H_NEWINVOKESPECIAL -> Opcodes.INVOKESPECIAL; default -> -1; };
+    }
     private static ClassInfo inspect(byte[] bytes) {
         Map<MethodKey, List<Call>> methods = new HashMap<>();
         String[] identity = new String[2];
@@ -142,19 +148,23 @@ public final class Forge1192RegistrationPlanner {
                 return new MethodVisitor(Opcodes.ASM9) {
                     @Override public void visitMethodInsn(int opcode, String target, String method,
                                                           String desc, boolean itf) {
-                        calls.add(new Call(new MethodKey(target, method, desc),ExecutionPhase.RUNTIME));
+                        calls.add(new Call(new MethodKey(target, method, desc),ExecutionPhase.RUNTIME,opcode));
                     }
                     @Override public void visitInvokeDynamicInsn(String name, String descriptor,
                                                                  Handle bootstrap, Object... args) {
                         for (Object arg : args) {
-                            if (arg instanceof Handle handle) {
-                                boolean dataCallback=bootstrap.getOwner().equals("java/lang/invoke/LambdaMetafactory")
-                                        &&descriptor.endsWith("Ljava/util/function/Consumer;")
-                                        &&handle.getDesc().endsWith("Lnet/minecraftforge/data/event/GatherDataEvent;)V");
-                                calls.add(new Call(new MethodKey(handle.getOwner(), handle.getName(), handle.getDesc()),
-                                        dataCallback?ExecutionPhase.DATA_GENERATION:ExecutionPhase.RUNTIME));
-                            }
+                            boolean dataCallback=arg instanceof Handle handle && bootstrap.getOwner().equals("java/lang/invoke/LambdaMetafactory")
+                                    &&descriptor.endsWith("Ljava/util/function/Consumer;")
+                                    &&handle.getDesc().endsWith("Lnet/minecraftforge/data/event/GatherDataEvent;)V");
+                            constant(arg,dataCallback?ExecutionPhase.DATA_GENERATION:ExecutionPhase.RUNTIME);
                         }
+                    }
+                    @Override public void visitLdcInsn(Object value) { constant(value,ExecutionPhase.RUNTIME); }
+                    private void constant(Object value,ExecutionPhase phase) {
+                        if(value instanceof Handle handle && handleOpcode(handle)!=-1)
+                            calls.add(new Call(new MethodKey(handle.getOwner(),handle.getName(),handle.getDesc()),phase,handleOpcode(handle)));
+                        else if(value instanceof org.objectweb.asm.ConstantDynamic dynamic)
+                            for(int i=0;i<dynamic.getBootstrapMethodArgumentCount();i++)constant(dynamic.getBootstrapMethodArgument(i),phase);
                     }
                 };
             }

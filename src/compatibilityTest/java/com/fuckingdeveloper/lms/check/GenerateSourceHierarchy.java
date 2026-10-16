@@ -22,6 +22,7 @@ public final class GenerateSourceHierarchy {
                 try (var input = jar.getInputStream(jar.getJarEntry(name))) { new ClassReader(input.readAllBytes()).accept(node, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES); }
                 text.append("C\t").append(node.name).append('\t').append(node.access).append('\t').append(node.superName == null ? "-" : node.superName).append('\t').append(node.interfaces.isEmpty() ? "-" : String.join(",", node.interfaces)).append('\n');
                 for (var field : node.fields) text.append("F\t").append(field.access).append('\t').append(field.name).append('\t').append(field.desc).append('\n');
+                for (var method : node.methods) text.append("M\t").append(method.access).append('\t').append(method.name).append('\t').append(method.desc).append('\n');
                 count++;
             }
         }

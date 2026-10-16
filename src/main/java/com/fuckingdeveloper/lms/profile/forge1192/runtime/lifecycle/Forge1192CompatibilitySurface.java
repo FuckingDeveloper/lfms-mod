@@ -150,7 +150,15 @@ public final class Forge1192CompatibilitySurface {
 
     /** Conservative artifact validation for a known unsupported native-super data family. */
     public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries,java.nio.file.Path artifact) throws java.io.IOException {
-        var base=assess(boundaries);
+        final Assessment base;
+        try (var jar = new java.util.jar.JarFile(artifact.toFile(), false)) {
+            var declarations = new com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodDeclarations(owner -> {
+                var entry = jar.getJarEntry(owner + ".class"); if (entry == null) return null;
+                try (var input = jar.getInputStream(entry)) { return input.readAllBytes(); }
+                catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+            });
+            base = assess(boundaries, declarations);
+        }
         var requirements=new ArrayList<>(base.requirements());
         var unsupported=new java.util.TreeSet<String>();
         try(var jar=new java.util.jar.JarFile(artifact.toFile(),false)){
@@ -178,6 +186,10 @@ public final class Forge1192CompatibilitySurface {
     }
 
     public Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries) {
+        return assess(boundaries, new com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodDeclarations(owner -> null));
+    }
+    private Assessment assess(List<Forge1192RegistrationPlanner.Boundary> boundaries,
+            com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodDeclarations declarations) {
         var grouped = boundaries.stream().collect(java.util.stream.Collectors.groupingBy(
                 boundary -> boundary.owner() + "#" + boundary.name() + boundary.descriptor(),
                 java.util.TreeMap::new, java.util.stream.Collectors.toList()));
@@ -185,12 +197,17 @@ public final class Forge1192CompatibilitySurface {
         for (var entry : grouped.entrySet()) {
             String target = entry.getKey();
             boolean inactive=entry.getValue().stream().allMatch(boundary -> boundary.phase()==Forge1192RegistrationPlanner.ExecutionPhase.DATA_GENERATION);
-            State state = inactive ? State.INACTIVE_DATA_GENERATION : SUPPORTED_BRIDGES.contains(target)
+            boolean catalogued = entry.getValue().stream().allMatch(boundary ->
+                    com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodRules.catalog()
+                            .resolve(boundary.opcode(), boundary.owner().replace('.', '/'), boundary.name(), boundary.descriptor(), declarations::owner).isPresent());
+            boolean catalogFamily = entry.getValue().stream().anyMatch(boundary -> boundary.name().equals("enqueueWork")
+                    && declarations.subtype(boundary.owner().replace('.', '/'), com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodRules.WORK));
+            State state = inactive ? State.INACTIVE_DATA_GENERATION : catalogued ? State.SUPPORTED : catalogFamily ? State.ADAPTER_REQUIRED : SUPPORTED_BRIDGES.contains(target)
                     ? State.SUPPORTED
                     : EXPLICIT_UNSUPPORTED.contains(target) ? State.UNSUPPORTED
                     : NETWORK_ADAPTERS.contains(target) ? State.ADAPTER_REQUIRED : State.ADAPTER_REQUIRED;
             requirements.add(new Requirement(target, entry.getValue().size(), state,
-                    NETWORK_ADAPTERS.contains(target) ? "NETWORK_PROTOCOL" : family(target)));
+                    catalogFamily ? "LIFECYCLE_WORK" : NETWORK_ADAPTERS.contains(target) ? "NETWORK_PROTOCOL" : family(target)));
         }
         boolean executable = requirements.stream()
                 .allMatch(requirement -> requirement.state() == State.SUPPORTED || requirement.state() == State.INACTIVE_DATA_GENERATION);

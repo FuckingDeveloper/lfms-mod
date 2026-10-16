@@ -27,6 +27,7 @@ public final class GameplayFamilyCheck {
         catch (Error failure) { throw failure; }
         catch (Throwable failure) { throw new AssertionError(failure); }
         com.fuckingdeveloper.lms.profile.forge1192.BlockDataExtractionCheck.run();
+        com.fuckingdeveloper.lms.profile.forge1192.MethodCatalogCheck.run();
         CompositionContractCheck.run();
         DistributionFilterCheck.run();
         NativeEnergyOperationsCheck.run();

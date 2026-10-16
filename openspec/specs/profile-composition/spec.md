@@ -71,3 +71,19 @@ views MUST retain supplied root identity. Context extraction MUST NOT change
 callback timing or registry-context precedence. Native target/source binding
 facades MAY compose these operations explicitly; a layout/context match alone
 MUST NOT imply another supported target or whole-mod compatibility.
+
+## Catalogued method families
+
+A migrated method family MUST use the same immutable evidence-backed rules for
+transformation and admission assessment. Rules MUST retain exact source member
+identity, invocation shape, target bridge, semantic family and evidence. Source
+inheritance MUST be resolved from source declarations/raw managed headers, never
+inferred from target inheritance or descriptor coincidence. Unknown/overridden
+members and unsupported invocation shapes MUST remain explicit gaps. Evidence
+caches MUST retain no loaded source classes and MUST be cleared on graph rebinding.
+
+Native ABI belongs to the installed target binding. Approval of a catalog rule
+MUST NOT imply whole-mod functionality; static batch reports MUST distinguish
+unresolved profiles, incomplete graphs, API blockers and a surface with no known
+blockers. Legacy assessment lists MAY remain for unmigrated families until their
+implementation and evidence have been consolidated.
