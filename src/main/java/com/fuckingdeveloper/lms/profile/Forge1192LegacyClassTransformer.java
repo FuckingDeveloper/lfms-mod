@@ -6671,8 +6671,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                         "(Lnet/minecraft/resources/ResourceKey;)Z", false));
                 int opcode = jump.getOpcode() == org.objectweb.asm.Opcodes.IF_ACMPEQ
                         ? org.objectweb.asm.Opcodes.IFNE : org.objectweb.asm.Opcodes.IFEQ;
-                method.instructions.set(jump, new org.objectweb.asm.tree.JumpInsnNode(
-                        opcode, jump.label));
+                var replacement = new org.objectweb.asm.tree.JumpInsnNode(opcode, jump.label);
+                method.instructions.set(jump, replacement);
+                // The previous cursor pointed at jump, now detached by set().
+                // Resume from the attached replacement so sibling comparisons survive.
+                insn = replacement.getNext();
                 rewrites++;
             }
         }

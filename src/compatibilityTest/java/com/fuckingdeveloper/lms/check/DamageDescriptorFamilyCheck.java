@@ -16,6 +16,7 @@ import org.objectweb.asm.*;
 final class DamageDescriptorFamilyCheck {
     private static final String ROOT = "net/minecraft/world/damagesource/DamageSource";
     static void run() throws Exception {
+        singletonComparisons();
         var descriptor = Forge1192DamageSourceBridge.create("fixture.damage");
         check(descriptor.getMsgId().equals("fixture.damage") && descriptor.getFoodExhaustion() == 0.1F
                 && !descriptor.scalesWithDifficulty() && descriptor.getEntity() == null
@@ -79,6 +80,71 @@ final class DamageDescriptorFamilyCheck {
                 check(type.getField(name).get(null) instanceof DamageSource, "immutable source descriptor initialization failed");
         }
         System.out.println("PASS: actual source subclass/default descriptor initialization, eleven independent native tag queries, virtual/super dispatch, constructor/query handles and native registry-only synchronization boundary");
+    }
+    /** Several comparisons in one method must all survive ASM node replacement. */
+    private static void singletonComparisons() throws Exception {
+        String owner = "fixture/RepeatedDamageSingletons";
+        String[] fields = {"f_19305_", "f_19310_", "f_19308_", "f_19307_"};
+        var keys = List.of(DamageTypes.IN_FIRE, DamageTypes.IN_WALL, DamageTypes.LAVA, DamageTypes.ON_FIRE);
+        var writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null);
+        for (int comparison : new int[]{Opcodes.IF_ACMPEQ, Opcodes.IF_ACMPNE}) {
+            var method = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                    "compare" + comparison, "(L" + ROOT + ";)I", null, null);
+            method.visitCode(); method.visitInsn(Opcodes.ICONST_0); method.visitVarInsn(Opcodes.ISTORE, 1);
+            for (String field : fields) {
+                var next = new Label();
+                method.visitVarInsn(Opcodes.ALOAD, 0);
+                method.visitFieldInsn(Opcodes.GETSTATIC, ROOT, field, "L" + ROOT + ";");
+                method.visitJumpInsn(comparison, next);
+                method.visitIincInsn(1, 1); method.visitLabel(next);
+                method.visitLineNumber(100, next); // Debug nodes between sibling comparisons.
+            }
+            method.visitVarInsn(Opcodes.ILOAD, 1); method.visitInsn(Opcodes.IRETURN);
+            method.visitMaxs(0, 0); method.visitEnd();
+        }
+        writer.visitEnd();
+        var transformer = new Forge1192LegacyClassTransformer();
+        byte[] bytes = transformer.transform(owner.replace('/', '.'), writer.toByteArray()).bytes();
+        var node = new org.objectweb.asm.tree.ClassNode(); new ClassReader(bytes).accept(node, 0);
+        int predicates = 0;
+        for (var method : node.methods) for (var instruction : method.instructions) {
+            if (instruction instanceof org.objectweb.asm.tree.FieldInsnNode field)
+                check(!field.owner.equals(ROOT), "source singleton survives sibling rewrite: " + field.name);
+            if (instruction instanceof org.objectweb.asm.tree.MethodInsnNode call && call.owner.equals(ROOT) && call.name.equals("is")) predicates++;
+        }
+        check(predicates == 8, "not all equality/inequality siblings became native predicates: " + predicates);
+        var type = new AttributeOperationFamilyCheck.Loader().define(owner.replace('/', '.'), bytes);
+        var registry = new MappedRegistry<DamageType>(Registries.DAMAGE_TYPE, com.mojang.serialization.Lifecycle.stable());
+        var holders = new ArrayList<Holder<DamageType>>();
+        for (var key : keys) holders.add(registry.register(key, new DamageType(key.identifier().getPath(), 0.1F), RegistrationInfo.BUILT_IN));
+        var generic = registry.register(DamageTypes.GENERIC, new DamageType("generic", 0.1F), RegistrationInfo.BUILT_IN);
+        registry.freeze();
+        for (var holder : holders) {
+            // Distinct values backed by the same key must both match the source singleton intent.
+            for (int copy = 0; copy < 2; copy++) {
+                var source = new DamageSource(holder);
+                check((int) type.getMethod("compare" + Opcodes.IF_ACMPEQ, DamageSource.class).invoke(null, source) == 3, "equality branch changed");
+                check((int) type.getMethod("compare" + Opcodes.IF_ACMPNE, DamageSource.class).invoke(null, source) == 1, "inequality branch changed");
+            }
+        }
+        check((int) type.getMethod("compare" + Opcodes.IF_ACMPNE, DamageSource.class).invoke(null, new DamageSource(generic)) == 0, "unrelated native damage matched");
+        Path artifact = Path.of("legacy-mods/IC2Classic-1.19.2-2.1.3.4.jar");
+        if (Files.isRegularFile(artifact)) try (var jar = new JarFile(artifact.toFile())) {
+            String name = "ic2/core/item/wearable/armor/HazmatArmor";
+            byte[] original;
+            try (var input = jar.getInputStream(jar.getJarEntry(name + ".class"))) { original = input.readAllBytes(); }
+            var actual = new org.objectweb.asm.tree.ClassNode();
+            new ClassReader(transformer.transform(name.replace('/', '.'), original).bytes()).accept(actual, 0);
+            int count = 0;
+            for (var method : actual.methods) if (method.name.equals("hazmatAbsorbs")) for (var instruction : method.instructions) {
+                if (instruction instanceof org.objectweb.asm.tree.FieldInsnNode field)
+                    check(!field.owner.equals(ROOT), "original armor still reads removed singleton: " + field.name);
+                if (instruction instanceof org.objectweb.asm.tree.MethodInsnNode call && call.owner.equals(ROOT) && call.name.equals("is")) count++;
+            }
+            check(count == 4, "immutable source armor predicate count: " + count);
+        }
+        System.out.println("PASS: all repeated damage singleton equality/inequality branches, distinct native sources and original immutable armor consumer");
     }
     private static void inventory(Path artifact, List<String> names) throws Exception {
         var found = new TreeSet<String>();
