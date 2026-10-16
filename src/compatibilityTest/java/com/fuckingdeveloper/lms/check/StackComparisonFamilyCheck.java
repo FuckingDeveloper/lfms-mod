@@ -14,6 +14,13 @@ import java.util.jar.*;
 public final class StackComparisonFamilyCheck {
     private static void check(boolean ok,String message) { if(!ok)throw new AssertionError(message); }
     public static void run() throws Exception {
+        check(Forge1192StackComparisonBridge.hasDefaultSourceCapabilities(Items.GOLD_ORE),"ordinary source BlockItem default rejected");
+        var shulkers=new java.util.ArrayList<Item>(Items.DYED_SHULKER_BOX.asList());shulkers.add(Items.SHULKER_BOX);
+        check(shulkers.size()==17,"native shulker family differs from source proof");
+        for(var item:shulkers)check(!Forge1192StackComparisonBridge.hasDefaultSourceCapabilities(item),"named source shulker provider assumed empty");
+        Items.GOLD_ORE.builtInRegistryHolder().bindComponents(DataComponentMap.builder().set(DataComponents.MAX_STACK_SIZE,64).build());
+        var ore=new ItemStack(Items.GOLD_ORE);
+        check(Forge1192StackComparisonBridge.tagMatches(ore,ore.copy()),"ordinary block-item source equality rejected");
         var a=new ItemStack(Items.COAL,3);var b=new ItemStack(Items.COAL,1);
         check(Forge1192StackComparisonBridge.isSameItemSameTags(a,b),"count affected item/tag equality");
         check(!Forge1192StackComparisonBridge.matches(a,b),"full matches ignored count");

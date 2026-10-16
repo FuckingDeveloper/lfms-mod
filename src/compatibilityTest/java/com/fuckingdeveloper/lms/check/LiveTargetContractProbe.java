@@ -155,6 +155,7 @@ public final class LiveTargetContractProbe {
         }
         renderInvalidation();
         AnalogOutputFamilyCheck.run();
+        VanillaItemTransferFamilyCheck.run();
         var slot = new net.minecraft.world.inventory.Slot(null, 7, 3, 4);
         Forge1192SlotBridge.setX(slot, -1000); Forge1192SlotBridge.setY(slot, 1000);
         check(slot.x == -1000 && slot.y == 1000 && slot.getContainerSlot() == 7,

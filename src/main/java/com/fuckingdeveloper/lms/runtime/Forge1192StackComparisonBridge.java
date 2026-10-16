@@ -7,9 +7,16 @@ import java.util.Objects;
 /** Source NBT equality is distinct from native component equality. */
 public final class Forge1192StackComparisonBridge {
     private Forge1192StackComparisonBridge() {}
+    /** Exact source ShulkerItemStackInvWrapper.createDefaultProvider identities. */
+    private static final java.util.Set<Item> DEFAULT_PROVIDER_ITEMS = java.util.stream.Stream.concat(
+            java.util.stream.Stream.of(net.minecraft.world.item.Items.SHULKER_BOX),
+            net.minecraft.world.item.Items.DYED_SHULKER_BOX.asList().stream())
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
     private static final ClassValue<Boolean> DEFAULT_SOURCE_CAPABILITIES = new ClassValue<>() {
         @Override protected Boolean computeValue(Class<?> type) {
             for (Class<?> current=type;current!=Item.class;current=current.getSuperclass()) {
+                // Pinned source BlockItem declares neither an initializer nor extra interfaces.
+                if(current==net.minecraft.world.item.BlockItem.class)return true;
                 if(current==null || !(current.getClassLoader() instanceof com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader loader)) return false;
                 if(!declaresNoInitializer(loader,current.getName(),new java.util.HashSet<>())) return false;
             }
@@ -34,6 +41,9 @@ public final class Forge1192StackComparisonBridge {
     public static boolean hasDefaultSourceCapabilities(Class<? extends Item> type) {
         return DEFAULT_SOURCE_CAPABILITIES.get(type);
     }
+    public static boolean hasDefaultSourceCapabilities(Item item) {
+        return hasDefaultSourceCapabilities(item.getClass()) && !DEFAULT_PROVIDER_ITEMS.contains(item);
+    }
     public static boolean sameItem(ItemStack a, ItemStack b) { return !b.isEmpty() && a.is(b.getItem()); }
     public static boolean isSame(ItemStack a, ItemStack b) {
         return a==b || (!a.isEmpty() && !b.isEmpty() && sameItem(a,b));
@@ -43,10 +53,9 @@ public final class Forge1192StackComparisonBridge {
         if (a.isEmpty() || b.isEmpty()) return false;
         if (!Objects.equals(Forge1192ItemBridge.getTag(a), Forge1192ItemBridge.getTag(b))) return false;
         requireSourceTagProjection(a); requireSourceTagProjection(b);
-        // Source IForgeItem default provides only named vanilla shulker stacks.
-        // Verified managed subclasses reaching Item without an initializer cannot be those named shulker instances. Source stack
-        // attachment subjects are currently rejected by the event bridge.
-        if (!hasDefaultSourceCapabilities(a.getItem().getClass()) || !hasDefaultSourceCapabilities(b.getItem().getClass()))
+        // A proven default class still requires the exact source shulker-item exclusions.
+        // Source stack attachment subjects are currently rejected by the event bridge.
+        if (!hasDefaultSourceCapabilities(a.getItem()) || !hasDefaultSourceCapabilities(b.getItem()))
             throw new UnsupportedOperationException("Source stack capability equality requires proven provider state: "
                     + a.getItem().getClass().getName() + ", " + b.getItem().getClass().getName());
         return true;

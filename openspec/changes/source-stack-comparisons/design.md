@@ -10,14 +10,20 @@ Stacks requiring source damage or native component-to-NBT projection MUST fail
 explicitly when tag equality cannot be established. The current exact subset
 accepts only CUSTOM_DATA patches and nondamageable items.
 
-The proven capability-free subset is exact base Item instances. Source
+The proven capability-free subset includes exact base Item instances and
+BlockItem instances other than the exact17 named source shulker items. Pinned
+source BlockItem extends Item without an initializer or additional interfaces;
+the target retains that class relationship. Managed source subclasses may reach
+either proven base only when raw source ancestry/interfaces declare no custom
+initializer. The item-instance exclusion remains required even for a proven class.
+Source
 IForgeItem.initCapabilities only supplies specific vanilla shulker BlockItems;
 source stack attachment subjects are unsupported and rejected at registration.
 Unknown item subclasses/providers MUST fail explicitly after ordinary item/NBT
 mismatch checks, rather than assume empty capabilities. Both empty stacks bypass
 capabilities as in source. Source item capabilities/native template comparison
 remain unimplemented boundaries. Do not claim full comparison support for all
-items from the base-Item subset.
+items from these proven subsets.
 
 Exact source owner, mapped canonical member, opcode and descriptors select all
 seven public comparison entry points, including method handles and nested

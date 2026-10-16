@@ -30,3 +30,6 @@ highlighting and GUI insertion do not establish native automation support.
 Existing test generator(-206,78,12) and original user changes remain untouched.
 The isolated rig(-210,82,12)/(-209,82,12) remains for automation diagnostics;
 all its positions were originally air. No player inventory/position changes.
+
+Runtime82 automation acceptance subsequently removes this isolated rig and
+confirms all its positions are air; the earlier existing generator remains.
