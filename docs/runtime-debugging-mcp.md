@@ -5,6 +5,10 @@ external development instrumentation. LMS remains a binary-first Forge 1.19.2
 compatibility engine. Installing this tool does not add Fabric mod support.
 The current target is Minecraft 26.3 / NeoForge 26.3.0.58-beta / Java 25.
 
+Use [the API-family coverage matrix](compatibility-api-coverage.md) for current
+bounded acceptance and priorities. Historical change checklists are chronological
+evidence and may be superseded by later accepted runtime results.
+
 Do not add an LMS game-control service, custom automation framework or dependency
 on MCP Fabric. Do not patch the reference mod or MCP Fabric to advance a test.
 Read the relevant OpenSpec contract before changing compatibility semantics.

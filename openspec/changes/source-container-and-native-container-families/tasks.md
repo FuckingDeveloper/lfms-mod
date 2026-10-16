@@ -13,4 +13,6 @@
 - [x] Complete wrapper compatibility/native smoke verification for final changes.
 - [x] Verify both initialized sessions and actual registered content in a world.
 - [x] Verify chest inventory/open/reopen/persistence through MCP.
-- [ ] Verify configuration screen access and document remaining editing gaps.
+- [x] Verify representative configuration screen access/editor paths; boolean,
+  numeric and enum persistence accepted through runtime63. Remaining arbitrary
+  widgets/render operations stay explicit in source-config-ui-controls/design.md.

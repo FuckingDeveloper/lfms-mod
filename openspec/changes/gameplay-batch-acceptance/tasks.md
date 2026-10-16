@@ -3,6 +3,8 @@
 User authorized the complete remaining batch plus absent smoke/flame. Overall
 observed level remains 6 with verified functional level-7 subpaths. Historical
 unchecked boxes in close-gameplay-families are chronological, not current failures.
+Use [the API-family matrix](../../../docs/compatibility-api-coverage.md) for
+current priority and bounded acceptance; this file retains the chronological batch.
 
 - [ ] Energy/capabilities: independent charged copies, tool callbacks, persistence,
   sided native interoperability. Existing generator -> cable -> macerator and
@@ -27,7 +29,8 @@ Retired/limited, not secretly implemented:
 - Old cables retired by user. Fresh-pair save/reload was separately verified.
 - Transparent chest cold inventory preview is original source behavior; user
   rejected a fixture-specific extension. No missing general callback proven.
-- Creative-search null-player tooltip remains a source behavior limitation.
+- Creative-search null-player attribution was later corrected: scoped source
+  CLIENT fixes the proven LMS async-search boundary; see client-search-tooltip-context.
 
 ## Smoke/flame investigation
 

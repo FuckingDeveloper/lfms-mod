@@ -1,6 +1,11 @@
 # Gameplay family backlog — Forge 1.19.2 to target 26.3
 
-## Current P1 snapshot — 2026-10-16
+## Historical P1 snapshot — 2026-10-16
+
+Current API-family priorities and later acceptance are consolidated in
+[the coverage matrix](../../../docs/compatibility-api-coverage.md). Historical
+unchecked entries below are not an automatically current bug list. The search
+attribution in this snapshot is corrected to reflect the later source/target proof.
 
 This snapshot supersedes historical open/closed statements below for these items.
 Overall compatibility remains world-load with selected functional paths verified;
@@ -11,8 +16,8 @@ there is no complete-mod functional-support claim.
 | Old saved cables | CLOSED/retired by explicit user decision; no repair or reconstruction requested |
 | Global loot modifiers | Observed path FIXED by a general source-list/codec/target-order family; runtime48 executes original hemp drop and shears exclusion; source-global-loot-order records scope |
 | First-load procedural tags / fresh-process leaf persistence | FIXED for the observed source path by the approved bounded two-phase initial data transaction. Runtime49 cold entry has log/decay tags before manual reload; a fresh tree retains 5 logs/44 leaves over 1200 ticks and save/re-entry. Setup runs once; ordinary reload and generator GUI pass. See initial-data-load-transaction/tasks.md |
-| Transparent chest initial display | OPEN source-behavior limitation. Source load directly fills inventory without marking display dirty; no general missing Forge callback identified. User explicitly rejected mod-specific extension; none implemented |
-| Null-player creative-search tooltip | OPEN source-behavior limitation. Original 1.19.2 Minecraft search supplies null, Forge forwards it, original handler dereferences it. No player substitution/listener suppression implemented |
+| Transparent chest initial display | EXCLUDED from mod-specific repair by user. Source load/display-dirty code supports a source-behavior hypothesis; no paired source-runtime control or missing general callback has been established |
+| Null-player creative-search tooltip | FIXED observed LMS logical-side boundary. Original client handler accepts null; native asynchronous search needs scoped source CLIENT. See client-search-tooltip-context/design.md and runtime-tooltip-and-persistence-audit/tasks.md. No player substitution or listener suppression |
 
 Fresh cable placement/save/re-entry and model connection tests from runtime44–46
 are separate from the retired historical cables. Remaining P2 rendering/armor and

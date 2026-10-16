@@ -55,7 +55,9 @@ cleared every BE. Runtime68 opt-in native-save/chunk-save traces added to verify
   scoped failure/nesting cleanup.
 - [x] Compile/test source unload order bridge and target hooks (batch34/35).
 - [x] Runtime70 two unload/reload cycles preserve2000EU; runtime71 cold restart preserves2000EU and vanilla control stone.
-- [ ] Active remaining-fuel persistence still needs a separate controlled test.
+- [x] Active remaining-fuel persistence subsequently verified in runtime73:
+  ordinary fuel ticks, unload/reload and cold restart preserve the controlled
+  remaining-fuel state; see source-world-render-extraction/runtime73.md.
 - [x] Runtime71 removes own test generator and emptied vanilla control chest; original air restored.
 
 The vanilla test chest(-206,78,13) was removed in runtime67. Runtime68 probe uses
