@@ -22,6 +22,11 @@ public final class GameplayFamilyCheck {
             + "Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult;";
 
     public static void main(String[] args) throws Exception {
+        try { InvocationExtractionCheck.run(); }
+        catch (Exception failure) { throw failure; }
+        catch (Error failure) { throw failure; }
+        catch (Throwable failure) { throw new AssertionError(failure); }
+        com.fuckingdeveloper.lms.profile.forge1192.BlockDataExtractionCheck.run();
         CompositionContractCheck.run();
         DistributionFilterCheck.run();
         NativeEnergyOperationsCheck.run();

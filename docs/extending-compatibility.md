@@ -26,6 +26,13 @@ other versions or mixed-generation sessions already work.
    scope checks. `Target263RegistrationAdapter` performs actual native mutation
    through RegisterEvent. Failed flush entries and their suffix remain pending.
 
+The shared `SemanticInvocationRewriter` adapts instance invocations, exact lambda
+captures, method handles and nested constants using profile-supplied member and
+subtype proof. It contains no Minecraft/NeoForge identities. Source block-data
+callback rewriting lives in `Forge1192BlockDataRewriter` with explicit evidence
+inputs and a cache reset on managed-source rebinding. Both preserve the existing
+pass position and callback semantics; extracting them does not add version support.
+
 ## Adding a source profile
 
 - Establish exact source ABI/mapping/lifecycle evidence and its immutable fixtures.
