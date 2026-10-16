@@ -15,10 +15,13 @@ unchecked boxes in close-gameplay-families are chronological, not current failur
 - [ ] Equipment: custom armor model callbacks, dyes/overlay, dispenser,
   enchantment callbacks. Four-slot textures, armor protection, repair and damage
   synchronization were accepted in the preceding equipment batch.
-- [ ] Dedicated server: resolve physical-side loading from actual runServer evidence.
-- [ ] Startup: fresh phase measurements; optimize only measured causes.
-- [ ] Particles: compare original animateTick/active-state/particle operations and
-  verify a machine that actually emits them in the immutable source artifact.
+- [x] Dedicated server: physical-side filtering and common/client event isolation;
+  run6 loads all three unchanged legacy entrypoints and a real world, then saves
+  and stops cleanly. Gameplay coverage remains scoped below.
+- [x] Startup: fresh phase measurements recorded for runtime58 below. No new
+  optimization claimed without a measured cause.
+- [x] Particles: original iron-furnace callback runs; runtime58 human acceptance
+  confirms both smoke/flame and crackling. Ordinary generator has no source effect.
 
 Retired/limited, not secretly implemented:
 - Old cables retired by user. Fresh-pair save/reload was separately verified.
@@ -58,3 +61,60 @@ observed default armor dispenser path through native EQUIPPABLE defaults; custom
 source equip/dispenser overrides remain unverified. Positive result requires
 no new production behavior. All created test blocks/entities/items and force-load
 ticket are removed from the separate dedicated test world before shutdown.
+
+## Runtime57 client regression / current handoff
+
+Quick Play opened Новый мир. MCP confirmed 26.3 NeoForge client, integrated
+server, all required command/world/container groups and the original inventory.
+Client timings: CarbonConfig59/1747ms, IC21074/8717ms, IronChests57/213ms source
+classes/cumulative transformation; initial-data bootstrap02:21:31, final02:21:39,
+player login02:21:43. These are measurements, not a new optimization claim.
+
+Real empty-hand use opened a new source iron furnace. MCP Shift transfers inserted
+coal/cobblestone. Source NBT reports fuel1598, active=true, progress2; later output
+slot2 holds one stone. Its field-sync payload hits SoundEvent.m_11660_ before
+normal fuel sound setup; the client survives but particle/sound acceptance is not
+complete. New source-sound-event-values code/spec/tests are prepared but NOT YET
+compiled or run: the user must Save/Quit before rebuilding dev classes.
+
+Cleanup deliberately tried Count:0b and exposed native item codec rejection.
+source-empty-stack-decoding prepares a whole-schema decode preserving empty-stack
+component payload rather than arbitrary EMPTY; likewise NOT YET compiled/tested.
+The failed cleanup command did not clear the furnace output. Native block removal
+then removed the fixture; structured radius3 item-entity query returns none.
+Original poppy was copied back from the native barrel before barrel removal;
+full structured inventory equals the captured baseline. Player position/selected
+slot/camera restored. The test-only Stone Age advancement was revoked. Fixture
+positions(-206,78,12/13) restored to their observed original air. No survival or
+physical damage probes were performed.
+
+8c6b352 is committed/pushed for the verified distribution/server family only.
+Existing eight-file dirty baseline remains preserved. New sound/empty-stack work
+is uncommitted pending compile/native checks and fresh runtime acceptance.
+Save/Quit question is pending; do not stop the live client or rebuild until
+serverPresent=false and save logs confirm the user's world exit.
+
+## Runtime58 acceptance
+
+Commits 55e2fe4 (empty stack/tag payload), fc5fc79 (proven native energy
+operations), and 82da68d (sound value family) are committed and pushed. Wrapper
+`compatibilityTest nativeCompatibilitySmoke compileLaunchJava` passed together
+in `/tmp/lms-gameplay-batch-check-11.log`; dedicated run6 also passed. These
+results supersede the pending compilation statements in the runtime57 handoff.
+
+Runtime58 real empty-hand interaction opens the source iron furnace; Shift
+transfers insert coal/cobblestone, original ticks produce stone. The previous
+SoundEvent field-sync failure is absent. User confirms particles and sound.
+This closes the positive particle/audio case without adding effects to source
+generators that do not emit them. Overall observed level remains 6 with level-7
+functional subpaths, not universal compatibility.
+
+Measured source classes/cumulative transform milliseconds: CarbonConfig59/1624,
+IC21074/8333, IronChests57/222. Initial setup08:25:05, final data08:25:13.
+These cumulative class timings do not establish a startup bottleneck.
+
+Current runtime58 cleanup obligations: original hotbar6 poppy is backed up in
+barrel(-206,78,13), slot0; source furnace(-206,78,12) was removed by the human.
+Restore poppy and original air after remaining probes; revoke test-earned
+Stone Age only. Retain the newer user-owned rotten flesh/lead. Charged-copy and
+remaining mechanism/editor acceptance are still pending.

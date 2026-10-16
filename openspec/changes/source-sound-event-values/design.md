@@ -38,3 +38,8 @@ Source state reaches fuel1503/active1/progress97 and subsequently smelts stone.
 The previous field-sync payload NoSuchMethodError is absent from the fresh log.
 Particle/audio output is human acceptance pending because MCP has no observation
 for rendered particles or audible audio; no visual/audio success is inferred.
+
+Runtime58 human acceptance confirms both smoke/flame and crackling from the
+working source iron furnace. MCP verifies processing and the absence of the
+previous sound-linkage error; human observation supplies the unsupported audio/
+particle observation. No ordinary-generator effects are added.
