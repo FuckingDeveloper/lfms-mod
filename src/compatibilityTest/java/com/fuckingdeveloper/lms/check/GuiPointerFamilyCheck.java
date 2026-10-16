@@ -124,6 +124,27 @@ final class GuiPointerFamilyCheck implements Opcodes {
             sliderType.getMethod("onMouseRelease", int.class, int.class, int.class).invoke(slider, 5, 44, 0); check(!dragging.getBoolean(slider), "original drag release lost");
             sliderType.getMethod("onMouseScroll", int.class, int.class, int.class).invoke(slider, 5, 44, 10);
             check((int) sliderType.getMethod("getCurrent").invoke(slider) == 0, "original source wheel behavior changed");
+            // Execute the original screen routing at the actual slider hit coordinates.
+            // The source callback deliberately narrows its double amount to int.
+            var unsafeField=sun.misc.Unsafe.class.getDeclaredField("theUnsafe");unsafeField.setAccessible(true);
+            var unsafe=(sun.misc.Unsafe)unsafeField.get(null);
+            var screenType=loader.linkOwnedClass("ic2.core.inventory.gui.ComponentContainerScreen");
+            var screen=(GuiEventListener)unsafe.allocateInstance(screenType);
+            var requestType=loader.linkOwnedClass("ic2.core.inventory.gui.components.GuiWidget$ActionRequest");
+            Object[] requests=(Object[])requestType.getMethod("values").invoke(null);
+            java.util.List<?>[] components=new java.util.List<?>[requests.length];
+            Arrays.fill(components,List.of());
+            Object scrollRequest=requestType.getField("MOUSE_SCROLL").get(null);
+            int index=(int)requestType.getMethod("getIndex").invoke(scrollRequest);
+            components[index]=List.of(slider);
+            var componentField=screenType.getDeclaredField("components");componentField.setAccessible(true);componentField.set(screen,components);
+            for(int i=0;i<10;i++)check(screen.mouseScrolled(5,20,0,-.4),"original fractional source scroll did not reach hit slider");
+            check((int)sliderType.getMethod("getCurrent").invoke(slider)==0,"source integer consumer unexpectedly accumulates fractional deltas");
+            check(screen.mouseScrolled(5,20,0,-1),"whole source step not consumed at slider");
+            check((int)sliderType.getMethod("getCurrent").invoke(slider)==1,"original screen whole-step route failed");
+            check(screen.mouseScrolled(5,20,0,1),"reverse whole step not consumed");
+            check((int)sliderType.getMethod("getCurrent").invoke(slider)==0,"original reverse source step failed");
+            System.out.println("PASS: actual original component-screen native wheel entry -> original slider; ten fractional events remain zero by source D2I, +/-1 steps scroll at the same hit coordinates");
         }
     }
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
