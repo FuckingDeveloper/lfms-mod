@@ -173,6 +173,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private volatile LegacyClassTransformer.ClassBytesLookup managedClassBytes;
     private final java.util.concurrent.locks.ReentrantReadWriteLock evidenceLock = new java.util.concurrent.locks.ReentrantReadWriteLock();
     private final java.util.Map<String, java.util.Optional<byte[]>> hierarchyEvidence = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, java.util.Optional<java.util.List<String>>> hierarchyParentEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String, java.util.Optional<byte[]>> targetAbiEvidence = new java.util.concurrent.ConcurrentHashMap<>();
     private record SubtypeEvidence(String candidate, String ancestor) {}
     private final java.util.Map<SubtypeEvidence, Boolean> subtypeEvidence = new java.util.concurrent.ConcurrentHashMap<>();
@@ -203,7 +204,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                 var previous = raw.putIfAbsent(name, evidence);
                 return (previous == null ? evidence : previous).orElse(null);
             };
-            hierarchyEvidence.clear(); subtypeEvidence.clear();
+            hierarchyEvidence.clear(); hierarchyParentEvidence.clear(); subtypeEvidence.clear();
             fieldHierarchyEvidence.clear();
             blockDataHierarchyEvidence.clear();
             buttonPressHierarchyEvidence.clear();
@@ -8392,6 +8393,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         return hierarchyContains(pending, target);
     }
 
+    /** Parsed source parent edges share the same evidence lifetime as raw class bytes. */
+    private java.util.Optional<java.util.List<String>> hierarchyParents(String owner) throws java.io.IOException {
+        var cached=hierarchyParentEvidence.get(owner);if(cached!=null)return cached;
+        var bytes=hierarchyBytes(owner);java.util.Optional<java.util.List<String>> result;
+        if(bytes==null)result=java.util.Optional.empty();
+        else {
+            var reader=new ClassReader(bytes);var parents=new java.util.ArrayList<String>();
+            if(reader.getSuperName()!=null)parents.add(reader.getSuperName());
+            java.util.Collections.addAll(parents,reader.getInterfaces());
+            result=java.util.Optional.of(java.util.List.copyOf(parents));
+        }
+        var previous=hierarchyParentEvidence.putIfAbsent(owner,result);return previous==null?result:previous;
+    }
+
     private boolean hierarchyContains(java.util.ArrayDeque<String> pending, String target) {
         java.util.HashSet<String> seen = new java.util.HashSet<>();
         while (!pending.isEmpty()) {
@@ -8399,8 +8414,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if (!seen.add(current)) continue;
             if (current.equals(target)) return true;
             try {
-                byte[] bytes = hierarchyBytes(current);
-                if (bytes == null) {
+                var parents = hierarchyParents(current);
+                if (parents.isEmpty()) {
                     // Follow only explicit source-profile relocations. This
                     // lets semantic subtype checks cross removed vanilla
                     // classes without reviving name-based heuristics.
@@ -8408,9 +8423,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
                     if (!migrated.equals(current)) pending.addLast(migrated);
                     continue;
                 }
-                ClassReader reader = new ClassReader(bytes);
-                if (reader.getSuperName() != null) pending.addLast(reader.getSuperName());
-                java.util.Collections.addAll(pending, reader.getInterfaces());
+                pending.addAll(parents.orElseThrow());
             } catch (java.io.IOException | LinkageError | RuntimeException ignored) {
                 // Missing/corrupt hierarchy evidence must fail closed.
             }
