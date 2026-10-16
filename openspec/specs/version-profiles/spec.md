@@ -134,3 +134,9 @@ Any unavoidable mod-specific compatibility MUST live outside the generic source 
 Only profiles actually implemented and verified by tests/runtime evidence may be reported as supported.
 
 Mentioning a generation in this specification reserves architectural scope; it does not imply compatibility.
+
+## Executable composition
+
+Shared selection, session factories and source/target admission follow
+`openspec/specs/profile-composition/spec.md`. These extension points do not
+change which source generations are implemented or verified.

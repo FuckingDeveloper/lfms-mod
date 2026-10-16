@@ -1,4 +1,4 @@
-package com.fuckingdeveloper.lms.compat;
+package com.fuckingdeveloper.lms.profile.forge1192;
 
 import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
 import com.fuckingdeveloper.lms.analysis.LegacyMetadataAnalyzer;
@@ -14,7 +14,7 @@ import java.util.List;
  * Produces a non-executing compatibility requirement plan from static legacy evidence.
  * This is intentionally descriptive: it does not load or transform legacy classes.
  */
-public final class LegacyCompatibilityPlanner {
+public final class Forge1192CompatibilityPlanner {
     public enum Kind {
         MINECRAFT_MIXIN_TARGET,
         FORGE_MIXIN_TARGET,

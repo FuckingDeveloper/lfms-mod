@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.target.neoforge263;
 
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192ModListView;
-import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192RuntimeSession;
+import com.fuckingdeveloper.lms.runtime.RuntimeSession;
 
 import com.electronwill.nightconfig.core.UnmodifiableConfig;
 import com.electronwill.nightconfig.toml.TomlParser;
@@ -24,10 +24,10 @@ import net.neoforged.neoforge.client.gui.modlist.ModListScreen;
 public final class Target263LegacyModListBridge {
     private Target263LegacyModListBridge() {}
 
-    public static void opening(ScreenEvent.Opening event, List<Forge1192RuntimeSession> sessions) {
+    public static void opening(ScreenEvent.Opening event, List<? extends RuntimeSession> sessions) {
         if (!(event.getNewScreen() instanceof ModListScreen screen)) return;
-        var visible = sessions.stream().filter(s -> s.state() == Forge1192RuntimeSession.State.INITIALIZED
-                || s.state() == Forge1192RuntimeSession.State.BLOCKED).toList();
+        var visible = sessions.stream().filter(s -> s.state() == RuntimeSession.State.INITIALIZED
+                || s.state() == RuntimeSession.State.BLOCKED).toList();
         if (visible.isEmpty()) return;
         try {
             @SuppressWarnings("unchecked")
@@ -74,7 +74,7 @@ public final class Target263LegacyModListBridge {
         });
     }
 
-    public static ModDisplayInfo displayInfo(Forge1192RuntimeSession session) {
+    public static ModDisplayInfo displayInfo(RuntimeSession session) {
         var display = readMetadata(session.artifact(), session.modId());
         return switch (session.state()) {
             case INITIALIZED -> display;
@@ -84,14 +84,14 @@ public final class Target263LegacyModListBridge {
     }
 
     /** Update presentation caches only; FML's native membership remains authoritative. */
-    public static void refreshBranding(List<Forge1192RuntimeSession> sessions) {
+    public static void refreshBranding(List<? extends RuntimeSession> sessions) {
         var ids = net.neoforged.fml.ModList.get().getMods().stream()
                 .map(net.neoforged.neoforgespi.language.IModInfo::getModId)
                 .collect(java.util.stream.Collectors.toSet());
         int loaded = ids.size(), blocked = 0;
         for (var session : sessions) if (ids.add(session.modId())) {
-            if (session.state() == Forge1192RuntimeSession.State.INITIALIZED) loaded++;
-            else if (session.state() == Forge1192RuntimeSession.State.BLOCKED) blocked++;
+            if (session.state() == RuntimeSession.State.INITIALIZED) loaded++;
+            else if (session.state() == RuntimeSession.State.BLOCKED) blocked++;
         }
         var brandings = new java.util.ArrayList<String>();
         net.neoforged.neoforge.internal.BrandingControl.forEachLine(true, false,

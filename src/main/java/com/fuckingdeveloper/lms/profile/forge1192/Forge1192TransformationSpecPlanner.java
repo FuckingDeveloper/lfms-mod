@@ -1,7 +1,9 @@
-package com.fuckingdeveloper.lms.transform;
+package com.fuckingdeveloper.lms.profile.forge1192;
 
 import com.fuckingdeveloper.lms.analysis.LegacyInjectionAnalyzer;
-import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
+import com.fuckingdeveloper.lms.transform.TransformationSpec;
+import com.fuckingdeveloper.lms.transform.LocalSlotRemapper;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192CompatibilityPlanner;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,13 +16,13 @@ import java.util.regex.Pattern;
  * one current target, one resolved current anchor and one hook. Unsupported JS
  * mutation shapes remain UNRESOLVED instead of being guessed.
  */
-public final class TransformationSpecPlanner {
-    public List<TransformationSpec> plan(LegacyCompatibilityPlanner.Plan compatibility) {
+public final class Forge1192TransformationSpecPlanner {
+    public List<TransformationSpec> plan(Forge1192CompatibilityPlanner.Plan compatibility) {
         return plan(compatibility, "legacy");
     }
 
     public List<TransformationSpec> plan(
-            LegacyCompatibilityPlanner.Plan compatibility, String runtimeSessionId) {
+            Forge1192CompatibilityPlanner.Plan compatibility, String runtimeSessionId) {
         List<TransformationSpec> result = new ArrayList<>();
         for (var plan : compatibility.coremodPlans()) {
             result.add(toSpec(plan, runtimeSessionId));
@@ -29,7 +31,7 @@ public final class TransformationSpecPlanner {
     }
 
     private static TransformationSpec toSpec(
-            LegacyCompatibilityPlanner.CoremodTransformationPlan plan, String runtimeSessionId) {
+            Forge1192CompatibilityPlanner.CoremodTransformationPlan plan, String runtimeSessionId) {
         String id = sanitize(runtimeSessionId) + "__" + sanitize(plan.source());
 
         boolean instructionEdit = plan.mutationKinds().stream().anyMatch(kind -> !"set".equals(kind));
@@ -124,7 +126,7 @@ public final class TransformationSpecPlanner {
     }
 
     private static String managedHookProblem(
-            LegacyCompatibilityPlanner.CoremodTransformationPlan plan) {
+            Forge1192CompatibilityPlanner.CoremodTransformationPlan plan) {
         var unsupported = plan.hooks().stream()
                 .filter(hook -> !"STATIC".equals(hook.invocationType()))
                 .toList();
@@ -166,7 +168,7 @@ public final class TransformationSpecPlanner {
     }
 
     private static String executableMappingProblem(
-            LegacyCompatibilityPlanner.CoremodTransformationPlan plan) {
+            Forge1192CompatibilityPlanner.CoremodTransformationPlan plan) {
         if (plan.mappingStatus() != com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer.Status.VERIFIED_IDENTITY) {
             return "Current target has candidate evidence but is not verified for execution: "
                     + plan.mappingStatus();
@@ -244,7 +246,7 @@ public final class TransformationSpecPlanner {
     }
 
     private static List<TransformationSpec.AnchorBinding> parseAnchorBindings(
-            LegacyCompatibilityPlanner.CoremodTransformationPlan plan) {
+            Forge1192CompatibilityPlanner.CoremodTransformationPlan plan) {
         List<TransformationSpec.AnchorBinding> result = new ArrayList<>();
         for (var resolution : plan.anchorResolutions()) {
             if (resolution.currentSymbol().isEmpty()) continue;
@@ -270,7 +272,7 @@ public final class TransformationSpecPlanner {
     }
 
     private static TransformationSpec.Invocation inferAnchorInvocation(
-            LegacyCompatibilityPlanner.AnchorResolution resolution) {
+            Forge1192CompatibilityPlanner.AnchorResolution resolution) {
         var finding = resolution.legacyRuntimeFinding();
         if (finding == null || finding.declaringOwner() == null || finding.declaringOwner().isEmpty()) {
             return TransformationSpec.Invocation.UNKNOWN;

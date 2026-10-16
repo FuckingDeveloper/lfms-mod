@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.target.neoforge263;
 
-import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192RuntimeSession;
+import com.fuckingdeveloper.lms.runtime.RuntimeSession;
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.resource.LegacyTextureStitchSpriteSource;
 
 import net.neoforged.bus.api.IEventBus;
@@ -19,7 +19,7 @@ public final class Target263ClientRuntimeBootstrap {
     private Target263ClientRuntimeBootstrap() {}
 
     public static void register(IEventBus modBus,
-            java.util.function.Supplier<java.util.List<Forge1192RuntimeSession>> sessions) {
+            java.util.function.Supplier<java.util.List<? extends RuntimeSession>> sessions) {
         modBus.addListener(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192MenuScreenBridge::flush);
         modBus.addListener(RegisterSpriteSourcesEvent.class, LegacyTextureStitchSpriteSource::register);
         modBus.addListener(net.neoforged.neoforge.client.event.RegisterColorHandlersEvent.ItemTintSources.class,

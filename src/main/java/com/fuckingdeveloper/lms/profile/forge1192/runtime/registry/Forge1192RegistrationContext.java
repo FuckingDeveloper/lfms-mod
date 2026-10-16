@@ -1,5 +1,8 @@
 package com.fuckingdeveloper.lms.profile.forge1192.runtime.registry;
 
+import com.fuckingdeveloper.lms.runtime.registry.StagedRegistrations;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263RegistrationAdapter;
+
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge;
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge;
 import com.fuckingdeveloper.lms.target.neoforge263.Target263DataComponentBindingBridge;
@@ -32,14 +35,13 @@ public final class Forge1192RegistrationContext {
     private record ModFrame(String modId, ModFrame previous) {}
     private static final ThreadLocal<ModFrame> CURRENT_FRAME = new ThreadLocal<>();
     private static final ThreadLocal<RegisterEvent> CURRENT_EVENT = new ThreadLocal<>();
-    private static final Map<String, Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>>> PENDING =
-            new HashMap<>();
-    private static final Map<String, Set<ResourceKey<? extends Registry<?>>>> COMPLETED = new HashMap<>();
+    private static final StagedRegistrations<
+            ResourceKey<? extends Registry<?>>, Identifier, Object> PENDING =
+            new StagedRegistrations<>();
     private static final Map<String, List<PendingItemStackAction>> PENDING_ITEM_STACK_CONSUMERS =
             new HashMap<>();
     private static final Set<String> ITEM_STACK_FLUSH_REGISTERED = new HashSet<>();
 
-    private record PendingRegistration(Identifier name, Object value) {}
     private interface PendingItemStackAction {}
     private record PendingItemStackConsumer(
             Object receiver, ItemLike item, Identifier id, String method) implements PendingItemStackAction {}
@@ -80,7 +82,7 @@ public final class Forge1192RegistrationContext {
     }
 
     public static boolean registryPhaseCompleted(String modId,ResourceKey<? extends Registry<?>> key) {
-        synchronized(PENDING){return COMPLETED.getOrDefault(modId,Set.of()).contains(key);}
+        return PENDING.completed(modId,key);
     }
 
     public static AutoCloseable enterRegistration(RegisterEvent event) {
@@ -101,9 +103,7 @@ public final class Forge1192RegistrationContext {
             if (Thread.currentThread() != owner || CURRENT_EVENT.get() != event
                     || CURRENT_FRAME.get() != frame || !Objects.equals(CURRENT_MOD.get(), modId))
                 throw new IllegalStateException("Legacy registration scope closed out of order or on another thread");
-            synchronized (PENDING) {
-                COMPLETED.computeIfAbsent(modId, ignored -> new HashSet<>()).add(event.getRegistryKey());
-            }
+            PENDING.complete(modId,event.getRegistryKey());
             CURRENT_EVENT.remove();
         };
     }
@@ -148,21 +148,7 @@ public final class Forge1192RegistrationContext {
     }
 
     private static java.util.Optional<Identifier> stagedIdentifier(Object value, String modId) {
-        synchronized (PENDING) {
-            Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
-            if (byRegistry == null) return java.util.Optional.empty();
-            Identifier match = null;
-            for (List<PendingRegistration> registrations : byRegistry.values()) {
-                for (PendingRegistration registration : registrations) {
-                    if (registration.value() != value) continue;
-                    if (match != null && !match.equals(registration.name())) {
-                        throw new IllegalStateException("Legacy object is staged under multiple registry names");
-                    }
-                    match = registration.name();
-                }
-            }
-            return java.util.Optional.ofNullable(match);
-        }
+        return PENDING.nameForIdentity(modId,value);
     }
 
     /**
@@ -204,16 +190,9 @@ public final class Forge1192RegistrationContext {
         registerOn(event, name, value);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     private static void registerOn(RegisterEvent event, Identifier name, Object value) {
-
-        // RegisterEvent#getRegistryKey intentionally exposes a wildcard because
-        // the event is runtime-typed. The value type is known only to the
-        // legacy call site, so contain the unavoidable erasure at this bridge.
-        ResourceKey<? extends Registry<Object>> key =
-                (ResourceKey<? extends Registry<Object>>) (ResourceKey) event.getRegistryKey();
-        Object adapted = adaptRegistrationValue(event, name, value);
-        event.register(key, name, () -> adapted);
+        Target263RegistrationAdapter.register(
+                event,name,adaptRegistrationValue(event,name,value));
     }
 
     private static Object adaptRegistrationValue(RegisterEvent event, Identifier name, Object value) {
@@ -260,48 +239,11 @@ public final class Forge1192RegistrationContext {
 
     private static void stage(String modId, ResourceKey<? extends Registry<?>> targetKey,
                               Identifier name, Object value) {
-        synchronized (PENDING) {
-            if (COMPLETED.getOrDefault(modId, Set.of()).contains(targetKey)) {
-                throw new IllegalStateException("Legacy registration for " + targetKey.identifier()
-                        + " occurred after its NeoForge RegisterEvent phase: " + name);
-            }
-            PENDING.computeIfAbsent(modId, ignored -> new HashMap<>())
-                    .computeIfAbsent(targetKey, ignored -> new ArrayList<>())
-                    .add(new PendingRegistration(name, value));
-        }
+        PENDING.stage(modId,targetKey,name,value);
     }
 
     private static void flushPending(String modId, RegisterEvent event) {
-        while (true) {
-            PendingRegistration registration;
-            synchronized (PENDING) {
-                Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
-                List<PendingRegistration> registrations =
-                        byRegistry == null ? null : byRegistry.get(event.getRegistryKey());
-                if (registrations == null || registrations.isEmpty()) return;
-                registration = registrations.getFirst();
-            }
-
-            // Remove only after RegisterEvent accepted this entry. If it
-            // throws, the failing entry and every unattempted successor remain
-            // staged. Startup is currently fatal, but retaining the queue also
-            // makes diagnostics/retry semantics truthful rather than silently
-            // discarding work that never ran.
-            registerOn(event, registration.name(), registration.value());
-            synchronized (PENDING) {
-                Map<ResourceKey<? extends Registry<?>>, List<PendingRegistration>> byRegistry = PENDING.get(modId);
-                List<PendingRegistration> registrations =
-                        byRegistry == null ? null : byRegistry.get(event.getRegistryKey());
-                if (registrations == null || registrations.isEmpty()
-                        || registrations.getFirst() != registration) {
-                    throw new IllegalStateException("Legacy pending registration queue changed during flush for "
-                            + modId + " / " + event.getRegistryKey().identifier());
-                }
-                registrations.removeFirst();
-                if (registrations.isEmpty()) byRegistry.remove(event.getRegistryKey());
-                if (byRegistry.isEmpty()) PENDING.remove(modId);
-            }
-        }
+        PENDING.flush(modId,event.getRegistryKey(),(name,value) -> registerOn(event,name,value));
     }
 
     /**

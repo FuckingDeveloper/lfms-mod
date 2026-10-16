@@ -1,5 +1,8 @@
 package com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle;
 
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192Profile;
+import com.fuckingdeveloper.lms.runtime.RuntimeSession;
+
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192RegistrationContext;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
@@ -24,8 +27,7 @@ import com.fuckingdeveloper.lms.transform.TransformationSpec;
  * The session owns its classloader for the whole LMS lifetime and keeps
  * initialization and registration dispatch explicit and fail-closed.
  */
-public final class Forge1192RuntimeSession implements AutoCloseable {
-    public enum State { LINKED, INITIALIZED, BLOCKED, CLOSED }
+public final class Forge1192RuntimeSession implements RuntimeSession {
 
     private final String modId;
     private final Path artifact;
@@ -54,14 +56,21 @@ public final class Forge1192RuntimeSession implements AutoCloseable {
     public Forge1192RuntimeSession(String modId, Path artifact, List<Path> dependencies,
                                    ClassLoader parent, List<String> entrypoints, String physicalDistribution)
             throws java.io.IOException, ClassNotFoundException {
+        this(modId, artifact, dependencies, parent, entrypoints, physicalDistribution,
+                new Forge1192Profile().createTransformer(physicalDistribution));
+    }
+
+    public Forge1192RuntimeSession(String modId, Path artifact, List<Path> dependencies,
+                                   ClassLoader parent, List<String> entrypoints, String physicalDistribution,
+                                   Forge1192LegacyClassTransformer transformer)
+            throws java.io.IOException, ClassNotFoundException {
         this.modId = Objects.requireNonNull(modId);
         this.artifact = Objects.requireNonNull(artifact);
         this.entrypoints = List.copyOf(entrypoints);
         if (this.entrypoints.size() != 1) {
             throw new IllegalStateException("Forge 1.19.2 runtime currently requires exactly one @Mod entrypoint");
         }
-        this.transformer = physicalDistribution == null ? new Forge1192LegacyClassTransformer()
-                : new Forge1192LegacyClassTransformer(physicalDistribution);
+        this.transformer = Objects.requireNonNull(transformer);
         this.loader = new ManagedLegacyClassLoader(artifact, dependencies, parent, transformer, Forge1192ModListView.sharedDependencies(dependencies));
         loader.linkOwnedClass(this.entrypoints.getFirst());
     }

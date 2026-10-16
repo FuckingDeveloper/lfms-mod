@@ -1,5 +1,8 @@
 package com.fuckingdeveloper.lms.profile.forge1192;
 
+import com.fuckingdeveloper.lms.classloading.InstrumentedClassTransformer;
+import com.fuckingdeveloper.lms.transform.TransformationPipeline;
+
 import com.fuckingdeveloper.lms.classloading.LegacyClassTransformer;
 import com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer;
 import com.fuckingdeveloper.lms.mapping.Forge1192SrgRuntimeResolver;
@@ -26,16 +29,18 @@ import org.objectweb.asm.Type;
  * classloader. This establishes the mandatory transformation boundary without
  * claiming that removed Forge APIs have already been adapted.</p>
  */
-public final class Forge1192LegacyClassTransformer implements LegacyClassTransformer {
+public final class Forge1192LegacyClassTransformer implements InstrumentedClassTransformer {
     private final String physicalDistribution;
+    private final TransformationPipeline pipeline;
 
     /** Distribution-neutral offline audit; runtime sessions must bind their physical side. */
-    public Forge1192LegacyClassTransformer() { this.physicalDistribution = null; }
+    public Forge1192LegacyClassTransformer() { this.physicalDistribution = null; this.pipeline = createPipeline(); }
 
     public Forge1192LegacyClassTransformer(String physicalDistribution) {
         if (!java.util.Set.of("CLIENT", "DEDICATED_SERVER").contains(physicalDistribution))
             throw new IllegalArgumentException("Unknown physical distribution: " + physicalDistribution);
         this.physicalDistribution = physicalDistribution;
+        this.pipeline = createPipeline();
     }
 
     private static final String SOURCE_MATERIAL = "net/minecraft/world/level/material/Material";
@@ -243,221 +248,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // is still available. Namespace projection is intentionally second:
         // otherwise a heuristic relocation can destroy the semantic evidence
         // required by a removed-API adapter.
-        int rewrites = physicalDistribution == null ? 0
-                : Forge1192DistributionFilter.apply(node, physicalDistribution);
-        rewrites += Forge1192SoundEventRewriter.rewrite(node, Forge1192LegacyClassTransformer::matchingConstructor);
-        rewrites += Forge1192CommonTagRewriter.rewrite(node);
-        rewrites += rewriteRemovedOptionalClientScreenConstructors(node);
-        rewrites += rewriteLegacyEnvironmentFieldAccess(node);
-        rewrites += rewriteLegacyLevelClientSideFieldAccess(node);
-        rewrites += rewriteLegacyEntityLevelFieldAccess(node);
-        rewrites += rewriteLegacyContainerScreenStateFamily(node);
-        rewrites += rewriteLegacyButtonConstructionAndPress(node);
-        rewrites += rewriteLegacyBlockDataFamily(node);
-        rewrites += Forge1192ToolActionRewriter.callbacks(node, isManagedSubtypeOf(node, "net/minecraft/world/item/Item"));
-        rewrites += rewriteSemanticInstanceCalls(node, Forge1192ToolActionRewriter::stateQuery);
-        rewrites += rewriteLegacyBlockPosConstruction(node);
-        rewrites += rewriteLegacyChunkPosFamily(node);
-        rewrites += rewriteLegacyChatEventFamily(node);
-        rewrites += Forge1192BootstrapRewriter.menuSetupCallbacks(node,
-                owner -> isManagedSubtypeOf(owner,"net/minecraft/client/gui/screens/inventory/AbstractContainerScreen"),
-                owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"));
-        rewrites += Forge1192BootstrapRewriter.rewrite(node);
-        rewrites += rewriteSourceContainerNbt(node);
-        rewrites += Forge1192EditBoxRewriter.rewrite(node,
-                owner -> owner.equals(node.name)?isManagedSubtypeOf(node,"net/minecraft/client/gui/components/EditBox"):isManagedSubtypeOf(owner,"net/minecraft/client/gui/components/EditBox"),
-                (name,desc)->SRG_RUNTIME_RESOLVER.get().canonicalMethodName("net/minecraft/client/gui/components/EditBox",name,desc).orElse(null));
-        rewrites += Forge1192SelectionListRewriter.rewrite(node,new Forge1192SelectionListRewriter.Evidence(){
-            public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):isManagedSubtypeOf(owner,root);}
-            public String method(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null);}
-            public String fieldOwner(String owner,String name,String desc){return sourceFieldOwner(node.name,fieldHierarchy(node),owner,name,desc,new java.util.HashSet<>());}
-            public String field(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner,name,desc).orElse(null);}
-        });
-        rewrites += Forge1192WidgetPointerRewriter.rewrite(node,new Forge1192WidgetPointerRewriter.Evidence(){
-            public boolean widget(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192WidgetPointerRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192WidgetPointerRewriter.ROOT);}
-            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192WidgetPointerRewriter.ROOT,name,descriptor).orElse(null);}
-            public ClassNode managed(String owner){return readManagedClass(owner);}
-        });
-        rewrites += Forge1192GuiPointerRewriter.rewrite(node,new Forge1192GuiPointerRewriter.Evidence(){
-            public boolean listener(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192GuiPointerRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192GuiPointerRewriter.ROOT);}
-            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192GuiPointerRewriter.ROOT,name,descriptor).orElse(null);}
-            public ClassNode managed(String owner){return readManagedClass(owner);}
-            public boolean nativeMember(String owner,String name,String descriptor){return targetGuiPointerMember(owner,name,descriptor);}
-        });
-        rewrites += Forge1192GuiScrollRewriter.rewrite(node,new Forge1192GuiScrollRewriter.Evidence(){
-            public boolean listener(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192GuiScrollRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192GuiScrollRewriter.ROOT);}
-            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192GuiScrollRewriter.ROOT,name,descriptor).orElse(null);}
-            public ClassNode managed(String owner){return readManagedClass(owner);}
-            public ClassNode hierarchy(String owner){try{var bytes=hierarchyBytes(owner);if(bytes==null)return null;var type=new ClassNode();new ClassReader(bytes).accept(type,ClassReader.SKIP_CODE|ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);return type;}catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}}
-            public String sourceDeclaration(String owner){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,"m_6050_","(DDD)Z").filter("mouseScrolled"::equals).map(ignored->owner).orElse(null);}
-        });
-        rewrites += Forge1192ConfigUiRewriter.rewrite(node,new Forge1192ConfigUiRewriter.Evidence(){
-            public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):isManagedSubtypeOf(owner,root);}
-            public String canonical(String owner,String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,descriptor).orElse(null);}
-        });
-        rewrites += Forge1192NativeConfigRewriter.rewrite(node);
-        rewrites += Forge1192GameRulesRewriter.rewrite(node,
-                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor") : isManagedSubtypeOf(owner,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor"),
-                new Forge1192GameRulesRewriter.Names() {
-                    public String method(String owner,String name,String desc) {return isSrgMethodName(name)?SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null):name;}
-                    public String field(String owner,String name,String desc) {return name.startsWith("f_")?SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner,name,desc).orElse(null):name;}
-                });
-        rewrites += Forge1192ContainerUsersRewriter.rewrite(node,
-                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/Container") : isManagedSubtypeOf(owner,"net/minecraft/world/Container"),
-                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/block/entity/ContainerOpenersCounter") : isManagedSubtypeOf(owner,"net/minecraft/world/level/block/entity/ContainerOpenersCounter"),
-                (owner,name,desc) -> isSrgMethodName(name) ? SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null) : name);
-        rewrites += rewriteLegacyNetworkFacade(node);
-        // Preserve the authoritative legacy identity while the direct source
-        // superclass constructor is still visible. Later construction-shape
-        // adapters may replace that owner and descriptor.
-        rewrites += rewriteLegacyNamedBlockConstruction(node);
-        rewrites += rewriteLegacySignItemConstruction(node);
-        rewrites += rewriteLegacyItemNameDefaults(node);
-        rewrites += rewriteLegacyItemUseCallbacks(node);
-        rewrites += rewriteLegacyItemResourceQueries(node);
-        rewrites += rewriteLegacyBlockUseCallbacks(node);
-        rewrites += rewriteLegacySignBlockConstruction(node);
-        rewrites += rewriteLegacyWoodButtonConstruction(node);
-        rewrites += rewriteLegacyVillagerProfessionConstruction(node);
-        rewrites += rewriteLegacyVillagerProfessionConstants(node);
-        rewrites += rewriteLegacySavedDataFamily(node);
-        rewrites += rewriteLegacyLootContextFamily(node);
-        rewrites += rewriteLegacyDamageSourceSingletonComparisons(node);
-        rewrites += Forge1192DamageSourceRewriter.rewrite(node);
-        rewrites += Forge1192CustomItemRewriter.rewrite(node);
-        rewrites += Forge1192NestedItemRewriter.rewrite(node);
-        rewrites += rewriteLegacyBiomePrecipitationPresence(node);
-        rewrites += rewriteLegacyChunkUnsavedMarks(node);
-        rewrites += rewriteLegacyRecipeViewFamily(node);
-        rewrites += rewriteSourceRecipeIdCalls(node);
-        rewrites += rewriteRecipeInformationFamily(node);
-        rewrites += rewriteInteractionResultInformation(node);
-        rewrites += rewriteComponentJsonInformation(node);
-        rewrites += rewriteColorCollectionConstants(node);
-        rewrites += rewriteFluidPacketFamily(node);
-        rewrites += rewriteItemWireFamily(node);
-        rewrites += rewriteEarlyFluidConstruction(node);
-        rewrites += rewriteBonemealCallbacks(node);
-        rewrites += rewriteDirectGuiItemCalls(node);
-        rewrites += rewriteGuiItemUtilityCalls(node);
-        rewrites += rewriteWidgetGraphics(node);
-        rewrites += rewriteWidgetPrimitiveFamily(node);
-        rewrites += rewriteContainerGraphicsPhases(node);
-        rewrites += rewriteContainerRenderLifecycle(node);
-        rewrites += rewritePlayerMessageFamily(node);
-        rewrites += rewriteGuiBatchOperations(node);
-        rewrites += rewriteRecipeRewardKeys(node);
-        rewrites += rewriteLegacyDirectionPropertyFactories(node);
-        rewrites += rewriteLegacyMaterialBlockProperties(node);
-        rewrites += rewriteLegacyMaterialQueries(node);
-        rewrites += rewriteLegacyMaterialColorProperties(node);
-        rewrites += rewriteLegacyBlockPropertiesCopy(node);
-        rewrites += rewriteLegacyViewBlockingPredicate(node);
-        rewrites += rewriteLegacyBlockSetTypeConstruction(node);
-        rewrites += rewriteLegacyFarmlandFields(node);
-        rewrites += rewriteLegacyKeyMappingConstruction(node);
-        rewrites += rewriteLegacyConfiguredFeatureInitialization(node);
-        rewrites += Forge1192WorldgenRewriter.rewrite(node, this::isManagedSubtypeOf, this::isLegacyUnitMapCodecField);
-        rewrites += Forge1192LootModifierRewriter.rewrite(node, this::isManagedSubtypeOf, this::isLegacyUnitMapCodecField);
-        rewrites += rewriteLegacyComposterRegistrations(node);
-        rewrites += rewriteLegacyMixinPropertyAccessors(node);
-        rewrites += rewriteLegacyFixedBufferRegistration(node);
-        rewrites += rewriteLegacyRecipesUpdatedHandlers(node);
-        rewrites += rewriteLegacyEarlyClientInitialization(node);
-        rewrites += rewriteLegacyEarlyClientPlayerReads(node);
-        rewrites += rewriteLegacyCachedMinecraftReads(node);
-        rewrites += rewriteLegacyTooltipComponent(node);
-        rewrites += rewriteSourceWidgetNarration(node);
-        rewrites += rewriteLegacyCableStateDefinitionOverride(node);
-        rewrites += rewriteLegacyStringRepresentableOverride(node);
-        rewrites += Forge1192AnalogOutputRewriter.rewrite(node, isManagedSubtypeOf(node, "net/minecraft/world/level/block/Block"));
-        rewrites += rewriteVerifiedVanillaOverrides(node);
-        rewrites += rewriteLegacyStacklessToolPredicates(node);
-        rewrites += rewriteLegacyCreativeTabAssignment(node);
-        rewrites += rewriteLegacyCreativeTabLookup(node);
-        rewrites += rewriteLegacyCreativeTabEnumeration(node);
-        rewrites += rewriteLegacyBlockItemConstruction(node);
-        rewrites += Forge1192BlockItemNamesRewriter.rewrite(node);
-        rewrites += rewriteLegacyNamedItemConstruction(node);
-        rewrites += rewriteLegacyNamedSimpleToolConstruction(node);
-        rewrites += rewriteEarlyItemStackConsumers(node);
-        rewrites += rewriteLegacyItemStackConstruction(node);
-        rewrites += rewriteLegacyItemStackComparison(node);
-        rewrites += rewriteLegacyDiggerItemChecks(node);
-        rewrites += Forge1192AttributeOperationRewriter.rewrite(node);
-        rewrites += rewriteLegacyAttributeModifiers(node);
-        rewrites += rewriteLegacyBlockHighlightEvent(node);
-        rewrites += rewriteLegacyRenderLivingEventAccessors(node);
-        rewrites += rewriteLegacyEntityRenderLayerOverride(node);
-        rewrites += rewriteLegacyBlockEntityRenderer(node);
-        rewrites += rewriteLegacyModelSubclass(node);
-        rewrites += rewriteLegacyRenderFrustumConstruction(node);
-        rewrites += rewriteLegacyBufferedVertexCacheLifecycle(node);
-        rewrites += rewriteLegacyMultiBufferSource(node);
-        rewrites += rewriteLegacyBlockRenderLayerRegistration(node);
-        rewrites += rewriteLegacyDirectClientReloadRegistration(node);
-        rewrites += rewriteLegacyReloadListenerRegistration(node);
-        rewrites += rewriteLegacyResourceQueries(node);
-        rewrites += rewriteLegacyBlockModelParsing(node);
-        rewrites += rewriteLegacyItemTransformFamily(node);
-        rewrites += rewriteLegacyModelBakingPipeline(node);
-        rewrites += rewriteLegacyBlockAtlasIdentity(node);
-        rewrites += rewriteLegacyVector3fFamily(node);
-        rewrites += rewriteLegacyQuaternionFamily(node);
-        rewrites += rewriteLegacyBakedQuadFamily(node);
-        rewrites += rewriteLegacyRenderShapeConstants(node);
-        rewrites += rewriteLegacyPackRepositoryFamily(node);
-        rewrites += rewriteLegacyPackMetadataConstruction(node);
-        rewrites += rewriteLegacySimpleJsonReloadListener(node);
-        rewrites += rewriteLegacyIngredientFamily(node);
-        rewrites += rewriteLegacyDyeItemLookup(node);
-        rewrites += rewriteLegacyUnitMapCodecFamily(node);
-        rewrites += rewriteLegacyCriterionTriggerFamily(node);
-        rewrites += rewriteLegacyAdvancementDisplayFamily(node);
-        rewrites += rewriteLegacyEntityRendererAddLayers(node);
-        rewrites += rewriteLegacyInputConstantsFamily(node);
-        rewrites += Forge1192PoseMatrixDrawRewriter.rewrite(node);
-        // Resolve inherited source vertex operations before builder ABI relocation.
-        rewrites += rewriteLegacyVertexConsumerFamily(node);
-        rewrites += rewriteAllNamespaceReferences(node);
-        rewrites += rewriteLegacyBlockCapabilityQueries(node);
-        rewrites += rewriteLegacyLivingFallFamily(node);
-        rewrites += rewriteLegacyDurabilityFamily(node);
-        rewrites += rewriteLegacyNeighborCallbacks(node);
-        rewrites += rewriteLegacyTextureAtlasSpriteIdentity(node);
-        rewrites += rewriteLegacyBoatRendererSubclass(node);
-        rewrites += rewriteLegacyDyeColorValues(node);
-        rewrites += rewriteLegacyEnchantmentValues(node);
-        rewrites += rewriteLegacyBlockRenderDispatcherFamily(node);
-        rewrites += rewriteLegacyPlayerInteractionDecisions(node);
-        rewrites += rewriteLegacyLevelSoundPlayback(node);
-        rewrites += rewriteLegacyRenderInvalidationFamily(node);
-        rewrites += rewriteLegacyScreenTransitions(node);
-        rewrites += rewriteLegacyInteractionResultConstants(node);
-        rewrites += rewriteLegacyPlacedBlockCriterion(node);
-        rewrites += rewriteLegacyBlockStateCloneItem(node);
-        rewrites += rewriteLegacyBlockStateOcclusionQueries(node);
-        rewrites += rewriteLegacyNeighborUpdateFamily(node);
-        rewrites += rewriteTargetInterfaceInvocationShapes(node);
-        rewrites += rewriteClassStructureNamespaceMigrations(node);
-        rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
-        rewrites += rewriteVerifiedSrgMethodCalls(node);
-        rewrites += rewriteVerifiedSrgFieldAccesses(node);
-        rewrites += rewritePairedVanillaTags(node);
-        rewrites += rewriteCommonTagReferences(node);
-        rewrites += rewriteWidgetCoordinateFieldsAndFieldHandles(node);
-        rewrites += rewriteLegacyMobEffectInstanceConstruction(node);
-        rewrites += rewriteLegacyMobEffectQueries(node);
-        rewrites += rewriteLegacyVanillaRegistryFields(node);
-        rewrites += rewriteLegacyForgeBuiltinFields(node);
-        rewrites += rewriteLegacyForgeRegistries(node);
-        rewrites += rewriteLegacyForgeRegistryKeys(node);
-        rewrites += rewriteLegacyTickEventFields(node);
-        rewrites += rewriteLegacySpawnCheckSemantics(node);
-        rewrites += rewriteLegacyIdentifierConstruction(node);
-        rewrites += rewriteLegacyBlockEntityTypeConstruction(node);
-        rewrites += rewriteLegacyCraftingContainerConstruction(node);
-        rewrites += rewriteSemanticAdapters(node);
+        int rewrites = pipeline.apply(node);
         verifyNoRemovedForgeClientTypes(node);
         verifyUnresolvedForgeModAccesses(node);
         verifyNoEscapingLegacyRegistryFacade(node);
@@ -477,6 +268,575 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         byte[] verified = writer.toByteArray();
         return new Result(verified, rewrites > 0,
                 "forge-1.19.2 exact namespace migrations=" + rewrites);
+    }
+
+    private TransformationPipeline createPipeline() {
+        // Preserve the proven ordering: source identities are consumed before projection.
+        return new TransformationPipeline(java.util.List.of(
+            new TransformationPipeline.Pass("physical-distribution",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> physicalDistribution == null ? 0 : Forge1192DistributionFilter.apply(node, physicalDistribution)),
+            new TransformationPipeline.Pass("Forge1192SoundEventRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192SoundEventRewriter.rewrite(node, Forge1192LegacyClassTransformer::matchingConstructor)),
+            new TransformationPipeline.Pass("Forge1192CommonTagRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192CommonTagRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("rewriteRemovedOptionalClientScreenConstructors",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteRemovedOptionalClientScreenConstructors(node)),
+            new TransformationPipeline.Pass("rewriteLegacyEnvironmentFieldAccess",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyEnvironmentFieldAccess(node)),
+            new TransformationPipeline.Pass("rewriteLegacyLevelClientSideFieldAccess",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyLevelClientSideFieldAccess(node)),
+            new TransformationPipeline.Pass("rewriteLegacyEntityLevelFieldAccess",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyEntityLevelFieldAccess(node)),
+            new TransformationPipeline.Pass("rewriteLegacyContainerScreenStateFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyContainerScreenStateFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyButtonConstructionAndPress",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyButtonConstructionAndPress(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockDataFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockDataFamily(node)),
+            new TransformationPipeline.Pass("Forge1192ToolActionRewriter.callbacks",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192ToolActionRewriter.callbacks(node, isManagedSubtypeOf(node, "net/minecraft/world/item/Item"))),
+            new TransformationPipeline.Pass("rewriteSemanticInstanceCalls",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteSemanticInstanceCalls(node, Forge1192ToolActionRewriter::stateQuery)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockPosConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockPosConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyChunkPosFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyChunkPosFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyChatEventFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyChatEventFamily(node)),
+            new TransformationPipeline.Pass("Forge1192BootstrapRewriter.menuSetupCallbacks",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192BootstrapRewriter.menuSetupCallbacks(node,
+                owner -> isManagedSubtypeOf(owner,"net/minecraft/client/gui/screens/inventory/AbstractContainerScreen"),
+                owner -> isManagedSubtypeOf(owner,"net/minecraft/client/renderer/blockentity/BlockEntityRenderer"))),
+            new TransformationPipeline.Pass("Forge1192BootstrapRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192BootstrapRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("rewriteSourceContainerNbt",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteSourceContainerNbt(node)),
+            new TransformationPipeline.Pass("Forge1192EditBoxRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192EditBoxRewriter.rewrite(node,
+                owner -> owner.equals(node.name)?isManagedSubtypeOf(node,"net/minecraft/client/gui/components/EditBox"):isManagedSubtypeOf(owner,"net/minecraft/client/gui/components/EditBox"),
+                (name,desc)->SRG_RUNTIME_RESOLVER.get().canonicalMethodName("net/minecraft/client/gui/components/EditBox",name,desc).orElse(null))),
+            new TransformationPipeline.Pass("Forge1192SelectionListRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192SelectionListRewriter.rewrite(node,new Forge1192SelectionListRewriter.Evidence(){
+            public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):isManagedSubtypeOf(owner,root);}
+            public String method(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null);}
+            public String fieldOwner(String owner,String name,String desc){return sourceFieldOwner(node.name,fieldHierarchy(node),owner,name,desc,new java.util.HashSet<>());}
+            public String field(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner,name,desc).orElse(null);}
+        })),
+            new TransformationPipeline.Pass("Forge1192WidgetPointerRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192WidgetPointerRewriter.rewrite(node,new Forge1192WidgetPointerRewriter.Evidence(){
+            public boolean widget(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192WidgetPointerRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192WidgetPointerRewriter.ROOT);}
+            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192WidgetPointerRewriter.ROOT,name,descriptor).orElse(null);}
+            public ClassNode managed(String owner){return readManagedClass(owner);}
+        })),
+            new TransformationPipeline.Pass("Forge1192GuiPointerRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192GuiPointerRewriter.rewrite(node,new Forge1192GuiPointerRewriter.Evidence(){
+            public boolean listener(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192GuiPointerRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192GuiPointerRewriter.ROOT);}
+            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192GuiPointerRewriter.ROOT,name,descriptor).orElse(null);}
+            public ClassNode managed(String owner){return readManagedClass(owner);}
+            public boolean nativeMember(String owner,String name,String descriptor){return targetGuiPointerMember(owner,name,descriptor);}
+        })),
+            new TransformationPipeline.Pass("Forge1192GuiScrollRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192GuiScrollRewriter.rewrite(node,new Forge1192GuiScrollRewriter.Evidence(){
+            public boolean listener(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192GuiScrollRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192GuiScrollRewriter.ROOT);}
+            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192GuiScrollRewriter.ROOT,name,descriptor).orElse(null);}
+            public ClassNode managed(String owner){return readManagedClass(owner);}
+            public ClassNode hierarchy(String owner){try{var bytes=hierarchyBytes(owner);if(bytes==null)return null;var type=new ClassNode();new ClassReader(bytes).accept(type,ClassReader.SKIP_CODE|ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);return type;}catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}}
+            public String sourceDeclaration(String owner){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,"m_6050_","(DDD)Z").filter("mouseScrolled"::equals).map(ignored->owner).orElse(null);}
+        })),
+            new TransformationPipeline.Pass("Forge1192ConfigUiRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192ConfigUiRewriter.rewrite(node,new Forge1192ConfigUiRewriter.Evidence(){
+            public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):isManagedSubtypeOf(owner,root);}
+            public String canonical(String owner,String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,descriptor).orElse(null);}
+        })),
+            new TransformationPipeline.Pass("Forge1192NativeConfigRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192NativeConfigRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("Forge1192GameRulesRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192GameRulesRewriter.rewrite(node,
+                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor") : isManagedSubtypeOf(owner,"net/minecraft/world/level/GameRules$GameRuleTypeVisitor"),
+                new Forge1192GameRulesRewriter.Names() {
+                    public String method(String owner,String name,String desc) {return isSrgMethodName(name)?SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null):name;}
+                    public String field(String owner,String name,String desc) {return name.startsWith("f_")?SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner,name,desc).orElse(null):name;}
+                })),
+            new TransformationPipeline.Pass("Forge1192ContainerUsersRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192ContainerUsersRewriter.rewrite(node,
+                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/Container") : isManagedSubtypeOf(owner,"net/minecraft/world/Container"),
+                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node,"net/minecraft/world/level/block/entity/ContainerOpenersCounter") : isManagedSubtypeOf(owner,"net/minecraft/world/level/block/entity/ContainerOpenersCounter"),
+                (owner,name,desc) -> isSrgMethodName(name) ? SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,desc).orElse(null) : name)),
+            new TransformationPipeline.Pass("rewriteLegacyNetworkFacade",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyNetworkFacade(node)),
+            new TransformationPipeline.Pass("rewriteLegacyNamedBlockConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyNamedBlockConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacySignItemConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacySignItemConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyItemNameDefaults",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyItemNameDefaults(node)),
+            new TransformationPipeline.Pass("rewriteLegacyItemUseCallbacks",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyItemUseCallbacks(node)),
+            new TransformationPipeline.Pass("rewriteLegacyItemResourceQueries",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyItemResourceQueries(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockUseCallbacks",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockUseCallbacks(node)),
+            new TransformationPipeline.Pass("rewriteLegacySignBlockConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacySignBlockConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyWoodButtonConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyWoodButtonConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyVillagerProfessionConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyVillagerProfessionConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyVillagerProfessionConstants",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyVillagerProfessionConstants(node)),
+            new TransformationPipeline.Pass("rewriteLegacySavedDataFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacySavedDataFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyLootContextFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyLootContextFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyDamageSourceSingletonComparisons",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyDamageSourceSingletonComparisons(node)),
+            new TransformationPipeline.Pass("Forge1192DamageSourceRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192DamageSourceRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("Forge1192CustomItemRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192CustomItemRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("Forge1192NestedItemRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192NestedItemRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBiomePrecipitationPresence",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBiomePrecipitationPresence(node)),
+            new TransformationPipeline.Pass("rewriteLegacyChunkUnsavedMarks",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyChunkUnsavedMarks(node)),
+            new TransformationPipeline.Pass("rewriteLegacyRecipeViewFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyRecipeViewFamily(node)),
+            new TransformationPipeline.Pass("rewriteSourceRecipeIdCalls",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteSourceRecipeIdCalls(node)),
+            new TransformationPipeline.Pass("rewriteRecipeInformationFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteRecipeInformationFamily(node)),
+            new TransformationPipeline.Pass("rewriteInteractionResultInformation",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteInteractionResultInformation(node)),
+            new TransformationPipeline.Pass("rewriteComponentJsonInformation",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteComponentJsonInformation(node)),
+            new TransformationPipeline.Pass("rewriteColorCollectionConstants",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteColorCollectionConstants(node)),
+            new TransformationPipeline.Pass("rewriteFluidPacketFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteFluidPacketFamily(node)),
+            new TransformationPipeline.Pass("rewriteItemWireFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteItemWireFamily(node)),
+            new TransformationPipeline.Pass("rewriteEarlyFluidConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteEarlyFluidConstruction(node)),
+            new TransformationPipeline.Pass("rewriteBonemealCallbacks",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteBonemealCallbacks(node)),
+            new TransformationPipeline.Pass("rewriteDirectGuiItemCalls",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteDirectGuiItemCalls(node)),
+            new TransformationPipeline.Pass("rewriteGuiItemUtilityCalls",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteGuiItemUtilityCalls(node)),
+            new TransformationPipeline.Pass("rewriteWidgetGraphics",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteWidgetGraphics(node)),
+            new TransformationPipeline.Pass("rewriteWidgetPrimitiveFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteWidgetPrimitiveFamily(node)),
+            new TransformationPipeline.Pass("rewriteContainerGraphicsPhases",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteContainerGraphicsPhases(node)),
+            new TransformationPipeline.Pass("rewriteContainerRenderLifecycle",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteContainerRenderLifecycle(node)),
+            new TransformationPipeline.Pass("rewritePlayerMessageFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewritePlayerMessageFamily(node)),
+            new TransformationPipeline.Pass("rewriteGuiBatchOperations",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteGuiBatchOperations(node)),
+            new TransformationPipeline.Pass("rewriteRecipeRewardKeys",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteRecipeRewardKeys(node)),
+            new TransformationPipeline.Pass("rewriteLegacyDirectionPropertyFactories",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyDirectionPropertyFactories(node)),
+            new TransformationPipeline.Pass("rewriteLegacyMaterialBlockProperties",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyMaterialBlockProperties(node)),
+            new TransformationPipeline.Pass("rewriteLegacyMaterialQueries",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyMaterialQueries(node)),
+            new TransformationPipeline.Pass("rewriteLegacyMaterialColorProperties",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyMaterialColorProperties(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockPropertiesCopy",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockPropertiesCopy(node)),
+            new TransformationPipeline.Pass("rewriteLegacyViewBlockingPredicate",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyViewBlockingPredicate(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockSetTypeConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockSetTypeConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyFarmlandFields",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyFarmlandFields(node)),
+            new TransformationPipeline.Pass("rewriteLegacyKeyMappingConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyKeyMappingConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyConfiguredFeatureInitialization",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyConfiguredFeatureInitialization(node)),
+            new TransformationPipeline.Pass("Forge1192WorldgenRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192WorldgenRewriter.rewrite(node, this::isManagedSubtypeOf, this::isLegacyUnitMapCodecField)),
+            new TransformationPipeline.Pass("Forge1192LootModifierRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192LootModifierRewriter.rewrite(node, this::isManagedSubtypeOf, this::isLegacyUnitMapCodecField)),
+            new TransformationPipeline.Pass("rewriteLegacyComposterRegistrations",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyComposterRegistrations(node)),
+            new TransformationPipeline.Pass("rewriteLegacyMixinPropertyAccessors",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyMixinPropertyAccessors(node)),
+            new TransformationPipeline.Pass("rewriteLegacyFixedBufferRegistration",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyFixedBufferRegistration(node)),
+            new TransformationPipeline.Pass("rewriteLegacyRecipesUpdatedHandlers",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyRecipesUpdatedHandlers(node)),
+            new TransformationPipeline.Pass("rewriteLegacyEarlyClientInitialization",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyEarlyClientInitialization(node)),
+            new TransformationPipeline.Pass("rewriteLegacyEarlyClientPlayerReads",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyEarlyClientPlayerReads(node)),
+            new TransformationPipeline.Pass("rewriteLegacyCachedMinecraftReads",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyCachedMinecraftReads(node)),
+            new TransformationPipeline.Pass("rewriteLegacyTooltipComponent",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyTooltipComponent(node)),
+            new TransformationPipeline.Pass("rewriteSourceWidgetNarration",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteSourceWidgetNarration(node)),
+            new TransformationPipeline.Pass("rewriteLegacyCableStateDefinitionOverride",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyCableStateDefinitionOverride(node)),
+            new TransformationPipeline.Pass("rewriteLegacyStringRepresentableOverride",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyStringRepresentableOverride(node)),
+            new TransformationPipeline.Pass("Forge1192AnalogOutputRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192AnalogOutputRewriter.rewrite(node, isManagedSubtypeOf(node, "net/minecraft/world/level/block/Block"))),
+            new TransformationPipeline.Pass("rewriteVerifiedVanillaOverrides",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteVerifiedVanillaOverrides(node)),
+            new TransformationPipeline.Pass("rewriteLegacyStacklessToolPredicates",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyStacklessToolPredicates(node)),
+            new TransformationPipeline.Pass("rewriteLegacyCreativeTabAssignment",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyCreativeTabAssignment(node)),
+            new TransformationPipeline.Pass("rewriteLegacyCreativeTabLookup",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyCreativeTabLookup(node)),
+            new TransformationPipeline.Pass("rewriteLegacyCreativeTabEnumeration",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyCreativeTabEnumeration(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockItemConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockItemConstruction(node)),
+            new TransformationPipeline.Pass("Forge1192BlockItemNamesRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192BlockItemNamesRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("rewriteLegacyNamedItemConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyNamedItemConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyNamedSimpleToolConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyNamedSimpleToolConstruction(node)),
+            new TransformationPipeline.Pass("rewriteEarlyItemStackConsumers",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteEarlyItemStackConsumers(node)),
+            new TransformationPipeline.Pass("rewriteLegacyItemStackConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyItemStackConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyItemStackComparison",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyItemStackComparison(node)),
+            new TransformationPipeline.Pass("rewriteLegacyDiggerItemChecks",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyDiggerItemChecks(node)),
+            new TransformationPipeline.Pass("Forge1192AttributeOperationRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192AttributeOperationRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("rewriteLegacyAttributeModifiers",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyAttributeModifiers(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockHighlightEvent",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockHighlightEvent(node)),
+            new TransformationPipeline.Pass("rewriteLegacyRenderLivingEventAccessors",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyRenderLivingEventAccessors(node)),
+            new TransformationPipeline.Pass("rewriteLegacyEntityRenderLayerOverride",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyEntityRenderLayerOverride(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockEntityRenderer",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockEntityRenderer(node)),
+            new TransformationPipeline.Pass("rewriteLegacyModelSubclass",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyModelSubclass(node)),
+            new TransformationPipeline.Pass("rewriteLegacyRenderFrustumConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyRenderFrustumConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBufferedVertexCacheLifecycle",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBufferedVertexCacheLifecycle(node)),
+            new TransformationPipeline.Pass("rewriteLegacyMultiBufferSource",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyMultiBufferSource(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockRenderLayerRegistration",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockRenderLayerRegistration(node)),
+            new TransformationPipeline.Pass("rewriteLegacyDirectClientReloadRegistration",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyDirectClientReloadRegistration(node)),
+            new TransformationPipeline.Pass("rewriteLegacyReloadListenerRegistration",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyReloadListenerRegistration(node)),
+            new TransformationPipeline.Pass("rewriteLegacyResourceQueries",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyResourceQueries(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockModelParsing",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockModelParsing(node)),
+            new TransformationPipeline.Pass("rewriteLegacyItemTransformFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyItemTransformFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyModelBakingPipeline",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyModelBakingPipeline(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockAtlasIdentity",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBlockAtlasIdentity(node)),
+            new TransformationPipeline.Pass("rewriteLegacyVector3fFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyVector3fFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyQuaternionFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyQuaternionFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBakedQuadFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyBakedQuadFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyRenderShapeConstants",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyRenderShapeConstants(node)),
+            new TransformationPipeline.Pass("rewriteLegacyPackRepositoryFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyPackRepositoryFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyPackMetadataConstruction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyPackMetadataConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacySimpleJsonReloadListener",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacySimpleJsonReloadListener(node)),
+            new TransformationPipeline.Pass("rewriteLegacyIngredientFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyIngredientFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyDyeItemLookup",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyDyeItemLookup(node)),
+            new TransformationPipeline.Pass("rewriteLegacyUnitMapCodecFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyUnitMapCodecFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyCriterionTriggerFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyCriterionTriggerFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyAdvancementDisplayFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyAdvancementDisplayFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyEntityRendererAddLayers",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyEntityRendererAddLayers(node)),
+            new TransformationPipeline.Pass("rewriteLegacyInputConstantsFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyInputConstantsFamily(node)),
+            new TransformationPipeline.Pass("Forge1192PoseMatrixDrawRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192PoseMatrixDrawRewriter.rewrite(node)),
+            new TransformationPipeline.Pass("rewriteLegacyVertexConsumerFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteLegacyVertexConsumerFamily(node)),
+            new TransformationPipeline.Pass("rewriteAllNamespaceReferences",
+                    TransformationPipeline.Phase.NAMESPACE_PROJECTION,
+                    node -> rewriteAllNamespaceReferences(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockCapabilityQueries",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyBlockCapabilityQueries(node)),
+            new TransformationPipeline.Pass("rewriteLegacyLivingFallFamily",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyLivingFallFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyDurabilityFamily",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyDurabilityFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyNeighborCallbacks",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyNeighborCallbacks(node)),
+            new TransformationPipeline.Pass("rewriteLegacyTextureAtlasSpriteIdentity",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyTextureAtlasSpriteIdentity(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBoatRendererSubclass",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyBoatRendererSubclass(node)),
+            new TransformationPipeline.Pass("rewriteLegacyDyeColorValues",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyDyeColorValues(node)),
+            new TransformationPipeline.Pass("rewriteLegacyEnchantmentValues",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyEnchantmentValues(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockRenderDispatcherFamily",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyBlockRenderDispatcherFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyPlayerInteractionDecisions",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyPlayerInteractionDecisions(node)),
+            new TransformationPipeline.Pass("rewriteLegacyLevelSoundPlayback",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyLevelSoundPlayback(node)),
+            new TransformationPipeline.Pass("rewriteLegacyRenderInvalidationFamily",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyRenderInvalidationFamily(node)),
+            new TransformationPipeline.Pass("rewriteLegacyScreenTransitions",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyScreenTransitions(node)),
+            new TransformationPipeline.Pass("rewriteLegacyInteractionResultConstants",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyInteractionResultConstants(node)),
+            new TransformationPipeline.Pass("rewriteLegacyPlacedBlockCriterion",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyPlacedBlockCriterion(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockStateCloneItem",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyBlockStateCloneItem(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockStateOcclusionQueries",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyBlockStateOcclusionQueries(node)),
+            new TransformationPipeline.Pass("rewriteLegacyNeighborUpdateFamily",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyNeighborUpdateFamily(node)),
+            new TransformationPipeline.Pass("rewriteTargetInterfaceInvocationShapes",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteTargetInterfaceInvocationShapes(node)),
+            new TransformationPipeline.Pass("rewriteClassStructureNamespaceMigrations",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteClassStructureNamespaceMigrations(node)),
+            new TransformationPipeline.Pass("rewriteLegacyStateOnlyEmissivePredicates",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyStateOnlyEmissivePredicates(node)),
+            new TransformationPipeline.Pass("rewriteVerifiedSrgMethodCalls",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteVerifiedSrgMethodCalls(node)),
+            new TransformationPipeline.Pass("rewriteVerifiedSrgFieldAccesses",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteVerifiedSrgFieldAccesses(node)),
+            new TransformationPipeline.Pass("rewritePairedVanillaTags",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewritePairedVanillaTags(node)),
+            new TransformationPipeline.Pass("rewriteCommonTagReferences",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteCommonTagReferences(node)),
+            new TransformationPipeline.Pass("rewriteWidgetCoordinateFieldsAndFieldHandles",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteWidgetCoordinateFieldsAndFieldHandles(node)),
+            new TransformationPipeline.Pass("rewriteLegacyMobEffectInstanceConstruction",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyMobEffectInstanceConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyMobEffectQueries",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyMobEffectQueries(node)),
+            new TransformationPipeline.Pass("rewriteLegacyVanillaRegistryFields",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyVanillaRegistryFields(node)),
+            new TransformationPipeline.Pass("rewriteLegacyForgeBuiltinFields",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyForgeBuiltinFields(node)),
+            new TransformationPipeline.Pass("rewriteLegacyForgeRegistries",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyForgeRegistries(node)),
+            new TransformationPipeline.Pass("rewriteLegacyForgeRegistryKeys",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyForgeRegistryKeys(node)),
+            new TransformationPipeline.Pass("rewriteLegacyTickEventFields",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyTickEventFields(node)),
+            new TransformationPipeline.Pass("rewriteLegacySpawnCheckSemantics",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacySpawnCheckSemantics(node)),
+            new TransformationPipeline.Pass("rewriteLegacyIdentifierConstruction",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyIdentifierConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyBlockEntityTypeConstruction",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyBlockEntityTypeConstruction(node)),
+            new TransformationPipeline.Pass("rewriteLegacyCraftingContainerConstruction",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteLegacyCraftingContainerConstruction(node)),
+            new TransformationPipeline.Pass("rewriteSemanticAdapters",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> rewriteSemanticAdapters(node))));
+    }
+
+    public java.util.List<TransformationPipeline.Step> transformationSteps() {
+        return pipeline.steps();
     }
 
     private static final String LEGACY_BUTTON = "net/minecraft/client/gui/components/Button";

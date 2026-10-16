@@ -22,6 +22,7 @@ public final class GameplayFamilyCheck {
             + "Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult;";
 
     public static void main(String[] args) throws Exception {
+        CompositionContractCheck.run();
         DistributionFilterCheck.run();
         NativeEnergyOperationsCheck.run();
         SourceCanonicalInformationCheck.run();

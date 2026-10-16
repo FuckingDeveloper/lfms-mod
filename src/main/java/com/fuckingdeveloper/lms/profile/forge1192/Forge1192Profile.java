@@ -1,11 +1,17 @@
 package com.fuckingdeveloper.lms.profile.forge1192;
 
+import com.fuckingdeveloper.lms.profile.SessionRequest;
+import com.fuckingdeveloper.lms.profile.SourceEvidencePaths;
+import com.fuckingdeveloper.lms.profile.SourceProfile;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192RuntimeSession;
+import com.fuckingdeveloper.lms.runtime.CompatibilityContract;
+
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 
 import java.util.Arrays;
 
-public final class Forge1192Profile {
-    private static final String TARGET_VERSION = "1.19.2";
+public final class Forge1192Profile implements SourceProfile<Forge1192RuntimeSession> {
+    private static final String SOURCE_VERSION = "1.19.2";
 
     public String id() { return "forge-1.19.2"; }
 
@@ -13,7 +19,43 @@ public final class Forge1192Profile {
         // Fail closed: require Forge metadata and prove that its Minecraft
         // version range actually contains 1.19.2.
         return "FORGE_METADATA".equals(mod.loader())
-                && containsVersion(mod.minecraftVersion(), TARGET_VERSION);
+                && containsVersion(mod.minecraftVersion(), SOURCE_VERSION);
+    }
+
+    @Override public SourceEvidencePaths evidence(java.nio.file.Path run) {
+        return new SourceEvidencePaths(
+                run.resolve("legacy-mappings/1.19.2/joined.tsrg"),
+                run.resolve("legacy-mappings/1.19.2/client.txt"),
+                run.resolve("legacy-runtime/1.19.2/client.jar"));
+    }
+
+    @Override public Forge1192LegacyClassTransformer createTransformer(String distribution) {
+        return distribution == null ? new Forge1192LegacyClassTransformer()
+                : new Forge1192LegacyClassTransformer(distribution);
+    }
+
+    @Override public Forge1192RuntimeSession createSession(
+            SessionRequest request) throws java.io.IOException, ClassNotFoundException {
+        return new Forge1192RuntimeSession(
+                request.modId(), request.artifact(), request.dependencies(), request.parent(),
+                request.entrypoints(), request.physicalDistribution(), createTransformer(request.physicalDistribution()));
+    }
+
+    @Override public java.util.Set<CompatibilityContract> requiredContracts() {
+        return java.util.Set.of(CompatibilityContract.PHASE_STAGED_REGISTRATION_V1);
+    }
+
+    private Forge1192LaunchPlanner launchPlanner;
+    private java.nio.file.Path launchRoot;
+
+    @Override public synchronized java.util.List<com.fuckingdeveloper.lms.transform.TransformationSpec> planLaunch(
+            java.nio.file.Path root, LegacyModDescriptor descriptor) throws java.io.IOException {
+        var normalized = root.toAbsolutePath().normalize();
+        if (launchPlanner == null || !normalized.equals(launchRoot)) {
+            launchPlanner = new Forge1192LaunchPlanner(evidence(normalized));
+            launchRoot = normalized;
+        }
+        return launchPlanner.plan(descriptor);
     }
 
     static boolean containsVersion(String range, String version) {

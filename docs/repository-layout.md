@@ -36,9 +36,10 @@ lms/
   discovery/                     Immutable legacy descriptors/discovery
   mapping/                       Mapping and symbol evidence
   transform/                     Shared transformation infrastructure
-  compat/                        Compatibility planning and existing shared bridges
+  compat/                        Existing shared bridges
   mixin/                         Native integration hooks (current target)
-  profile/
+  runtime/                       Common session/admission and proven semantic contracts
+  profile/                       Source catalog, factories and evidence contracts
     forge1192/                   Implemented source profile and transformation rules
       runtime/
         advancement/ block/ capability/ chat/ color/ container/ data/
@@ -89,3 +90,7 @@ legacy JARs are never rewritten.
 Start new debugging work from the [API-family matrix](compatibility-api-coverage.md)
 and [MCP runbook](runtime-debugging-mcp.md). Historical change checklists remain
 historical evidence and are not a second current backlog.
+
+The [extension guide](extending-compatibility.md) describes profile selection,
+source factories, target bindings, ordered passes and the initial extracted
+registration contract. Only the currently tested source/target pair is installed.
