@@ -23,6 +23,7 @@ public final class GameplayFamilyCheck {
 
     public static void main(String[] args) throws Exception {
         DistributionFilterCheck.run();
+        NativeEnergyOperationsCheck.run();
         SourceCanonicalInformationCheck.run();
         var transformer = new Forge1192LegacyClassTransformer();
         var child = node("fixture/PlayerSubclass", PLAYER);

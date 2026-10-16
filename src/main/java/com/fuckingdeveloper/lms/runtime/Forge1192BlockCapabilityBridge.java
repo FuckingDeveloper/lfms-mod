@@ -91,7 +91,7 @@ public final class Forge1192BlockCapabilityBridge {
                     Target263ItemHandlerAdapter::new);
         if (capability == LegacyForgeCapabilities.ENERGY)
             return (LegacyLazyOptional<T>) nativeView(Capabilities.Energy.BLOCK, level, blockEntity, side,
-                    (handler, valid) -> { throw new IllegalStateException("Native source energy direction flags are not adapted"); });
+                    com.fuckingdeveloper.lms.runtime.energy.Target263EnergyHandlerAdapter::new);
         if (capability == LegacyForgeCapabilities.FLUID_HANDLER)
             return (LegacyLazyOptional<T>) nativeView(Capabilities.Fluid.BLOCK, level, blockEntity, side,
                     (handler, valid) -> { throw new IllegalStateException("Native source fluid handler operations are not adapted"); });

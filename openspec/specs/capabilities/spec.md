@@ -78,3 +78,17 @@ providers MUST retain their original ordered ForgeCaps keys and Tag payloads
 through the target ValueInput/ValueOutput boundary. Duplicate keys MUST fail.
 Source item/entity attachment lifecycle and inherited GenericEvent APIs remain
 separate unsupported boundaries; registration requiring them MUST fail explicitly.
+
+## Native energy operation views
+
+A present native energy provider MAY expose source amount/capacity and
+receive/extract operations without claiming source direction flags. Nonnegative
+requests MUST use native transactions, abort simulations, validate actual
+returned amounts before commit, and preserve target invalidation and sided
+provider selection. Unrepresentable integer queries MUST fail explicitly.
+canReceive/canExtract MUST remain explicit unsupported operations until an
+authoritative equivalent is available; full/empty storage or a simulated transfer
+MUST NOT be used to infer permanent direction flags. Nested target transactions
+remain an explicit separate gap. Source-owned overrides and their flags MUST
+retain precedence. Native-provider functionality MUST be tracked separately
+from the reference mod's independent energy network.
