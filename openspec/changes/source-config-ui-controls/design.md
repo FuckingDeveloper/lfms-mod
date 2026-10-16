@@ -161,3 +161,17 @@ list focus synthesizes another virtual setSelected; source focus does not.
 The general source focus/selection setter correction and regression cases are
 specified in `../source-selection-list-views/design.md`. Runtime63 acceptance
 remains pending; no successful enum persistence is claimed yet.
+
+
+## Runtime63 accepted editor workflows
+
+The human confirmed custom-background=STONE survives save/close/reopen. Actual
+`run/config/carbonconfig.cfg` contains STONE; IC2 audio master remains0.6 in its
+actual config. Runtime63 trace records one dropdown pop restoring ConfigScreen,
+with no second selection-triggered parent pop. No ERROR/FATAL/causal exception
+was found in the runtime63 log at acceptance. Together with runtime62 audio
+acceptance, enum selection/parent return/save/reopen and numeric audio edit/save/
+reopen are observed functional subpaths. Boolean save/backup was previously
+accepted. This closes these concrete editor failures, not all configuration
+widgets, arbitrary source screen rendering or the explicit linkage gaps.
+No code changed after check22; this checkpoint records runtime evidence only.

@@ -82,3 +82,9 @@ an incorrect focus-field declaring owner before any client run: target list stor
 belongs to AbstractContainerWidget, not the source-era AbstractContainerEventHandler.
 The corrected target owner is verified through actual native getters. Runtime63
 runs with layer trace to confirm the same original dropdown callback now pops once.
+
+
+Runtime63 human acceptance confirms STONE save/reopen. Layer trace shows exactly
+one selection-driven pop restoring the parent; the second parent-closing callback
+observed in runtime62 is gone. This validates the focus/selection correction in
+an actual immutable consumer, beyond the native regression test.
