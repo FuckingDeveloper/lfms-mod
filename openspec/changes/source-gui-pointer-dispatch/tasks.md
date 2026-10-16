@@ -36,7 +36,7 @@ changed for this diagnosis. This is a source integer-consumer behavior, not
 failed callback delivery. Do not round/accumulate all source amounts: that would
 violate the existing exact source-delta contract and alter continuous consumers.
 
-Native discreteMouseScroll is false in the test configuration. Minecraft's
+Before the runtime75 human check, native discreteMouseScroll was false. Minecraft's
 existing option can produce whole steps before callbacks. It was not changed
 without the user's choice, because it affects all game scrolling. Any LMS-side
 integer-step policy requires an explicit evidence-backed semantic decision.
@@ -45,6 +45,18 @@ Current compatibility remains level6 with individually accepted level7 paths.
 Runtime75 cold restart confirms native-load and live native data both retain
 source eu_storage/flags5 on slot6 and max2 on slot3, along with inventory access
 settings. No new runtime ERROR/FATAL/Caused-by through original generator opening.
-The generator remains available for an optional human native discrete-scroll
+The generator remains available for the human native discrete-scroll
 setting check. Normal production behavior is unchanged from5b46343; this follow-up
 adds source behavior evidence and tests, not a wheel-normalization workaround.
+
+- [x] Runtime75: the user enabled Minecraft's native discrete scrolling and
+  confirmed that scrolling the comparator scrollbar works. Preserve this user
+  setting. The latest runtime75 log scan has no ERROR/FATAL/Caused-by entries.
+
+This closes the reported Mac scrolling diagnosis using the existing native
+option. LMS continues to preserve fractional source deltas; no production
+compatibility semantics changed. Together with runtime74, accepted paths are
+dragging, scrolling with the native discrete option, adding a comparator source,
+and retaining its configuration across menu reopen and cold restart. This does
+not close full comparator output-circuit or configurable item-filter automation
+coverage.
