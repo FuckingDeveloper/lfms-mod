@@ -7,6 +7,11 @@ import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyICapa
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyINBTSerializable;
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyLazyOptional;
 import com.fuckingdeveloper.lms.target.neoforge263.Target263DataComponentBindingBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263BlockDataStorage;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263Forge1192BlockDataBridge;
+import com.fuckingdeveloper.lms.mixin.Target263TagValueInputAccess;
+import com.fuckingdeveloper.lms.mixin.Target263TagValueOutputAccess;
+import com.fuckingdeveloper.lms.runtime.blockdata.BlockDataContext;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
 import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
@@ -52,6 +57,7 @@ public final class BlockDataFamilyCheck {
     }
     private static void verifyTargetLayout() throws Exception {
         var layout = com.fuckingdeveloper.lms.target.neoforge263.Target263BlockDataLayout.layout();
+        check(Type.getInternalName(Target263Forge1192BlockDataBridge.class).equals(layout.bridgeOwner()), "wrong native bridge owner");
         check(Type.getInternalName(BlockEntity.class).equals(layout.baseOwner()), "wrong native base");
         for (var operation : com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout.Operation.values()) {
             var callback = layout.callback(operation);
@@ -65,14 +71,14 @@ public final class BlockDataFamilyCheck {
             check(Type.getMethodDescriptor(nativeMethod).equals(callback.descriptor()), "native callback ABI drift: " + operation);
             check(!java.lang.reflect.Modifier.isStatic(nativeMethod.getModifiers()) && !java.lang.reflect.Modifier.isFinal(nativeMethod.getModifiers()), "native callback not overridable");
             String bridgeName = switch (operation) { case LOAD -> "load"; case SAVE -> "save"; case UPDATE_TAG -> "updateTag"; case HANDLE_UPDATE_TAG -> "handleUpdateTag"; };
-            var bridge = Forge1192BlockDataBridge.class.getDeclaredMethod(bridgeName, BlockEntity.class, argument);
+            var bridge = Target263Forge1192BlockDataBridge.class.getDeclaredMethod(bridgeName, BlockEntity.class, argument);
             check(java.lang.reflect.Modifier.isStatic(bridge.getModifiers()) && Type.getDescriptor(bridge.getReturnType()).equals(callback.returnDescriptor()), "bridge ABI drift");
         }
         for (String name : List.of("sourceInput", "sourceOutput")) {
             var operation = name.equals("sourceInput") ? com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout.Operation.LOAD : com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout.Operation.SAVE;
-            check(Type.getDescriptor(Forge1192BlockDataBridge.class.getDeclaredMethod(name, BlockEntity.class, CompoundTag.class).getReturnType()).equals(layout.callback(operation).argumentDescriptor()), "source view ABI drift");
+            check(Type.getDescriptor(Target263Forge1192BlockDataBridge.class.getDeclaredMethod(name, BlockEntity.class, CompoundTag.class).getReturnType()).equals(layout.callback(operation).argumentDescriptor()), "source view ABI drift");
         }
-        var mismatch = new com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout("synthetic-test-only", layout.baseOwner(), layout.callbacks());
+        var mismatch = new com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout("synthetic-test-only", layout.baseOwner(), layout.bridgeOwner(), layout.callbacks());
         try {
             com.fuckingdeveloper.lms.target.neoforge263.Target263SourceBindings.create(
                     com.fuckingdeveloper.lms.profile.InstalledSourceProfiles.create(mismatch), null, null, new ArrayList<>(), null);
@@ -82,8 +88,56 @@ public final class BlockDataFamilyCheck {
         }
         System.out.println("PASS: pinned native block callback/view/bridge ABI and pre-session layout mismatch gate");
     }
+    private static void verifyStorageContext() {
+        var reporter = new ProblemReporter() {
+            public ProblemReporter forChild(ProblemReporter.PathElement child) { return this; }
+            public void report(ProblemReporter.Problem problem) { throw new AssertionError("Unexpected native storage problem: " + problem); }
+        };
+        var root = new CompoundTag(); root.putInt("value", 17);
+        var input = TagValueInput.create(reporter, LOOKUP, root);
+        var read = Target263BlockDataStorage.read(input);
+        check(read.root() == root && read.context().lookup().orElseThrow() == LOOKUP && !read.context().hasOutput(), "input root/lookup context changed");
+        check(((Target263TagValueInputAccess)read.context().input(root)).lms$reporter() == reporter, "input diagnostics replaced");
+        var output = TagValueOutput.createWithContext(reporter, LOOKUP);
+        var context = Target263BlockDataStorage.write(output);
+        var view = context.withOutput(root);
+        var originalAccess = (Target263TagValueOutputAccess)output;
+        var viewAccess = (Target263TagValueOutputAccess)view.output();
+        check(context.output() == output && view.output().buildResult() == root, "output mutable root identity changed");
+        check(viewAccess.lms$ops() == originalAccess.lms$ops() && viewAccess.lms$reporter() == reporter
+                && view.lookup().orElseThrow() == LOOKUP, "output ops/diagnostics/lookup replaced");
+        view.output().putInt("native-write", 23);
+        check(root.getIntOr("native-write", 0) == 23 && !output.buildResult().contains("native-write"), "output binding modified previous root");
+        check(((Target263TagValueOutputAccess)read.context().withOutput(root).output()).lms$reporter() == reporter, "input-to-output context lost diagnostics");
+        var noLookup = Target263BlockDataStorage.write(TagValueOutput.createWithoutContext(reporter));
+        check(noLookup.lookup().isEmpty() && noLookup.withOutput(root).output().buildResult() == root, "lookup-free output ops lost");
+        rejectStorage(() -> noLookup.input(root), "lookup context");
+        rejectStorage(() -> read.context().output(), "output context");
+        var foreign = new BlockDataContext<CompoundTag, HolderLookup.Provider>() {
+            public Optional<HolderLookup.Provider> lookup() { return Optional.of(LOOKUP); }
+            public boolean hasOutput() { return false; }
+            public BlockDataContext<CompoundTag, HolderLookup.Provider> withOutput(CompoundTag tag) { throw new AssertionError("foreign context executed"); }
+        };
+        rejectStorage(() -> Target263BlockDataStorage.require(foreign), "installed NeoForge26.3");
+        for (Class<?> type : List.of(ValueInput.class, ValueOutput.class)) {
+            Object unsupported = java.lang.reflect.Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
+                    (proxy, method, args) -> { throw new AssertionError("unsupported backend invoked: " + method); });
+            rejectStorage(() -> {
+                if (unsupported instanceof ValueInput value) Target263BlockDataStorage.read(value);
+                else Target263BlockDataStorage.write((ValueOutput)unsupported);
+            }, "backend");
+        }
+        System.out.println("PASS: native block storage preserves mutable roots, lookup/ops/reporter identity, immutable context rebinding and explicit backend/context failures");
+    }
+    private static void rejectStorage(Runnable action, String message) {
+        try { action.run(); } catch (IllegalStateException expected) {
+            check(expected.getMessage().contains(message), "wrong storage blocker: " + expected.getMessage()); return;
+        }
+        throw new AssertionError("unsupported storage context accepted");
+    }
     public static void run() throws Exception {
         verifyTargetLayout();
+        verifyStorageContext();
         var parent = fixture("fixture/SourceDataParent", BASE, false);
         var child = fixture("fixture/SourceDataChild", parent.name, true);
         var partial = fixture("fixture/SourceDataPartial", BASE, false);
@@ -147,6 +201,18 @@ public final class BlockDataFamilyCheck {
             var direct = new CompoundTag(); direct.putInt("network", 1012);
             var persisted = new CompoundTag(); persisted.putInt("persisted", 33); direct.put("ForgeData", persisted);
             nested = () -> {
+                var outerContext = Forge1192BlockDataBridge.context(entity);
+                check(!outerContext.hasOutput(), "native update unexpectedly inherited save output");
+                var directSave = new CompoundTag(); directSave.putString("opaque", "preserve");
+                typeFailure(type, entity, true);
+                try { Forge1192BlockDataBridge.saveLegacy(entity, directSave); throw new AssertionError("nested failure swallowed"); }
+                catch (IllegalStateException expected) { check(expected.getMessage().equals("source save failure"), "nested failure changed"); }
+                finally { typeFailure(type, entity, false); }
+                check(Forge1192BlockDataBridge.context(entity) == outerContext
+                        && Forge1192BlockDataBridge.currentLookup().orElseThrow() == LOOKUP, "nested failure did not restore outer context");
+                Forge1192BlockDataBridge.saveLegacy(entity, directSave);
+                check(directSave.getIntOr("connections", 0) == 37 && directSave.getStringOr("opaque", "").equals("preserve"), "direct source save root lost");
+                check(Forge1192BlockDataBridge.context(entity) == outerContext, "nested success did not restore outer context");
                 var components = net.minecraft.core.component.DataComponentMap.builder().set(net.minecraft.core.component.DataComponents.MAX_STACK_SIZE, 9).build();
                 partialEntity.setComponents(components);
                 ORDER.clear(); Forge1192BlockDataBridge.handleUpdateTagLegacy(partialEntity, direct);
@@ -169,6 +235,10 @@ public final class BlockDataFamilyCheck {
         try { new Forge1192LegacyClassTransformer().transform(unsupported.name.replace('/', '.'), bytes(unsupported)); throw new AssertionError("unsupported source-super handle accepted"); }
         catch (IllegalStateException expected) { check(expected.getMessage().contains("source-super block data callable reference"), "source-super handle error is not attributable"); }
         System.out.println("PASS: actual FML native save/load/initial update APIs, source inheritance/super order, unrelated absent utility types, NBT key/type/tag identity, exact lookup context, once-only capability persistence, source network data and failure-scope restoration");
+    }
+    private static void typeFailure(Class<?> type, Object receiver, boolean fail) {
+        try { type.getField("fail").setBoolean(receiver, fail); }
+        catch (ReflectiveOperationException error) { throw new AssertionError(error); }
     }
     private static ClassNode fixture(String name, String parent, boolean child) {
         var node = new ClassNode(); node.version = Opcodes.V17; node.access = Opcodes.ACC_PUBLIC; node.name = name; node.superName = parent;

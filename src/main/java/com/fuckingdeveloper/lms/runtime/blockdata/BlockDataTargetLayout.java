@@ -6,7 +6,7 @@ import java.util.Objects;
 import org.objectweb.asm.Type;
 
 /** Bounded callback ABI; semantic equivalence and native bridge implementation need separate proof. */
-public record BlockDataTargetLayout(String targetId, String baseOwner, Map<Operation, Callback> callbacks) {
+public record BlockDataTargetLayout(String targetId, String baseOwner, String bridgeOwner, Map<Operation, Callback> callbacks) {
     public enum Operation { LOAD, SAVE, UPDATE_TAG, HANDLE_UPDATE_TAG }
 
     public record Callback(String name, String argumentDescriptor, String returnDescriptor) {
@@ -23,6 +23,8 @@ public record BlockDataTargetLayout(String targetId, String baseOwner, Map<Opera
         if (targetId == null || targetId.isBlank()) throw new IllegalArgumentException("Empty target identity");
         if (baseOwner == null || !baseOwner.matches("[A-Za-z_$][A-Za-z0-9_$]*(/[A-Za-z_$][A-Za-z0-9_$]*)*"))
             throw new IllegalArgumentException("Invalid target base owner: " + baseOwner);
+        if (bridgeOwner == null || !bridgeOwner.matches("[A-Za-z_$][A-Za-z0-9_$]*(/[A-Za-z_$][A-Za-z0-9_$]*)*"))
+            throw new IllegalArgumentException("Invalid target bridge owner: " + bridgeOwner);
         var copy = new EnumMap<Operation,Callback>(Operation.class);
         copy.putAll(Objects.requireNonNull(callbacks));
         var methods = new java.util.HashSet<String>();

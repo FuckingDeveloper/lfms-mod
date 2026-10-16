@@ -43,11 +43,11 @@ public final class BlockDataExtractionCheck implements Opcodes {
                     "native" + operation.name(), "Lfixture/" + operation.name() + ";",
                     operation == Operation.UPDATE_TAG ? "Lfixture/Tag;" : "V"));
         }
-        var alternate = new BlockDataTargetLayout("synthetic-test-only", "fixture/NativeBase", callbacks);
+        var alternate = new BlockDataTargetLayout("synthetic-test-only", "fixture/NativeBase", "fixture/NativeBridge", callbacks);
         callbacks.clear();
         check(alternate.callbacks().size() == 4, "layout retains mutable caller map");
         reject(() -> alternate.callbacks().clear());
-        reject(() -> new BlockDataTargetLayout("missing", ROOT, callbacks));
+        reject(() -> new BlockDataTargetLayout("missing", ROOT, "fixture/NativeBridge", callbacks));
         reject(() -> new Callback("bad", "I", "V"));
         reject(() -> new Callback("bad", "Lfixture/Tag;;", "V"));
         callbacks.putAll(installed.callbacks());
@@ -55,13 +55,13 @@ public final class BlockDataExtractionCheck implements Opcodes {
         var save = Operation.SAVE;
         var update = Operation.UPDATE_TAG;
         callbacks.put(save, callbacks.get(load));
-        reject(() -> new BlockDataTargetLayout("duplicate", ROOT, callbacks));
+        reject(() -> new BlockDataTargetLayout("duplicate", ROOT, "fixture/NativeBridge", callbacks));
         callbacks.putAll(installed.callbacks());
         callbacks.put(load, new Callback("load", "Lfixture/Input;", "Lfixture/Tag;"));
-        reject(() -> new BlockDataTargetLayout("result", ROOT, callbacks));
+        reject(() -> new BlockDataTargetLayout("result", ROOT, "fixture/NativeBridge", callbacks));
         callbacks.putAll(installed.callbacks());
         callbacks.put(update, new Callback("update", "Lfixture/Input;", "V"));
-        reject(() -> new BlockDataTargetLayout("result", ROOT, callbacks));
+        reject(() -> new BlockDataTargetLayout("result", ROOT, "fixture/NativeBridge", callbacks));
         var evidence = new Forge1192BlockDataRewriter.Evidence() {
             public byte[] managedBytes(String owner) { return null; }
             public boolean subtype(ClassNode node, String ancestor) { return ROOT.equals(ancestor); }
@@ -77,10 +77,10 @@ public final class BlockDataExtractionCheck implements Opcodes {
             var callback = alternate.callback(operation);
             var wrapper = node.methods.stream().filter(m -> m.name.equals(callback.name()) && m.desc.equals(callback.descriptor())).findFirst().orElseThrow();
             check(java.util.Arrays.stream(wrapper.instructions.toArray()).anyMatch(insn -> insn instanceof MethodInsnNode call
-                    && call.desc.equals("(Lfixture/NativeBase;" + callback.descriptor().substring(1))), "wrapper ignored explicit receiver/descriptor");
+                    && call.owner.equals("fixture/NativeBridge") && call.desc.equals("(Lfixture/NativeBase;" + callback.descriptor().substring(1))), "wrapper ignored explicit receiver/descriptor");
         }
         check(node.methods.stream().flatMap(m -> java.util.Arrays.stream(m.instructions.toArray())).anyMatch(insn -> insn instanceof MethodInsnNode call
-                && call.name.equals("sourceInput") && call.desc.endsWith("Lfixture/LOAD;")), "source-super view ignored native input");
+                && call.owner.equals("fixture/NativeBridge") && call.name.equals("sourceInput") && call.desc.endsWith("Lfixture/LOAD;")), "source-super view ignored native input");
         var profile = new Forge1192Profile(alternate);
         check(profile.blockDataTarget().equals(alternate), "profile lost target layout");
         var transformer = profile.createTransformer("CLIENT");

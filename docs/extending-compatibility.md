@@ -38,7 +38,7 @@ pass position and callback semantics; extracting them does not add version suppo
 explicitly for this build. The source profile carries that immutable layout into
 its transformers. Source method recognition, aliases and super/default behavior
 remain in the source pass; native wrapper names, arguments and view return types
-come from the selected layout. The live target binding rejects a mismatched layout
+come from the selected layout, including the native binding bridge owner. The live target binding rejects a mismatched layout
 before creating a source bootstrap. Synthetic alternate-layout tests prove
 parameterization only, not another supported target.
 
@@ -67,9 +67,14 @@ unverified fallback to the closest target.
 The Forge transformer still owns many implementation helpers; the ordered pass
 composition is the first extraction boundary, not a completed decomposition into
 176 independent subsystems. Many source bridges and their admission implementation
-still use native types. In particular, `Forge1192BlockDataBridge` still implements
-native ValueInput/ValueOutput and registry-context handling; isolating the callback
-layout does not make that implementation target-independent. Extract another semantic contract only when its tested
+still use native host/NBT types. Block storage now separates the generic
+`BlockDataContext<T,L>` handle, `Target263BlockDataStorage` (native backend,
+lookup/ops/reporter and view construction), and `Target263Forge1192BlockDataBridge`
+(the explicit native/source binding). `Forge1192BlockDataBridge` retains callback
+frames, Forge keys/capabilities and the existing persistent-key projection. It no
+longer imports native storage APIs or their mixin accessors. Entity/NBT and
+persistent-key projection remain current source/target coupling; this is not an
+arbitrary-version persistence engine. Extract another semantic contract only when its tested
 behavior justifies it. Fluids, source/native energy and rendering retain their
 previously documented semantic gaps.
 

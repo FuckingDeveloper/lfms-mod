@@ -54,3 +54,20 @@ layout before source-bootstrap creation. Installed-build convenience constructor
 MAY select the explicitly installed layout; they MUST NOT infer another target
 or advertise support from descriptor parameterization alone. Runtime storage and
 registry-context adaptation require separate native verification.
+
+## Block-data storage contexts
+
+Native storage backend access and native input/output view construction MUST live
+in the target adapter. The target-independent context contract MUST preserve
+lookup identity, output availability and exact mutable-root binding, retaining
+target serialization ops and diagnostics. Unsupported backends and missing
+required contexts MUST fail explicitly. The target layout MUST name the native
+binding bridge; generated wrappers and source-super views MUST use that owner.
+
+Source callback discovery, nested frame restoration, Forge data/capability
+projection and source-super/default dispatch MUST remain source-owned. Native
+input boundaries MUST retain root-copy semantics; direct source calls and output
+views MUST retain supplied root identity. Context extraction MUST NOT change
+callback timing or registry-context precedence. Native target/source binding
+facades MAY compose these operations explicitly; a layout/context match alone
+MUST NOT imply another supported target or whole-mod compatibility.

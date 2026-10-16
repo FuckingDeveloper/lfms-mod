@@ -1,6 +1,7 @@
 package com.fuckingdeveloper.lms.profile.forge1192.runtime.block;
 
-import com.fuckingdeveloper.lms.target.neoforge263.Target263DataComponentBindingBridge;
+import com.fuckingdeveloper.lms.runtime.blockdata.BlockDataContext;
+import com.fuckingdeveloper.lms.target.InstalledTargetAdapters;
 
 import com.fuckingdeveloper.lms.mixin.*;
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyBlockCapabilityCarrier;
@@ -8,10 +9,7 @@ import java.lang.invoke.*;
 import java.util.*;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.*;
-import net.minecraft.resources.RegistryOps;
-import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.storage.*;
 
 /** Source callbacks retain their order; native boundaries supply data and context. */
 public final class Forge1192BlockDataBridge {
@@ -38,17 +36,17 @@ public final class Forge1192BlockDataBridge {
         }
     };
     private static final class Frame {
-        final BlockEntity entity; final HolderLookup.Provider lookup; final TagValueOutput output; final ProblemReporter reporter;
+        final BlockEntity entity; final BlockDataContext<CompoundTag, HolderLookup.Provider> context;
         final IdentityHashMap<CompoundTag, SaveView> saveViews = new IdentityHashMap<>();
-        Frame(BlockEntity entity, HolderLookup.Provider lookup, TagValueOutput output, ProblemReporter reporter) {
-            this.entity = entity; this.lookup = lookup; this.output = output; this.reporter = reporter;
+        Frame(BlockEntity entity, BlockDataContext<CompoundTag, HolderLookup.Provider> context) {
+            this.entity = entity; this.context = Objects.requireNonNull(context);
         }
     }
     private record SaveView(Tag preservedNeoData, boolean hasPersistentData) {}
     private static final ThreadLocal<Frame> CURRENT = new ThreadLocal<>();
     public static boolean sourceCallbackActive(BlockEntity entity) { var frame = CURRENT.get(); return frame != null && frame.entity == entity; }
     public static boolean dataContextActive() { return CURRENT.get() != null; }
-    public static Optional<HolderLookup.Provider> currentLookup() { var frame = CURRENT.get(); return frame == null ? Optional.empty() : Optional.ofNullable(frame.lookup); }
+    public static Optional<HolderLookup.Provider> currentLookup() { var frame = CURRENT.get(); return frame == null ? Optional.empty() : frame.context.lookup(); }
 
     private static Object invoke(BlockEntity entity, Operation operation, CompoundTag tag, Frame frame) {
         MethodHandle callback = CALLBACKS.get(entity.getClass()).get(operation);
@@ -61,84 +59,57 @@ public final class Forge1192BlockDataBridge {
         catch (Throwable failure) { throw new IllegalStateException("Source block data callback failed: " + entity.getClass().getName() + "#" + operation.method, failure); }
         finally { if (previous == null) CURRENT.remove(); else CURRENT.set(previous); }
     }
-    private static Target263TagValueInputAccess inputAccess(ValueInput input) {
-        if (!(input instanceof Target263TagValueInputAccess access))
-            throw new IllegalStateException("Source block data needs the pinned native TagValueInput backend: " + input.getClass().getName());
-        return access;
+    /** Native bindings supply roots and scoped storage handles; source callbacks remain synchronous. */
+    public static void load(BlockEntity entity, CompoundTag tag, BlockDataContext<CompoundTag, HolderLookup.Provider> context) {
+        invoke(entity, Operation.LOAD, Objects.requireNonNull(tag), new Frame(entity, context));
     }
-    private static Target263TagValueOutputAccess outputAccess(TagValueOutput output) {
-        if (!(output instanceof Target263TagValueOutputAccess access)) throw new IllegalStateException("Native block output context accessor was not applied");
-        return access;
+    public static void save(BlockEntity entity, CompoundTag tag, BlockDataContext<CompoundTag, HolderLookup.Provider> context) {
+        invoke(entity, Operation.SAVE, Objects.requireNonNull(tag), new Frame(entity, context));
     }
-    private static HolderLookup.Provider outputLookup(Target263TagValueOutputAccess output) {
-        return output.lms$ops() instanceof RegistryOps<?> ops && ops.lookupProvider instanceof RegistryOps.HolderLookupAdapter adapter ? adapter.lookupProvider : null;
+    public static CompoundTag updateTag(BlockEntity entity, BlockDataContext<CompoundTag, HolderLookup.Provider> context) {
+        return (CompoundTag)invoke(entity, Operation.UPDATE, null, new Frame(entity, context));
     }
-    public static void load(BlockEntity entity, ValueInput input) {
-        var access = inputAccess(input);
-        com.fuckingdeveloper.lms.target.neoforge263.render.Target263ModelDataTrace.log(entity.getBlockPos(), "native-load", access.lms$root());
-        invoke(entity, Operation.LOAD, access.lms$root().copy(), new Frame(entity, input.lookup(), null, access.lms$reporter()));
+    public static void handleUpdateTag(BlockEntity entity, CompoundTag tag, BlockDataContext<CompoundTag, HolderLookup.Provider> context) {
+        invoke(entity, Operation.HANDLE, Objects.requireNonNull(tag), new Frame(entity, context));
     }
-    public static void save(BlockEntity entity, ValueOutput output) {
-        if (!(output instanceof TagValueOutput tagged)) throw new IllegalStateException("Unsupported source block output backend: " + output.getClass().getName());
-        var access = outputAccess(tagged);
-        invoke(entity, Operation.SAVE, tagged.buildResult(), new Frame(entity, outputLookup(access), tagged, access.lms$reporter()));
-        com.fuckingdeveloper.lms.target.neoforge263.render.Target263ModelDataTrace.log(entity.getBlockPos(), "native-save", tagged.buildResult());
-    }
-    public static CompoundTag updateTag(BlockEntity entity, HolderLookup.Provider lookup) {
-        var tag = (CompoundTag)invoke(entity, Operation.UPDATE, null, new Frame(entity, Objects.requireNonNull(lookup), null, ProblemReporter.DISCARDING));
-        com.fuckingdeveloper.lms.target.neoforge263.render.Target263ModelDataTrace.log(entity.getBlockPos(), "server-update-tag", tag);
-        return tag;
-    }
-    public static void handleUpdateTag(BlockEntity entity, ValueInput input) {
-        var access = inputAccess(input);
-        com.fuckingdeveloper.lms.target.neoforge263.render.Target263ModelDataTrace.log(entity.getBlockPos(), "client-handle-tag", access.lms$root());
-        invoke(entity, Operation.HANDLE, access.lms$root().copy(), new Frame(entity, input.lookup(), null, access.lms$reporter()));
-    }
+    public static BlockDataContext<CompoundTag, HolderLookup.Provider> context(BlockEntity entity) { return frame(entity).context; }
     private static Frame frame(BlockEntity entity) {
         Frame current = CURRENT.get();
         if (current != null && current.entity == entity) return current;
-        if (entity.getLevel() != null) return new Frame(entity, entity.getLevel().registryAccess(), null, ProblemReporter.DISCARDING);
-        return new Frame(entity, Target263DataComponentBindingBridge.currentRegistries().orElse(null), null, ProblemReporter.DISCARDING);
-    }
-    private static HolderLookup.Provider requireLookup(Frame frame) {
-        if (frame.lookup == null) throw new IllegalStateException("No native lookup context for source block data: " + frame.entity.getClass().getName());
-        return frame.lookup;
+        return new Frame(entity, InstalledTargetAdapters.blockDataContext(entity));
     }
 
     /** Direct source calls retain the supplied CompoundTag instead of recopying it. */
     public static void loadLegacy(BlockEntity entity, CompoundTag tag) { invoke(entity, Operation.LOAD, Objects.requireNonNull(tag), frame(entity)); }
     public static void saveLegacy(BlockEntity entity, CompoundTag tag) {
-        Frame source = frame(entity); TagValueOutput output;
-        if (source.output != null) {
-            var access = outputAccess(source.output); output = Target263TagValueOutputAccess.lms$withRoot(access.lms$reporter(), access.lms$ops(), tag);
-        } else {
-            var original = TagValueOutput.createWithContext(source.reporter, requireLookup(source));
-            var access = outputAccess(original); output = Target263TagValueOutputAccess.lms$withRoot(access.lms$reporter(), access.lms$ops(), tag);
-        }
-        invoke(entity, Operation.SAVE, tag, new Frame(entity, source.lookup, output, source.reporter));
+        Frame source = frame(entity);
+        invoke(entity, Operation.SAVE, tag, new Frame(entity, source.context.withOutput(tag)));
     }
-    public static CompoundTag updateTagLegacy(BlockEntity entity) { Frame source = frame(entity); return updateTag(entity, requireLookup(source)); }
+    public static CompoundTag updateTagLegacy(BlockEntity entity) {
+        Frame source = frame(entity);
+        var lookup = source.context.lookup().orElseThrow(() -> new IllegalStateException("No native lookup context for source block data: " + entity.getClass().getName()));
+        return updateTag(entity, InstalledTargetAdapters.blockDataLookup(lookup));
+    }
     public static void handleUpdateTagLegacy(BlockEntity entity, CompoundTag tag) { invoke(entity, Operation.HANDLE, Objects.requireNonNull(tag), frame(entity)); }
 
     /** Native source-super load view projects the verified persistent-data key. */
-    public static ValueInput sourceInput(BlockEntity entity, CompoundTag tag) {
-        Frame source = frame(entity); var projected = new CompoundTag();
+    public static CompoundTag sourceInputTag(CompoundTag tag) {
+        var projected = new CompoundTag();
         for (var entry : tag.entrySet()) projected.put(entry.getKey(), entry.getValue());
         projected.remove("NeoForgeData"); // An opaque source key is not native persistent data.
         if (tag.contains("ForgeData")) projected.put("NeoForgeData", tag.get("ForgeData"));
-        return TagValueInput.create(source.reporter, requireLookup(source), projected);
+        return projected;
     }
     public static void finishSourceLoad(BlockEntity entity, CompoundTag tag) {
         if (tag.contains("ForgeData")) ((LegacyBlockPersistentDataCarrier)entity).lms$sourcePersistentData(tag.getCompoundOrEmpty("ForgeData"));
         if (tag.contains("ForgeCaps")) ((LegacyBlockCapabilityCarrier)entity).lms$sourceCapabilities().deserialize(tag.getCompoundOrEmpty("ForgeCaps"));
     }
-    public static ValueOutput sourceOutput(BlockEntity entity, CompoundTag tag) {
+    public static BlockDataContext<CompoundTag, HolderLookup.Provider> prepareSourceOutput(BlockEntity entity, CompoundTag tag) {
         Frame source = frame(entity);
         if (CURRENT.get() != source) throw new IllegalStateException("Source-super save lacks its callback output context");
-        if (source.output == null) throw new IllegalStateException("Source-super save has no native output context");
+        if (!source.context.hasOutput()) throw new IllegalStateException("Source-super save has no native output context");
         source.saveViews.put(tag, new SaveView(tag.get("NeoForgeData"), ((LegacyBlockPersistentDataCarrier)entity).lms$sourcePersistentData() != null));
-        var access = outputAccess(source.output);
-        return Target263TagValueOutputAccess.lms$withRoot(access.lms$reporter(), access.lms$ops(), tag);
+        return source.context;
     }
     public static void finishSourceSave(BlockEntity entity, CompoundTag tag) {
         Frame source = frame(entity);

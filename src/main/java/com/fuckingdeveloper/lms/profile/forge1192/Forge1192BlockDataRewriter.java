@@ -108,7 +108,7 @@ final class Forge1192BlockDataRewriter {
                     target.callback(member.operation()).name(), target.callback(member.operation()).descriptor(), null, null);
             wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
             wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
-            wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, operation,
+            wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, target.bridgeOwner(), operation,
                     "(L" + target.baseOwner() + ";" + target.callback(member.operation()).descriptor().substring(1), false));
             wrapper.instructions.add(new org.objectweb.asm.tree.InsnNode(member.alias().equals("lms$sourceUpdateTag") ? org.objectweb.asm.Opcodes.ARETURN : org.objectweb.asm.Opcodes.RETURN));
             wrappers.add(wrapper); rewrites++;
@@ -171,7 +171,7 @@ final class Forge1192BlockDataRewriter {
         code.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
         code.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
         boolean save = member.alias().equals("lms$sourceSave");
-        code.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, save ? "sourceOutput" : "sourceInput",
+        code.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, target.bridgeOwner(), save ? "sourceOutput" : "sourceInput",
                 "(L" + target.baseOwner() + ";Lnet/minecraft/nbt/CompoundTag;)" + target.callback(member.operation()).argumentDescriptor(), false));
         code.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESPECIAL, target.baseOwner(), target.callback(member.operation()).name(), target.callback(member.operation()).descriptor(), false));
         if (!member.alias().equals("lms$sourceHandleUpdateTag")) {
