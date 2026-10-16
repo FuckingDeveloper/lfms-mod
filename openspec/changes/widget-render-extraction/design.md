@@ -69,3 +69,11 @@ lookup/list/namespaces, texture metadata/cache identity and immutable old pack
 snapshots after rediscovery. Native-only resource paths are not served by this
 pack. Runtime65 starts with widget trace; actual hovered checkbox visual
 acceptance remains pending. No source fixture JAR was changed.
+
+Runtime65 visual acceptance: the human confirmed the hover artifact is gone and
+icons/highlighting look correct. Widget trace confirms both normal and hovered
+checkbox quads now bind lms:legacy/forge1192/gui/checkbox.png with the original
+64x64 UV layout. No ERROR/FATAL/causal exception was found in the runtime65 log at
+acceptance. This closes the reported hover/missing-sheet failure. Broader custom
+screen rendering and unproven GL operations remain separate compatibility gaps.
+No implementation changed after batch-check-24; this is runtime evidence only.
