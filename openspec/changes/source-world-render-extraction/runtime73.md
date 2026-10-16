@@ -72,3 +72,20 @@ by existing focused tests, without inferring live interoperability from source
 EU transmission. The reference artifact has no custom humanoid armor-model
 callback, so that callback is not runtime-covered by its accepted worn textures.
 Custom dispenser/enchantment/dye paths remain distinct verification tasks.
+
+## Human comparator-panel clarification
+
+Human confirms access-control settings survive reopening, and item-filter mode
+highlights slots. This does not yet establish filter contents/transfer behavior.
+The reported comparator reset concerns the selected direction. Immutable source
+ComparatorComponent initializes selected=6; changeSide only changes that GUI
+field and resets its scroll position. It does not send a tile event or persist
+selection. Source persistent output rules instead reside in ComparatorManager's
+comparator_data lists, keyed per side. Do not change the original mod's ephemeral
+panel selection into a persisted block setting.
+
+At this checkpoint native block data contains handler.side49/access3843 but no
+comparator_data. No runtime ERROR/FATAL/Caused-by is observed. Human acceptance
+for adding the “Буфер энергии” source to a chosen side, reopening and selecting
+that same side again is pending; absence of comparator_data alone is not a
+network/persistence defect when only the selected direction was changed.

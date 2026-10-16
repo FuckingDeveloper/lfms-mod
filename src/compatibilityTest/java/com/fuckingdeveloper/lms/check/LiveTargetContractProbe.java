@@ -176,6 +176,7 @@ public final class LiveTargetContractProbe {
         ContainerPersistenceFamilyCheck.run();
         ContainerUsersFamilyCheck.run();
         GameRulesFamilyCheck.run();
+        GuiPointerFamilyCheck.run();
         NativeConfigFamilyCheck.run();
         SelectionListFamilyCheck.run();
         WidgetPointerFamilyCheck.run();

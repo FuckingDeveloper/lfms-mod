@@ -278,6 +278,12 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192WidgetPointerRewriter.ROOT,name,descriptor).orElse(null);}
             public ClassNode managed(String owner){return readManagedClass(owner);}
         });
+        rewrites += Forge1192GuiPointerRewriter.rewrite(node,new Forge1192GuiPointerRewriter.Evidence(){
+            public boolean listener(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192GuiPointerRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192GuiPointerRewriter.ROOT);}
+            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192GuiPointerRewriter.ROOT,name,descriptor).orElse(null);}
+            public ClassNode managed(String owner){return readManagedClass(owner);}
+            public boolean nativeMember(String owner,String name,String descriptor){return targetGuiPointerMember(owner,name,descriptor);}
+        });
         rewrites += Forge1192GuiScrollRewriter.rewrite(node,new Forge1192GuiScrollRewriter.Evidence(){
             public boolean listener(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192GuiScrollRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192GuiScrollRewriter.ROOT);}
             public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192GuiScrollRewriter.ROOT,name,descriptor).orElse(null);}
@@ -8376,6 +8382,24 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         var evidence = java.util.Optional.ofNullable(bytes);
         var previous = hierarchyEvidence.putIfAbsent(internalName, evidence);
         return (previous == null ? evidence : previous).orElse(null);
+    }
+
+    private final java.util.Map<String,Boolean> targetGuiPointerMembers = new java.util.concurrent.ConcurrentHashMap<>();
+    private boolean targetGuiPointerMember(String owner,String name,String descriptor) {
+        String key=owner+"#"+name+descriptor;
+        var known=targetGuiPointerMembers.get(key);if(known!=null)return known;
+        var pending=new java.util.ArrayDeque<String>();var seen=new java.util.HashSet<String>();pending.add(owner);
+        boolean found=false;
+        while(!pending.isEmpty()) {
+            String current=pending.removeFirst();if(!seen.add(current))continue;
+            try {
+                byte[] bytes=targetAbiBytes(current);if(bytes==null)continue;
+                var type=new ClassNode();new ClassReader(bytes).accept(type,ClassReader.SKIP_CODE|ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);
+                if(type.methods.stream().anyMatch(m->m.name.equals(name)&&m.desc.equals(descriptor)&&(m.access&(org.objectweb.asm.Opcodes.ACC_STATIC|org.objectweb.asm.Opcodes.ACC_PRIVATE))==0)){found=true;break;}
+                if(type.superName!=null)pending.add(type.superName);pending.addAll(type.interfaces);
+            }catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}
+        }
+        targetGuiPointerMembers.putIfAbsent(key,found);return found;
     }
 
     /** Exact target declarations, independently cached from source/managed ancestry. */
