@@ -23,6 +23,7 @@
     "Target263SingleRecipeResultAccess"
   ],
   "client": [
+    "Target263SearchTooltipContextMixin",
     "Target263GuiLayerAccess",
     "Target263SourceScreenBackgroundMixin",
     "Target263ArmorExtractionMixin",

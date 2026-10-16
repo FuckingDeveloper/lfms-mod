@@ -87,3 +87,12 @@ or deliver child focus callbacks; source base setSelected MUST NOT implicitly sc
 Explicit source selection callbacks and scrolling retain their dispatch. Repeated
 explicit selections MUST NOT be deduplicated by equality. Native-only list behavior
 MUST remain unchanged.
+
+### Logical context of client search tooltips
+
+Source logical-side queries during verified client search tooltip evaluation MUST
+retain logical CLIENT even on native background workers with inherited server
+thread groups. Preserve actual nullable player/context/flag arguments, once-only
+callback delivery and exceptions. Native FML side queries and unrelated source
+operations MUST remain unchanged; nested source context MUST restore on all exits.
+This does not establish general callback thread safety or authorize fake players.
