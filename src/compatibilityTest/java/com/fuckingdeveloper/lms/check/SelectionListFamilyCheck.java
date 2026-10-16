@@ -17,7 +17,37 @@ final class SelectionListFamilyCheck {
         public void lms$render(PoseStack pose,int index,int top,int left,int width,int height,int x,int y,boolean hover,float partial){renders++;location=new int[]{index,top,left,width,height,x,y,hover?1:0};}
         public boolean lms$mouseClicked(double x,double y,int button){clicks++;lastButton=button;return false;}
     }
+    static final class FocusList extends Forge1192ContainerSelectionList<FocusRow> {
+        int changes;
+        FocusList(){super(null,320,240,30,180,20);}
+        @Override public void setSelected(FocusRow value){super.setSelected(value);changes++;}
+    }
+    static final class FocusRow extends Forge1192ContainerSelectionList.Entry<FocusRow> {
+        final FocusList owner;int clicks,focusCallbacks;
+        FocusRow(FocusList owner){this.owner=owner;}
+        public List<? extends GuiEventListener> children(){return List.of();}
+        public List<? extends NarratableEntry> narratables(){return List.of();}
+        public void lms$render(PoseStack p,int i,int t,int l,int w,int h,int x,int y,boolean hover,float partial){}
+        @Override public boolean lms$mouseClicked(double x,double y,int button){clicks++;owner.setSelected(this);return true;}
+        @Override public void setFocused(boolean value){focusCallbacks++;super.setFocused(value);}
+    }
+    private static void focusOwnership(){
+        var list=new FocusList();var first=new FocusRow(list);var second=new FocusRow(list);
+        list.lms$children().add(first);list.lms$children().add(second);
+        // Native dispatch: source row selects, then its source list focuses the row.
+        // Target list focus must not synthesize a second selection callback/pop.
+        var click=new MouseButtonEvent(100,38,new MouseButtonInfo(1,0));
+        check(list.mouseClicked(click,false),"source row activation not consumed");
+        check(first.clicks==1&&list.changes==1&&list.getSelected()==first&&list.getFocused()==first,"focus duplicated source selection notification");
+        check(list.mouseClicked(click,true)&&list.changes==2,"explicit repeated selection was silently deduplicated");
+        list.setFocused(second);check(list.getFocused()==second&&list.getSelected()==first&&list.changes==2,"focus changed independent selection");
+        list.setFocused(null);check(list.getFocused()==null&&list.getSelected()==first&&list.changes==2,"null focus cleared source selection");
+        list.setSelected(second);check(list.getSelected()==second&&list.getFocused()==null&&list.changes==3,"source selection mutated focus or native storage differs");
+        list.setSelected(null);check(list.getSelected()==null&&list.changes==4,"explicit selection clear lost");
+        check(first.focusCallbacks==0&&second.focusCallbacks==0,"source list focus synthesized child callbacks");
+    }
     static void run() throws Exception {
+        focusOwnership();
         scrollDispatch();
         sourceHandlesAndHiding();
         var list=new Forge1192ContainerSelectionList<Row>(null,320,240,30,180,20){};

@@ -151,3 +151,13 @@ on2026-10-16: preserving test-world changes is not critical. Runtime61 neverthel
 exited normally before shutdown; MCP confirmed serverPresent=false and logs recorded
 player/world saving. This supersedes repeated Save/Quit approval questions for this
 same test-world iteration, not permission to alter unrelated worlds.
+
+Runtime62 human acceptance: IC2 audio editing/save/reopen succeeds; actual
+`run/config/ic2c/ic2.cfg` contains `master=0.6`. Enum workflow still fails:
+custom-background remains RAW_IRON. Enabled trace shows a single pushed dropdown
+at depth1 followed by two consecutive source selection-list change callbacks,
+first restoring ConfigScreen at depth0, then closing it to null. Pinned target
+list focus synthesizes another virtual setSelected; source focus does not.
+The general source focus/selection setter correction and regression cases are
+specified in `../source-selection-list-views/design.md`. Runtime63 acceptance
+remains pending; no successful enum persistence is claimed yet.

@@ -78,3 +78,12 @@ MUST translate named source/target button identity in both directions; raw SDL
 button values MUST NOT leak into source callbacks. Unproven callable forms MUST
 fail explicitly. Config editor functionality still requires real save/reopen
 acceptance independently of callback linkage.
+
+### Source list focus and selection
+
+Adapted source lists MUST retain independent focus and selection on the actual
+native storage. Source base setFocused MUST NOT implicitly select, clear selection
+or deliver child focus callbacks; source base setSelected MUST NOT implicitly scroll.
+Explicit source selection callbacks and scrolling retain their dispatch. Repeated
+explicit selections MUST NOT be deduplicated by equality. Native-only list behavior
+MUST remain unchanged.

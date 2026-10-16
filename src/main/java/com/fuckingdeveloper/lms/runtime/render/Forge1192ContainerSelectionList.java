@@ -15,6 +15,16 @@ public abstract class Forge1192ContainerSelectionList<E extends Forge1192Contain
     private boolean background=true,separators=true,selection=true,header,scrolling;
     private GuiGraphicsExtractor extracting;
     private static final VarHandle CHILDREN=childrenField();
+    private static final VarHandle FOCUS=stateField(AbstractContainerWidget.class,"focused",net.minecraft.client.gui.components.events.GuiEventListener.class);
+    private static final VarHandle SELECTED=stateField(AbstractSelectionList.class,"selected",AbstractSelectionList.Entry.class);
+    private static VarHandle stateField(Class<?> owner,String name,Class<?> type){
+        try{return MethodHandles.privateLookupIn(owner,MethodHandles.lookup()).findVarHandle(owner,name,type);}
+        catch(ReflectiveOperationException failure){throw new ExceptionInInitializerError(failure);}
+    }
+    /** Source list focus is independent of selection; target list adds selection callbacks. */
+    @Override public void setFocused(net.minecraft.client.gui.components.events.GuiEventListener value){FOCUS.set(this,value);}
+    /** Source base setter does not scroll or consult native keyboard/clipping state. */
+    @Override public void setSelected(E value){SELECTED.set(this,value);}
     private static VarHandle childrenField(){try{return MethodHandles.privateLookupIn(AbstractSelectionList.class,MethodHandles.lookup()).findVarHandle(AbstractSelectionList.class,"children",List.class);}catch(ReflectiveOperationException failure){throw new ExceptionInInitializerError(failure);}}
     public Forge1192ContainerSelectionList(Minecraft minecraft,int width,int screenHeight,int top,int bottom,int itemHeight){
         super(minecraft,width,bottom-top,top,itemHeight);
