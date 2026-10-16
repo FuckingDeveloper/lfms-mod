@@ -83,8 +83,8 @@ public abstract class Forge1192ContainerSelectionList<E extends Forge1192Contain
     public void lms$renderBackground(PoseStack pose){}
     public void lms$clickedHeader(int x,int y){}
     public void lms$updateScrollingState(double x,double y,int button){scrolling=button==0&&x>=lms$getScrollbarPosition()&&x<lms$getScrollbarPosition()+6;}
-    private static MouseButtonEvent event(double x,double y,int button){return new MouseButtonEvent(x,y,new MouseButtonInfo(button,0));}
-    @Override public boolean mouseClicked(MouseButtonEvent event,boolean twice){sync();return lms$mouseClicked(event.x(),event.y(),event.button());}
+    private static MouseButtonEvent event(double x,double y,int button){return new MouseButtonEvent(x,y,new MouseButtonInfo(Forge1192KeyboardBridge.mouseCode(button),0));}
+    @Override public boolean mouseClicked(MouseButtonEvent event,boolean twice){sync();return lms$mouseClicked(event.x(),event.y(),Forge1192KeyboardBridge.sourceValue(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button())));}
     public boolean lms$mouseClicked(double x,double y,int button){
         lms$updateScrollingState(x,y,button);if(!isMouseOver(x,y))return false;
         @SuppressWarnings("unchecked") E entry=(E)lms$getEntryAtPosition(x,y);
@@ -92,9 +92,9 @@ public abstract class Forge1192ContainerSelectionList<E extends Forge1192Contain
         else if(button==0){lms$clickedHeader((int)(x-getRowLeft()),(int)(y-lms$y0)+ (int)scrollAmount()-4);return true;}
         return scrolling;
     }
-    @Override public boolean mouseReleased(MouseButtonEvent event){return lms$mouseReleased(event.x(),event.y(),event.button());}
+    @Override public boolean mouseReleased(MouseButtonEvent event){return lms$mouseReleased(event.x(),event.y(),Forge1192KeyboardBridge.sourceValue(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button())));}
     public boolean lms$mouseReleased(double x,double y,int button){var focused=getFocused();if(focused!=null)focused.lms$mouseReleased(x,y,button);return false;}
-    @Override public boolean mouseDragged(MouseButtonEvent event,double dx,double dy){return lms$mouseDragged(event.x(),event.y(),event.button(),dx,dy);}
+    @Override public boolean mouseDragged(MouseButtonEvent event,double dx,double dy){return lms$mouseDragged(event.x(),event.y(),Forge1192KeyboardBridge.sourceValue(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button())),dx,dy);}
     public boolean lms$mouseDragged(double x,double y,int button,double dx,double dy){
         var focused=getFocused();if(focused!=null&&isDragging()&&button==0&&focused.lms$mouseDragged(x,y,button,dx,dy))return true;
         if(!scrolling||button!=0)return false;
@@ -112,11 +112,11 @@ public abstract class Forge1192ContainerSelectionList<E extends Forge1192Contain
             int index=list.children().indexOf(this);
             Forge1192TooltipGuiBridge.extractGui(graphics,Forge1192TooltipGuiBridge.Phase.WIDGET,()->lms$render(new PoseStack(),index,getY(),getX(),getWidth(),getHeight(),x,y,hovered,partial));
         }
-        @Override public boolean mouseClicked(MouseButtonEvent event,boolean twice){return lms$mouseClicked(event.x(),event.y(),event.button());}
+        @Override public boolean mouseClicked(MouseButtonEvent event,boolean twice){return lms$mouseClicked(event.x(),event.y(),Forge1192KeyboardBridge.sourceValue(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button())));}
         public boolean lms$mouseClicked(double x,double y,int button){return super.mouseClicked(event(x,y,button),false);}
-        @Override public boolean mouseReleased(MouseButtonEvent event){return lms$mouseReleased(event.x(),event.y(),event.button());}
+        @Override public boolean mouseReleased(MouseButtonEvent event){return lms$mouseReleased(event.x(),event.y(),Forge1192KeyboardBridge.sourceValue(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button())));}
         public boolean lms$mouseReleased(double x,double y,int button){return super.mouseReleased(event(x,y,button));}
-        @Override public boolean mouseDragged(MouseButtonEvent event,double dx,double dy){return lms$mouseDragged(event.x(),event.y(),event.button(),dx,dy);}
+        @Override public boolean mouseDragged(MouseButtonEvent event,double dx,double dy){return lms$mouseDragged(event.x(),event.y(),Forge1192KeyboardBridge.sourceValue(com.mojang.blaze3d.platform.InputConstants.Type.MOUSE.getOrCreate(event.button())),dx,dy);}
         public boolean lms$mouseDragged(double x,double y,int button,double dx,double dy){return super.mouseDragged(event(x,y,button),dx,dy);}
         @Override public boolean mouseScrolled(double x,double y,double dx,double dy){return lms$mouseScrolled(x,y,Forge1192GuiScrollBridge.verticalAmount(dx,dy));}
         public boolean lms$mouseScrolled(double x,double y,double amount){return super.mouseScrolled(x,y,0,amount);}

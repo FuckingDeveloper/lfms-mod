@@ -67,3 +67,14 @@ retain the original source declaration evidence. Reverse projections MUST be
 indexed; ambiguous source aliases MUST NOT select target ancestry as a shortcut.
 This reverse lookup applies to namespace projection, not semantic replacement
 shims whose target hierarchy is deliberately implemented by LMS.
+
+### Source widget pointer hooks
+
+Verified source AbstractWidget coordinate-only onClick/onRelease/onDrag overrides
+MUST participate in the native pointer lifecycle with once-only coordinates and
+drag deltas. Superclass dispatch MUST remain special. Selection MUST use source
+ancestry/member identity, not fixture names. Native list/entry pointer boundaries
+MUST translate named source/target button identity in both directions; raw SDL
+button values MUST NOT leak into source callbacks. Unproven callable forms MUST
+fail explicitly. Config editor functionality still requires real save/reopen
+acceptance independently of callback linkage.

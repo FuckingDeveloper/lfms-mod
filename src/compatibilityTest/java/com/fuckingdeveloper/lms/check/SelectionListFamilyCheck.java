@@ -11,11 +11,11 @@ import net.minecraft.client.input.*;
 
 final class SelectionListFamilyCheck {
     static final class Row extends Forge1192ContainerSelectionList.Entry<Row> {
-        int renders,clicks;int[] location;
+        int renders,clicks,lastButton;int[] location;
         public List<? extends GuiEventListener> children(){return List.of();}
         public List<? extends NarratableEntry> narratables(){return List.of();}
         public void lms$render(PoseStack pose,int index,int top,int left,int width,int height,int x,int y,boolean hover,float partial){renders++;location=new int[]{index,top,left,width,height,x,y,hover?1:0};}
-        public boolean lms$mouseClicked(double x,double y,int button){clicks++;return false;}
+        public boolean lms$mouseClicked(double x,double y,int button){clicks++;lastButton=button;return false;}
     }
     static void run() throws Exception {
         scrollDispatch();
@@ -27,7 +27,7 @@ final class SelectionListFamilyCheck {
         list.lms$renderList(new PoseStack(),100,38,.5F);
         check(first.renders==1&&second.renders==1&&Arrays.equals(first.location,new int[]{0,34,52,220,16,100,38,1}),"row callback coordinates/order/hover changed");
         check(list.lms$getEntryAtPosition(100,38)==first&&list.lms$getEntryAtPosition(100,58)==second,"source hit testing differs from row layout");
-        list.mouseClicked(new MouseButtonEvent(100,38,new MouseButtonInfo(0,0)),false);check(first.clicks==1&&second.clicks==0,"native pointer dispatch lost/duplicated source callback");
+        list.mouseClicked(new MouseButtonEvent(100,38,new MouseButtonInfo(1,0)),false);check(first.clicks==1&&first.lastButton==0&&second.clicks==0,"native pointer dispatch lost/duplicated source callback");
         list.lms$children().removeFirst();check(list.children().size()==1&&list.children().getFirst()==second,"source mutation did not reach native tracked list");
         for(int i=0;i<20;i++)list.lms$children().add(new Row());
         list.lms$setScrollAmount(9999);check(list.lms$getScrollAmount()==list.lms$getMaxScroll(),"scroll did not clamp using source content height");

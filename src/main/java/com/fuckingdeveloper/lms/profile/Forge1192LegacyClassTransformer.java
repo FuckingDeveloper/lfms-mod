@@ -272,6 +272,11 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             public String fieldOwner(String owner,String name,String desc){return sourceFieldOwner(node.name,fieldHierarchy(node),owner,name,desc,new java.util.HashSet<>());}
             public String field(String owner,String name,String desc){return SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner,name,desc).orElse(null);}
         });
+        rewrites += Forge1192WidgetPointerRewriter.rewrite(node,new Forge1192WidgetPointerRewriter.Evidence(){
+            public boolean widget(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192WidgetPointerRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192WidgetPointerRewriter.ROOT);}
+            public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192WidgetPointerRewriter.ROOT,name,descriptor).orElse(null);}
+            public ClassNode managed(String owner){return readManagedClass(owner);}
+        });
         rewrites += Forge1192GuiScrollRewriter.rewrite(node,new Forge1192GuiScrollRewriter.Evidence(){
             public boolean listener(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,Forge1192GuiScrollRewriter.ROOT):isManagedSubtypeOf(owner,Forge1192GuiScrollRewriter.ROOT);}
             public String canonical(String name,String descriptor){return SRG_RUNTIME_RESOLVER.get().canonicalMethodName(Forge1192GuiScrollRewriter.ROOT,name,descriptor).orElse(null);}

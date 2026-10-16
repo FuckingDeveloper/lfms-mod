@@ -110,3 +110,44 @@ checked. An earlier check16 wrongly expected only the instance pop in the
 consumer inventory; inspection corrected the assertion to include all3 paths.
 Runtime61 interactive selection/input/save/return remains pending; no full
 source immediate screen-rendering support is inferred from this background fix.
+
+## Coordinate-only widget pointer hooks
+
+Runtime61 does not crash, but enum selection exits the editor without a saved
+value and the numeric value remains unchanged. These are open functional failures.
+Inspection additionally exposes two generic input defects: source list callbacks
+receive raw SDL button codes, and coordinate-only AbstractWidget onClick/onRelease/
+onDrag overrides have no native event-shaped entry point. The native AbstractButton
+onClick invokes onPress, whereas a source slider overrides onClick to update its
+value. Bypassing that override changes behavior, even if activation links.
+
+Native list/entry pointer boundaries MUST project button identity through the
+existing named GLFW/SDL map in both directions. Source-source calls retain source
+codes. Coordinate-only widget hooks MUST receive native x/y and drag deltas once;
+source superclass calls MUST retain special dispatch. Exact source widget ancestry,
+member mappings and descriptors select the migration. Virtual source calls and
+callable constants MUST retain receiver types and override dispatch. Unproven
+special handles MUST fail explicitly. Source coordinate-only calls carry no button,
+modifier or double-click data; verified native base implementations may receive a
+primary-button event with no modifiers and doubleClick=false. Native-only widgets
+are unchanged. This does not claim the separate old boolean Screen/listener input
+callback family is adapted, or that config saving is accepted before runtime tests.
+
+Verification: `./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava`
+passed in `/tmp/lms-gameplay-batch-check-20.log`. Synthetic native dispatch exercises
+click/release/drag through inherited source overrides and special base calls,
+coordinates/deltas and virtual callable receiver types. Original immutable slider
+native hook entrypoints link. List dispatch checks use actual SDL primary code1
+and assert source primary code0, rather than testing native input with GLFW code0.
+Check18 initially omitted the new test from the smoke JAR allowlist; check19 and
+check20 include and execute it successfully. Optional `lms.traceScreenLayers=true`
+logs source set/push/pop/clear callers and real stack depth for runtime diagnosis;
+it does not alter transitions. Runtime62 uses this trace and awaits interactive
+selection/save/numeric acceptance. General old boolean listener input callbacks
+remain unclaimed by this coordinate-hook fix.
+
+The user explicitly authorized autonomous dev-client shutdown for this test world
+on2026-10-16: preserving test-world changes is not critical. Runtime61 nevertheless
+exited normally before shutdown; MCP confirmed serverPresent=false and logs recorded
+player/world saving. This supersedes repeated Save/Quit approval questions for this
+same test-world iteration, not permission to alter unrelated worlds.
