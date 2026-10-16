@@ -1,10 +1,18 @@
 package com.fuckingdeveloper.lms.check;
 
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.block.Forge1192BlockDataBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.block.LegacyBlockDataCallbacks;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyCapability;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyICapabilityProvider;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyINBTSerializable;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyLazyOptional;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263DataComponentBindingBridge;
+
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.*;
-import com.fuckingdeveloper.lms.runtime.capability.*;
-import com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
+
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyAttachCapabilitiesEvent;
 import java.nio.file.*;
 import java.util.*;
 import java.util.jar.*;

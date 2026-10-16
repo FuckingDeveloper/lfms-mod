@@ -1,6 +1,9 @@
 package com.fuckingdeveloper.lms.check;
-import com.fuckingdeveloper.lms.runtime.item.*;
-import com.fuckingdeveloper.lms.runtime.render.Target263ArmorTextureBridge;
+
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.LegacyArmorItem;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.LegacyArmorMaterials;
+
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263ArmorTextureBridge;
 import net.minecraft.core.component.*;
 import net.minecraft.resources.*;
 import net.minecraft.world.entity.*;

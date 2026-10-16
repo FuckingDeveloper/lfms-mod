@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Target263LegacyWidgetAssets;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyWidgetAssets;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import java.nio.file.*;

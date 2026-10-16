@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import java.nio.file.*;
 import java.util.*;
 import java.util.jar.*;
@@ -36,7 +36,7 @@ final class PlayerMessageFamilyCheck implements Opcodes {
                 try{mh.invoke(receiver,message,true);}catch(Throwable error){throw new AssertionError(error);}
                 check(type.getField("message").get(receiver)==message&&type.getField("overlay").getBoolean(receiver),"overlay identity/handle lost");
                 check(type.getField("count").getInt(receiver)==(node==child?4:2),"virtual source override/native source-super duplicated or skipped");
-                com.fuckingdeveloper.lms.runtime.Forge1192PlayerMessageBridge.baseDisplay(receiver,message,true);
+                com.fuckingdeveloper.lms.profile.forge1192.runtime.world.Forge1192PlayerMessageBridge.baseDisplay(receiver,message,true);
                 check(type.getField("count").getInt(receiver)==(node==child?4:2),"empty source Player super acquired native behavior");
             }
         }

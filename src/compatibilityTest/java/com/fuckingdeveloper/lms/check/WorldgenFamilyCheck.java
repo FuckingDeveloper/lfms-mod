@@ -1,8 +1,20 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.worldgen.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.worldgen.LegacyConfiguredFeature;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.worldgen.LegacyFeature;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.worldgen.LegacyFoliagePlacer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.worldgen.LegacyOreConfiguration;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.worldgen.LegacyPlacedFeature;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.worldgen.LegacyTreeConfiguration;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.worldgen.LegacyTrunkPlacer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.worldgen.LegacyWorldgenDefinitions;
+import com.fuckingdeveloper.lms.target.neoforge263.worldgen.Target263BiomeModifierBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.worldgen.Target263WorldgenAdapter;
+import com.fuckingdeveloper.lms.target.neoforge263.worldgen.Target263WorldgenPack;
+
+
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.*;
@@ -80,7 +92,7 @@ public final class WorldgenFamilyCheck {
         var id=Identifier.fromNamespaceAndPath("worldgen_check","ore");var sourceOre=new LegacyConfiguredFeature<>(LegacyFeature.ORE,ore);
         var sourcePlaced=new LegacyPlacedFeature(Holder.direct(sourceOre),List.of(net.minecraft.world.level.levelgen.placement.CountPlacement.of(3)));
         var placedId=Identifier.fromNamespaceAndPath("worldgen_check","placed_ore");
-        try(var scope=com.fuckingdeveloper.lms.runtime.Forge1192RegistrationContext.enter("worldgen_check",ctor.newInstance(Registries.FEATURE_TYPE,BuiltInRegistries.FEATURE_TYPE))){
+        try(var scope=com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192RegistrationContext.enter("worldgen_check",ctor.newInstance(Registries.FEATURE_TYPE,BuiltInRegistries.FEATURE_TYPE))){
             check(LegacyWorldgenDefinitions.register(LegacyWorldgenDefinitions.CONFIGURED,id,sourceOre)==sourceOre,"definition registration replaced source identity");
             LegacyWorldgenDefinitions.register(LegacyWorldgenDefinitions.PLACED,placedId,sourcePlaced);
             try{LegacyWorldgenDefinitions.register(LegacyWorldgenDefinitions.CONFIGURED,id,sourceOre);throw new AssertionError("duplicate declaration swallowed");}catch(IllegalStateException expected){}
@@ -123,7 +135,7 @@ public final class WorldgenFamilyCheck {
         int checked=0;
         for(var method:node.methods)for(var insn:method.instructions){
             String owner=insn instanceof org.objectweb.asm.tree.MethodInsnNode call?call.owner:insn instanceof org.objectweb.asm.tree.FieldInsnNode field?field.owner:null;
-            if(owner==null||!(owner.startsWith("net/minecraft/")||owner.startsWith("net/neoforged/")||owner.startsWith("com/fuckingdeveloper/lms/runtime/")))continue;
+            if(owner==null||!(owner.startsWith("net/minecraft/")||owner.startsWith("net/neoforged/")||owner.startsWith("com/fuckingdeveloper/lms/profile/forge1192/runtime/")||owner.startsWith("com/fuckingdeveloper/lms/target/neoforge263/")))continue;
             var type=Class.forName(owner.replace('/','.'),false,WorldgenFamilyCheck.class.getClassLoader());
             java.lang.reflect.Member found=null;
             if(insn instanceof org.objectweb.asm.tree.MethodInsnNode call){

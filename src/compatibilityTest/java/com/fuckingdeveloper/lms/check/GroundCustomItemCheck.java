@@ -1,6 +1,12 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192CustomItemRenderer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyMultiBufferSource;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyRenderType;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263GroundItemExtraction;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263LegacyGuiItemModel;
+
+
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.item.*;
@@ -15,7 +21,7 @@ import java.util.*;
 final class GroundCustomItemCheck {
     static void run() {
         NativeDefaultComponentFixture.run(() -> {
-            var stack = com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge.create(Items.STICK);
+            var stack = com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge.create(Items.STICK);
             var state = new ItemStackRenderState();
             new ItemModelResolver(null) {
                 @Override public void appendItemLayers(ItemStackRenderState output, ItemStack input, ItemDisplayContext display,

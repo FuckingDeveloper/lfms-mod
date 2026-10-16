@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.render.Forge1192RenderLivingEventBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192RenderLivingEventBridge;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;

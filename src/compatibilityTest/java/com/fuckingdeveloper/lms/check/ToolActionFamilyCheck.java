@@ -1,8 +1,10 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ToolModificationBridge;
+
+
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import java.nio.file.*;
 import java.util.*;
 import java.util.function.Consumer;
@@ -21,7 +23,7 @@ import net.neoforged.neoforge.event.level.BlockEvent.BlockToolModificationEvent;
 import net.neoforged.bus.api.EventPriority;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
-import static com.fuckingdeveloper.lms.runtime.Forge1192ToolActions.*;
+import static com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ToolActions.*;
 
 final class ToolActionFamilyCheck {
     private static final class PermittedItem extends Item {
@@ -117,7 +119,7 @@ final class ToolActionFamilyCheck {
                 var transformed=new ClassNode();new ClassReader(loader.definedClassBytes(name)).accept(transformed,0);
                 check(transformed.methods.stream().noneMatch(m->m.desc.contains("net/minecraftforge/common/ToolAction")),"source action descriptor escaped: "+name);
                 check(transformed.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).noneMatch(i->i instanceof FieldInsnNode f && f.owner.equals("net/minecraftforge/common/ToolActions")),"source constants escaped: "+name);
-                if(name.endsWith("AdvancedHoe")) check(transformed.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).anyMatch(i->i instanceof MethodInsnNode c && c.owner.equals("com/fuckingdeveloper/lms/runtime/Forge1192ToolModificationBridge") && c.name.equals("query")),"source preview query not migrated");
+                if(name.endsWith("AdvancedHoe")) check(transformed.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).anyMatch(i->i instanceof MethodInsnNode c && c.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/item/Forge1192ToolModificationBridge") && c.name.equals("query")),"source preview query not migrated");
             }
         }
         System.out.println("PASS: tool-action identities/mutable source sets, seven immutable fixture users, native default isolation, till/path preview and query results, blocked soil, simulation without mutation, cancellation/result and failed-scope cleanup");

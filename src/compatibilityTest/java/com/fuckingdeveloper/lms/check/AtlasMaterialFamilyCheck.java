@@ -1,6 +1,10 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyMaterial;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyMultiBufferSource;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyRenderType;
+
+
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.*;

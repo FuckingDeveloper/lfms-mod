@@ -1,8 +1,19 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ContainerGraphicsBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192TooltipGuiBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192VertexConsumerBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyContainerGraphics;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiBlend;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiBuffer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiShader;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiTesselator;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiTextureHandles;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyImmediateTesselator;
+
+
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.gui.render.TextureSetup;
@@ -36,7 +47,7 @@ public final class ContainerGraphicsCheck {
             boolean virtual=nativeOperation&&!name.equals("read");
             String parameters=virtual?"(L"+owner+";"+desc.substring(1):desc;
             String probeDescriptor=Type.getMethodDescriptor(Type.VOID_TYPE,Type.getArgumentTypes(parameters));
-            String expectedOwner=nativeOperation?owner:operation.getValue().startsWith("blendFunc")?"com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend":java.util.Set.of("shaderTexture","shaderColor","enableScissor","disableScissor").contains(operation.getValue())?"com/fuckingdeveloper/lms/runtime/render/Forge1192TooltipGuiBridge":"com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge";
+            String expectedOwner=nativeOperation?owner:operation.getValue().startsWith("blendFunc")?"com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyGuiBlend":java.util.Set.of("shaderTexture","shaderColor","enableScissor","disableScissor").contains(operation.getValue())?"com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192TooltipGuiBridge":"com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192ContainerGraphicsBridge";
             var fixture=new ClassNode();fixture.version=Opcodes.V17;fixture.access=Opcodes.ACC_PUBLIC;fixture.name="fixture/GuiStateFamily";fixture.superName="java/lang/Object";
             var method=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"calls",probeDescriptor,null,null);fixture.methods.add(method);
             int local=0;for(Type type:Type.getArgumentTypes(parameters)){method.instructions.add(new VarInsnNode(type.getOpcode(Opcodes.ILOAD),local));local+=type.getSize();}
@@ -100,7 +111,7 @@ public final class ContainerGraphicsCheck {
             method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));for(int i=0;i<3;i++)method.instructions.add(new InsnNode(Opcodes.DCONST_0));method.instructions.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL,receiver,"m_5483_","(DDD)Lcom/mojang/blaze3d/vertex/VertexConsumer;",false));method.instructions.add(new InsnNode(Opcodes.ARETURN));
             var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);fixture.accept(writer);var projected=new ClassNode();new ClassReader(new Forge1192LegacyClassTransformer().transform(fixture.name.replace('/','.'),writer.toByteArray()).bytes()).accept(projected,0);
             MethodInsnNode operation=null;for(var instruction:projected.methods.getFirst().instructions)if(instruction instanceof MethodInsnNode call)operation=call;
-            check(operation!=null&&(receiver.startsWith("com/mojang/")?operation.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192VertexConsumerBridge")&&operation.name.equals("addVertex"):operation.owner.equals(receiver)&&operation.name.equals("m_5483_")),"inherited vertex rule lost owner identity or descriptor-only negative: "+receiver+" -> "+(operation==null?"null":operation.owner+"#"+operation.name+operation.desc));
+            check(operation!=null&&(receiver.startsWith("com/mojang/")?operation.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192VertexConsumerBridge")&&operation.name.equals("addVertex"):operation.owner.equals(receiver)&&operation.name.equals("m_5483_")),"inherited vertex rule lost owner identity or descriptor-only negative: "+receiver+" -> "+(operation==null?"null":operation.owner+"#"+operation.name+operation.desc));
         }
         var escaped=new ClassNode();escaped.name="fixture/EscapedGuiBatch";escaped.superName="java/lang/Object";escaped.version=Opcodes.V17;escaped.access=Opcodes.ACC_PUBLIC;
         var escapeMethod=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"escaped","()Lcom/mojang/blaze3d/vertex/Tesselator;",null,null);
@@ -108,13 +119,13 @@ public final class ContainerGraphicsCheck {
         var escapeWriter=new ClassWriter(ClassWriter.COMPUTE_MAXS);escaped.accept(escapeWriter);
         var escapeMapped=new Forge1192LegacyClassTransformer().transform(escaped.name.replace('/','.'),escapeWriter.toByteArray()).bytes();
         var escapeNode=new ClassNode();new ClassReader(escapeMapped).accept(escapeNode,0);
-        check(((MethodInsnNode)escapeNode.methods.getFirst().instructions.getFirst()).owner.equals("com/fuckingdeveloper/lms/runtime/render/LegacyImmediateTesselator"),"managed source return lost consistent source batch ABI");
+        check(((MethodInsnNode)escapeNode.methods.getFirst().instructions.getFirst()).owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyImmediateTesselator"),"managed source return lost consistent source batch ABI");
         var binding=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"binding","(Lnet/minecraft/client/renderer/texture/AbstractTexture;)V",null,null);
         binding.instructions.add(new InsnNode(Opcodes.ICONST_0));binding.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));
         binding.instructions.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL,"net/minecraft/client/renderer/texture/AbstractTexture","m_117963_","()I",false));
         binding.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC,"com/mojang/blaze3d/systems/RenderSystem","m_157453_","(II)V",false));binding.instructions.add(new InsnNode(Opcodes.RETURN));escaped.methods.add(binding);
         escapeWriter=new ClassWriter(ClassWriter.COMPUTE_MAXS);escaped.accept(escapeWriter);escapeMapped=new Forge1192LegacyClassTransformer().transform(escaped.name.replace('/','.'),escapeWriter.toByteArray()).bytes();escapeNode=new ClassNode();new ClassReader(escapeMapped).accept(escapeNode,0);
-        var bound=escapeNode.methods.get(1);int calls=0;for(var instruction:bound.instructions)if(instruction instanceof MethodInsnNode call){calls++;check(call.owner.equals("com/fuckingdeveloper/lms/runtime/render/LegacyGuiTextureHandles")&&call.desc.equals("(ILnet/minecraft/client/renderer/texture/AbstractTexture;)V"),"texture pair discarded receiver or invented GPU id");}
+        var bound=escapeNode.methods.get(1);int calls=0;for(var instruction:bound.instructions)if(instruction instanceof MethodInsnNode call){calls++;check(call.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyGuiTextureHandles")&&call.desc.equals("(ILnet/minecraft/client/renderer/texture/AbstractTexture;)V"),"texture pair discarded receiver or invented GPU id");}
         check(calls==1,"source texture ID lookup retained before native object binding");
         var quad=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"quad","(Lcom/mojang/blaze3d/vertex/PoseStack;)V",null,null);
         quad.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));quad.instructions.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL,"com/mojang/blaze3d/vertex/PoseStack","m_85850_","()Lcom/mojang/blaze3d/vertex/PoseStack$Pose;",false));
@@ -147,7 +158,7 @@ public final class ContainerGraphicsCheck {
             Handle handle=null;
             if(instruction instanceof LdcInsnNode ldc && ldc.cst instanceof Handle h)handle=h;
             if(instruction instanceof InvokeDynamicInsnNode indy)handle=(Handle)indy.bsmArgs[1];
-            if(handle!=null){shaderReferences++;check(handle.getOwner().equals("com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge")&&handle.getDesc().equals("()Lcom/fuckingdeveloper/lms/runtime/render/LegacyGuiShader;"),"source GUI shader method reference escaped semantic adapter");}
+            if(handle!=null){shaderReferences++;check(handle.getOwner().equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192ContainerGraphicsBridge")&&handle.getDesc().equals("()Lcom/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyGuiShader;"),"source GUI shader method reference escaped semantic adapter");}
         }
         check(shaderReferences==6,"shader reference family probe incomplete");
         var source=new ClassNode();source.name="fixture/GuiPhaseParent";source.superName="net/minecraft/client/gui/screens/inventory/AbstractContainerScreen";source.version=Opcodes.V17;source.access=Opcodes.ACC_PUBLIC;

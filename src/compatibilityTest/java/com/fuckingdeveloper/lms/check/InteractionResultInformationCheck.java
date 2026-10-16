@@ -1,8 +1,8 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192InteractionResultBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192InteractionResultBridge;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import net.minecraft.world.InteractionResult;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;

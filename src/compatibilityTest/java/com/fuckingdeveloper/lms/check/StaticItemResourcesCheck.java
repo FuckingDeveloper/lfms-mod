@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Target263LegacyStaticItemResources;
-import com.fuckingdeveloper.lms.runtime.render.Target263LegacyItemTint;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyStaticItemResources;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263LegacyItemTint;
 import com.google.gson.*;
 import com.mojang.serialization.JsonOps;
 import java.nio.charset.StandardCharsets;
@@ -44,12 +44,12 @@ final class StaticItemResourcesCheck {
             for (int i = 0; i < tints.size(); i++) {
                 var tint = Target263LegacyItemTint.CODEC.codec().parse(JsonOps.INSTANCE, tints.get(i)).getOrThrow();
                 check(tint.index() == i, "source layer tint index changed");
-                check(tint.calculate(com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge.create(net.minecraft.world.item.Items.STICK), null, null) == -1,
+                check(tint.calculate(com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge.create(net.minecraft.world.item.Items.STICK), null, null) == -1,
                         "absent source tint did not preserve opaque white");
             }
-            var stack = com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge.create(net.minecraft.world.item.Items.APPLE);
+            var stack = com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge.create(net.minecraft.world.item.Items.APPLE);
             var seen = new ArrayList<Integer>();
-            new com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent.Item().register(
+            new com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyRegisterColorHandlersEvent.Item().register(
                     (item, index) -> { seen.add(index); return 0x123456; }, net.minecraft.world.item.Items.APPLE);
             check(new Target263LegacyItemTint(3).calculate(stack, null, null) == 0xFF123456
                     && seen.equals(List.of(3)), "native tint did not invoke source callback exactly once");
@@ -61,7 +61,7 @@ final class StaticItemResourcesCheck {
                 check(manager.getResource(id("items/generated.json")).isPresent(), "native direct resource lookup lost definition");
                 var custom = JsonParser.parseString(new String(definitions.get(id("items/entity.json")), StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonObject("model");
                 check(custom.get("type").getAsString().equals("lms:legacy_gui_item"), "source custom selection lost");
-                var decoded = com.fuckingdeveloper.lms.runtime.render.Target263LegacyGuiItemModel.Unbaked.CODEC.codec().parse(JsonOps.INSTANCE, custom).getOrThrow();
+                var decoded = com.fuckingdeveloper.lms.target.neoforge263.render.Target263LegacyGuiItemModel.Unbaked.CODEC.codec().parse(JsonOps.INSTANCE, custom).getOrThrow();
                 check(decoded.base().equals(id("lms_legacy/item/entity")), "custom base identity lost");
                 var base = JsonParser.parseString(new String(definitions.get(id("models/lms_legacy/item/entity.json")), StandardCharsets.UTF_8)).getAsJsonObject();
                 check(!base.has("parent"), "builtin/entity marker left as target geometry parent");

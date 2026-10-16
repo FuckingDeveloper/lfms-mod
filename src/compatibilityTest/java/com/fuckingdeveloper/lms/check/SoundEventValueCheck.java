@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.Forge1192SoundEventValues;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SoundEventValues;
 import com.google.gson.JsonPrimitive;
 import com.mojang.serialization.JsonOps;
 import java.lang.invoke.MethodHandle;

@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.render.Target263GroundItemExtraction;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263GroundItemExtraction;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.blockentity.ShelfRenderer;
 import net.minecraft.client.renderer.blockentity.state.ShelfRenderState;

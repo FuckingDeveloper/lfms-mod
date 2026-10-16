@@ -197,7 +197,7 @@ pairs and class hashes; use immutable indexed forward/reverse maps in transforma
 hot paths. Apply exact class tokens to descriptors/signatures/casts/handles and
 retain source identity for SRG resolution. Do not infer nested-class aliases from
 a relocated outer class or claim all entity behavior from structural identity.
-`tools/GenerateEntityRelocations.java` reproduces this evidence without loading or
+`tools/evidence/forge1192/GenerateEntityRelocations.java` reproduces this evidence without loading or
 modifying original source/target classes.
 
 ### Container users and opener tracking

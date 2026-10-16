@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Target263DataComponentBindingBridge;
-import com.fuckingdeveloper.lms.runtime.Target263ReloadLookupBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263DataComponentBindingBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263ReloadLookupBridge;
 import com.mojang.serialization.Lifecycle;
 import java.util.*;
 import net.minecraft.core.*;
@@ -58,7 +58,7 @@ public final class ReloadLookupFamilyCheck {
         pending.apply();
         check(captured.get().types().contains(fire), "captured fire resistance did not follow native pending-tag binding");
         // Verify event delivery itself uses the target updated-tag lookup before source callback work.
-        try (var input = com.fuckingdeveloper.lms.runtime.Forge1192EventBusBridge.class.getResourceAsStream("Forge1192EventBusBridge.class")) {
+        try (var input = com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EventBusBridge.class.getResourceAsStream("Forge1192EventBusBridge.class")) {
             var node = new org.objectweb.asm.tree.ClassNode(); new org.objectweb.asm.ClassReader(input.readAllBytes()).accept(node, 0);
             var method = node.methods.stream().filter(m -> m.name.equals("invokeScoped")).findFirst().orElseThrow();
             boolean getter = false, scope = false;
@@ -79,16 +79,16 @@ public final class ReloadLookupFamilyCheck {
         var enchantLookup = HolderLookup.Provider.create(java.util.stream.Stream.of(updated.lookup()));
         check(!(enchantLookup.lookupOrThrow(Registries.ENCHANTMENT) instanceof Registry<?>), "probe did not exercise read-only native lookup");
         Target263ReloadLookupBridge.run(enchantLookup, () -> {
-            check(com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.enchantmentMaxLevel(enchantKey) == 7, "reload information query required a world registry");
+            check(com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192DynamicRegistryBridge.enchantmentMaxLevel(enchantKey) == 7, "reload information query required a world registry");
             var stack = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STONE);
             stack.set(net.minecraft.core.component.DataComponents.ENCHANTMENTS, net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY);
-            com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.enchant(stack, enchantKey, 3);
-            check(com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.itemEnchantmentLevel(enchantKey, stack)==3, "enchantment holder/value identity lost in reload scope");
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192DynamicRegistryBridge.enchant(stack, enchantKey, 3);
+            check(com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192DynamicRegistryBridge.itemEnchantmentLevel(enchantKey, stack)==3, "enchantment holder/value identity lost in reload scope");
             try {
-                Target263ReloadLookupBridge.run(RegistryAccess.EMPTY, () -> com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.enchantmentMaxLevel(enchantKey));
+                Target263ReloadLookupBridge.run(RegistryAccess.EMPTY, () -> com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192DynamicRegistryBridge.enchantmentMaxLevel(enchantKey));
                 throw new AssertionError("missing scoped registry fell back to unrelated world");
             } catch (IllegalStateException expected) {}
-            check(com.fuckingdeveloper.lms.runtime.Forge1192DynamicRegistryBridge.stackEnchantmentLevel(stack,enchantKey)==3, "nested lookup failure leaked scope");
+            check(com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192DynamicRegistryBridge.stackEnchantmentLevel(stack,enchantKey)==3, "nested lookup failure leaked scope");
         });
         System.out.println("PASS: actual native fire-resistance initializer/tag membership, synchronous reload lookup, nested failure restoration and thread cleanup; full datapack reload unverified");
     }

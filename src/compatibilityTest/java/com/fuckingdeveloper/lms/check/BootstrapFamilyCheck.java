@@ -1,8 +1,22 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.*;
-import com.fuckingdeveloper.lms.runtime.registry.*;
-import com.fuckingdeveloper.lms.runtime.render.Forge1192KeyboardBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192VanillaConstructionBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192CompatibilitySurface;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192DistExecutorBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LoaderReflectionBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.network.Forge1192NetworkBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192RegistrationContext;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192RegistrationPlanner;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.LegacyDeferredRegister;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.LegacyForgeRegistry;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192KeyMappingBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.resource.LegacyTextureStitchSpriteSource;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyAtlasSources;
+
+
+
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192KeyboardBridge;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.Lifecycle;
 import java.lang.reflect.Proxy;
@@ -27,13 +41,13 @@ final class BootstrapFamilyCheck {
             var value=(net.minecraft.world.entity.EntityType<?>)field.get(null);
             entityClasses.put(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(value).toString(),org.objectweb.asm.Type.getInternalName(implementation));
         }
-        var entityEvidence=com.fuckingdeveloper.lms.profile.Forge1192EntityRelocations.entries();
+        var entityEvidence=com.fuckingdeveloper.lms.profile.forge1192.Forge1192EntityRelocations.entries();
         check(entityEvidence.size()>40,"registry-derived entity relocation inventory unexpectedly empty");
         for(var entry:entityEvidence)check(entry.target().equals(entityClasses.get(entry.id())),"entity target identity differs from actual native registry declaration: "+entry.id());
         String entityDescriptor="(Lnet/minecraft/world/entity/animal/Cat;[Lnet/minecraft/world/entity/animal/Wolf;)Lnet/minecraft/world/entity/animal/Cat$UnprovenNested;";
-        var projected=com.fuckingdeveloper.lms.profile.Forge1192EntityRelocations.projectDescriptor(entityDescriptor);
+        var projected=com.fuckingdeveloper.lms.profile.forge1192.Forge1192EntityRelocations.projectDescriptor(entityDescriptor);
         check(projected.contains("/animal/feline/Cat;")&&projected.contains("/animal/wolf/Wolf;")&&projected.contains("/animal/Cat$UnprovenNested;"),"registry entity projection inferred an unverified nested class or lost array identity");
-        check(com.fuckingdeveloper.lms.profile.Forge1192EntityRelocations.reverseDescriptor(projected).equals(entityDescriptor),"source entity identity lost for SRG reverse resolution");
+        check(com.fuckingdeveloper.lms.profile.forge1192.Forge1192EntityRelocations.reverseDescriptor(projected).equals(entityDescriptor),"source entity identity lost for SRG reverse resolution");
         var atlasIds=List.of(net.minecraft.data.AtlasIds.BLOCKS,net.minecraft.data.AtlasIds.CHESTS,id("custom_atlas"));
         var definitions=Target263LegacyAtlasSources.definitions(atlasIds);
         check(definitions.size()==3,"per-atlas source definitions lost native/custom identity");
@@ -52,7 +66,7 @@ final class BootstrapFamilyCheck {
         var bus=BusBuilder.builder().build();
         var info=(IModInfo)Proxy.newProxyInstance(BootstrapFamilyCheck.class.getClassLoader(),new Class[]{IModInfo.class},(p,m,a)->{if(m.getName().equals("getModId"))return "bootstrap_probe";throw new AssertionError(m);});
         var host=new ModContainer(info){public IEventBus getEventBus(){return bus;}};
-        bus.addListener((com.fuckingdeveloper.lms.runtime.event.LegacyDataGenerationEvent event)->{throw new AssertionError("Datagen event emitted during ordinary runtime");});
+        bus.addListener((com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyDataGenerationEvent event)->{throw new AssertionError("Datagen event emitted during ordinary runtime");});
         var calls=new AtomicInteger();
         try(var scope=Forge1192LifecycleBridge.enter("bootstrap_probe",bus,host)){
             var builder=Forge1192NetworkBridge.LegacyChannelBuilder.named(id("channel"));
@@ -100,7 +114,7 @@ final class BootstrapFamilyCheck {
                 check(assessment.executable(),"source container/bootstrap contracts remain gated");
             } else {
                 check(assessment.executable(),"source Forge bootstrap still has an unadapted active boundary: "+artifact);
-                try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(jar,BootstrapFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+                try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(jar,BootstrapFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())) {
                     loader.linkOwnedClass(entry);
                     var node=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(entry)).accept(node,0);
                     var registration=node.methods.stream().filter(m->m.desc.equals("(Lnet/neoforged/neoforge/client/event/RegisterMenuScreensEvent;)V")).findFirst().orElseThrow();
@@ -110,7 +124,7 @@ final class BootstrapFamilyCheck {
                     var rendererNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(renderer)).accept(rendererNode,0);
                     var renderThunk=rendererNode.methods.stream().filter(m->m.name.equals("lmsLegacyRender")).findFirst().orElseThrow();
                     check(rendererNode.methods.stream().anyMatch(m->m.name.equals("m_6922_")),"direct source erased renderer callback was removed");
-                    check(rendererNode.methods.stream().filter(m->m.name.equals("<init>")).anyMatch(m->java.util.stream.StreamSupport.stream(m.instructions.spliterator(),false).anyMatch(i->i instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192RendererContextBridge")&&call.name.equals("blockEntityRenderDispatcher"))),"native renderer-context service getter not projected to actual record accessor");
+                    check(rendererNode.methods.stream().filter(m->m.name.equals("<init>")).anyMatch(m->java.util.stream.StreamSupport.stream(m.instructions.spliterator(),false).anyMatch(i->i instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192RendererContextBridge")&&call.name.equals("blockEntityRenderDispatcher"))),"native renderer-context service getter not projected to actual record accessor");
                     new org.objectweb.asm.tree.analysis.Analyzer<>(new org.objectweb.asm.tree.analysis.BasicVerifier()).analyze(rendererNode.name,renderThunk);
 
                 }
@@ -118,7 +132,7 @@ final class BootstrapFamilyCheck {
                     var node=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(in).accept(node,0);
                     var mixed=node.methods.stream().filter(m->m.desc.equals("(Lnet/minecraftforge/fml/event/lifecycle/FMLClientSetupEvent;)V")).findFirst().orElseThrow();
                     mixed.instructions.insert(new org.objectweb.asm.tree.MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,"fixture/Effects","touch","()V",false));
-                    var rewriter=Class.forName("com.fuckingdeveloper.lms.profile.Forge1192BootstrapRewriter").getDeclaredMethod("menuSetupCallbacks",org.objectweb.asm.tree.ClassNode.class,java.util.function.Predicate.class,java.util.function.Predicate.class);rewriter.setAccessible(true);
+                    var rewriter=Class.forName("com.fuckingdeveloper.lms.profile.forge1192.Forge1192BootstrapRewriter").getDeclaredMethod("menuSetupCallbacks",org.objectweb.asm.tree.ClassNode.class,java.util.function.Predicate.class,java.util.function.Predicate.class);rewriter.setAccessible(true);
                     check((Integer)rewriter.invoke(null,node,(java.util.function.Predicate<String>)(owner->true),(java.util.function.Predicate<String>)(owner->true))==0&&mixed.desc.contains("FMLClientSetupEvent"),"mixed source setup was moved to an earlier target phase");
                 }
 
@@ -136,7 +150,7 @@ final class BootstrapFamilyCheck {
     }
     private static void constructionAndStages() throws Exception {
         var calls=new AtomicInteger();
-        var builder=com.fuckingdeveloper.lms.runtime.LegacyBlockEntityTypeBuilder.m_155273_((pos,state)->{
+        var builder=com.fuckingdeveloper.lms.profile.forge1192.runtime.block.LegacyBlockEntityTypeBuilder.m_155273_((pos,state)->{
             calls.incrementAndGet();return new ContainerPersistenceFamilyCheck.Container();
         },net.minecraft.world.level.block.Blocks.CHEST);
         var blocks=builder.getClass().getDeclaredField("blocks");blocks.setAccessible(true);
@@ -153,7 +167,7 @@ final class BootstrapFamilyCheck {
         catch(RuntimeException expected){check(expected.getCause()==failure,"source Callable exception wrapping changed");}
         var type=Forge1192VanillaConstructionBridge.menuType((id,inventory)->{throw new AssertionError("menu factory invoked eagerly");});
         check(type.requiredFeatures().equals(net.minecraft.world.flag.FeatureFlags.VANILLA_SET),"source MenuType default feature set changed");
-        var queue=new com.fuckingdeveloper.lms.runtime.render.Forge1192MenuScreenBridge.Queue();
+        var queue=new com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192MenuScreenBridge.Queue();
         net.minecraft.client.gui.screens.MenuScreens.ScreenConstructor factory=(menu,inventory,title)->{throw new AssertionError("screen factory invoked eagerly");};
         queue.add(type,factory,"probe");
         try{queue.add(type,factory,"duplicate");throw new AssertionError("duplicate menu screen admitted");}catch(IllegalStateException expected){}
@@ -173,8 +187,8 @@ final class BootstrapFamilyCheck {
                 "MENU_TYPES","MENU","RECIPE_TYPES","RECIPE_TYPE","ATTRIBUTES","ATTRIBUTE","STAT_TYPES","STAT_TYPE");
         for(var name:aliases.keySet())method.instructions.add(new org.objectweb.asm.tree.FieldInsnNode(
                 org.objectweb.asm.Opcodes.GETSTATIC,"net/minecraftforge/registries/ForgeRegistries",name,
-                "Lcom/fuckingdeveloper/lms/runtime/registry/LegacyForgeRegistry;"));
-        var rewrite=com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer.class
+                "Lcom/fuckingdeveloper/lms/profile/forge1192/runtime/registry/LegacyForgeRegistry;"));
+        var rewrite=com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer.class
                 .getDeclaredMethod("rewriteLegacyForgeRegistries",org.objectweb.asm.tree.ClassNode.class);
         rewrite.setAccessible(true);
         check(((Integer)rewrite.invoke(null,node))==aliases.size(),"static registry alias family incomplete");

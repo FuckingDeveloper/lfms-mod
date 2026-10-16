@@ -1,6 +1,16 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ContainerGraphicsBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192GuiItemExtractionBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192GuiPlaneBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192TooltipGuiBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192WidgetGraphicsBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyDefaultVertexFormat;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiBuffer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiTextureHandles;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyVertexFormatMode;
+
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;

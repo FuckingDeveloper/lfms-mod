@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.Target263CommonTagProjection;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263CommonTagProjection;
 import java.io.*;
 import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
@@ -65,7 +65,7 @@ final class CommonTagProjectionCheck implements Opcodes {
             int factories=0;
             for(var method:node.methods)for(var insn:method.instructions)if(insn instanceof MethodInsnNode call){
                 check(!(call.owner.equals("net/minecraft/tags/TagKey")&&call.name.equals("create")),"source tag factory escaped");
-                if(call.owner.equals("com/fuckingdeveloper/lms/runtime/Target263CommonTagProjection"))factories++;
+                if(call.owner.equals("com/fuckingdeveloper/lms/target/neoforge263/Target263CommonTagProjection"))factories++;
             }
             check(factories>0,"immutable tag consumer not covered");
         }
@@ -85,7 +85,7 @@ final class CommonTagProjectionCheck implements Opcodes {
             public net.minecraft.server.packs.resources.IoSupplier<InputStream> getResource(PackType type,Identifier id){if(!data.containsKey(id))throw new AssertionError("unlisted source lookup");return ()->new ByteArrayInputStream(data.get(id).getBytes(StandardCharsets.UTF_8));}
             public void listResources(PackType type,String ns,String dir,ResourceOutput out){data.forEach((id,text)->{if(id.getNamespace().equals(ns)&&id.getPath().startsWith(dir))out.accept(id,getResource(type,id));});}
         };
-        var pack=new com.fuckingdeveloper.lms.runtime.Target263LegacyTagResources(source);
+        var pack=new com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyTagResources(source);
         var key=Identifier.parse("c:tags/item/ores/copper.json");
         check(pack.getNamespaces(PackType.SERVER_DATA).contains("c"),"canonical namespace not discovered");
         String text=read(pack.getResource(PackType.SERVER_DATA,key));

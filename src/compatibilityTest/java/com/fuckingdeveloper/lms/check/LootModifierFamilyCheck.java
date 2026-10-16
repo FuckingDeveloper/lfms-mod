@@ -1,6 +1,9 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.*;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyLootResources;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyTagResources;
+
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -82,7 +85,7 @@ final class LootModifierFamilyCheck {
         var jar=java.nio.file.Files.createTempFile("lms-source-loot-",".jar");
         try {
             try(var output=new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(jar))){output.putNextEntry(new java.util.jar.JarEntry(name+".class"));output.write(writer.toByteArray());output.closeEntry();}
-            try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(jar,LootModifierFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+            try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(jar,LootModifierFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())) {
                 var type=loader.loadClass(name.replace('/','.'));
                 var modifier=(IGlobalLootModifier)type.getConstructor().newInstance();
                 check(modifier.codec()==type.getField("CODEC").get(null),"source codec producer/callback identity");

@@ -1,6 +1,10 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.itemhandler.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.itemhandler.Forge1192VanillaItemTransfer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.itemhandler.LegacyIItemHandler;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.itemhandler.LegacyItemHandlerHelper;
+
+
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.item.*;
 import net.neoforged.neoforge.transfer.transaction.Transaction;
@@ -73,9 +77,9 @@ final class VanillaItemTransferFamilyCheck {
     private static void helperChecks() throws Exception {
         var a=new ItemStack(Items.COAL,2);var b=new ItemStack(Items.COAL);
         check(LegacyItemHandlerHelper.canItemStacksStack(a,b),"source helper count-sensitive comparison");
-        com.fuckingdeveloper.lms.runtime.Forge1192ItemBridge.getOrCreateTag(a).putInt("probe",4);
+        com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ItemBridge.getOrCreateTag(a).putInt("probe",4);
         check(!LegacyItemHandlerHelper.canItemStacksStack(a,b),"source helper ignored NBT");
-        com.fuckingdeveloper.lms.runtime.Forge1192ItemBridge.getOrCreateTag(b).putInt("probe",4);
+        com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ItemBridge.getOrCreateTag(b).putInt("probe",4);
         check(LegacyItemHandlerHelper.canItemStacksStackRelaxed(a,b),"source helper lost equal source NBT");
         var copy=LegacyItemHandlerHelper.copyStackWithSize(a,5);
         check(copy!=a && copy.getCount()==5 && a.getCount()==2 && LegacyItemHandlerHelper.canItemStacksStack(copy,a),"source helper copy aliases or loses data");
@@ -98,10 +102,10 @@ final class VanillaItemTransferFamilyCheck {
         try(var jar=new java.util.jar.JarFile("legacy-mods/IC2Classic-1.19.2-2.1.3.4.jar")) {
             String name="ic2/core/inventory/handler/BasicInventory";byte[] original;
             try(var in=jar.getInputStream(jar.getJarEntry(name+".class"))){original=in.readAllBytes();}
-            var transformer=new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer();
+            var transformer=new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer();
             var out=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(transformer.transform(name.replace('/','.'),original).bytes()).accept(out,0);
             check(out.methods.stream().flatMap(m->java.util.stream.StreamSupport.stream(m.instructions.spliterator(),false))
-                    .anyMatch(i->i instanceof org.objectweb.asm.tree.MethodInsnNode c && c.owner.equals("com/fuckingdeveloper/lms/runtime/itemhandler/LegacyItemHandlerHelper")),"immutable source helper consumer not relocated");
+                    .anyMatch(i->i instanceof org.objectweb.asm.tree.MethodInsnNode c && c.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/itemhandler/LegacyItemHandlerHelper")),"immutable source helper consumer not relocated");
             check(out.methods.stream().flatMap(m->java.util.stream.StreamSupport.stream(m.instructions.spliterator(),false))
                     .noneMatch(i->i instanceof org.objectweb.asm.tree.MethodInsnNode c && c.owner.equals("net/minecraftforge/items/ItemHandlerHelper")),"residual original helper owner");
         }

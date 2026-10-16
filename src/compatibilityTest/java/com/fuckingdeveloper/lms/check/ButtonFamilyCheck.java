@@ -1,8 +1,8 @@
 package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.Forge1192ButtonBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ButtonBridge;
 import java.lang.invoke.*;
 import java.nio.file.*;
 import java.util.*;

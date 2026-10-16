@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.Target263FluidModelLookupBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263FluidModelLookupBridge;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;

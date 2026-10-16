@@ -1,8 +1,22 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.*;
-import com.fuckingdeveloper.lms.runtime.capability.*;
-import com.fuckingdeveloper.lms.runtime.itemhandler.LegacyMutableTagCarrier;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.block.Forge1192NeighborBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.Forge1192BlockCapabilityBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyBlockCapabilityCarrier;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyCapability;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyCapabilityManager;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyCapabilityToken;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyICapabilityProvider;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyINBTSerializable;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyLazyOptional;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.container.Forge1192SlotBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ItemBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EventBusBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge;
+
+
+
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.itemhandler.LegacyMutableTagCarrier;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,7 +59,7 @@ public final class LiveTargetContractProbe {
         NeoForge.EVENT_BUS.start();
         try (var scope = Forge1192LifecycleBridge.enter("native_smoke", bus, host)) {
             Forge1192EventBusBridge.addGenericListener(NeoForge.EVENT_BUS, BlockEntity.class,
-                    (java.util.function.Consumer<com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent<BlockEntity>>)event -> {
+                    (java.util.function.Consumer<com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyAttachCapabilitiesEvent<BlockEntity>>)event -> {
                         if (!(event.getObject() instanceof ProbeChest receiver)) return;
                         check(receiver.initialized == 0, "source gather ran after subclass initialization"); calls.incrementAndGet();
                         provider[0] = new ProbeProvider(cap, receiver);
@@ -270,30 +284,30 @@ public final class LiveTargetContractProbe {
             var gui = (ProbeGui)allocate.invoke(unsafe, ProbeGui.class);
             var guiField = net.minecraft.client.Minecraft.class.getDeclaredField("gui"); guiField.setAccessible(true); guiField.set(client, gui);
             var screen = new ProbeScreen();
-            com.fuckingdeveloper.lms.runtime.render.Forge1192MinecraftClientBridge.setScreen(client, screen);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192MinecraftClientBridge.setScreen(client, screen);
             check(gui.supplied == screen && gui.transitions == 1, "source screen transition did not use the receiver's native GUI");
-            com.fuckingdeveloper.lms.runtime.render.Forge1192MinecraftClientBridge.setScreen(client, null);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192MinecraftClientBridge.setScreen(client, null);
             check(gui.supplied == null && gui.transitions == 2, "source null screen transition was replaced or skipped");
-            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setBlocksDirty(renderer, 15, -1, 15, 16, 0, 16);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192RenderInvalidationBridge.setBlocksDirty(renderer, 15, -1, 15, 16, 0, 16);
             Set<BlockPos> expected = new HashSet<>();
             for (int x : new int[]{0, 1}) for (int y : new int[]{-1, 0}) for (int z : new int[]{0, 1}) expected.add(new BlockPos(x, y, z));
             check(extractor.dirtied.equals(expected), "native block dirty padding/negative section boundary");
             extractor.dirtied.clear();
-            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirtyWithNeighbors(renderer, 0, -1, 2);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirtyWithNeighbors(renderer, 0, -1, 2);
             expected.clear();
             for (int x = -1; x <= 1; x++) for (int y = -2; y <= 0; y++) for (int z = 1; z <= 3; z++) expected.add(new BlockPos(x, y, z));
             check(extractor.dirtied.equals(expected), "native neighbor-section padding/inclusive range");
             extractor.dirtied.clear();
-            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirty(renderer, 5, -4, 3);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirty(renderer, 5, -4, 3);
             check(extractor.dirtied.equals(Set.of(new BlockPos(5, -4, 3))), "native exact section dirty operation");
             var old = Blocks.STONE.defaultBlockState(); var updated = Blocks.DIRT.defaultBlockState();
-            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setBlockDirty(renderer, BlockPos.ZERO, old, updated);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192RenderInvalidationBridge.setBlockDirty(renderer, BlockPos.ZERO, old, updated);
             check(extractor.block == BlockPos.ZERO && extractor.oldState == old && extractor.newState == updated, "conditional native block invalidation changed operands");
             var packetPos=new BlockPos(-238,85,36);
-            com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.blockChanged(renderer,null,packetPos,null,null,10);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192RenderInvalidationBridge.blockChanged(renderer,null,packetPos,null,null,10);
             check(extractor.block==packetPos && extractor.updateFlags==10,"native blockChanged lost position/flag identity");
             var detached = (net.minecraft.client.renderer.LevelRenderer)allocate.invoke(unsafe, net.minecraft.client.renderer.LevelRenderer.class);
-            try { com.fuckingdeveloper.lms.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirty(detached, 0, 0, 0); throw new AssertionError("detached renderer silently updated active world"); }
+            try { com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192RenderInvalidationBridge.setSectionDirty(detached, 0, 0, 0); throw new AssertionError("detached renderer silently updated active world"); }
             catch (IllegalStateException expectedFailure) {}
         } finally { instance.set(null, previous); }
     }

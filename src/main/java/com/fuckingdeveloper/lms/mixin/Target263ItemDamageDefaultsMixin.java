@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192DamageDataBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192DamageDataBridge;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.extensions.IItemExtension;
 import org.spongepowered.asm.mixin.Mixin;

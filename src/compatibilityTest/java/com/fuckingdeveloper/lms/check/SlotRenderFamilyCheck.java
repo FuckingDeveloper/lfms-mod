@@ -1,7 +1,11 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyBakedModel;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyItemOverrides;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyRenderType;
+
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
@@ -191,7 +195,7 @@ public final class SlotRenderFamilyCheck {
         check(pass(transformer, "rewriteLegacyScreenTransitions", constants) == 2, "screen callable references missed"); verify(constants);
     }
     private static net.minecraft.client.renderer.block.dispatch.BlockStateModelPart collect(LegacyBakedModel source, BlockAndTintGetter level, BlockPos pos, BlockState state) throws Exception {
-        Class<?> model = Class.forName("com.fuckingdeveloper.lms.runtime.render.Forge1192ModelBakingBridge$LegacyBlockModel");
+        Class<?> model = Class.forName("com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ModelBakingBridge$LegacyBlockModel");
         var constructor = model.getDeclaredConstructors()[0]; constructor.setAccessible(true);
         Object adapter = constructor.newInstance(source, state, null);
         var method = model.getMethod("collectParts", BlockAndTintGetter.class, BlockPos.class, BlockState.class, RandomSource.class, List.class); method.setAccessible(true);

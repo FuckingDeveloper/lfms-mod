@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192NeighborBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.block.Forge1192NeighborBridge;
 import com.llamalad7.mixinextras.injector.wrapoperation.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;

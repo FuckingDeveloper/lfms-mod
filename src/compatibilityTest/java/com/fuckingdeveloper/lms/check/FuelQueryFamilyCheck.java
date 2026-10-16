@@ -1,9 +1,13 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.*;
-import com.fuckingdeveloper.lms.runtime.item.LegacyFuelItem;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyFurnaceFuelBurnTimeEvent;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192CraftingRemainderBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192FuelBridge;
+
+
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.LegacyFuelItem;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import net.minecraft.world.item.*;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.core.component.*;
@@ -85,7 +89,7 @@ public final class FuelQueryFamilyCheck {
         try(var loader=new ManagedLegacyClassLoader(path,FuelQueryFamilyCheck.class.getClassLoader(),new Forge1192LegacyClassTransformer())) {
             var clazz=loader.linkOwnedClass(node.name.replace('/','.'));
             var sourceClass=loader.linkOwnedClass(sourceItem.name.replace('/','.'));
-            check(LegacyFuelItem.class.isAssignableFrom(sourceClass) && com.fuckingdeveloper.lms.runtime.item.LegacyCraftingItem.class.isAssignableFrom(sourceClass),"source override view missing");
+            check(LegacyFuelItem.class.isAssignableFrom(sourceClass) && com.fuckingdeveloper.lms.profile.forge1192.runtime.item.LegacyCraftingItem.class.isAssignableFrom(sourceClass),"source override view missing");
             check(sourceClass.getMethod("lms$burnTime",ItemStack.class,RecipeType.class).getReturnType()==int.class,"fuel view descriptor failed verifier");
             check(sourceClass.getMethod("lms$craftingRemainder",ItemStack.class).getReturnType()==ItemStack.class,"source mutable result view lost");
             check((int)clazz.getMethod("query",ItemStack.class,RecipeType.class).invoke(null,coal,RecipeType.SMELTING)==1600,"source static query not bridged");

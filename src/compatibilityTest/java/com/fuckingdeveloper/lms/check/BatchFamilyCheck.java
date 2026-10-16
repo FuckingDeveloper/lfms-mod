@@ -1,10 +1,26 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.*;
-import com.fuckingdeveloper.lms.runtime.capability.*;
-import com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent;
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.block.Forge1192NeighborBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyBlockCapabilityDispatcher;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyCapability;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyCapabilityManager;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyCapabilityToken;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyICapabilityProvider;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyINBTSerializable;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyLazyOptional;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192DurabilityBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192CompatibilitySurface;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EventBusBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192RegistrationPlanner;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ConfigScreenBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyConfigScreenFactory;
+
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
+
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyAttachCapabilitiesEvent;
+
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -163,7 +179,7 @@ public final class BatchFamilyCheck {
         check(order.equals(List.of("notify", "statistic")) && stack.getCount() == 1 && stack.getDamageValue() == 0, "consume/statistic/reset ordering");
     }
     private static void mutableTags() {
-        var state = new com.fuckingdeveloper.lms.runtime.itemhandler.LegacyMutableTagState();
+        var state = new com.fuckingdeveloper.lms.profile.forge1192.runtime.itemhandler.LegacyMutableTagState();
         var stack = new ItemStack(Items.STONE); var tag = new CompoundTag(); tag.putInt("charge", 40);
         var shared = new net.minecraft.world.item.component.CustomData(tag);
         stack.set(DataComponents.CUSTOM_DATA, shared);

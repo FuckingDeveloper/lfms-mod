@@ -6,6 +6,13 @@ Binary-first compatibility system for legacy Minecraft Forge/FML mods on modern 
 **First legacy profile:** Forge 1.19.2.  
 **Reference mod:** IC2 Classic 1.19.2.
 
+## Repository structure
+
+See [repository navigation](docs/repository-layout.md) for package ownership,
+source profiles, target adapters, build scripts and local generated state.
+The [API-family matrix](docs/compatibility-api-coverage.md) tracks current coverage
+and the verification queue.
+
 ## Development
 
 Use the repository Gradle wrapper (9.2.1).

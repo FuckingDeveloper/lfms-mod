@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192ChunkUnloadBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.block.Forge1192ChunkUnloadBridge;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.*;
 import java.util.concurrent.CompletableFuture;

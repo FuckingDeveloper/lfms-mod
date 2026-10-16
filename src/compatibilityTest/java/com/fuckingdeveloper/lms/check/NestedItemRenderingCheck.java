@@ -1,6 +1,9 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192NestedItemBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyMultiBufferSource;
+
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 import net.minecraft.client.renderer.*;
@@ -17,7 +20,7 @@ final class NestedItemRenderingCheck {
         NativeDefaultComponentFixture.run(() -> {
             var outlines=new ArrayList<Integer>();
             var calls=new ArrayList<String>(); var poses=new ArrayList<Float>();
-            ItemStack original=com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge.create(Items.STICK);
+            ItemStack original=com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge.create(Items.STICK);
             original.setCount(4);
             var renderer=new SpecialModelRenderer<Integer>() {
                 public Integer extractArgument(ItemStack s){throw new AssertionError("late extraction");}
@@ -57,7 +60,7 @@ final class NestedItemRenderingCheck {
         var properties=new Properties();properties.setId(net.minecraft.resources.ResourceKey.create(
                 net.minecraft.core.registries.Registries.ITEM,net.minecraft.resources.Identifier.parse("probe:unrelated_item")));
         var block=net.minecraft.world.level.block.Blocks.DIAMOND_BLOCK;
-        com.fuckingdeveloper.lms.runtime.Forge1192VanillaConstructionBridge.withBlockItemDescription(properties,block);
+        com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192VanillaConstructionBridge.withBlockItemDescription(properties,block);
         check(properties.sourceName().equals(block.getDescriptionId()),"source block name replaced by item registry name");
         System.out.println("PASS: source nested draw once-only extraction, isolated input stack/pose, native deferred light/overlay/bounds/transform, rejection boundaries and block-owned name intent");
     }
@@ -76,10 +79,10 @@ final class NestedItemRenderingCheck {
         if(foreignUse)method.visitVarInsn(25,5);
         method.visitInsn(foreignUse?176:177);method.visitMaxs(8,6);
         var writer=new org.objectweb.asm.ClassWriter(0);node.accept(writer);
-        var result=new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer().transform("probe.NestedAlias",writer.toByteArray());
+        var result=new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer().transform("probe.NestedAlias",writer.toByteArray());
         var transformed=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(result.bytes()).accept(transformed,0);
         long adapted=transformed.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).filter(i->i instanceof org.objectweb.asm.tree.MethodInsnNode c
-                && c.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192NestedItemBridge")).count();
+                && c.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192NestedItemBridge")).count();
         check(adapted==(foreignUse?0:3),"local-alias repeated calls or foreign receiver-use boundary changed");
     }
     private static void check(boolean value,String reason){if(!value)throw new AssertionError(reason);}

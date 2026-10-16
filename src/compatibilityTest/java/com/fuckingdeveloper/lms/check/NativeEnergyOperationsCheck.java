@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.energy.Target263EnergyHandlerAdapter;
+import com.fuckingdeveloper.lms.target.neoforge263.energy.Target263EnergyHandlerAdapter;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.neoforged.neoforge.transfer.energy.*;
 import net.neoforged.neoforge.transfer.transaction.*;

@@ -1,6 +1,10 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192ModConfigView;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192ModContainerView;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192NativeConfigBridge;
+
+
 import com.electronwill.nightconfig.core.CommentedConfig;
 import java.lang.reflect.Proxy;
 import org.objectweb.asm.*;
@@ -56,31 +60,31 @@ final class NativeConfigFamilyCheck {
         check(!resolver.resolve("net/minecraft/server/MinecraftServer","m_129843_","()Ljava/nio/file/Path;").resolved(),"wrong descriptor accepted");
         var external=Path.of("legacy-mods/CarbonConfig-1.19.2-2.0.2.jar");
         var dependency=Path.of("lms/dependencies/CarbonConfig-1.19.2-2.0.2.jar/3d6c721d4d977672-Primitive Collections-0.8.9.jar");
-        if(Files.exists(external)&&Files.exists(dependency))try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(external,List.of(dependency),NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+        if(Files.exists(external)&&Files.exists(dependency))try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(external,List.of(dependency),NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())) {
             auditGuiLinkage(external,loader);
             var checkboxType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonCheckBox");
             var stateType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonCheckBox$CheckBoxState");
             var checkboxState=stateType.getConstructor(boolean.class).newInstance(true);var checkboxCalls=new AtomicInteger();
             stateType.getMethod("setCallback",java.util.function.Consumer.class).invoke(checkboxState,(java.util.function.Consumer<Object>)ignored->checkboxCalls.incrementAndGet());
-            var checkbox=(com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox)checkboxType.getConstructor(int.class,int.class,int.class,int.class,stateType).newInstance(3,5,90,20,checkboxState);
+            var checkbox=(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192Checkbox)checkboxType.getConstructor(int.class,int.class,int.class,int.class,stateType).newInstance(3,5,90,20,checkboxState);
             check(checkbox.selected()&&checkbox.getX()==3&&checkbox.getY()==5&&checkbox.getWidth()==90&&checkbox.getHeight()==20,"immutable checkbox constructor/selection/geometry lost");
             checkbox.onPress(new net.minecraft.client.input.KeyEvent(4,97,0));check(!checkbox.selected()&&checkboxCalls.get()==1,"immutable checkbox source state override/callback lost or doubled");
             checkbox.onPress(new net.minecraft.client.input.KeyEvent(4,97,0));check(checkbox.selected()&&checkboxCalls.get()==2,"immutable checkbox second activation failed");
             var guiType=loader.linkOwnedClass("carbonconfiglib.gui.base.helpers.GuiUtils");
             check(guiType.getDeclaredMethods().length>0,"immutable GUI helper verification did not execute");
             var guiNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(guiType.getName())).accept(guiNode,0);int projectedBatches=0;
-            for(var method:guiNode.methods){boolean projected=false;for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.owner.equals("com/fuckingdeveloper/lms/runtime/render/LegacyGuiTesselator"))projected=true;
+            for(var method:guiNode.methods){boolean projected=false;for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyGuiTesselator"))projected=true;
                 if(projected){projectedBatches++;for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call)check(!call.owner.equals("com/mojang/blaze3d/vertex/BufferBuilder"),"projected GUI batch retained incompatible concrete buffer receiver: "+method.name+"/"+call.name);}
             }
             check(projectedBatches>0,"actual GUI batch projection was not inspected");
             var editType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonEditBox");
             var edit=(net.minecraft.client.gui.components.EditBox)editType.getConstructor(net.minecraft.client.gui.Font.class,int.class,int.class,int.class,int.class).newInstance(null,0,0,120,20);
-            check(edit instanceof com.fuckingdeveloper.lms.runtime.render.Forge1192EditBox,"source edit-box constructor did not retain target-native adaptation");
+            check(edit instanceof com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192EditBox,"source edit-box constructor did not retain target-native adaptation");
             var editNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(editType.getName())).accept(editNode,0);
             for(var method:editNode.methods)for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call&&call.owner.equals(editType.getName().replace('.','/')))check(!call.name.startsWith("m_"),"immutable edit-box retained unresolved self/inherited operation: "+call.name+call.desc);
             edit.setValue("probe");var state=editType.getMethod("getState").invoke(edit);check(state.getClass().getMethod("getValue").invoke(state).equals("probe"),"immutable source text-state responder did not receive native edit");
             var listType=loader.linkOwnedClass("carbonconfiglib.gui.base.widgets.CarbonDynamicList");
-            var sourceList=(com.fuckingdeveloper.lms.runtime.render.Forge1192ContainerSelectionList<?>)listType.getConstructor(net.minecraft.client.Minecraft.class,int.class,int.class,int.class,int.class,int.class).newInstance(null,320,240,30,180,20);
+            var sourceList=(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ContainerSelectionList<?>)listType.getConstructor(net.minecraft.client.Minecraft.class,int.class,int.class,int.class,int.class,int.class).newInstance(null,320,240,30,180,20);
             check(sourceList.lms$getHeight()==240&&sourceList.lms$getTop()==30&&sourceList.lms$getBottom()==180,"source screen height and viewport conflated");
             listType.getMethod("setWidth",int.class).invoke(sourceList,280);check(sourceList.lms$getWidth()==280&&sourceList.lms$getRight()==280,"immutable source list geometry writes disconnected");
             check(sourceList.lms$children().isEmpty(),"source list constructed with fabricated entries");
@@ -102,7 +106,7 @@ final class NativeConfigFamilyCheck {
             var rowNode=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(loader.definedClassBytes(rowType.getName())).accept(rowNode,0);int widgets=0;
             for(var method:rowNode.methods)for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call){
                 check(!call.name.equals("m_6305_"),"source row retained old widget render dispatch");
-                if(call.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192WidgetGraphicsBridge")&&call.name.equals("render"))widgets++;
+                if(call.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192WidgetGraphicsBridge")&&call.name.equals("render"))widgets++;
             }
             check(widgets>0,"immutable row's native widget render path was not adapted");
             var type=loader.linkOwnedClass("carbonconfiglib.gui.impl.forge.ForgeConfig");var consumer=type.getConstructor(Forge1192ModConfigView.class).newInstance(source);
@@ -111,7 +115,7 @@ final class NativeConfigFamilyCheck {
             check(type.getMethod("getRootNode").invoke(consumer)!=null,"actual source config root construction failed");
             try(var jar=new java.util.jar.JarFile(external.toFile())) {
                 String name="carbonconfiglib/impl/internal/BackupManager";byte[] bytes;try(var in=jar.getInputStream(jar.getJarEntry(name+".class"))){bytes=in.readAllBytes();}
-                var transformed=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer().transform(name.replace('/','.'),bytes).bytes()).accept(transformed,0);
+                var transformed=new org.objectweb.asm.tree.ClassNode();new org.objectweb.asm.ClassReader(new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer().transform(name.replace('/','.'),bytes).bytes()).accept(transformed,0);
                 var names=new java.util.HashSet<String>();
                 for(var method:transformed.methods)for(var instruction:method.instructions)if(instruction instanceof org.objectweb.asm.tree.MethodInsnNode call&&java.util.Set.of("net/minecraft/server/MinecraftServer","net/minecraft/client/server/IntegratedServer").contains(call.owner)) {
                     check(!call.name.startsWith("m_"),"immutable backup consumer retained unadapted server call: "+call.name);names.add(call.name);
@@ -137,17 +141,17 @@ final class NativeConfigFamilyCheck {
         var ctor=new MethodNode(Opcodes.ACC_PUBLIC,"<init>","(IIII"+comp+"ZZ)V",null,null);child.methods.add(ctor);ctor.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));for(int i=1;i<=4;i++)ctor.instructions.add(new VarInsnNode(Opcodes.ILOAD,i));ctor.instructions.add(new VarInsnNode(Opcodes.ALOAD,5));ctor.instructions.add(new VarInsnNode(Opcodes.ILOAD,6));ctor.instructions.add(new VarInsnNode(Opcodes.ILOAD,7));ctor.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,checkRoot,"<init>",ctor.desc,false));ctor.instructions.add(new InsnNode(Opcodes.RETURN));
         var press=new MethodNode(Opcodes.ACC_PUBLIC,"m_5691_","()V",null,null);child.methods.add(press);press.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));press.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,checkRoot,"m_5691_","()V",false));press.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));press.instructions.add(new InsnNode(Opcodes.DUP));press.instructions.add(new FieldInsnNode(Opcodes.GETFIELD,child.name,"calls","I"));press.instructions.add(new InsnNode(Opcodes.ICONST_1));press.instructions.add(new InsnNode(Opcodes.IADD));press.instructions.add(new FieldInsnNode(Opcodes.PUTFIELD,child.name,"calls","I"));press.instructions.add(new InsnNode(Opcodes.RETURN));
         var path=Files.createTempFile("lms-config-ui-calls", ".jar");try(var jar=new java.util.jar.JarOutputStream(Files.newOutputStream(path))){for(var n:List.of(node,child)){var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);n.accept(writer);jar.putNextEntry(new java.util.jar.JarEntry(n.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();}}
-        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())) {
             var type=loader.linkOwnedClass(node.name.replace('/','.'));var childType=loader.linkOwnedClass(child.name.replace('/','.'));
-            var selected=(com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox)childType.getConstructor(int.class,int.class,int.class,int.class,net.minecraft.network.chat.Component.class,boolean.class,boolean.class).newInstance(3,5,90,20,net.minecraft.network.chat.Component.literal("option"),false,false);
+            var selected=(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192Checkbox)childType.getConstructor(int.class,int.class,int.class,int.class,net.minecraft.network.chat.Component.class,boolean.class,boolean.class).newInstance(3,5,90,20,net.minecraft.network.chat.Component.literal("option"),false,false);
             selected.onPress(new net.minecraft.client.input.KeyEvent(4,97,0));check(selected.selected()&&childType.getField("calls").getInt(selected)==1,"native checkbox activation lost source override/super dispatch");
             for(int i=0;i<references.size();i++) {
                 var direct=(java.lang.invoke.MethodHandle)type.getMethod("handle"+i).invoke(null);var nested=(java.lang.invoke.MethodHandle)type.getMethod("handle"+i+"nested").invoke(null);check(direct.type().equals(nested.type()),"nested configuration UI handle descriptor diverged");
-                if(i==0||i==1){check(direct.type().returnType()==com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox.class,"checkbox constructor handle lost projected return");try{var args=new ArrayList<Object>(List.of(3,5,90,20,net.minecraft.network.chat.Component.literal("option"),true));if(i==1)args.add(false);check(((com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox)direct.invokeWithArguments(args)).selected(),"checkbox constructor handle state lost");}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}}
+                if(i==0||i==1){check(direct.type().returnType()==com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192Checkbox.class,"checkbox constructor handle lost projected return");try{var args=new ArrayList<Object>(List.of(3,5,90,20,net.minecraft.network.chat.Component.literal("option"),true));if(i==1)args.add(false);check(((com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192Checkbox)direct.invokeWithArguments(args)).selected(),"checkbox constructor handle state lost");}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}}
                 if(i==3)check(direct.type().equals(java.lang.invoke.MethodType.methodType(net.minecraft.client.gui.components.toasts.ToastManager.class,net.minecraft.client.Minecraft.class)),"toast accessor handle lost actual owner/native manager type");
             }
             try{var pressHandle=(java.lang.invoke.MethodHandle)type.getMethod("handle6nested").invoke(null);pressHandle.invokeWithArguments(selected);var selectedHandle=(java.lang.invoke.MethodHandle)type.getMethod("handle7").invoke(null);check(!(boolean)selectedHandle.invokeWithArguments(selected)&&childType.getField("calls").getInt(selected)==2,"source checkbox callable bypassed override or duplicated super toggle");}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}
-            ((Runnable)type.getMethod("pressRunnable",com.fuckingdeveloper.lms.runtime.render.Forge1192Checkbox.class).invoke(null,selected)).run();check(selected.selected()&&childType.getField("calls").getInt(selected)==3,"source bound activation lambda failed or duplicated callback");
+            ((Runnable)type.getMethod("pressRunnable",com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192Checkbox.class).invoke(null,selected)).run();check(selected.selected()&&childType.getField("calls").getInt(selected)==3,"source bound activation lambda failed or duplicated callback");
             var first=net.minecraft.network.chat.Component.literal("first").withStyle(net.minecraft.ChatFormatting.RED);var second=net.minecraft.network.chat.Component.literal("second");
             var result=(net.minecraft.network.chat.MutableComponent)type.getMethod("join",net.minecraft.network.chat.Component.class,net.minecraft.network.chat.Component.class).invoke(null,first,second);
             check(result.getString().equals("first. second")&&result.getSiblings().getFirst()==first&&result.getSiblings().getLast()==second&&first.getSiblings().isEmpty(),"narration append order/styles/reference identity changed");result.append("!");check(first.getString().equals("first")&&second.getString().equals("second"),"narration join mutated inputs");
@@ -160,21 +164,21 @@ final class NativeConfigFamilyCheck {
         var unsafeField=sun.misc.Unsafe.class.getDeclaredField("theUnsafe");unsafeField.setAccessible(true);var unsafe=(sun.misc.Unsafe)unsafeField.get(null);
         var manager=(net.minecraft.client.gui.components.toasts.ToastManager)unsafe.allocateInstance(net.minecraft.client.gui.components.toasts.ToastManager.class);
         for(var entry:Map.<String,Object>of("queued",new ArrayDeque<>(),"visibleToasts",new ArrayList<>(),"occupiedSlots",new BitSet()).entrySet()){var field=manager.getClass().getDeclaredField(entry.getKey());field.setAccessible(true);field.set(manager,entry.getValue());}
-        var id=com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.Id.TUTORIAL_HINT;var other=com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.Id.WORLD_BACKUP;
-        check(id.ordinal()==0&&id.displayTime==5000&&com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.Id.values().length==10&&com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.Id.CHAT_PREVIEW_WARNING.displayTime==10000,"source toast categories/order/durations changed");
+        var id=com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.Id.TUTORIAL_HINT;var other=com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.Id.WORLD_BACKUP;
+        check(id.ordinal()==0&&id.displayTime==5000&&com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.Id.values().length==10&&com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.Id.CHAT_PREVIEW_WARNING.displayTime==10000,"source toast categories/order/durations changed");
         var count=new AtomicInteger();java.util.function.Consumer<net.neoforged.neoforge.client.event.ToastAddEvent> listener=event->{count.incrementAndGet();if(event.getToast().getToken()==other)event.setCanceled(true);};
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL,false,net.neoforged.neoforge.client.event.ToastAddEvent.class,listener);
         try {
             var title=net.minecraft.network.chat.Component.literal("backup");
-            com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast toast;
-            try{var ctor=(java.lang.invoke.MethodHandle)probes.getMethod("handle2").invoke(null);toast=(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast)ctor.invokeWithArguments(id,title,null);var add=(java.lang.invoke.MethodHandle)probes.getMethod("handle4nested").invoke(null);add.invokeWithArguments(manager,toast);}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}
-            check(manager.getToast(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.class,id)==toast&&count.get()==1,"source notification lost native queue/token identity");
-            com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.addOrUpdate(manager,id,net.minecraft.network.chat.Component.literal("updated"),null);check(manager.getToast(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.class,id)==toast&&count.get()==1,"source reset duplicated native queued toast");
-            com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.add(manager,other,title,null);check(manager.getToast(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.class,other)==null&&count.get()==2,"native toast cancellation skipped or category aliased");
-            manager.clear();check(manager.getToast(com.fuckingdeveloper.lms.runtime.render.Forge1192SystemToast.class,id)==null,"native toast clear lost source entry");
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast toast;
+            try{var ctor=(java.lang.invoke.MethodHandle)probes.getMethod("handle2").invoke(null);toast=(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast)ctor.invokeWithArguments(id,title,null);var add=(java.lang.invoke.MethodHandle)probes.getMethod("handle4nested").invoke(null);add.invokeWithArguments(manager,toast);}catch(RuntimeException|Error failure){throw failure;}catch(Throwable failure){throw new AssertionError(failure);}
+            check(manager.getToast(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.class,id)==toast&&count.get()==1,"source notification lost native queue/token identity");
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.addOrUpdate(manager,id,net.minecraft.network.chat.Component.literal("updated"),null);check(manager.getToast(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.class,id)==toast&&count.get()==1,"source reset duplicated native queued toast");
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.add(manager,other,title,null);check(manager.getToast(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.class,other)==null&&count.get()==2,"native toast cancellation skipped or category aliased");
+            manager.clear();check(manager.getToast(com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192SystemToast.class,id)==null,"native toast clear lost source entry");
         }finally{net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(listener);}
     }
-    private static void immutableScrollConsumer(com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader sourceLoader,com.fuckingdeveloper.lms.runtime.render.Forge1192ContainerSelectionList<?> list) throws Exception {
+    private static void immutableScrollConsumer(com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader sourceLoader,com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ContainerSelectionList<?> list) throws Exception {
         String parent="carbonconfiglib/gui/base/widgets/CarbonDynamicList$DynamicEntry",owner="fixture/ImmutableScrollRow";
         var node=new org.objectweb.asm.tree.ClassNode();node.version=org.objectweb.asm.Opcodes.V17;node.access=org.objectweb.asm.Opcodes.ACC_PUBLIC;node.name=owner;node.superName=parent;
         node.fields.add(new org.objectweb.asm.tree.FieldNode(org.objectweb.asm.Opcodes.ACC_PUBLIC,"widgets","Ljava/util/List;",null,null));
@@ -186,7 +190,7 @@ final class NativeConfigFamilyCheck {
         }
         var writer=new org.objectweb.asm.ClassWriter(org.objectweb.asm.ClassWriter.COMPUTE_MAXS);node.accept(writer);var path=Files.createTempFile("lms-immutable-scroll-row", ".jar");
         try(var jar=new java.util.jar.JarOutputStream(Files.newOutputStream(path))){jar.putNextEntry(new java.util.jar.JarEntry(owner+".class"));jar.write(writer.toByteArray());jar.closeEntry();}
-        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,sourceLoader,new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,sourceLoader,new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())) {
             var type=loader.linkOwnedClass(owner.replace('/','.'));var base=sourceLoader.linkOwnedClass(parent.replace('/','.'));
             var unsafeField=sun.misc.Unsafe.class.getDeclaredField("theUnsafe");unsafeField.setAccessible(true);var unsafe=(sun.misc.Unsafe)unsafeField.get(null);
             var height=base.getDeclaredField("itemheight");height.setAccessible(true);var location=base.getDeclaredField("location");location.setAccessible(true);var listOwner=base.getDeclaredField("owner");listOwner.setAccessible(true);
@@ -271,7 +275,7 @@ final class NativeConfigFamilyCheck {
         var handles=List.of(new org.objectweb.asm.Handle(org.objectweb.asm.Opcodes.H_NEWINVOKESPECIAL,event,"<init>","(L"+source+";)V",false),new org.objectweb.asm.Handle(org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL,event,"getConfig","()L"+source+";",false));
         for(int i=0;i<handles.size();i++){var m=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_STATIC,"handle"+i,"()Ljava/lang/invoke/MethodHandle;",null,null);node.methods.add(m);m.instructions.add(new org.objectweb.asm.tree.LdcInsnNode(handles.get(i)));m.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));}
         var writer=new org.objectweb.asm.ClassWriter(org.objectweb.asm.ClassWriter.COMPUTE_MAXS);node.accept(writer);var path=Files.createTempFile("lms-config-handles", ".jar");try(var jar=new java.util.jar.JarOutputStream(Files.newOutputStream(path))){jar.putNextEntry(new java.util.jar.JarEntry(owner+".class"));jar.write(writer.toByteArray());jar.closeEntry();}
-        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,NativeConfigFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())) {
             var type=loader.linkOwnedClass(owner.replace('/','.'));var constructor=(java.lang.invoke.MethodHandle)type.getMethod("handle0").invoke(null);var getter=(java.lang.invoke.MethodHandle)type.getMethod("handle1").invoke(null);
             try {
                 check(constructor.type().equals(java.lang.invoke.MethodType.methodType(ModConfigEvent.Reloading.class,Forge1192ModConfigView.class)),"source event constructor handle type changed");

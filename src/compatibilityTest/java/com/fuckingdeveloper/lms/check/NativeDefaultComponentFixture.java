@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Target263ReloadLookupBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263ReloadLookupBridge;
 import com.mojang.serialization.Lifecycle;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.*;

@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
-import com.fuckingdeveloper.lms.runtime.item.LegacyArmorItem;
-import com.fuckingdeveloper.lms.runtime.render.Target263ArmorTextureBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.LegacyArmorItem;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263ArmorTextureBridge;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.item.ItemStack;

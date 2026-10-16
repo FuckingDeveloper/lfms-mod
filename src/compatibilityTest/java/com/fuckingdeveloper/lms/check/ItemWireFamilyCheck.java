@@ -1,7 +1,14 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.*;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.fluid.Forge1192EarlyFluidStackBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ItemBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.network.Forge1192FluidPacketBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.network.Forge1192ItemWireBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.network.Forge1192NetworkBridge;
+
+
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import net.minecraft.core.component.*;
 import net.minecraft.nbt.*;
 import net.minecraft.network.FriendlyByteBuf;

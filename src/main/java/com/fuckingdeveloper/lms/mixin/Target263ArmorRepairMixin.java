@@ -1,5 +1,5 @@
 package com.fuckingdeveloper.lms.mixin;
-import com.fuckingdeveloper.lms.runtime.item.LegacyArmorItem;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.LegacyArmorItem;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.*;

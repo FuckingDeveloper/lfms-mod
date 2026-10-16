@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.itemhandler.Forge1192VanillaItemTransfer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.itemhandler.Forge1192VanillaItemTransfer;
 import com.llamalad7.mixinextras.injector.wrapoperation.*;
 import net.minecraft.core.dispenser.BlockSource;
 import net.minecraft.core.dispenser.DispenseItemBehavior;

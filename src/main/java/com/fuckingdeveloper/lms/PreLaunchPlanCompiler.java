@@ -4,7 +4,7 @@ import com.fuckingdeveloper.lms.analysis.*;
 import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.mapping.*;
-import com.fuckingdeveloper.lms.profile.Forge1192Profile;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192Profile;
 import com.fuckingdeveloper.lms.transform.*;
 
 import java.nio.file.*;

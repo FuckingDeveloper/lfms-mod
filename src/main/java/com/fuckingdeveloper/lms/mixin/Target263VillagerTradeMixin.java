@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.villager.Forge1192VillagerTradeBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.villager.Forge1192VillagerTradeBridge;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.npc.villager.Villager;
 import org.spongepowered.asm.mixin.Mixin;

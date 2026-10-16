@@ -1,8 +1,16 @@
 package com.fuckingdeveloper.lms.check;
 
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192CustomItemBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192CustomItemRenderer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ItemExtensions;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192NestedItemBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyMultiBufferSource;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyRenderType;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263LegacyGuiItemModel;
+
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
 import java.nio.file.*;
 import java.util.*;
 import net.minecraft.world.item.*;
@@ -27,7 +35,7 @@ final class CustomItemRenderingCheck {
             check(model.equals(sameProperties), "regression fixture must reproduce equal display properties");
             var first = new net.minecraft.client.renderer.item.TrackingItemStackRenderState();
             var second = new net.minecraft.client.renderer.item.TrackingItemStackRenderState();
-            var stack = com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge.create(Items.STICK);
+            var stack = com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge.create(Items.STICK);
             var otherBuffers = LegacyMultiBufferSource.recording();
             otherBuffers.getBuffer(LegacyRenderType.m_110452_(net.minecraft.resources.Identifier.parse("probe:other_texture"))).addVertex(9, 8, 7);
             model.installGeometry(first, stack, geometry);
@@ -55,7 +63,7 @@ final class CustomItemRenderingCheck {
             var calls = node.methods.stream().flatMap(m -> Arrays.stream(m.instructions.toArray()))
                     .filter(i -> i instanceof MethodInsnNode).map(i -> (MethodInsnNode)i).toList();
             check(calls.stream().anyMatch(c -> c.getOpcode() == Opcodes.INVOKESTATIC && c.owner.equals(
-                    "com/fuckingdeveloper/lms/runtime/render/Forge1192CustomItemBridge") && c.name.equals("renderItem")),
+                    "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192CustomItemBridge") && c.name.equals("renderItem")),
                     "source dispatcher callback not migrated");
             check(calls.stream().noneMatch(c -> c.name.equals("m_112272_")), "removed dispatcher ABI retained");
             String ber = "com.progwml6.ironchest.client.render.IronChestRenderer";
@@ -65,10 +73,10 @@ final class CustomItemRenderingCheck {
             check(operations.stream().noneMatch(i -> i instanceof FieldInsnNode f && f.name.equals("f_112249_")),
                     "removed source dispatcher camera retained");
             check(operations.stream().anyMatch(i -> i instanceof MethodInsnNode c && c.name.equals("cameraPosition")
-                    && c.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192CustomItemBridge")), "source camera position observation lost");
+                    && c.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192CustomItemBridge")), "source camera position observation lost");
             check(operations.stream().noneMatch(i -> i instanceof MethodInsnNode c && (c.name.equals("m_91291_") || c.name.equals("m_174269_"))), "removed nested source renderer API retained");
             check(operations.stream().anyMatch(i -> i instanceof MethodInsnNode c && c.name.equals("renderStatic")
-                    && c.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192NestedItemBridge")), "nested source items silently omitted");
+                    && c.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192NestedItemBridge")), "nested source items silently omitted");
             String itemClass="com.progwml6.ironchest.common.item.IronChestBlockItem";
             loader.loadClass(itemClass);var named=new ClassNode();new ClassReader(loader.definedClassBytes(itemClass)).accept(named,0);
             check(named.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).anyMatch(i->i instanceof MethodInsnNode c

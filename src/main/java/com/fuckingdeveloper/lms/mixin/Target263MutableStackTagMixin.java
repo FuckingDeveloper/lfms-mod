@@ -1,6 +1,9 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.itemhandler.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.itemhandler.LegacyMutableTagCarrier;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.itemhandler.LegacyMutableTagState;
+
+
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.*;
@@ -24,7 +27,7 @@ abstract class Target263MutableStackTagMixin implements LegacyMutableTagCarrier 
     @Inject(method="setDamageValue", at=@At("RETURN"))
     private void lms$mirrorSourceDamage(int damage, CallbackInfo callback) {
         var stack = (ItemStack)(Object)this;
-        if (com.fuckingdeveloper.lms.runtime.Forge1192DamageDataBridge.source(stack))
-            com.fuckingdeveloper.lms.runtime.Forge1192DamageDataBridge.mirror(stack, stack.getItem().getDamage(stack));
+        if (com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192DamageDataBridge.source(stack))
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192DamageDataBridge.mirror(stack, stack.getItem().getDamage(stack));
     }
 }

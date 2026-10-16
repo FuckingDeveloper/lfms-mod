@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192ToolModificationBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ToolModificationBridge;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;

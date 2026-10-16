@@ -1,9 +1,17 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.*;
-import com.fuckingdeveloper.lms.runtime.capability.*;
-import com.fuckingdeveloper.lms.runtime.itemhandler.Target263ItemHandlerAdapter;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.Forge1192BlockCapabilityBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyCapability;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyForgeCapabilities;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyICapabilityProvider;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyLazyOptional;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.network.Forge1192NetworkBridge;
+
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
+
+import com.fuckingdeveloper.lms.target.neoforge263.itemhandler.Target263ItemHandlerAdapter;
 import java.lang.reflect.Proxy;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.core.Direction;

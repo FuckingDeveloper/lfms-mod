@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.*;

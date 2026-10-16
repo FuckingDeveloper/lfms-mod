@@ -1,5 +1,5 @@
 package com.fuckingdeveloper.lms.mixin;
-import com.fuckingdeveloper.lms.runtime.render.Target263ArmorTextureBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263ArmorTextureBridge;
 import net.minecraft.client.resources.model.EquipmentClientInfo;
 import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Mixin;

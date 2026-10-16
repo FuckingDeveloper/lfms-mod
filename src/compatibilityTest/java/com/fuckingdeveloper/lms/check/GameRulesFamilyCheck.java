@@ -1,10 +1,10 @@
 package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.Forge1192GameRuleViews;
-import com.fuckingdeveloper.lms.runtime.Forge1192GameRuleViews.*;
-import com.fuckingdeveloper.lms.runtime.Forge1192GameRuleViews.Type;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.world.Forge1192GameRuleViews;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.world.Forge1192GameRuleViews.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.world.Forge1192GameRuleViews.Type;
 import com.mojang.serialization.Dynamic;
 import java.nio.file.*;
 import java.util.*;

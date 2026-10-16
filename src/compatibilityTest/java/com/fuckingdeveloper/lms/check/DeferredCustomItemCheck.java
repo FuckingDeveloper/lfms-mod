@@ -1,7 +1,14 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.render.*;
-import com.fuckingdeveloper.lms.runtime.Forge1192ItemBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192CustomItemRenderer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyMultiBufferSource;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyRenderType;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263CustomItemSnapshot;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263DeferredCustomItem;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263LegacyGuiItemModel;
+
+
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ItemBridge;
 import com.mojang.blaze3d.vertex.*;
 import java.lang.reflect.*;
 import java.util.*;
@@ -15,7 +22,7 @@ import org.joml.*;
 final class DeferredCustomItemCheck {
     static void run() throws Exception {
         NativeDefaultComponentFixture.run(()->{
-            var stack=com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge.create(Items.STICK);
+            var stack=com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge.create(Items.STICK);
             stack.setCount(4);Forge1192ItemBridge.getOrCreateTag(stack).putInt("charge",42);
             stack.remove(DataComponents.ITEM_NAME);
             var expectedPatch=stack.copy().getComponentsPatch();

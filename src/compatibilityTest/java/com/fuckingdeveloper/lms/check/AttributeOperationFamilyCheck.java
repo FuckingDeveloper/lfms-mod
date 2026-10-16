@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 import org.objectweb.asm.*;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 
 final class AttributeOperationFamilyCheck implements Opcodes {

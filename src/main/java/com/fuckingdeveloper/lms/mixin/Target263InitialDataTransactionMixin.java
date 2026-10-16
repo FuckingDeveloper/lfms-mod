@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.Target263InitialDataTransaction;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263InitialDataTransaction;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;

@@ -1,6 +1,8 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.*;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
+
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import java.nio.file.*;
@@ -8,7 +10,7 @@ import java.util.jar.*;
 
 public final class GuiItemOperationCheck {
     public static void run() throws Exception {
-        Class.forName("com.fuckingdeveloper.lms.runtime.render.Forge1192GuiItemExtractionBridge");
+        Class.forName("com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192GuiItemExtractionBridge");
         var input=Path.of("legacy-mods/IC2Classic-1.19.2-2.1.3.4.jar");
         if(!Files.exists(input)){System.out.println("SKIP: external immutable GUI operation evidence absent");return;}
         MethodNode body;
@@ -26,6 +28,6 @@ public final class GuiItemOperationCheck {
         System.out.println("PASS: unrelated helper identity, full source GUI-operation body/direct flow, native extraction linkage and changed-light/rebinding rejection");
     }
     private static byte[] bytes(ClassNode node){var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);node.accept(writer);return writer.toByteArray();}
-    private static boolean projected(Forge1192LegacyClassTransformer transformer,ClassNode node){var result=new ClassNode();new ClassReader(transformer.transform(node.name.replace('/','.'),bytes(node)).bytes()).accept(result,0);return java.util.stream.StreamSupport.stream(result.methods.getFirst().instructions.spliterator(),false).anyMatch(i->i instanceof MethodInsnNode c&&c.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192GuiItemExtractionBridge")&&c.name.equals("item"));}
+    private static boolean projected(Forge1192LegacyClassTransformer transformer,ClassNode node){var result=new ClassNode();new ClassReader(transformer.transform(node.name.replace('/','.'),bytes(node)).bytes()).accept(result,0);return java.util.stream.StreamSupport.stream(result.methods.getFirst().instructions.spliterator(),false).anyMatch(i->i instanceof MethodInsnNode c&&c.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192GuiItemExtractionBridge")&&c.name.equals("item"));}
     private static void check(boolean ok,String text){if(!ok)throw new AssertionError(text);}
 }

@@ -1,0 +1,101 @@
+// Early FML transformation library: compiled independently from the ordinary NeoForge mod.
+// FML discovers it as an FMLModType=LIBRARY service provider.
+repositories { mavenCentral() }
+sourceSets {
+    launch {
+        java.srcDir 'src/launch/java'
+    }
+}
+configurations.launchCompileOnly.extendsFrom(configurations.compileOnly, configurations.compileClasspath)
+dependencies {
+    launchCompileOnly 'net.neoforged.fancymodloader:loader:12.0.9'
+    launchCompileOnly 'org.ow2.asm:asm-tree:9.10.1'
+    launchCompileOnly 'org.ow2.asm:asm-analysis:9.10.1'
+}
+tasks.register('launchJar', Jar) {
+    group = 'lms'
+    description = 'Build the separate early FML transformation library'
+    archiveClassifier = 'launch'
+    from sourceSets.launch.output
+    manifest { attributes('FMLModType': 'LIBRARY') }
+    dependsOn tasks.named('launchClasses')
+}
+
+def installLaunchJar = tasks.register('installLaunchJar') {
+    group = 'lms'
+    description = 'Install the current early FML transformation library into the development mods directory'
+    dependsOn tasks.named('launchJar')
+    inputs.file(tasks.named('launchJar').flatMap { it.archiveFile })
+    outputs.upToDateWhen { false }
+    doLast {
+        def modsDir = layout.projectDirectory.dir('run/mods').asFile
+        modsDir.mkdirs()
+        fileTree(modsDir) {
+            include 'lms-*-launch.jar'
+        }.files.each { delete it }
+
+        def sourceJar = tasks.named('launchJar').get().archiveFile.get().asFile
+        copy {
+            from sourceJar
+            into modsDir
+        }
+        logger.lifecycle("LMS launch JAR installed from {} ({} bytes, modified={})",
+                sourceJar.absolutePath, sourceJar.length(), sourceJar.lastModified())
+    }
+}
+
+def launchJarPathProvider = tasks.named('launchJar').flatMap { it.archiveFile }.map { it.asFile.absolutePath }
+
+def prepareLaunchPlan = tasks.register('prepareLaunchPlan', JavaExec) {
+    group = 'lms'
+    description = 'Compile the current legacy compatibility plan before FancyModLoader starts'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.fuckingdeveloper.lms.PreLaunchPlanCompiler'
+    workingDir = layout.projectDirectory.dir('run')
+    doFirst {
+        delete layout.projectDirectory.file('run/lms/launch-plan.tsv')
+        delete fileTree(layout.projectDirectory.dir('run/lms')) {
+            include 'member-gaps-*.tsv'
+            include 'member-gaps-*.tsv.tmp'
+        }
+    }
+}
+
+// Diagnostic runs must compile the current main LMS sources. Configure this
+// provider at top level: Gradle 9 forbids configuring another task provider
+// from inside runClient's configuration action.
+tasks.named('compileJava') {
+    outputs.upToDateWhen { false }
+}
+tasks.named('compileLaunchJava') {
+    outputs.upToDateWhen { false }
+}
+tasks.named('launchJar') {
+    outputs.upToDateWhen { false }
+}
+tasks.named('runClient') {
+    dependsOn installLaunchJar, prepareLaunchPlan, tasks.named('classes')
+    doFirst {
+        logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())
+        logger.lifecycle("LMS installed launch JARs: {}", fileTree(layout.projectDirectory.dir('run/mods')) {
+            include 'lms-*-launch.jar'
+        }.files*.absolutePath)
+    }
+}
+tasks.named('runServer') {
+    // Preserve the native dedicated console for bounded runtime probes and stop/save.
+    standardInput = System.in
+    dependsOn installLaunchJar, prepareLaunchPlan
+    doFirst {
+        logger.lifecycle("LMS launch JAR built at: {}", launchJarPathProvider.get())
+        logger.lifecycle("LMS installed launch JARs: {}", fileTree(layout.projectDirectory.dir('run/mods')) {
+            include 'lms-*-launch.jar'
+        }.files*.absolutePath)
+    }
+}
+
+// Generate inspectable launch scripts for the actual ModDevGradle client/server pipeline.
+tasks.named('createClientLaunchScript') {
+    dependsOn tasks.named('launchJar')
+}

@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import java.util.List;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
@@ -34,7 +34,7 @@ final class FollowupFamilyCheck {
                     var bridgeType = java.lang.invoke.MethodType.fromMethodDescriptorString(call.desc,
                             FollowupFamilyCheck.class.getClassLoader());
                     java.lang.invoke.MethodHandles.publicLookup().findStatic(
-                            com.fuckingdeveloper.lms.runtime.Forge1192LevelSoundBridge.class, call.name, bridgeType);
+                            com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192LevelSoundBridge.class, call.name, bridgeType);
                     linkMethodReference(transformer, pass, owner, owner, names[i], descriptors[i]);
                     if (owner.equals(LEVEL)) linkMethodReference(transformer, pass, owner,
                             "net/minecraft/server/level/ServerLevel", names[i], descriptors[i]);
@@ -145,16 +145,16 @@ final class FollowupFamilyCheck {
             zip.write("license='test'\n[[mods]]\nmodId='fixture'\ndisplayName='Fixture'\nversion='1'\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)); zip.closeEntry();
         }
         byte[] original = java.nio.file.Files.readAllBytes(artifact);
-        try (var session = new com.fuckingdeveloper.lms.runtime.Forge1192RuntimeSession("fixture", artifact,
+        try (var session = new com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192RuntimeSession("fixture", artifact,
                 FollowupFamilyCheck.class.getClassLoader(), List.of("fixture.Entrypoint"))) {
             try {
-                com.fuckingdeveloper.lms.runtime.Target263LegacyModListBridge.displayInfo(session);
+                com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyModListBridge.displayInfo(session);
                 throw new AssertionError("linked candidate presented as loaded");
             } catch (IllegalStateException expected) {}
             session.blockInitialization("required-api-family");
-            check(session.state() == com.fuckingdeveloper.lms.runtime.Forge1192RuntimeSession.State.BLOCKED,
+            check(session.state() == com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192RuntimeSession.State.BLOCKED,
                     "gate rejection not recorded in session");
-            var display = com.fuckingdeveloper.lms.runtime.Target263LegacyModListBridge.displayInfo(session);
+            var display = com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyModListBridge.displayInfo(session);
             check(display.id().equals("fixture") && display.description().getString().contains("required-api-family")
                     && !display.displayName().getString().equals("Fixture"), "blocked status/reason absent from display");
             try { session.initialize(); throw new AssertionError("blocked session initialized"); }

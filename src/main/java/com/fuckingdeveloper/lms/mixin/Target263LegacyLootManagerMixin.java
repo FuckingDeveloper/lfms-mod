@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.Target263LegacyLootResources;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyLootResources;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.resources.FileToIdConverter;

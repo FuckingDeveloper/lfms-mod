@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192SideBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192SideBridge;
 import java.util.concurrent.atomic.*;
 import net.neoforged.fml.LogicalSide;
 import net.neoforged.fml.util.thread.*;

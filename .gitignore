@@ -104,3 +104,6 @@ tmbootpicker.efi
 
 
 run/
+
+# Local root logger output (runtime/diagnostic launches)
+/logs/

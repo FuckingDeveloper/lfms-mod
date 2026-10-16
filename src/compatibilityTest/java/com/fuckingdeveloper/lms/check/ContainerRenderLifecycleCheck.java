@@ -1,8 +1,11 @@
 package com.fuckingdeveloper.lms.check;
 
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ContainerGraphicsBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyContainerRender;
+
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.nio.file.*;
 import java.util.*;
@@ -57,7 +60,7 @@ final class ContainerRenderLifecycleCheck implements Opcodes {
             try(var input=jar.getInputStream(jar.getJarEntry(owner+".class"))){original=input.readAllBytes();}
             var actual=new ClassNode();new ClassReader(new Forge1192LegacyClassTransformer().transform(owner.replace('/','.'),original).bytes()).accept(actual,0);
             var operations=new java.util.HashSet<String>();
-            for(var m:actual.methods)for(var i:m.instructions)if(i instanceof MethodInsnNode c && c.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge"))operations.add(c.name);
+            for(var m:actual.methods)for(var i:m.instructions)if(i instanceof MethodInsnNode c && c.owner.equals("com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192ContainerGraphicsBridge"))operations.add(c.name);
             check(operations.containsAll(List.of("render","defaultRender","tooltip","formattedTooltip")),"original full render/tooltip family incomplete: "+operations);
         }
         System.out.println("PASS: full source container native extraction entry, inherited virtual/special order, arguments, exception/scope restoration and original binary immutability; actual slots/tooltip visuals require client");

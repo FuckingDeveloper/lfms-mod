@@ -1,5 +1,5 @@
 package com.fuckingdeveloper.lms.mixin;
-import com.fuckingdeveloper.lms.runtime.item.LegacyArmorItem;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.LegacyArmorItem;
 import net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.EquipmentSlot;

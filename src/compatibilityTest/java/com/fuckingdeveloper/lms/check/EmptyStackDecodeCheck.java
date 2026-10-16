@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192ItemBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ItemBridge;
 import net.minecraft.core.component.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.*;

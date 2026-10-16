@@ -1,8 +1,8 @@
 package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.Forge1192BonemealBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.block.Forge1192BonemealBridge;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;

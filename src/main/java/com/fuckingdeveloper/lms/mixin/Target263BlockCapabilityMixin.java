@@ -1,7 +1,10 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.capability.*;
-import com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyBlockCapabilityCarrier;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.capability.LegacyBlockCapabilityDispatcher;
+
+
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyAttachCapabilitiesEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.*;
@@ -14,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Exact source gather/removal/NBT timing on the native target base entity. */
 @Mixin(BlockEntity.class)
-abstract class Target263BlockCapabilityMixin implements LegacyBlockCapabilityCarrier, com.fuckingdeveloper.lms.runtime.LegacyBlockPersistentDataCarrier {
+abstract class Target263BlockCapabilityMixin implements LegacyBlockCapabilityCarrier, com.fuckingdeveloper.lms.profile.forge1192.runtime.block.LegacyBlockPersistentDataCarrier {
     @Shadow private CompoundTag customPersistentData;
     @Override public void lms$sourcePersistentData(CompoundTag tag) { customPersistentData = tag; }
     @Override public CompoundTag lms$sourcePersistentData() { return customPersistentData; }
@@ -37,12 +40,12 @@ abstract class Target263BlockCapabilityMixin implements LegacyBlockCapabilityCar
     public void onChunkUnloaded() { invalidateCaps(); }
     @Inject(method = "loadAdditional", at = @At("TAIL"))
     private void lms$load(ValueInput input, CallbackInfo callback) {
-        if (com.fuckingdeveloper.lms.runtime.Forge1192BlockDataBridge.sourceCallbackActive((BlockEntity)(Object)this)) return;
+        if (com.fuckingdeveloper.lms.profile.forge1192.runtime.block.Forge1192BlockDataBridge.sourceCallbackActive((BlockEntity)(Object)this)) return;
         input.read("ForgeCaps", CompoundTag.CODEC).ifPresent(lms$sourceCapabilities()::deserialize);
     }
     @Inject(method = "saveAdditional", at = @At("TAIL"))
     private void lms$save(ValueOutput output, CallbackInfo callback) {
-        if (com.fuckingdeveloper.lms.runtime.Forge1192BlockDataBridge.sourceCallbackActive((BlockEntity)(Object)this)) return;
+        if (com.fuckingdeveloper.lms.profile.forge1192.runtime.block.Forge1192BlockDataBridge.sourceCallbackActive((BlockEntity)(Object)this)) return;
         CompoundTag data = lms$sourceCapabilities().serialize();
         if (!data.isEmpty()) output.store("ForgeCaps", CompoundTag.CODEC, data);
     }

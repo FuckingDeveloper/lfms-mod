@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192DistributionFilter;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192DistributionFilter;
 import java.util.*;
 import java.util.jar.JarFile;
 import org.objectweb.asm.*;

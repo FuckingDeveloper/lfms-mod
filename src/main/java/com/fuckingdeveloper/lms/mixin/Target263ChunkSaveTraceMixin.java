@@ -16,7 +16,7 @@ abstract class Target263ChunkSaveTraceMixin {
         String[] coords=position.split(",");if(coords.length!=3)return;
         var pos=new net.minecraft.core.BlockPos(Integer.parseInt(coords[0]),Integer.parseInt(coords[1]),Integer.parseInt(coords[2]));
         if(!chunk.getPos().equals(new net.minecraft.world.level.ChunkPos(pos.getX() >> 4,pos.getZ() >> 4)))return;
-        com.fuckingdeveloper.lms.runtime.render.Target263ModelDataTrace.log(pos,"chunk-save-"+chunk.getClass().getSimpleName(),
+        com.fuckingdeveloper.lms.target.neoforge263.render.Target263ModelDataTrace.log(pos,"chunk-save-"+chunk.getClass().getSimpleName(),
                 "positions="+chunk.getBlockEntitiesPos()+" serialized="+callback.getReturnValue().blockEntities());
     }
 }

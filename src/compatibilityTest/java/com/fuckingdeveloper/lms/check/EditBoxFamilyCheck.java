@@ -1,6 +1,9 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192EditBox;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192KeyboardBridge;
+
+
 import java.util.*;
 import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
@@ -49,7 +52,7 @@ final class EditBoxFamilyCheck {
         var handles=List.of(new org.objectweb.asm.Handle(org.objectweb.asm.Opcodes.H_NEWINVOKESPECIAL,root,"<init>",ctor,false),new org.objectweb.asm.Handle(org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL,name,"m_94153_","(Ljava/util/function/Predicate;)V",false));
         for(int i=0;i<handles.size();i++){var method=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_STATIC,"handle"+i,"()Ljava/lang/invoke/MethodHandle;",null,null);node.methods.add(method);method.instructions.add(new org.objectweb.asm.tree.LdcInsnNode(handles.get(i)));method.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.ARETURN));}
         var path=java.nio.file.Files.createTempFile("lms-source-edit", ".jar");var writer=new org.objectweb.asm.ClassWriter(org.objectweb.asm.ClassWriter.COMPUTE_MAXS);node.accept(writer);try(var jar=new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(path))){jar.putNextEntry(new java.util.jar.JarEntry(name+".class"));jar.write(writer.toByteArray());jar.closeEntry();}var original=java.nio.file.Files.readAllBytes(path);
-        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,EditBoxFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())){
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,EditBoxFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())){
             var type=loader.linkOwnedClass(name.replace('/','.'));var instance=(EditBox)type.getConstructor(net.minecraft.client.gui.Font.class,int.class,int.class,int.class,int.class,Component.class).newInstance(null,0,0,100,20,Component.empty());
             var constructor=(java.lang.invoke.MethodHandle)type.getMethod("handle0").invoke(null);var filter=(java.lang.invoke.MethodHandle)type.getMethod("handle1").invoke(null);
             check(constructor.type().returnType()==EditBox.class&&filter.type().parameterType(0)==type,"source handle return/receiver type changed");

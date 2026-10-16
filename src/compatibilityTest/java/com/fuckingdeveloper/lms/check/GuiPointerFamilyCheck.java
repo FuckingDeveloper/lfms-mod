@@ -1,8 +1,8 @@
 package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.Forge1192GuiPointerBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192GuiPointerBridge;
 import net.minecraft.client.gui.components.events.*;
 import net.minecraft.client.input.*;
 import java.nio.file.*;

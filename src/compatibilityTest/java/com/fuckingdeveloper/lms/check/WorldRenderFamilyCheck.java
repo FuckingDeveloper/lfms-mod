@@ -1,8 +1,20 @@
 package com.fuckingdeveloper.lms.check;
 
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ContainerGraphicsBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192RenderStageBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyDefaultVertexFormat;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiBlend;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyImmediateBuffer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyImmediateTesselator;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyVertexFormatMode;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyWorldGeometry;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyWorldRenderScope;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyWorldStageEvent;
+import com.fuckingdeveloper.lms.target.neoforge263.render.Target263WorldRenderAdapter;
+
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.lang.invoke.*;
 import java.nio.file.*;
@@ -64,13 +76,23 @@ final class WorldRenderFamilyCheck implements Opcodes {
         var camera=new net.minecraft.client.Camera();var pose=new PoseStack();var projection=new org.joml.Matrix4f();
         var frustum=new net.minecraft.client.renderer.culling.Frustum(projection,projection);
         var event=new LegacyWorldStageEvent(Forge1192RenderStageBridge.Stage.AFTER_WEATHER,renderer,pose,projection,37,.25F,camera,frustum);
+        var extracted=LegacyWorldStageEvent.forExtraction(event.getStage(),renderer,pose,projection,.25F,camera,frustum);
+        check(extracted.getLevelRenderer()==renderer && extracted.getCamera()==camera
+                && extracted.getPoseStack()==pose && extracted.getPartialTick()==.25F,
+                "extracted source event lost frame arguments");
+        try {
+            extracted.getRenderTick();
+            throw new AssertionError("extracted event fabricated a source render tick");
+        } catch (UnsupportedOperationException expectedBoundary) {
+            // Missing tick identity is deferred until an actual source consumer queries it.
+        }
         var order=new ArrayList<String>();var fail=new java.util.concurrent.atomic.AtomicBoolean();var expected=new IllegalArgumentException("world-event-probe");
         java.util.function.Consumer<LegacyWorldStageEvent> first=e->{check(e==event&&e.getRenderTick()==37&&e.getCamera()==camera&&e.getPoseStack()==pose&&e.getProjectionMatrix()==projection&&e.getFrustum()==frustum&&e.getLevelRenderer()==renderer&&e.getPartialTick()==.25F,"source event identity/arguments changed");order.add("high");if(fail.get())throw expected;};
         java.util.function.Consumer<LegacyWorldStageEvent> last=e->order.add("low");
         var nativeBus=net.neoforged.neoforge.common.NeoForge.EVENT_BUS;
-        try(var ownership=com.fuckingdeveloper.lms.runtime.Forge1192LifecycleBridge.enter("native_smoke",ownerBus,host)){
-            com.fuckingdeveloper.lms.runtime.Forge1192EventBusBridge.addListener(nativeBus,net.neoforged.bus.api.EventPriority.LOW,last,false,LegacyWorldStageEvent.class);
-            com.fuckingdeveloper.lms.runtime.Forge1192EventBusBridge.addListener(nativeBus,net.neoforged.bus.api.EventPriority.HIGH,first,false,LegacyWorldStageEvent.class);
+        try(var ownership=com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge.enter("native_smoke",ownerBus,host)){
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EventBusBridge.addListener(nativeBus,net.neoforged.bus.api.EventPriority.LOW,last,false,LegacyWorldStageEvent.class);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EventBusBridge.addListener(nativeBus,net.neoforged.bus.api.EventPriority.HIGH,first,false,LegacyWorldStageEvent.class);
         }
         try{
             LegacyWorldRenderScope.collect(()->Target263WorldRenderAdapter.sourceBus().post(event));
@@ -78,8 +100,8 @@ final class WorldRenderFamilyCheck implements Opcodes {
             order.clear();nativeBus.post(event);check(order.isEmpty(),"source listeners leaked to native drawing bus");
             fail.set(true);try{LegacyWorldRenderScope.collect(()->Target263WorldRenderAdapter.sourceBus().post(event));throw new AssertionError("world listener failure swallowed");}catch(IllegalArgumentException actual){check(actual==expected,"world listener exception replaced");}
         }finally{
-            com.fuckingdeveloper.lms.runtime.Forge1192EventBusBridge.unregister(nativeBus,first);
-            com.fuckingdeveloper.lms.runtime.Forge1192EventBusBridge.unregister(nativeBus,last);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EventBusBridge.unregister(nativeBus,first);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EventBusBridge.unregister(nativeBus,last);
         }
         order.clear();LegacyWorldRenderScope.collect(()->Target263WorldRenderAdapter.sourceBus().post(event));check(order.isEmpty(),"world source subscriptions survived unregister");
     }

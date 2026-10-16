@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.mapping.ProguardMappingReader;
-import com.fuckingdeveloper.lms.runtime.Target263FluidModelLookupBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263FluidModelLookupBridge;
 import net.minecraft.client.renderer.block.FluidModel;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.world.level.material.Fluids;

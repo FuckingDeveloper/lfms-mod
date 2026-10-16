@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.mixin;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192KeyMappingBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192KeyMappingBridge;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;

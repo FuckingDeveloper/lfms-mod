@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.Forge1192ScreenUtilsBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ScreenUtilsBridge;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import java.util.*;
@@ -22,8 +22,8 @@ public final class WidgetExtractionFamilyCheck {
         check(nested.fields.stream().noneMatch(f->f.name.equals("lms$widgetDepth")),"subclass split inherited depth storage");
         for(var node:List.of(root,nested)) {
             var method=node.methods.stream().filter(m->m.name.equals("primitives")).findFirst().orElseThrow();
-            check(((FieldInsnNode)method.instructions.getFirst()).owner.equals("com/fuckingdeveloper/lms/runtime/Target263LegacyWidgetAssets"),"inherited widget image not projected");
-            check(java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).filter(i->i instanceof MethodInsnNode).allMatch(i->((MethodInsnNode)i).owner.startsWith("com/fuckingdeveloper/lms/runtime/")),"source primitive left unresolved: " + java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).filter(i->i instanceof MethodInsnNode).map(i->{var c=(MethodInsnNode)i;return c.owner+"#"+c.name+c.desc;}).toList());
+            check(((FieldInsnNode)method.instructions.getFirst()).owner.equals("com/fuckingdeveloper/lms/target/neoforge263/Target263LegacyWidgetAssets"),"inherited widget image not projected");
+            check(java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).filter(i->i instanceof MethodInsnNode).allMatch(i->((MethodInsnNode)i).owner.startsWith("com/fuckingdeveloper/lms/profile/forge1192/runtime/")),"source primitive left unresolved: " + java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).filter(i->i instanceof MethodInsnNode).map(i->{var c=(MethodInsnNode)i;return c.owner+"#"+c.name+c.desc;}).toList());
         }
         var shadow=fixture("fixture/ShadowButton",parent.name);
         shadow.fields.add(new FieldNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"f_93617_","Lnet/minecraft/resources/ResourceLocation;",null,null));

@@ -1,7 +1,14 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.*;
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192ModListView;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192RuntimeSession;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192SessionOrder;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192RegistrationContext;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyConfigScreenFactory;
+
+
+
 import java.nio.file.*;
 import java.util.*;
 import java.util.jar.*;
@@ -20,7 +27,7 @@ public final class SourceContainerFamilyCheck {
         var first=fixture("source_view_a","source_view_b");var second=fixture("source_view_b",null);
         var aDescriptor=new com.fuckingdeveloper.lms.discovery.LegacyModDescriptor(first,"source_view_a","FORGE_METADATA","[1.19.2]","fixture");
         var bDescriptor=new com.fuckingdeveloper.lms.discovery.LegacyModDescriptor(second,"source_view_b","FORGE_METADATA","[1.19.2]","fixture");
-        check(Forge1192SessionOrder.order(List.of(aDescriptor,bDescriptor),new com.fuckingdeveloper.lms.profile.Forge1192Profile()).equals(List.of(bDescriptor,aDescriptor)),"source admission depends on filename/input order");
+        check(Forge1192SessionOrder.order(List.of(aDescriptor,bDescriptor),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192Profile()).equals(List.of(bDescriptor,aDescriptor)),"source admission depends on filename/input order");
         var bus=BusBuilder.builder().build();
         var a=new Forge1192RuntimeSession("source_view_a",first,SourceContainerFamilyCheck.class.getClassLoader(),List.of("fixture.Owner"));
         var b=new Forge1192RuntimeSession("source_view_b",second,SourceContainerFamilyCheck.class.getClassLoader(),List.of("fixture.Owner"));
@@ -63,7 +70,7 @@ public final class SourceContainerFamilyCheck {
             inner.close();outer.close();try{inner.close();throw new AssertionError("double scope closure accepted");}catch(IllegalStateException expected){}
             try{Forge1192RegistrationContext.requireModId();throw new AssertionError("callback namespace leaked after close");}catch(IllegalStateException expected){}
             try(var consumer=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(first,List.of(second),
-                    SourceContainerFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer(),
+                    SourceContainerFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer(),
                     Forge1192ModListView.sharedDependencies(List.of(second)))) {
                 // Primary classes retain priority even if the dependency exports the same binary name.
                 check(consumer.linkOwnedClass("fixture.Owner").getClassLoader()==consumer,"dependency overrode primary artifact");

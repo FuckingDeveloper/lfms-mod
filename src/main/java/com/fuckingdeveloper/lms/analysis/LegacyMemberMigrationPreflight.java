@@ -1,7 +1,7 @@
 package com.fuckingdeveloper.lms.analysis;
 
 import org.objectweb.asm.*;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import java.io.InputStream;
 import java.util.*;
 

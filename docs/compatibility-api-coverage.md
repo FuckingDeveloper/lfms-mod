@@ -54,7 +54,7 @@ Evidence anchors:
 - F03: [runtime73](../openspec/changes/source-world-render-extraction/runtime73.md), [analog output](../openspec/changes/source-analog-output-callback/tasks.md), [neighbor origins](../openspec/changes/native-directed-neighbor-origin/tasks.md).
 - F05: [runtime82 acceptance and limits](../openspec/changes/source-vanilla-item-transfer/tasks.md).
 - F06: [native energy contract and limits](../openspec/changes/native-energy-operations/design.md).
-- F07: [empty handler interface](../src/main/java/com/fuckingdeveloper/lms/runtime/fluid/LegacyIFluidHandler.java), [tank facade](../src/main/java/com/fuckingdeveloper/lms/runtime/fluid/LegacyFluidTank.java), [native fluid-operation boundary](../src/main/java/com/fuckingdeveloper/lms/runtime/Forge1192BlockCapabilityBridge.java).
+- F07: [empty handler interface](../src/main/java/com/fuckingdeveloper/lms/profile/forge1192/runtime/fluid/LegacyIFluidHandler.java), [tank facade](../src/main/java/com/fuckingdeveloper/lms/profile/forge1192/runtime/fluid/LegacyFluidTank.java), [native fluid-operation boundary](../src/main/java/com/fuckingdeveloper/lms/profile/forge1192/runtime/capability/Forge1192BlockCapabilityBridge.java).
 - F08: [equipment acceptance](../openspec/changes/source-armor-equipment/tasks.md), [gameplay batch](../openspec/changes/gameplay-batch-acceptance/tasks.md).
 - F09/F10: [world overlay](../openspec/changes/source-world-render-extraction/tasks.md), [source consumer thread](../openspec/changes/source-network-consumer-thread/design.md), [search context](../openspec/changes/client-search-tooltip-context/design.md).
 

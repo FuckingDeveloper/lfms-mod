@@ -1,8 +1,8 @@
 package com.fuckingdeveloper.lms.check;
 
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.Forge1192VertexConsumerBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192VertexConsumerBridge;
 import com.mojang.blaze3d.vertex.*;
 import java.lang.reflect.*;
 import java.nio.file.*;

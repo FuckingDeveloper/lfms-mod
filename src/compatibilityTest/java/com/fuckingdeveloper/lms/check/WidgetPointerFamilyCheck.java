@@ -8,7 +8,7 @@ import org.objectweb.asm.tree.*;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.input.*;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 
 final class WidgetPointerFamilyCheck implements Opcodes {
     static void run() throws Exception {

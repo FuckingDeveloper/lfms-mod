@@ -7,20 +7,20 @@ import com.fuckingdeveloper.lms.analysis.LegacyRuntimeBytecodeInspector;
 import com.fuckingdeveloper.lms.analysis.Forge1192NetworkFlowAnalyzer;
 import com.fuckingdeveloper.lms.compat.LegacyCompatibilityPlanner;
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.runtime.LegacyLifecycleGate;
-import com.fuckingdeveloper.lms.runtime.Forge1192LifecyclePlanner;
-import com.fuckingdeveloper.lms.runtime.Forge1192EntrypointInspector;
-import com.fuckingdeveloper.lms.runtime.Forge1192RegistrationPlanner;
-import com.fuckingdeveloper.lms.runtime.Forge1192RuntimeSession;
-import com.fuckingdeveloper.lms.runtime.Forge1192CompatibilitySurface;
-import com.fuckingdeveloper.lms.runtime.Forge1192NeoForgeApiVerifier;
-import com.fuckingdeveloper.lms.runtime.Target263LegacyResourcePackBridge;
-import com.fuckingdeveloper.lms.runtime.Target263ClientRuntimeBootstrap;
-import com.fuckingdeveloper.lms.runtime.Forge1192CreativeTabBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.LegacyLifecycleGate;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecyclePlanner;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EntrypointInspector;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.Forge1192RegistrationPlanner;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192RuntimeSession;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192CompatibilitySurface;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192NeoForgeApiVerifier;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyResourcePackBridge;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263ClientRuntimeBootstrap;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192CreativeTabBridge;
 import com.fuckingdeveloper.lms.discovery.LegacyJarScanner;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
-import com.fuckingdeveloper.lms.profile.Forge1192Profile;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192Profile;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import com.fuckingdeveloper.lms.transform.TransformationSpecPlanner;
 import com.fuckingdeveloper.lms.transform.LaunchPlanWriter;
 import com.fuckingdeveloper.lms.mapping.LegacySrgIndex;
@@ -49,10 +49,10 @@ public final class LmsMod {
 
     public LmsMod(IEventBus modBus, ModContainer hostContainer) {
         modBus.addListener(this::onPayloadRegistration);
-        modBus.addListener(com.fuckingdeveloper.lms.runtime.Target263SourceNameLock::register);
-        modBus.addListener(com.fuckingdeveloper.lms.runtime.worldgen.Target263WorldgenAdapter::register);
-        modBus.addListener(com.fuckingdeveloper.lms.runtime.worldgen.Target263WorldgenPack::addPackFinders);
-        modBus.addListener(com.fuckingdeveloper.lms.runtime.recipe.Forge1192UpgradeRecipe::registerSerializer);
+        modBus.addListener(com.fuckingdeveloper.lms.target.neoforge263.Target263SourceNameLock::register);
+        modBus.addListener(com.fuckingdeveloper.lms.target.neoforge263.worldgen.Target263WorldgenAdapter::register);
+        modBus.addListener(com.fuckingdeveloper.lms.target.neoforge263.worldgen.Target263WorldgenPack::addPackFinders);
+        modBus.addListener(com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe.Forge1192UpgradeRecipe::registerSerializer);
         modBus.addListener(Forge1192CreativeTabBridge::onRegister);
         modBus.addListener(AddPackFindersEvent.class, legacyResourcePacks::addPackFinders);
         modBus.addListener(net.neoforged.fml.event.lifecycle.FMLLoadCompleteEvent.class, event -> {
@@ -77,7 +77,7 @@ public final class LmsMod {
                             (first, duplicate) -> first));
             LOG.info("LMS discovery: {} candidate(s) in {}", mods.size(), directory.toAbsolutePath());
             Forge1192Profile profile = new Forge1192Profile();
-            for (LegacyModDescriptor mod : com.fuckingdeveloper.lms.runtime.Forge1192SessionOrder.order(mods,profile)) {
+            for (LegacyModDescriptor mod : com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192SessionOrder.order(mods,profile)) {
                 LOG.info("LMS candidate={} id={} loader={} minecraft={} profile={}",
                         mod.file().getFileName(), mod.modId(), mod.loader(), mod.minecraftVersion(),
                         profile.supports(mod) ? profile.id() : "UNRESOLVED");
@@ -95,7 +95,7 @@ public final class LmsMod {
                         LOG.info("LMS metadata id={} mixinClasses={} coremodScripts={} coremodTargetHints={}",
                                 mod.modId(), metadata.mixinClasses(), metadata.coremodScripts(),
                                 metadata.coremodTargetHints());
-                        var dependencyDecision = new com.fuckingdeveloper.lms.runtime.LegacyDependencyGate()
+                        var dependencyDecision = new com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.LegacyDependencyGate()
                                 .evaluate(metadata.dependencies(), legacyArtifacts, mod.file());
                         if (!dependencyDecision.satisfied()) {
                             LOG.error("LMS dependency-gate id={} state=BLOCKED reason=MISSING_MANDATORY_DEPENDENCY missing={}",
@@ -460,7 +460,7 @@ public final class LmsMod {
 
 
     private void onPayloadRegistration(RegisterPayloadHandlersEvent event) {
-        com.fuckingdeveloper.lms.runtime.Forge1192NetworkBridge.registerPayloads(event);
+        com.fuckingdeveloper.lms.profile.forge1192.runtime.network.Forge1192NetworkBridge.registerPayloads(event);
     }
 
 }

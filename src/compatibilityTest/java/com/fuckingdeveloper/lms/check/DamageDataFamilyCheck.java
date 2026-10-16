@@ -1,13 +1,13 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Forge1192ItemBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ItemBridge;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.*;
 
 final class DamageDataFamilyCheck {
     static void run() {
         NativeDefaultComponentFixture.run(() -> {
-            ItemStack stack = com.fuckingdeveloper.lms.runtime.Forge1192EarlyItemStackBridge.create(Items.IRON_CHESTPLATE);
+            ItemStack stack = com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge.create(Items.IRON_CHESTPLATE);
             stack.setDamageValue(100);
             check(Forge1192ItemBridge.hasTag(stack), "source hasTag lost native damage");
             var tag = Forge1192ItemBridge.getOrCreateTag(stack);

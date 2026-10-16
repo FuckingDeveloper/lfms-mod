@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import java.nio.file.*;
 import java.util.*;
 import java.util.jar.*;
@@ -9,7 +9,7 @@ import org.objectweb.asm.tree.*;
 
 final class ScreenLayerFamilyCheck implements Opcodes {
     static void run() throws Exception {
-        String root="net/minecraftforge/client/ForgeHooksClient", bridge="com/fuckingdeveloper/lms/runtime/render/Forge1192MinecraftClientBridge";
+        String root="net/minecraftforge/client/ForgeHooksClient", bridge="com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192MinecraftClientBridge";
         var w=new ClassWriter(ClassWriter.COMPUTE_MAXS);w.visit(V17,ACC_PUBLIC,"fixture/LayeredScreens",null,"java/lang/Object",null);
         for(String operation:List.of("pushGuiLayer","popGuiLayer","clearGuiLayers")) {
             String desc="(Lnet/minecraft/client/Minecraft;"+(operation.equals("pushGuiLayer")?"Lnet/minecraft/client/gui/screens/Screen;":"")+")V";
@@ -62,16 +62,16 @@ final class ScreenLayerFamilyCheck implements Opcodes {
         for(int frame=0;frame<3;frame++) {
             for(Object screen:List.of(root,middle,top)) {
                 state.nextStratum();
-                if(!com.fuckingdeveloper.lms.runtime.render.Target263SourceScreenBackground.aboveBottom(screen,top,layers))state.blurBeforeThisStratum();
+                if(!com.fuckingdeveloper.lms.target.neoforge263.render.Target263SourceScreenBackground.aboveBottom(screen,top,layers))state.blurBeforeThisStratum();
             }
             try {state.blurBeforeThisStratum();throw new AssertionError("native blur invariant was disabled");}
             catch(IllegalStateException expected){check(expected.getMessage().contains("once per frame"),"wrong native blur failure");}
             state.reset(); // The next frame must still apply the root blur normally.
         }
-        check(!com.fuckingdeveloper.lms.runtime.render.Target263SourceScreenBackground.aboveBottom(root,root,List.of()),"empty stack changed");
-        check(!com.fuckingdeveloper.lms.runtime.render.Target263SourceScreenBackground.aboveBottom(unrelated,top,layers),"off-stack screen changed");
+        check(!com.fuckingdeveloper.lms.target.neoforge263.render.Target263SourceScreenBackground.aboveBottom(root,root,List.of()),"empty stack changed");
+        check(!com.fuckingdeveloper.lms.target.neoforge263.render.Target263SourceScreenBackground.aboveBottom(unrelated,top,layers),"off-stack screen changed");
         Object equalButDistinct=new Object(){public boolean equals(Object other){return true;}};
-        check(!com.fuckingdeveloper.lms.runtime.render.Target263SourceScreenBackground.aboveBottom(equalButDistinct,top,layers),"screen equality substituted for identity");
+        check(!com.fuckingdeveloper.lms.target.neoforge263.render.Target263SourceScreenBackground.aboveBottom(equalButDistinct,top,layers),"screen equality substituted for identity");
     }
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}
 }

@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.Target263LegacyTagResources;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyTagResources;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -63,7 +63,7 @@ final class LegacyTagResourceCheck {
     private static void proceduralNamespace() throws Exception {
         var key=Identifier.fromNamespaceAndPath("forge","tags/items/dusts/probe.json");
         var queries=new ArrayList<String>();
-        var source=new com.fuckingdeveloper.lms.runtime.Forge1192LegacyPackResourcesAccess() {
+        var source=new com.fuckingdeveloper.lms.profile.forge1192.runtime.resource.Forge1192LegacyPackResourcesAccess() {
             public InputStream lms$legacyGetRootResource(String p) { return null; }
             public InputStream lms$legacyGetResource(PackType t,Identifier i) throws IOException {
                 if(!i.equals(key)) throw new FileNotFoundException(i.toString());
@@ -77,9 +77,9 @@ final class LegacyTagResourceCheck {
             public String lms$legacyPackName() { return "procedural-probe"; }
             public void close() {}
         };
-        var projected=com.fuckingdeveloper.lms.runtime.Forge1192PackRepositoryBridge.create(
+        var projected=com.fuckingdeveloper.lms.profile.forge1192.runtime.resource.Forge1192PackRepositoryBridge.create(
                 "probe",Component.literal("probe"),true,()->source,
-                com.fuckingdeveloper.lms.runtime.Forge1192PackRepositoryBridge.metadata(Component.literal("probe"),9),
+                com.fuckingdeveloper.lms.profile.forge1192.runtime.resource.Forge1192PackRepositoryBridge.metadata(Component.literal("probe"),9),
                 net.minecraft.server.packs.repository.Pack.Position.TOP,PackSource.BUILT_IN);
         var resources=projected.open().toList();
         check(!resources.getFirst().getNamespaces(PackType.CLIENT_RESOURCES).contains("forge"),"client namespace changed");

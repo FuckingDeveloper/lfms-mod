@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.ClassNode;

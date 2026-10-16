@@ -1,8 +1,13 @@
 package com.fuckingdeveloper.lms.check;
 
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ContainerGraphicsBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192GuiItemExtractionBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyGuiBuffer;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.LegacyTooltipItemRenderer;
+
 import com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader;
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
+
 import com.mojang.renderpearl.api.pipeline.ColorTargetState;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;

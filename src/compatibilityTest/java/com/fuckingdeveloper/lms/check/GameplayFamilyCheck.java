@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
@@ -95,11 +95,11 @@ public final class GameplayFamilyCheck {
         check(pass(transformer, "rewriteLegacyMobEffectQueries", map) == 1, "raw effect map boundary missed");
         verify(map);
         try {
-            com.fuckingdeveloper.lms.runtime.Forge1192MobEffectBridge.getActiveEffectsMap(null);
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192MobEffectBridge.getActiveEffectsMap(null);
             throw new AssertionError("holder-key map silently exposed as raw effects");
         } catch (IllegalStateException expected) {}
         if (java.nio.file.Files.exists(java.nio.file.Path.of("legacy-mods/IC2Classic-1.19.2-2.1.3.4.jar"))) {
-            var metadata = com.fuckingdeveloper.lms.runtime.Target263LegacyModListBridge.readMetadata(
+            var metadata = com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyModListBridge.readMetadata(
                     java.nio.file.Path.of("legacy-mods/IC2Classic-1.19.2-2.1.3.4.jar"), "ic2");
             check(metadata.id().equals("ic2") && !metadata.displayName().getString().isBlank()
                     && !metadata.version().isBlank(), "admitted display metadata lost");

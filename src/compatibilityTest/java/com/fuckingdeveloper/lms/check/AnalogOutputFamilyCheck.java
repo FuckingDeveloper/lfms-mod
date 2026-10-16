@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.profile.Forge1192AnalogOutputRewriter;
+import com.fuckingdeveloper.lms.profile.forge1192.Forge1192AnalogOutputRewriter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
@@ -30,7 +30,7 @@ final class AnalogOutputFamilyCheck {
     }
     static void run() throws Exception {
         try(var jar=new java.util.jar.JarFile("legacy-mods/IC2Classic-1.19.2-2.1.3.4.jar")) {
-            var transformer=new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer();
+            var transformer=new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer();
             transformer.bindManagedClassBytes(name->{
                 var entry=jar.getJarEntry(name+".class");if(entry==null)return null;
                 try(var in=jar.getInputStream(entry)){return in.readAllBytes();}

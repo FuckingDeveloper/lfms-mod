@@ -1,6 +1,10 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.render.*;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192ContainerSelectionList;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192GuiScrollBridge;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192TooltipGuiBridge;
+
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
@@ -99,7 +103,7 @@ final class SelectionListFamilyCheck {
         var nativeHandle=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"nativeHandle","()Ljava/lang/invoke/MethodHandle;",null,null);unrelated.methods.add(nativeHandle);nativeHandle.instructions.add(new LdcInsnNode(new Handle(Opcodes.H_INVOKEINTERFACE,listener,"mouseScrolled","(DDDD)Z",true)));nativeHandle.instructions.add(new InsnNode(Opcodes.ARETURN));
         var all=new ArrayList<ClassNode>(nodes);all.add(unrelated);
         var path=java.nio.file.Files.createTempFile("lms-scroll-dispatch", ".jar");try(var jar=new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(path))){for(var node:all){var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);node.accept(writer);jar.putNextEntry(new java.util.jar.JarEntry(node.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();}}
-        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,SelectionListFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())) {
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,SelectionListFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())) {
             var unrelatedType=loader.linkOwnedClass(unrelated.name.replace('/','.'));check(unrelatedType.getDeclaredMethod("m_6050_",double.class,double.class,double.class)!=null,"descriptor coincidence rewrote unrelated scroll member");
             var unchanged=(java.lang.invoke.MethodHandle)unrelatedType.getMethod("nativeHandle").invoke(null);check(unchanged.type().equals(java.lang.invoke.MethodType.methodType(boolean.class,GuiEventListener.class,double.class,double.class,double.class,double.class)),"native four-argument descriptor rewritten as source scroll");
             for(var node:nodes){var type=loader.linkOwnedClass(node.name.replace('/','.'));var value=(GuiEventListener)type.getConstructor().newInstance();int increment=node.name.equals(base)?1:11;
@@ -134,7 +138,7 @@ final class SelectionListFamilyCheck {
         }
         var path=java.nio.file.Files.createTempFile("lms-selection-source", ".jar");try(var jar=new java.util.jar.JarOutputStream(java.nio.file.Files.newOutputStream(path))){for(var n:List.of(node,child)){var writer=new org.objectweb.asm.ClassWriter(org.objectweb.asm.ClassWriter.COMPUTE_MAXS);n.accept(writer);jar.putNextEntry(new java.util.jar.JarEntry(n.name+".class"));jar.write(writer.toByteArray());jar.closeEntry();}}
         var original=java.nio.file.Files.readAllBytes(path);
-        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,SelectionListFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.Forge1192LegacyClassTransformer())){
+        try(var loader=new com.fuckingdeveloper.lms.classloading.ManagedLegacyClassLoader(path,SelectionListFamilyCheck.class.getClassLoader(),new com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer())){
             for(String n:List.of(name,hidden)){
                 var type=loader.linkOwnedClass(n.replace('/','.'));var value=type.getConstructor(net.minecraft.client.Minecraft.class,int.class,int.class,int.class,int.class,int.class).newInstance(null,320,240,30,180,20);
                 check(((Forge1192ContainerSelectionList<?>)value).lms$isFocused()==n.equals(hidden),"source focus override dispatch lost");

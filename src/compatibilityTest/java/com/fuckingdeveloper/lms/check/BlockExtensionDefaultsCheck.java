@@ -1,6 +1,6 @@
 package com.fuckingdeveloper.lms.check;
 
-import com.fuckingdeveloper.lms.runtime.block.LegacyIForgeBlock;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.block.LegacyIForgeBlock;
 import net.neoforged.neoforge.common.extensions.IBlockExtension;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.*;
