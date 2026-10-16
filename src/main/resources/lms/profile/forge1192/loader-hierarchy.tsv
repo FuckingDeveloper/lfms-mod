@@ -1,5 +1,179 @@
 # Forge 1.19.2 / 43.4.0 official named patched artifact
 # sha256=579b78e19ff551ae3b340a6f908ca0923633a9395b35e6ae446772a778793bb4
+C	com/mojang/blaze3d/vertex/BufferBuilder$1	4128	java/lang/Object	-
+F	4120	$SwitchMap$com$mojang$blaze3d$vertex$VertexFormat$IndexType	[I
+C	com/mojang/blaze3d/vertex/BufferBuilder$DrawState	65585	java/lang/Record	-
+F	18	format	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	18	vertexCount	I
+F	18	indexCount	I
+F	18	mode	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	18	indexType	Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;
+F	18	indexOnly	Z
+F	18	sequentialIndex	Z
+C	com/mojang/blaze3d/vertex/BufferBuilder$RenderedBuffer	33	java/lang/Object	-
+F	18	pointer	I
+F	18	drawState	Lcom/mojang/blaze3d/vertex/BufferBuilder$DrawState;
+F	2	released	Z
+F	4112	this$0	Lcom/mojang/blaze3d/vertex/BufferBuilder;
+C	com/mojang/blaze3d/vertex/BufferBuilder$SortState	33	java/lang/Object	-
+F	16	mode	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	16	vertices	I
+F	16	sortingPoints	[Lcom/mojang/math/Vector3f;
+F	16	sortX	F
+F	16	sortY	F
+F	16	sortZ	F
+C	com/mojang/blaze3d/vertex/BufferBuilder	33	com/mojang/blaze3d/vertex/DefaultedVertexConsumer	com/mojang/blaze3d/vertex/BufferVertexConsumer
+F	26	GROWTH_SIZE	I
+F	26	LOGGER	Lorg/slf4j/Logger;
+F	2	buffer	Ljava/nio/ByteBuffer;
+F	2	renderedBufferCount	I
+F	2	renderedBufferPointer	I
+F	2	nextElementByte	I
+F	2	vertices	I
+F	2	currentElement	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	2	elementIndex	I
+F	2	format	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	2	mode	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	2	fastFormat	Z
+F	2	fullFormat	Z
+F	2	building	Z
+F	2	sortingPoints	[Lcom/mojang/math/Vector3f;
+F	2	sortX	F
+F	2	sortY	F
+F	2	sortZ	F
+F	2	indexOnly	Z
+C	com/mojang/blaze3d/vertex/BufferUploader	33	java/lang/Object	-
+F	10	lastImmediateBuffer	Lcom/mojang/blaze3d/vertex/VertexBuffer;
+C	com/mojang/blaze3d/vertex/BufferVertexConsumer	1537	java/lang/Object	com/mojang/blaze3d/vertex/VertexConsumer
+C	com/mojang/blaze3d/vertex/DefaultVertexFormat	33	java/lang/Object	-
+F	25	ELEMENT_POSITION	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	25	ELEMENT_COLOR	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	25	ELEMENT_UV0	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	25	ELEMENT_UV1	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	25	ELEMENT_UV2	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	25	ELEMENT_NORMAL	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	25	ELEMENT_PADDING	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	25	ELEMENT_UV	Lcom/mojang/blaze3d/vertex/VertexFormatElement;
+F	25	BLIT_SCREEN	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	BLOCK	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	NEW_ENTITY	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	PARTICLE	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_COLOR	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_COLOR_NORMAL	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_COLOR_LIGHTMAP	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_TEX	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_COLOR_TEX	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_TEX_COLOR	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_COLOR_TEX_LIGHTMAP	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_TEX_LIGHTMAP_COLOR	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	25	POSITION_TEX_COLOR_NORMAL	Lcom/mojang/blaze3d/vertex/VertexFormat;
+C	com/mojang/blaze3d/vertex/DefaultedVertexConsumer	1057	java/lang/Object	com/mojang/blaze3d/vertex/VertexConsumer
+F	4	defaultColorSet	Z
+F	4	defaultR	I
+F	4	defaultG	I
+F	4	defaultB	I
+F	4	defaultA	I
+C	com/mojang/blaze3d/vertex/PoseStack$Pose	49	java/lang/Object	-
+F	16	pose	Lcom/mojang/math/Matrix4f;
+F	16	normal	Lcom/mojang/math/Matrix3f;
+C	com/mojang/blaze3d/vertex/PoseStack	33	java/lang/Object	net/minecraftforge/client/extensions/IForgePoseStack
+F	18	poseStack	Ljava/util/Deque;
+C	com/mojang/blaze3d/vertex/SheetedDecalTextureGenerator	33	com/mojang/blaze3d/vertex/DefaultedVertexConsumer	-
+F	18	delegate	Lcom/mojang/blaze3d/vertex/VertexConsumer;
+F	18	cameraInversePose	Lcom/mojang/math/Matrix4f;
+F	18	normalInversePose	Lcom/mojang/math/Matrix3f;
+F	2	x	F
+F	2	y	F
+F	2	z	F
+F	2	overlayU	I
+F	2	overlayV	I
+F	2	lightCoords	I
+F	2	nx	F
+F	2	ny	F
+F	2	nz	F
+C	com/mojang/blaze3d/vertex/Tesselator	33	java/lang/Object	-
+F	26	MAX_MEMORY_USE	I
+F	26	MAX_FLOATS	I
+F	18	builder	Lcom/mojang/blaze3d/vertex/BufferBuilder;
+F	26	INSTANCE	Lcom/mojang/blaze3d/vertex/Tesselator;
+C	com/mojang/blaze3d/vertex/VertexBuffer	33	java/lang/Object	java/lang/AutoCloseable
+F	2	vertexBufferId	I
+F	2	indexBufferId	I
+F	2	arrayObjectId	I
+F	2	format	Lcom/mojang/blaze3d/vertex/VertexFormat;
+F	2	sequentialIndices	Lcom/mojang/blaze3d/systems/RenderSystem$AutoStorageIndexBuffer;
+F	2	indexType	Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;
+F	2	indexCount	I
+F	2	mode	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+C	com/mojang/blaze3d/vertex/VertexConsumer	1537	java/lang/Object	net/minecraftforge/client/extensions/IForgeVertexConsumer
+C	com/mojang/blaze3d/vertex/VertexFormat$1	4128	java/lang/Object	-
+F	4120	$SwitchMap$com$mojang$blaze3d$vertex$VertexFormat$Mode	[I
+C	com/mojang/blaze3d/vertex/VertexFormat$IndexType	16433	java/lang/Enum	-
+F	16409	BYTE	Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;
+F	16409	SHORT	Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;
+F	16409	INT	Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;
+F	17	asGLType	I
+F	17	bytes	I
+F	4122	$VALUES	[Lcom/mojang/blaze3d/vertex/VertexFormat$IndexType;
+C	com/mojang/blaze3d/vertex/VertexFormat$Mode	16433	java/lang/Enum	-
+F	16409	LINES	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	16409	LINE_STRIP	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	16409	DEBUG_LINES	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	16409	DEBUG_LINE_STRIP	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	16409	TRIANGLES	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	16409	TRIANGLE_STRIP	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	16409	TRIANGLE_FAN	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	16409	QUADS	Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+F	17	asGLMode	I
+F	17	primitiveLength	I
+F	17	primitiveStride	I
+F	17	connectedPrimitives	Z
+F	4122	$VALUES	[Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;
+C	com/mojang/blaze3d/vertex/VertexFormat	33	java/lang/Object	-
+F	18	elements	Lcom/google/common/collect/ImmutableList;
+F	18	elementMapping	Lcom/google/common/collect/ImmutableMap;
+F	18	offsets	Lit/unimi/dsi/fastutil/ints/IntList;
+F	18	vertexSize	I
+F	2	immediateDrawVertexBuffer	Lcom/mojang/blaze3d/vertex/VertexBuffer;
+C	com/mojang/blaze3d/vertex/VertexFormatElement$Type	16433	java/lang/Enum	-
+F	16409	FLOAT	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+F	16409	UBYTE	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+F	16409	BYTE	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+F	16409	USHORT	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+F	16409	SHORT	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+F	16409	UINT	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+F	16409	INT	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+F	18	size	I
+F	18	name	Ljava/lang/String;
+F	18	glType	I
+F	4122	$VALUES	[Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+C	com/mojang/blaze3d/vertex/VertexFormatElement$Usage$ClearState	1536	java/lang/Object	-
+C	com/mojang/blaze3d/vertex/VertexFormatElement$Usage$SetupState	1536	java/lang/Object	-
+C	com/mojang/blaze3d/vertex/VertexFormatElement$Usage	16433	java/lang/Enum	-
+F	16409	POSITION	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage;
+F	16409	NORMAL	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage;
+F	16409	COLOR	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage;
+F	16409	UV	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage;
+F	16409	PADDING	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage;
+F	16409	GENERIC	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage;
+F	18	name	Ljava/lang/String;
+F	18	setupState	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage$SetupState;
+F	18	clearState	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage$ClearState;
+F	4122	$VALUES	[Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage;
+C	com/mojang/blaze3d/vertex/VertexFormatElement	33	java/lang/Object	-
+F	18	type	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Type;
+F	18	usage	Lcom/mojang/blaze3d/vertex/VertexFormatElement$Usage;
+F	18	index	I
+F	18	count	I
+F	18	byteSize	I
+C	com/mojang/blaze3d/vertex/VertexMultiConsumer$Double	32	java/lang/Object	com/mojang/blaze3d/vertex/VertexConsumer
+F	18	first	Lcom/mojang/blaze3d/vertex/VertexConsumer;
+F	18	second	Lcom/mojang/blaze3d/vertex/VertexConsumer;
+C	com/mojang/blaze3d/vertex/VertexMultiConsumer$Multiple	32	java/lang/Object	com/mojang/blaze3d/vertex/VertexConsumer
+F	18	delegates	[Lcom/mojang/blaze3d/vertex/VertexConsumer;
+C	com/mojang/blaze3d/vertex/VertexMultiConsumer	33	java/lang/Object	-
+C	com/mojang/blaze3d/vertex/package-info	5632	java/lang/Object	-
 C	net/minecraftforge/client/ChunkRenderTypeSet$All	48	net/minecraftforge/client/ChunkRenderTypeSet	-
 C	net/minecraftforge/client/ChunkRenderTypeSet$IteratorImpl	48	java/lang/Object	java/util/Iterator
 F	2	index	I

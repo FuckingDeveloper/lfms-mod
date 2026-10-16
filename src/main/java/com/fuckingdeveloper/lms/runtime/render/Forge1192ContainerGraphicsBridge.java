@@ -139,24 +139,25 @@ public final class Forge1192ContainerGraphicsBridge {
     public static LegacyGuiShader positionColorShader(){return LegacyGuiShader.POSITION_COLOR;}
     public static LegacyGuiShader positionTexShader(){return LegacyGuiShader.POSITION_TEX;}
     public static LegacyGuiShader positionTexColorShader(){return LegacyGuiShader.POSITION_TEX_COLOR;}
-    public static void setShader(Supplier<LegacyGuiShader> supplier) {Forge1192TooltipGuiBridge.scope().shader=java.util.Objects.requireNonNull(supplier.get());}
+    public static void setShader(Supplier<LegacyGuiShader> supplier) {if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().shader=java.util.Objects.requireNonNull(supplier.get());else Forge1192TooltipGuiBridge.scope().shader=java.util.Objects.requireNonNull(supplier.get());}
     // Native GUI item atlas selects ITEMS_3D/ITEMS_FLAT from each model's usesBlockLight.
     // Flat source GUI quads have no lighting input; retain intent locally, never mutate GPU state.
     public static void setupFor3DItems(){Forge1192TooltipGuiBridge.scope().flatItemLighting=false;}
     public static void setupForFlatItems(){Forge1192TooltipGuiBridge.scope().flatItemLighting=true;}
-    public static void enableDepthTest(){Forge1192TooltipGuiBridge.scope().depthTest=true;}
-    public static void disableDepthTest(){Forge1192TooltipGuiBridge.scope().depthTest=false;}
+    public static void enableDepthTest(){if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().depth=true;else Forge1192TooltipGuiBridge.scope().depthTest=true;}
+    public static void disableDepthTest(){if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().depth=false;else Forge1192TooltipGuiBridge.scope().depthTest=false;}
     public static void colorMask(boolean red,boolean green,boolean blue,boolean alpha) {
-        Forge1192TooltipGuiBridge.scope().colorWriteMask=(red?com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_RED:0)
-                |(green?com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_GREEN:0)
-                |(blue?com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_BLUE:0)
-                |(alpha?com.mojang.renderpearl.api.pipeline.ColorTargetState.WRITE_ALPHA:0);
+        int mask=(red?1:0)|(green?2:0)|(blue?4:0)|(alpha?8:0);
+        if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().writeMask=mask;else Forge1192TooltipGuiBridge.scope().colorWriteMask=mask;
     }
-    public static void enableBlend(){Forge1192TooltipGuiBridge.scope().blend=true;}
-    public static void disableBlend(){Forge1192TooltipGuiBridge.scope().blend=false;}
-    public static void enableTexture(){Forge1192TooltipGuiBridge.scope().textureEnabled=true;}
-    public static void disableTexture(){Forge1192TooltipGuiBridge.scope().textureEnabled=false;}
-    public static void defaultBlendFunc(){Forge1192TooltipGuiBridge.scope().blendFunction=LegacyGuiBlend.DEFAULT;}
+    public static void enableCull(){LegacyWorldRenderScope.scope().cull=true;}
+    public static void disableCull(){LegacyWorldRenderScope.scope().cull=false;}
+    public static void depthMask(boolean write){LegacyWorldRenderScope.scope().depthWrite=write;}
+    public static void enableBlend(){if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().blend=true;else Forge1192TooltipGuiBridge.scope().blend=true;}
+    public static void disableBlend(){if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().blend=false;else Forge1192TooltipGuiBridge.scope().blend=false;}
+    public static void enableTexture(){if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().texture=true;else Forge1192TooltipGuiBridge.scope().textureEnabled=true;}
+    public static void disableTexture(){if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().texture=false;else Forge1192TooltipGuiBridge.scope().textureEnabled=false;}
+    public static void defaultBlendFunc(){if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().blendFunction=LegacyGuiBlend.DEFAULT;else Forge1192TooltipGuiBridge.scope().blendFunction=LegacyGuiBlend.DEFAULT;}
 
     static Matrix3x2f planar(PoseStack poses) {
         return Forge1192GuiPlaneBridge.planar(poses.last().pose());

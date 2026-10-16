@@ -410,6 +410,8 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyEntityRendererAddLayers(node);
         rewrites += rewriteLegacyInputConstantsFamily(node);
         rewrites += Forge1192PoseMatrixDrawRewriter.rewrite(node);
+        // Resolve inherited source vertex operations before builder ABI relocation.
+        rewrites += rewriteLegacyVertexConsumerFamily(node);
         rewrites += rewriteAllNamespaceReferences(node);
         rewrites += rewriteLegacyBlockCapabilityQueries(node);
         rewrites += rewriteLegacyLivingFallFamily(node);
@@ -429,7 +431,6 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteLegacyBlockStateCloneItem(node);
         rewrites += rewriteLegacyBlockStateOcclusionQueries(node);
         rewrites += rewriteLegacyNeighborUpdateFamily(node);
-        rewrites += rewriteLegacyVertexConsumerFamily(node);
         rewrites += rewriteTargetInterfaceInvocationShapes(node);
         rewrites += rewriteClassStructureNamespaceMigrations(node);
         rewrites += rewriteLegacyStateOnlyEmissivePredicates(node);
@@ -4773,13 +4774,16 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             java.util.Map.entry("disableBlend()V", "disableBlend"),
             java.util.Map.entry("defaultBlendFunc()V", "defaultBlendFunc"),
             java.util.Map.entry("enableTexture()V", "enableTexture"),
-            java.util.Map.entry("disableTexture()V", "disableTexture"));
+            java.util.Map.entry("disableTexture()V", "disableTexture"),
+            java.util.Map.entry("enableCull()V", "enableCull"),
+            java.util.Map.entry("disableCull()V", "disableCull"),
+            java.util.Map.entry("depthMask(Z)V", "depthMask"));
     private static Handle guiShaderHandle(Handle handle) {
         if (handle.getTag() == org.objectweb.asm.Opcodes.H_INVOKESTATIC
                 && java.util.Set.of("com/mojang/blaze3d/systems/RenderSystem","com/mojang/blaze3d/platform/GlStateManager").contains(handle.getOwner()) && SRG_RUNTIME_RESOLVER.isPresent()) {
             String operation = SRG_RUNTIME_RESOLVER.get().canonicalMethodName(handle.getOwner(),handle.getName(),handle.getDesc()).orElse(handle.getName());
             if(handle.getOwner().equals("com/mojang/blaze3d/platform/GlStateManager")) {
-                if(!java.util.Set.of("_enableBlend","_disableBlend","_enableDepthTest","_disableDepthTest","_enableTexture","_disableTexture").contains(operation))return null;
+                if(!java.util.Set.of("_enableBlend","_disableBlend","_enableDepthTest","_disableDepthTest","_enableTexture","_disableTexture","_enableCull","_disableCull","_depthMask").contains(operation))return null;
                 operation=operation.substring(1);
             }
             String factors="Lcom/mojang/blaze3d/platform/GlStateManager$SourceFactor;Lcom/mojang/blaze3d/platform/GlStateManager$DestFactor;";
@@ -8338,6 +8342,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     private static java.util.Map<String, java.util.Optional<String>> sourceLoaderAliases() {
         var aliases = new java.util.HashMap<String, java.util.Optional<String>>();
         for (String source : Forge1192SourceHierarchyIndex.owners()) {
+            if (!source.startsWith("net/minecraftforge/")) continue;
             String projected = migrateInternalName(source);
             // Namespace projection retains source declarations; semantic replacement shims
             // deliberately own a different hierarchy and must use their runtime evidence.
@@ -12631,6 +12636,9 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
     }
 
     private static String migrateInternalName(String value) {
+        if(value.equals("com/mojang/blaze3d/vertex/Tesselator"))return "com/fuckingdeveloper/lms/runtime/render/LegacyImmediateTesselator";
+        if(value.equals("com/mojang/blaze3d/vertex/BufferBuilder"))return "com/fuckingdeveloper/lms/runtime/render/LegacyImmediateBuffer";
+        if(value.equals("net/minecraftforge/client/event/RenderLevelStageEvent")||value.equals("net/neoforged/neoforge/client/event/RenderLevelStageEvent"))return "com/fuckingdeveloper/lms/runtime/render/LegacyWorldStageEvent";
         String configUi=Forge1192ConfigUiRewriter.relocation(value);if(configUi!=null)return configUi;
         if (value.equals("com/mojang/blaze3d/platform/GlStateManager$SourceFactor")) return "com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend$SourceFactor";
         if (value.equals("com/mojang/blaze3d/platform/GlStateManager$DestFactor")) return "com/fuckingdeveloper/lms/runtime/render/LegacyGuiBlend$DestFactor";

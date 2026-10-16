@@ -26,6 +26,7 @@ public final class LegacyGuiBlend {
     }
     public static void blendFunc(SourceFactor src,DestFactor dst){blendFuncSeparate(src,dst,src,dst);}
     public static void blendFuncSeparate(SourceFactor src,DestFactor dst,SourceFactor srcAlpha,DestFactor dstAlpha){
-        var scope=Forge1192TooltipGuiBridge.scope();scope.blendFunction=equation(src,dst,srcAlpha,dstAlpha);
+        var equation=equation(src,dst,srcAlpha,dstAlpha);
+        if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().blendFunction=equation;else Forge1192TooltipGuiBridge.scope().blendFunction=equation;
     }
 }

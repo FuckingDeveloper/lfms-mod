@@ -134,3 +134,11 @@ source state later MUST NOT change a submitted quad. Native pipeline caches MUST
 not contain managed classes or classloaders. Constant-color/alpha factors require
 unproven blend-constant state and MUST fail explicitly. Raw integer blend calls,
 custom blend operations and unsupported topology remain gaps.
+
+## Approved source batch ABI extension
+
+The approved `source-world-render-extraction/design.md` extends the prior
+method-local limit with a consistent source-shaped batch ABI across managed
+helpers, casts and callables. It MUST select the actual active GUI/world scope
+and MUST NOT pass a source builder to unrelated target APIs as a native builder.
+Existing local GUI extraction and its primitive boundaries remain intact.

@@ -17,7 +17,7 @@ public final class GenerateSourceHierarchy {
         var text = new StringBuilder("# Forge 1.19.2 / 43.4.0 official named patched artifact\n# sha256=" + digest + "\n");
         int count = 0;
         try (var jar = new JarFile(jarPath.toFile())) {
-            for (String name : jar.stream().map(entry -> entry.getName()).filter(name -> name.startsWith("net/minecraftforge/") && name.endsWith(".class")).sorted().toList()) {
+            for (String name : jar.stream().map(entry -> entry.getName()).filter(name -> (name.startsWith("net/minecraftforge/") || name.startsWith("com/mojang/blaze3d/vertex/")) && name.endsWith(".class")).sorted().toList()) {
                 var node = new ClassNode();
                 try (var input = jar.getInputStream(jar.getJarEntry(name))) { new ClassReader(input.readAllBytes()).accept(node, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES); }
                 text.append("C\t").append(node.name).append('\t').append(node.access).append('\t').append(node.superName == null ? "-" : node.superName).append('\t').append(node.interfaces.isEmpty() ? "-" : String.join(",", node.interfaces)).append('\n');

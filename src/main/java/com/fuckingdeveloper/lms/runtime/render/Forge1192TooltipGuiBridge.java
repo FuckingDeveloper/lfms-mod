@@ -28,6 +28,8 @@ public final class Forge1192TooltipGuiBridge {
         Phase phase=Phase.TOOLTIP;
         LegacyGuiShader shader;
         LegacyGuiBuffer buffer;
+        LegacyImmediateBuffer immediateBuffer;
+        final java.util.List<LegacyImmediateBuffer> sourceBuffers=new java.util.ArrayList<>();
         boolean sourceScissor;
         Scope(GuiGraphicsExtractor graphics) { this.graphics = graphics; }
     }
@@ -37,7 +39,7 @@ public final class Forge1192TooltipGuiBridge {
         if (ACTIVE.get() != null) throw new IllegalStateException("Nested legacy tooltip GUI extraction");
         var scope = new Scope(graphics);
         ACTIVE.set(scope);
-        try { callback.accept(scope.renderer); } finally { ACTIVE.remove(); }
+        try { callback.accept(scope.renderer); } finally { scope.sourceBuffers.forEach(LegacyImmediateBuffer::abort); ACTIVE.remove(); }
     }
 
     static void nativeTooltip(Runnable callback) {
@@ -45,6 +47,7 @@ public final class Forge1192TooltipGuiBridge {
         try {callback.run();} finally {if(previous!=null)ACTIVE.set(previous);else ACTIVE.remove();}
     }
 
+    static boolean active(){return ACTIVE.get()!=null;}
     static Scope scope() {
         Scope scope = ACTIVE.get();
         if (scope == null) throw new IllegalStateException("Legacy tooltip GUI primitive outside extraction");
@@ -52,7 +55,7 @@ public final class Forge1192TooltipGuiBridge {
     }
     static void extractGui(GuiGraphicsExtractor graphics, Phase phase, Runnable callback) {
         var previous=ACTIVE.get();var scope=new Scope(java.util.Objects.requireNonNull(graphics));scope.phase=phase; ACTIVE.set(scope);
-        try {callback.run();} finally {if(scope.sourceScissor)graphics.disableScissor();if(previous==null)ACTIVE.remove();else ACTIVE.set(previous);}
+        try {callback.run();} finally {scope.sourceBuffers.forEach(LegacyImmediateBuffer::abort);if(scope.sourceScissor)graphics.disableScissor();if(previous==null)ACTIVE.remove();else ACTIVE.set(previous);}
     }
     static GuiGraphicsExtractor graphics(LegacyTooltipItemRenderer renderer) {
         Scope scope = scope();
@@ -76,7 +79,8 @@ public final class Forge1192TooltipGuiBridge {
     }
     public static void disableScissor(){var scope=scope();if(scope.sourceScissor){scope.graphics.disableScissor();scope.sourceScissor=false;}}
     public static void shaderColor(float red, float green, float blue, float alpha) {
-        scope().color = ARGB.colorFromFloat(alpha, red, green, blue);
+        int color=ARGB.colorFromFloat(alpha,red,green,blue);
+        if(LegacyWorldRenderScope.active())LegacyWorldRenderScope.scope().color=color;else scope().color=color;
     }
     public static void shaderTexture(int unit, Identifier texture) {
         if (unit != 0) throw new IllegalStateException("Unsupported legacy tooltip texture unit " + unit);

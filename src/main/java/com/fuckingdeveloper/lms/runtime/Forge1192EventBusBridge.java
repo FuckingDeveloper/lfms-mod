@@ -427,7 +427,8 @@ public final class Forge1192EventBusBridge {
                  "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent",
                  "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent$Block",
                  "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterColorHandlersEvent$Item",
-                 "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterGuiOverlaysEvent" -> true;
+                 "com.fuckingdeveloper.lms.runtime.event.LegacyRegisterGuiOverlaysEvent",
+                 "com.fuckingdeveloper.lms.runtime.render.LegacyWorldStageEvent" -> true;
             default -> false;
         };
     }
@@ -479,6 +480,12 @@ public final class Forge1192EventBusBridge {
         private static <T extends Event> void registerListener(IEventBus bus,
                 net.neoforged.bus.api.EventPriority priority, Class<T> eventType,
                 Consumer<T> listener, boolean receiveCanceled) {
+        if(eventType==com.fuckingdeveloper.lms.runtime.render.LegacyWorldStageEvent.class) {
+            com.fuckingdeveloper.lms.runtime.render.Target263WorldRenderAdapter.install();
+            listen(com.fuckingdeveloper.lms.runtime.render.Target263WorldRenderAdapter.sourceBus(),priority,receiveCanceled,
+                    com.fuckingdeveloper.lms.runtime.render.LegacyWorldStageEvent.class,event->((Consumer)listener).accept(event));
+            return;
+        }
         if (eventType == LegacyRenderHighlightBlockEvent.class) {
             listen(bus, priority, receiveCanceled, ExtractBlockOutlineRenderStateEvent.class,
                     event -> registerLegacyBlockHighlightRenderer(event, (Consumer) listener));

@@ -32,6 +32,9 @@ public final class Forge1192RenderStageBridge {
                 + event.getClass().getName());
     }
 
+    public static Stage stage(LegacyWorldStageEvent event){return Objects.requireNonNull(event).getStage();}
+    public static Frustum frustum(LegacyWorldStageEvent event){return new Frustum(Objects.requireNonNull(event).getFrustum());}
+
     /** Copy the target-authoritative, already prepared culling frustum. */
     public static Frustum frustum(RenderLevelStageEvent event) {
         Objects.requireNonNull(event, "event");

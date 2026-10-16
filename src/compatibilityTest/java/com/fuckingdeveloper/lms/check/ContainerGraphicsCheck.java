@@ -100,7 +100,7 @@ public final class ContainerGraphicsCheck {
             method.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));for(int i=0;i<3;i++)method.instructions.add(new InsnNode(Opcodes.DCONST_0));method.instructions.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL,receiver,"m_5483_","(DDD)Lcom/mojang/blaze3d/vertex/VertexConsumer;",false));method.instructions.add(new InsnNode(Opcodes.ARETURN));
             var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);fixture.accept(writer);var projected=new ClassNode();new ClassReader(new Forge1192LegacyClassTransformer().transform(fixture.name.replace('/','.'),writer.toByteArray()).bytes()).accept(projected,0);
             MethodInsnNode operation=null;for(var instruction:projected.methods.getFirst().instructions)if(instruction instanceof MethodInsnNode call)operation=call;
-            check(operation!=null&&(receiver.startsWith("com/mojang/")?operation.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192VertexConsumerBridge")&&operation.name.equals("addVertex"):operation.owner.equals(receiver)&&operation.name.equals("m_5483_")),"inherited vertex rule lost owner identity or descriptor-only negative");
+            check(operation!=null&&(receiver.startsWith("com/mojang/")?operation.owner.equals("com/fuckingdeveloper/lms/runtime/render/Forge1192VertexConsumerBridge")&&operation.name.equals("addVertex"):operation.owner.equals(receiver)&&operation.name.equals("m_5483_")),"inherited vertex rule lost owner identity or descriptor-only negative: "+receiver+" -> "+(operation==null?"null":operation.owner+"#"+operation.name+operation.desc));
         }
         var escaped=new ClassNode();escaped.name="fixture/EscapedGuiBatch";escaped.superName="java/lang/Object";escaped.version=Opcodes.V17;escaped.access=Opcodes.ACC_PUBLIC;
         var escapeMethod=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"escaped","()Lcom/mojang/blaze3d/vertex/Tesselator;",null,null);
@@ -108,7 +108,7 @@ public final class ContainerGraphicsCheck {
         var escapeWriter=new ClassWriter(ClassWriter.COMPUTE_MAXS);escaped.accept(escapeWriter);
         var escapeMapped=new Forge1192LegacyClassTransformer().transform(escaped.name.replace('/','.'),escapeWriter.toByteArray()).bytes();
         var escapeNode=new ClassNode();new ClassReader(escapeMapped).accept(escapeNode,0);
-        check(((MethodInsnNode)escapeNode.methods.getFirst().instructions.getFirst()).owner.equals("com/mojang/blaze3d/vertex/Tesselator"),"escaped source return replaced with incompatible GUI batch type");
+        check(((MethodInsnNode)escapeNode.methods.getFirst().instructions.getFirst()).owner.equals("com/fuckingdeveloper/lms/runtime/render/LegacyImmediateTesselator"),"managed source return lost consistent source batch ABI");
         var binding=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"binding","(Lnet/minecraft/client/renderer/texture/AbstractTexture;)V",null,null);
         binding.instructions.add(new InsnNode(Opcodes.ICONST_0));binding.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));
         binding.instructions.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL,"net/minecraft/client/renderer/texture/AbstractTexture","m_117963_","()I",false));

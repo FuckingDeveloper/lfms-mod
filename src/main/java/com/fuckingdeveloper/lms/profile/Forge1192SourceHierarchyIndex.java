@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.objectweb.asm.*;
 
-/** Immutable source loader declarations; never substitutes target inheritance for source inheritance. */
+/** Immutable source loader and vertex ABI declarations; never substitutes target inheritance for source inheritance. */
 final class Forge1192SourceHierarchyIndex {
     private static final Map<String, byte[]> TYPES = load();
     private Forge1192SourceHierarchyIndex() {}
@@ -22,7 +22,7 @@ final class Forge1192SourceHierarchyIndex {
                 if (columns[0].equals("C") && columns.length == 5) {
                     if (writer != null) { writer.visitEnd(); result.put(owner, writer.toByteArray()); }
                     owner = columns[1];
-                    if (!owner.startsWith("net/minecraftforge/") || result.containsKey(owner)) throw new IllegalStateException("Invalid source hierarchy owner " + owner);
+                    if ((!owner.startsWith("net/minecraftforge/") && !owner.startsWith("com/mojang/blaze3d/vertex/")) || result.containsKey(owner)) throw new IllegalStateException("Invalid source hierarchy owner " + owner);
                     writer = new ClassWriter(0);
                     writer.visit(Opcodes.V17, Integer.parseInt(columns[2]), owner, null, columns[3].equals("-") ? null : columns[3], columns[4].equals("-") ? new String[0] : columns[4].split(","));
                 } else if (columns[0].equals("F") && columns.length == 4 && writer != null) {
