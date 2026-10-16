@@ -80,6 +80,7 @@ public final class Forge1192BlockDataBridge {
         if (!(output instanceof TagValueOutput tagged)) throw new IllegalStateException("Unsupported source block output backend: " + output.getClass().getName());
         var access = outputAccess(tagged);
         invoke(entity, Operation.SAVE, tagged.buildResult(), new Frame(entity, outputLookup(access), tagged, access.lms$reporter()));
+        com.fuckingdeveloper.lms.runtime.render.Target263ModelDataTrace.log(entity.getBlockPos(), "native-save", tagged.buildResult());
     }
     public static CompoundTag updateTag(BlockEntity entity, HolderLookup.Provider lookup) {
         var tag = (CompoundTag)invoke(entity, Operation.UPDATE, null, new Frame(entity, Objects.requireNonNull(lookup), null, ProblemReporter.DISCARDING));

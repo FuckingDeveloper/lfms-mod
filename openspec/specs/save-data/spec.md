@@ -14,3 +14,9 @@ LMS MUST NOT claim old-world compatibility merely because a legacy mod can run i
 Any future save migration MUST be specified separately and MUST address identifiers, block/entity data, capabilities/components and irreversible conversion behavior.
 
 LMS compatibility code MUST avoid silently discarding persistent legacy data when an unsupported conversion is detected.
+
+Source server chunk-unload listeners MUST retain the source generation's position
+before final persistence when the target event moved after it. Native event
+timing MUST remain unchanged, source notifications MUST not duplicate, and
+transaction/nesting/failure state MUST not leak. See
+`openspec/changes/source-chunk-unload-save-order/design.md`.

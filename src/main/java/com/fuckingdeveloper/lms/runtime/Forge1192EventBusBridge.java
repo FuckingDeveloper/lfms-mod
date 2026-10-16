@@ -251,6 +251,12 @@ public final class Forge1192EventBusBridge {
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
             Class<T> eventType, Consumer<T> listener, boolean receiveCanceled,
             boolean deferUntilItemComponentsBound) {
+        if (bus == NeoForge.EVENT_BUS && eventType.isAssignableFrom(net.neoforged.neoforge.event.level.ChunkEvent.Unload.class)) {
+            for(Class<? extends Event> concrete:concreteEventTypes(eventType))
+                listen(bus,priority,receiveCanceled,(Class)concrete,(Consumer<Event>)event->{if(!Forge1192ChunkUnloadBridge.alreadyDelivered(event))listener.accept((T)event);});
+            listen(Forge1192ChunkUnloadBridge.sourceBus(),priority,receiveCanceled,net.neoforged.neoforge.event.level.ChunkEvent.Unload.class,event->listener.accept((T)event));
+            return;
+        }
         if (eventType == com.fuckingdeveloper.lms.runtime.event.LegacyAttachCapabilitiesEvent.class)
             throw new IllegalStateException("Source attachment lambda requires an explicit generic subject");
         if (deferUntilItemComponentsBound) {
@@ -367,6 +373,11 @@ public final class Forge1192EventBusBridge {
     }
 
     private static List<Class<? extends Event>> concreteEventTypes(Class<? extends Event> eventType) {
+        if(eventType==net.neoforged.neoforge.event.level.ChunkEvent.class)
+            return List.of(net.neoforged.neoforge.event.level.ChunkEvent.Load.class,net.neoforged.neoforge.event.level.ChunkEvent.Unload.class,
+                    net.neoforged.neoforge.event.level.ChunkDataEvent.Load.class,net.neoforged.neoforge.event.level.ChunkDataEvent.Save.class);
+        if(eventType==net.neoforged.neoforge.event.level.ChunkDataEvent.class)
+            return List.of(net.neoforged.neoforge.event.level.ChunkDataEvent.Load.class,net.neoforged.neoforge.event.level.ChunkDataEvent.Save.class);
         if (eventType == ServerTickEvent.class)
             return List.of(ServerTickEvent.Pre.class, ServerTickEvent.Post.class);
         if (eventType == LevelTickEvent.class)

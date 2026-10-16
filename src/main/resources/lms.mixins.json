@@ -7,6 +7,8 @@
     "Target263InitialDataTransactionMixin",
     "Target263ArmorRepairMixin",
     "Target263BlockCapabilityMixin",
+    "Target263ChunkSaveTraceMixin",
+    "Target263ChunkUnloadOrderMixin",
     "Target263ContainerStateAccess",
     "Target263TagValueOutputAccess",
     "Target263TagValueInputAccess",
