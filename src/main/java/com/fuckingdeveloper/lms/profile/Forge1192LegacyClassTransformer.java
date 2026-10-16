@@ -370,6 +370,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteSourceWidgetNarration(node);
         rewrites += rewriteLegacyCableStateDefinitionOverride(node);
         rewrites += rewriteLegacyStringRepresentableOverride(node);
+        rewrites += Forge1192AnalogOutputRewriter.rewrite(node, isManagedSubtypeOf(node, "net/minecraft/world/level/block/Block"));
         rewrites += rewriteVerifiedVanillaOverrides(node);
         rewrites += rewriteLegacyStacklessToolPredicates(node);
         rewrites += rewriteLegacyCreativeTabAssignment(node);
