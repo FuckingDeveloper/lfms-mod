@@ -96,3 +96,14 @@ thread groups. Preserve actual nullable player/context/flag arguments, once-only
 callback delivery and exceptions. Native FML side queries and unrelated source
 operations MUST remain unchanged; nested source context MUST restore on all exits.
 This does not establish general callback thread safety or authorize fake players.
+
+### Complete source container render lifecycle
+
+Verified managed full container render overrides MUST execute during target
+extraction with source pre/super/post order. Native controls, slots, labels and
+carried items MUST run once at the source base call; explicit source tooltips
+MUST retain their own call timing and genuine native events/components. Native
+backdrop and source panel background MUST not be duplicated. Full callback
+inheritance, scoped extraction state and failures MUST be preserved. See
+`openspec/changes/container-render-lifecycle/design.md` for pinned boundaries;
+transformed source base/tooltip poses remain explicitly unsupported.

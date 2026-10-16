@@ -140,6 +140,7 @@ public final class LiveTargetContractProbe {
         CookingRecipeInformationCheck.run();
         InteractionResultInformationCheck.run();
         ContainerGraphicsCheck.run();
+        ContainerRenderLifecycleCheck.run();
         WidgetExtractionFamilyCheck.run();
         SourceGuiAssetsCheck.run();
         PendingFluidAndMappingCheck.run();

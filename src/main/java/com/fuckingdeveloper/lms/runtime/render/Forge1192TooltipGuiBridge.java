@@ -10,7 +10,7 @@ import java.util.function.Consumer;
 /** Scoped legacy GUI primitives recorded through the authoritative target extractor. */
 public final class Forge1192TooltipGuiBridge {
     private static final ThreadLocal<Scope> ACTIVE = new ThreadLocal<>();
-    enum Phase { TOOLTIP, BACKGROUND, LABELS, WIDGET }
+    enum Phase { TOOLTIP, BACKGROUND, LABELS, WIDGET, RENDER }
     static final class Scope {
         final GuiGraphicsExtractor graphics;
         final LegacyTooltipItemRenderer renderer = new LegacyTooltipItemRenderer();
@@ -38,6 +38,11 @@ public final class Forge1192TooltipGuiBridge {
         var scope = new Scope(graphics);
         ACTIVE.set(scope);
         try { callback.accept(scope.renderer); } finally { ACTIVE.remove(); }
+    }
+
+    static void nativeTooltip(Runnable callback) {
+        var previous=ACTIVE.get();ACTIVE.remove();
+        try {callback.run();} finally {if(previous!=null)ACTIVE.set(previous);else ACTIVE.remove();}
     }
 
     static Scope scope() {

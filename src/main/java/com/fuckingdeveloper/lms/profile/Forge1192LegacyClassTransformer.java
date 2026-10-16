@@ -336,6 +336,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteWidgetGraphics(node);
         rewrites += rewriteWidgetPrimitiveFamily(node);
         rewrites += rewriteContainerGraphicsPhases(node);
+        rewrites += rewriteContainerRenderLifecycle(node);
         rewrites += rewriteGuiBatchOperations(node);
         rewrites += rewriteRecipeRewardKeys(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
@@ -4645,6 +4646,53 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if(!declaresManagedMethod(node,"m_93250_","(I)V")){var setter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93250_","(I)V",null,null);setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));setter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.PUTFIELD,node.name,"lms$widgetDepth","I"));setter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));setter.maxStack=2;setter.maxLocals=2;node.methods.add(setter);}
         }
         return 1;
+    }
+
+    /** Keep the entire source render callback, including logic outside panel/labels. */
+    private int rewriteContainerRenderLifecycle(ClassNode node) {
+        String base="net/minecraft/client/gui/screens/inventory/AbstractContainerScreen";
+        String bridge="com/fuckingdeveloper/lms/runtime/render/Forge1192ContainerGraphicsBridge";
+        String view="com/fuckingdeveloper/lms/runtime/render/LegacyContainerRender";
+        String pose="Lcom/mojang/blaze3d/vertex/PoseStack;",graphics="Lnet/minecraft/client/gui/GuiGraphicsExtractor;";
+        String full="("+pose+"IIF)V";int count=0;
+        if(isManagedSubtypeOf(node,base)) {
+            var source=node.methods.stream().filter(m->(m.name.equals("m_6305_")||m.name.equals("render"))&&m.desc.equals(full)).findFirst().orElse(null);
+            if(source!=null) {
+                if((source.access&(org.objectweb.asm.Opcodes.ACC_STATIC|org.objectweb.asm.Opcodes.ACC_ABSTRACT))!=0)
+                    throw new IllegalStateException("Unsupported source container render shape: "+node.name);
+                if(node.methods.stream().anyMatch(m->m.name.equals("lms$render")||m.name.equals("extractRenderState")&&m.desc.equals("("+graphics+"IIF)V")))
+                    throw new IllegalStateException("Source/native container render collision: "+node.name);
+                node.interfaces.add(view);
+                var callback=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"lms$render",full,null,null);
+                for(int i=0;i<4;i++)callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(i<2?org.objectweb.asm.Opcodes.ALOAD:org.objectweb.asm.Opcodes.ILOAD,i));
+                callback.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD,4));
+                callback.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKEVIRTUAL,node.name,source.name,full,false));
+                callback.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));node.methods.add(callback);
+                var target=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"extractRenderState","("+graphics+"IIF)V",null,null);
+                for(int i=0;i<4;i++)target.instructions.add(new org.objectweb.asm.tree.VarInsnNode(i<2?org.objectweb.asm.Opcodes.ALOAD:org.objectweb.asm.Opcodes.ILOAD,i));
+                target.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.FLOAD,4));
+                target.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC,bridge,"render","(L"+view+";"+graphics+"IIF)V",false));
+                target.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));node.methods.add(target);count++;
+            }
+        }
+        count+=rewriteSemanticInstanceCalls(node,(opcode,owner,name,desc)->{
+            String operation=null,receiver=null;
+            if(owner.equals(base)&&(name.equals("m_6305_")||name.equals("render"))&&desc.equals(full)) {
+                if(opcode!=org.objectweb.asm.Opcodes.INVOKESPECIAL)throw new IllegalStateException("Unadapted source base container render callable: "+owner+"#"+name);
+                operation="defaultRender";receiver=base;
+            } else if((name.equals("m_7025_")||name.equals("renderTooltip"))&&desc.equals("("+pose+"II)V")
+                    &&(""+base+"#renderTooltip").equals(sourceGuiMethod(node,owner,name,desc))) {
+                operation=opcode==org.objectweb.asm.Opcodes.INVOKESPECIAL?"defaultTooltip":"tooltip";receiver=base;
+            } else if((name.equals("m_96597_")||name.equals("renderComponentTooltip"))&&desc.equals("("+pose+"Ljava/util/List;II)V")
+                    &&"net/minecraft/client/gui/screens/Screen#renderComponentTooltip".equals(sourceGuiMethod(node,owner,name,desc))) {
+                operation=opcode==org.objectweb.asm.Opcodes.INVOKESPECIAL?"defaultComponentTooltip":"componentTooltip";receiver="net/minecraft/client/gui/screens/Screen";
+            } else if((name.equals("m_96617_")||name.equals("renderTooltip"))&&desc.equals("("+pose+"Ljava/util/List;II)V")
+                    &&"net/minecraft/client/gui/screens/Screen#renderTooltip".equals(sourceGuiMethod(node,owner,name,desc))) {
+                operation=opcode==org.objectweb.asm.Opcodes.INVOKESPECIAL?"defaultFormattedTooltip":"formattedTooltip";receiver="net/minecraft/client/gui/screens/Screen";
+            }
+            return operation==null?null:new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,bridge,operation,"(L"+receiver+";"+desc.substring(1),false);
+        });
+        return count;
     }
 
     private int rewriteContainerGraphicsPhases(ClassNode node) {
