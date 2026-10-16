@@ -73,3 +73,40 @@ batch-check-15 verify all three layer transition calls/handles, actual target
 Gui method declarations and both original immutable pushScreen consumers.
 Interactive runtime60 editor/return/save acceptance is pending human input;
 MCP cannot activate arbitrary configuration widgets.
+
+## Layer default background ownership
+
+Runtime60 reaches the real DropDownScreen after push; native extraction then
+throws "Can only blur once per frame" while extracting its inherited Screen
+background after the parent's background. Source Forge drawScreen calls each
+screen's render callback and does not automatically insert a full-screen
+background per layer. A source overlay must not acquire an additional opaque/
+blurred full-screen backdrop merely by inheriting the target Screen hook.
+
+For managed ordinary screens above the bottom screen in the actual native Gui
+stack, the target base Screen.extractBackground default painting MUST be omitted.
+Bottom/root screens retain the existing native default policy. Preserve the
+native deferred-subtitle tail, render events and source/native custom drawing;
+do not disable blur globally or catch its invariant failure. Container screens
+retain their separately specified native background contract. Native screens,
+off-stack screens and empty stacks MUST remain unchanged. Read the existing
+Gui stack by identity, including intermediate overlays, rather than inventing
+another layer stack or inspecting a fixture's class name.
+
+Source IForgeMinecraft defaults additionally expose Minecraft.pushGuiLayer and
+popGuiLayer; they delegate to the same verified static ForgeHooksClient methods.
+Adapt these exact instance calls/handles together. Direct source extension-
+interface references and arbitrary layer rendering helpers remain distinct gaps.
+
+Verification of the runtime60 blocker: wrapper compatibilityTest,
+nativeCompatibilitySmoke and compileLaunchJava passed together in batch-check-17.
+The actual FML-applied Gui accessor and Screen background injection are present.
+Native GuiRenderState checks cover three stacked screens over three reset frames,
+retain its duplicate-blur exception, preserve root/off-stack/empty-stack policy
+and use identity even when equals is overridden. Original immutable dropdown
+contains one instance pop and two static pops; all three project to the same
+native bridge. The ordinary instance push/pop family and its handles are also
+checked. An earlier check16 wrongly expected only the instance pop in the
+consumer inventory; inspection corrected the assertion to include all3 paths.
+Runtime61 interactive selection/input/save/return remains pending; no full
+source immediate screen-rendering support is inferred from this background fix.

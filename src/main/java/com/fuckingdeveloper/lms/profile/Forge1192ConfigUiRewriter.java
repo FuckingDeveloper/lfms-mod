@@ -21,6 +21,11 @@ final class Forge1192ConfigUiRewriter {
         }
         int tag=h.getTag();if(tag!=Opcodes.H_INVOKESTATIC&&tag!=Opcodes.H_INVOKEVIRTUAL&&tag!=Opcodes.H_INVOKESPECIAL&&tag!=Opcodes.H_INVOKEINTERFACE)return h;
         String owner=h.getOwner(),name=h.getName(),desc=h.getDesc();
+        if (owner.equals("net/minecraft/client/Minecraft") && tag==Opcodes.H_INVOKEVIRTUAL
+                && ((name.equals("pushGuiLayer") && desc.equals("(Lnet/minecraft/client/gui/screens/Screen;)V"))
+                || (name.equals("popGuiLayer") && desc.equals("()V"))))
+            return new Handle(Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/render/Forge1192MinecraftClientBridge",
+                    name,"(Lnet/minecraft/client/Minecraft;"+desc.substring(1),false);
         if (owner.equals("net/minecraftforge/client/ForgeHooksClient") && tag==Opcodes.H_INVOKESTATIC) {
             String client="Lnet/minecraft/client/Minecraft;", screen="Lnet/minecraft/client/gui/screens/Screen;";
             if ((name.equals("pushGuiLayer") && desc.equals("("+client+screen+")V"))
