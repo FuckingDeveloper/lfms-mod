@@ -22,8 +22,8 @@ public final class Forge1192ModConfigView {
     public ModConfig nativeConfig(){return config;}
     public Type getType(){return Type.fromNative(config.getType());}
     public String getFileName(){return config.getFileName();}
-    public String getModId(){return config.getModId();}
-    public IConfigSpec getSpec(){return config.getSpec();}
+    public String getModId(){return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceConfigAdapter.owner(config).orElseGet(config::getModId);}
+    public IConfigSpec getSpec(){return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceConfigAdapter.sourceSpec(config);}
     public CommentedConfig getConfigData(){var loaded=config.getLoadedConfig();return loaded==null?null:loaded.config();}
     public Path getFullPath(){return config.getFullPath();}
     public void save(){Forge1192NativeConfigBridge.write(this);}

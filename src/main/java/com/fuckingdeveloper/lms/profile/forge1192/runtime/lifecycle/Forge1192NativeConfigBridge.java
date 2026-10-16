@@ -61,9 +61,13 @@ public final class Forge1192NativeConfigBridge {
     public static ModConfigEvent loading(Forge1192ModConfigView config){return new ModConfigEvent.Loading(config.nativeConfig());}
     public static net.neoforged.bus.api.Event self(ModConfigEvent event){return event;}
     public static void dispatch(Forge1192ModContainerView container,ModConfigEvent event){
-        var nativeOwner=container.nativeOwner().orElseThrow(()->new UnsupportedOperationException("Managed config event registration is not adapted"));
         try {
-            if(OWNER.get(event.getConfig())!=nativeOwner)throw new IllegalArgumentException("Source config event owner differs from actual native owner");
+            var nativeOwner=(ModContainer)OWNER.get(event.getConfig());
+            var managedOwner=com.fuckingdeveloper.lms.target.neoforge263.Target263SourceConfigAdapter.owner(event.getConfig());
+            boolean matches=managedOwner.isPresent()
+                    ? container.nativeOwner().isEmpty() && managedOwner.get().equals(container.getModId())
+                    : container.nativeOwner().orElse(null)==nativeOwner;
+            if(!matches)throw new IllegalArgumentException("Source config event owner differs from registered owner");
             var lock=(Lock)LOCK.get(event.getConfig());lock.lock();try{nativeOwner.acceptEvent(event);}finally{lock.unlock();}
         }catch(IllegalAccessException failure){throw new IllegalStateException("Cannot access verified native config ownership/lock",failure);}
     }
@@ -71,7 +75,7 @@ public final class Forge1192NativeConfigBridge {
     public static boolean needsWorldRestart(ModConfigSpec.ValueSpec spec){
         return switch(spec.restartType()){case NONE->false;case WORLD->true;case GAME->throw new UnsupportedOperationException("Native GAME restart has no source world-restart-only flag");};
     }
-    public static void afterReload(IConfigSpec spec){requireSpec(spec).afterReload();}
+    public static void afterReload(IConfigSpec spec){com.fuckingdeveloper.lms.target.neoforge263.Target263SourceConfigValues.afterReload(requireSpec(spec));}
     public static int correct(IConfigSpec spec,CommentedConfig config){return requireSpec(spec).correct(config,(action,path,oldValue,newValue)->{});}
     private static ModConfigSpec requireSpec(IConfigSpec spec){if(spec instanceof ModConfigSpec nativeSpec)return nativeSpec;throw new UnsupportedOperationException("Unadapted native/source config spec: "+spec.getClass().getName());}
 }

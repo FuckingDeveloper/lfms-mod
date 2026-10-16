@@ -200,14 +200,16 @@ public final class Forge1192CompatibilitySurface {
             boolean catalogued = entry.getValue().stream().allMatch(boundary ->
                     com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodRules.catalog()
                             .resolve(boundary.opcode(), boundary.owner().replace('.', '/'), boundary.name(), boundary.descriptor(), declarations::owner).isPresent());
-            boolean catalogFamily = entry.getValue().stream().anyMatch(boundary -> boundary.name().equals("enqueueWork")
+            String catalogFamilyName=entry.getValue().stream().map(boundary->com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodRules.family(
+                    boundary.owner().replace('.','/'),boundary.name(),boundary.descriptor(),declarations)).flatMap(java.util.Optional::stream).findFirst().orElse(null);
+            boolean catalogFamily = catalogFamilyName!=null || entry.getValue().stream().anyMatch(boundary -> boundary.name().equals("enqueueWork")
                     && declarations.subtype(boundary.owner().replace('.', '/'), com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodRules.WORK));
             State state = inactive ? State.INACTIVE_DATA_GENERATION : catalogued ? State.SUPPORTED : catalogFamily ? State.ADAPTER_REQUIRED : SUPPORTED_BRIDGES.contains(target)
                     ? State.SUPPORTED
                     : EXPLICIT_UNSUPPORTED.contains(target) ? State.UNSUPPORTED
                     : NETWORK_ADAPTERS.contains(target) ? State.ADAPTER_REQUIRED : State.ADAPTER_REQUIRED;
             requirements.add(new Requirement(target, entry.getValue().size(), state,
-                    catalogFamily ? "LIFECYCLE_WORK" : NETWORK_ADAPTERS.contains(target) ? "NETWORK_PROTOCOL" : family(target)));
+                    catalogFamily ? (catalogFamilyName==null?"LIFECYCLE_WORK":catalogFamilyName) : NETWORK_ADAPTERS.contains(target) ? "NETWORK_PROTOCOL" : family(target)));
         }
         boolean executable = requirements.stream()
                 .allMatch(requirement -> requirement.state() == State.SUPPORTED || requirement.state() == State.INACTIVE_DATA_GENERATION);

@@ -410,7 +410,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         })),
             new TransformationPipeline.Pass("Forge1192NativeConfigRewriter.rewrite",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
-                    node -> Forge1192NativeConfigRewriter.rewrite(node)),
+                    node -> Forge1192NativeConfigRewriter.rewrite(node, methodDeclarations)),
             new TransformationPipeline.Pass("Forge1192GameRulesRewriter.rewrite",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192GameRulesRewriter.rewrite(node,

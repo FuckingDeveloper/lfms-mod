@@ -1,5 +1,7 @@
-# Forge 1.19.2 / 43.4.0 official named patched artifact
-# sha256=579b78e19ff551ae3b340a6f908ca0923633a9395b35e6ae446772a778793bb4
+# Forge 1.19.2 / 43.4.0 official named patched artifact + FML core + Java FML
+# forge-1.19.2-43.4.0_mapped_official_1.19.2.jar sha256=579b78e19ff551ae3b340a6f908ca0923633a9395b35e6ae446772a778793bb4
+# fmlcore-1.19.2-43.4.0.jar sha256=7759350688f802c2e7ed21b31ea21f7c45cfb960d1f495036872bee3a842d702
+# javafmllanguage-1.19.2-43.4.0.jar sha256=dace027d2ae25dc0a27b84924e561fc0ecb7914d7e9c2699b10f2caea189def5
 C	com/mojang/blaze3d/vertex/BufferBuilder$1	4128	java/lang/Object	-
 F	4120	$SwitchMap$com$mojang$blaze3d$vertex$VertexFormat$IndexType	[I
 M	8	<clinit>	()V
@@ -12703,4 +12705,861 @@ M	1	<init>	()V
 M	9	getMCVersion	()Ljava/lang/String;
 M	9	getMCPVersion	()Ljava/lang/String;
 M	9	getMCPandMCVersion	()Ljava/lang/String;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/Bindings	33	java/lang/Object	-
+F	26	INSTANCE	Lnet/minecraftforge/fml/Bindings;
+F	18	provider	Lnet/minecraftforge/fml/IBindingsProvider;
+M	2	<init>	()V
+M	9	getForgeBus	()Ljava/util/function/Supplier;
+M	9	getMessageParser	()Ljava/util/function/Supplier;
+M	9	getConfigConfiguration	()Ljava/util/function/Supplier;
+M	4106	lambda$new$1	(Ljava/util/ServiceConfigurationError;)V
+M	4106	lambda$new$0	()Ljava/util/ServiceLoader;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/CrashReportCallables$1	32	java/lang/Object	net/minecraftforge/fml/ISystemReportExtender
+F	4112	val$headerName	Ljava/lang/String;
+F	4112	val$reportGenerator	Ljava/util/function/Supplier;
+M	0	<init>	(Ljava/lang/String;Ljava/util/function/Supplier;)V
+M	1	getLabel	()Ljava/lang/String;
+M	1	get	()Ljava/lang/String;
+M	4161	get	()Ljava/lang/Object;
+C	net/minecraftforge/fml/CrashReportCallables	33	java/lang/Object	-
+F	26	crashCallables	Ljava/util/List;
+M	1	<init>	()V
+M	9	registerCrashCallable	(Lnet/minecraftforge/fml/ISystemReportExtender;)V
+M	9	registerCrashCallable	(Ljava/lang/String;Ljava/util/function/Supplier;)V
+M	9	allCrashCallables	()Ljava/util/List;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/DeferredWorkQueue$TaskInfo	65584	java/lang/Record	-
+F	18	owner	Lnet/minecraftforge/fml/ModContainer;
+F	18	task	Ljava/lang/Runnable;
+M	0	<init>	(Lnet/minecraftforge/fml/ModContainer;Ljava/lang/Runnable;)V
+M	17	toString	()Ljava/lang/String;
+M	17	hashCode	()I
+M	17	equals	(Ljava/lang/Object;)Z
+M	1	owner	()Lnet/minecraftforge/fml/ModContainer;
+M	1	task	()Ljava/lang/Runnable;
+C	net/minecraftforge/fml/DeferredWorkQueue	33	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	26	workQueues	Ljava/util/Map;
+F	18	tasks	Ljava/util/concurrent/ConcurrentLinkedDeque;
+F	18	modLoadingStage	Lnet/minecraftforge/fml/ModLoadingStage;
+M	1	<init>	(Lnet/minecraftforge/fml/ModLoadingStage;)V
+M	9	lookup	(Ljava/util/Optional;)Ljava/util/Optional;
+M	1	runTasks	()V
+M	10	makeRunnable	(Lnet/minecraftforge/fml/DeferredWorkQueue$TaskInfo;Ljava/util/concurrent/Executor;)V
+M	1	enqueueWork	(Lnet/minecraftforge/fml/ModContainer;Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;
+M	1	enqueueWork	(Lnet/minecraftforge/fml/ModContainer;Ljava/util/function/Supplier;)Ljava/util/concurrent/CompletableFuture;
+M	4098	lambda$enqueueWork$3	(Lnet/minecraftforge/fml/ModContainer;Ljava/lang/Runnable;)V
+M	4098	lambda$enqueueWork$2	(Lnet/minecraftforge/fml/ModContainer;Ljava/lang/Runnable;)V
+M	4106	lambda$makeRunnable$1	(Lnet/minecraftforge/fml/DeferredWorkQueue$TaskInfo;)V
+M	4106	lambda$runTasks$0	(Lnet/minecraftforge/fml/DeferredWorkQueue$TaskInfo;)V
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/DistExecutor$1	4128	java/lang/Object	-
+F	4120	$SwitchMap$net$minecraftforge$api$distmarker$Dist	[I
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/DistExecutor$SafeCallable	1537	java/lang/Object	net/minecraftforge/fml/DistExecutor$SafeReferent,java/util/concurrent/Callable,java/io/Serializable
+C	net/minecraftforge/fml/DistExecutor$SafeReferent	1537	java/lang/Object	-
+C	net/minecraftforge/fml/DistExecutor$SafeRunnable	1537	java/lang/Object	net/minecraftforge/fml/DistExecutor$SafeReferent,java/lang/Runnable,java/io/Serializable
+C	net/minecraftforge/fml/DistExecutor$SafeSupplier	1537	java/lang/Object	net/minecraftforge/fml/DistExecutor$SafeReferent,java/util/function/Supplier,java/io/Serializable
+C	net/minecraftforge/fml/DistExecutor	49	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+M	2	<init>	()V
+M	131081	callWhenOn	(Lnet/minecraftforge/api/distmarker/Dist;Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	9	unsafeCallWhenOn	(Lnet/minecraftforge/api/distmarker/Dist;Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	9	safeCallWhenOn	(Lnet/minecraftforge/api/distmarker/Dist;Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	131081	runWhenOn	(Lnet/minecraftforge/api/distmarker/Dist;Ljava/util/function/Supplier;)V
+M	9	unsafeRunWhenOn	(Lnet/minecraftforge/api/distmarker/Dist;Ljava/util/function/Supplier;)V
+M	9	safeRunWhenOn	(Lnet/minecraftforge/api/distmarker/Dist;Ljava/util/function/Supplier;)V
+M	131081	runForDist	(Ljava/util/function/Supplier;Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	9	unsafeRunForDist	(Ljava/util/function/Supplier;Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	9	safeRunForDist	(Ljava/util/function/Supplier;Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	26	validateSafeReferent	(Ljava/util/function/Supplier;)V
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/I18NParser	1537	java/lang/Object	-
+M	1153	parseMessage	(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+M	1025	stripControlCodes	(Ljava/lang/String;)Ljava/lang/String;
+C	net/minecraftforge/fml/IBindingsProvider	1537	java/lang/Object	-
+M	1025	getForgeBusSupplier	()Ljava/util/function/Supplier;
+M	1025	getMessageParser	()Ljava/util/function/Supplier;
+M	1025	getConfigConfiguration	()Ljava/util/function/Supplier;
+C	net/minecraftforge/fml/IExtensionPoint$DisplayTest	65585	java/lang/Record	net/minecraftforge/fml/IExtensionPoint
+F	18	suppliedVersion	Ljava/util/function/Supplier;
+F	18	remoteVersionTest	Ljava/util/function/BiPredicate;
+F	25	IGNORESERVERONLY	Ljava/lang/String;
+F	25	IGNORE_SERVER_VERSION	Ljava/util/function/Supplier;
+F	25	IGNORE_ALL_VERSION	Ljava/util/function/Supplier;
+M	1	<init>	(Ljava/lang/String;Ljava/util/function/BiPredicate;)V
+M	1	<init>	(Ljava/util/function/Supplier;Ljava/util/function/BiPredicate;)V
+M	17	toString	()Ljava/lang/String;
+M	17	hashCode	()I
+M	17	equals	(Ljava/lang/Object;)Z
+M	1	suppliedVersion	()Ljava/util/function/Supplier;
+M	1	remoteVersionTest	()Ljava/util/function/BiPredicate;
+M	4106	lambda$new$4	(Ljava/lang/String;)Ljava/lang/String;
+M	4106	lambda$static$3	()Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;
+M	4106	lambda$static$2	(Ljava/lang/String;Ljava/lang/Boolean;)Z
+M	4106	lambda$static$1	()Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;
+M	4106	lambda$static$0	(Ljava/lang/String;Ljava/lang/Boolean;)Z
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/IExtensionPoint	1537	java/lang/Object	-
+C	net/minecraftforge/fml/IModLoadingState	1537	java/lang/Object	-
+M	1025	name	()Ljava/lang/String;
+M	1025	previous	()Ljava/lang/String;
+M	1025	phase	()Lnet/minecraftforge/fml/ModLoadingPhase;
+M	1025	message	()Ljava/util/function/Function;
+M	1025	inlineRunnable	()Ljava/util/Optional;
+M	1	buildTransition	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;)Ljava/util/Optional;
+M	1025	buildTransition	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;Ljava/util/function/Function;Ljava/util/function/Function;)Ljava/util/Optional;
+M	4106	lambda$buildTransition$3	(Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;
+M	4106	lambda$buildTransition$2	()V
+M	4106	lambda$buildTransition$1	(Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;
+M	4106	lambda$buildTransition$0	()V
+C	net/minecraftforge/fml/IModStateProvider	1537	java/lang/Object	-
+M	1025	getAllStates	()Ljava/util/List;
+C	net/minecraftforge/fml/IModStateTransition$EventGenerator	1537	java/lang/Object	java/util/function/Function
+M	9	fromFunction	(Ljava/util/function/Function;)Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;
+C	net/minecraftforge/fml/IModStateTransition	1537	java/lang/Object	-
+M	9	buildNoopTransition	()Lnet/minecraftforge/fml/IModStateTransition;
+M	1	build	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;Ljava/util/function/Function;Ljava/util/function/Function;)Ljava/util/concurrent/CompletableFuture;
+M	1	nextModLoadingStage	()Ljava/util/function/BiFunction;
+M	2	addCompletableFutureTaskForModDispatch	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;Ljava/util/List;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;Ljava/util/function/BiFunction;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;)Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;
+M	1025	eventFunctionStream	()Ljava/util/function/Supplier;
+M	1025	threadSelector	()Lnet/minecraftforge/fml/ThreadSelector;
+M	1025	finalActivityGenerator	()Ljava/util/function/BiFunction;
+M	1025	preDispatchHook	()Ljava/util/function/BiFunction;
+M	1025	postDispatchHook	()Ljava/util/function/BiFunction;
+M	4106	lambda$build$4	(Ljava/util/function/Function;Ljava/util/concurrent/Executor;Ljava/lang/Void;)Ljava/lang/Void;
+M	4106	lambda$build$3	(Ljava/util/concurrent/CompletableFuture;Ljava/lang/Void;)Ljava/util/concurrent/CompletionStage;
+M	4098	lambda$build$2	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;Ljava/util/List;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;)V
+M	4098	lambda$build$1	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;Ljava/util/List;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;)Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;
+M	4106	lambda$build$0	(Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;)Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;
+C	net/minecraftforge/fml/ISystemReportExtender	1537	java/lang/Object	java/util/function/Supplier
+M	1025	getLabel	()Ljava/lang/String;
+C	net/minecraftforge/fml/InterModComms$IMCMessage	65585	java/lang/Record	-
+F	18	senderModId	Ljava/lang/String;
+F	18	modId	Ljava/lang/String;
+F	18	method	Ljava/lang/String;
+F	18	messageSupplier	Ljava/util/function/Supplier;
+M	1	<init>	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/function/Supplier;)V
+M	131089	getSenderModId	()Ljava/lang/String;
+M	131089	getModId	()Ljava/lang/String;
+M	131089	getMethod	()Ljava/lang/String;
+M	131089	getMessageSupplier	()Ljava/util/function/Supplier;
+M	17	toString	()Ljava/lang/String;
+M	17	hashCode	()I
+M	17	equals	(Ljava/lang/Object;)Z
+M	1	senderModId	()Ljava/lang/String;
+M	1	modId	()Ljava/lang/String;
+M	1	method	()Ljava/lang/String;
+M	1	messageSupplier	()Ljava/util/function/Supplier;
+C	net/minecraftforge/fml/InterModComms$QueueFilteringSpliterator	32	java/lang/Object	java/util/Spliterator
+F	18	queue	Ljava/util/concurrent/ConcurrentLinkedQueue;
+F	18	methodFilter	Ljava/util/function/Predicate;
+F	18	iterator	Ljava/util/Iterator;
+M	1	<init>	(Ljava/util/concurrent/ConcurrentLinkedQueue;Ljava/util/function/Predicate;)V
+M	1	characteristics	()I
+M	1	estimateSize	()J
+M	1	tryAdvance	(Ljava/util/function/Consumer;)Z
+M	1	trySplit	()Ljava/util/Spliterator;
+C	net/minecraftforge/fml/InterModComms	33	java/lang/Object	-
+F	10	containerQueues	Ljava/util/concurrent/ConcurrentMap;
+M	1	<init>	()V
+M	9	sendTo	(Ljava/lang/String;Ljava/lang/String;Ljava/util/function/Supplier;)Z
+M	9	sendTo	(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/util/function/Supplier;)Z
+M	9	getMessages	(Ljava/lang/String;Ljava/util/function/Predicate;)Ljava/util/stream/Stream;
+M	9	getMessages	(Ljava/lang/String;)Ljava/util/stream/Stream;
+M	4106	lambda$getMessages$2	(Ljava/lang/String;)Z
+M	4106	lambda$sendTo$1	(Ljava/lang/String;)Ljava/util/concurrent/ConcurrentLinkedQueue;
+M	4106	lambda$sendTo$0	(Ljava/lang/String;)Ljava/util/concurrent/ConcurrentLinkedQueue;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/LoadingFailedException	33	java/lang/RuntimeException	-
+F	18	loadingExceptions	Ljava/util/List;
+M	1	<init>	(Ljava/util/List;)V
+M	1	getErrors	()Ljava/util/List;
+M	1	getMessage	()Ljava/lang/String;
+C	net/minecraftforge/fml/Logging	33	java/lang/Object	-
+F	25	CORE	Lorg/apache/logging/log4j/Marker;
+F	25	LOADING	Lorg/apache/logging/log4j/Marker;
+F	25	SCAN	Lorg/apache/logging/log4j/Marker;
+F	25	SPLASH	Lorg/apache/logging/log4j/Marker;
+F	25	CAPABILITIES	Lorg/apache/logging/log4j/Marker;
+F	25	MODELLOADING	Lorg/apache/logging/log4j/Marker;
+F	25	FORGEMOD	Lorg/apache/logging/log4j/Marker;
+M	1	<init>	()V
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/LogicalSide	16433	java/lang/Enum	-
+F	16409	CLIENT	Lnet/minecraftforge/fml/LogicalSide;
+F	16409	SERVER	Lnet/minecraftforge/fml/LogicalSide;
+F	4122	$VALUES	[Lnet/minecraftforge/fml/LogicalSide;
+M	9	values	()[Lnet/minecraftforge/fml/LogicalSide;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/fml/LogicalSide;
+M	2	<init>	(Ljava/lang/String;I)V
+M	1	isServer	()Z
+M	1	isClient	()Z
+M	4106	$values	()[Lnet/minecraftforge/fml/LogicalSide;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/ModContainer	1057	java/lang/Object	-
+F	20	modId	Ljava/lang/String;
+F	20	namespace	Ljava/lang/String;
+F	20	modInfo	Lnet/minecraftforge/forgespi/language/IModInfo;
+F	4	modLoadingStage	Lnet/minecraftforge/fml/ModLoadingStage;
+F	4	contextExtension	Ljava/util/function/Supplier;
+F	20	activityMap	Ljava/util/Map;
+F	20	extensionPoints	Ljava/util/Map;
+F	20	configs	Ljava/util/EnumMap;
+F	4	configHandler	Ljava/util/Optional;
+M	1	<init>	(Lnet/minecraftforge/forgespi/language/IModInfo;)V
+M	0	<init>	()V
+M	17	getModId	()Ljava/lang/String;
+M	17	getNamespace	()Ljava/lang/String;
+M	1	getCurrentState	()Lnet/minecraftforge/fml/ModLoadingStage;
+M	9	buildTransitionHandler	(Lnet/minecraftforge/fml/ModContainer;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;Ljava/util/function/BiFunction;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;
+M	1	getModInfo	()Lnet/minecraftforge/forgespi/language/IModInfo;
+M	1	getCustomExtension	(Ljava/lang/Class;)Ljava/util/Optional;
+M	1	registerExtensionPoint	(Ljava/lang/Class;Ljava/util/function/Supplier;)V
+M	1	registerDisplayTest	(Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;)V
+M	1	registerDisplayTest	(Ljava/util/function/Supplier;)V
+M	1	registerDisplayTest	(Ljava/lang/String;Ljava/util/function/BiPredicate;)V
+M	1	registerDisplayTest	(Ljava/util/function/Supplier;Ljava/util/function/BiPredicate;)V
+M	1	addConfig	(Lnet/minecraftforge/fml/config/ModConfig;)V
+M	1	dispatchConfigEvent	(Lnet/minecraftforge/fml/config/IConfigEvent;)V
+M	1025	matches	(Ljava/lang/Object;)Z
+M	1025	getMod	()Ljava/lang/Object;
+M	4	acceptEvent	(Lnet/minecraftforge/eventbus/api/Event;)V
+M	4106	lambda$dispatchConfigEvent$8	(Lnet/minecraftforge/fml/config/IConfigEvent;Ljava/util/function/Consumer;)V
+M	4106	lambda$registerDisplayTest$7	(Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;)Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;
+M	4106	lambda$getCustomExtension$6	()Ljava/lang/Object;
+M	4106	lambda$buildTransitionHandler$5	(Lnet/minecraftforge/fml/ModContainer;Ljava/util/function/BiFunction;Ljava/lang/Void;Ljava/lang/Throwable;)V
+M	4106	lambda$buildTransitionHandler$4	(Lnet/minecraftforge/fml/ModContainer;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;)V
+M	4106	lambda$buildTransitionHandler$3	()V
+M	4098	lambda$new$2	()Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;
+M	4098	lambda$new$1	(Ljava/lang/String;Ljava/lang/Boolean;)Z
+M	4098	lambda$new$0	()Ljava/lang/String;
+C	net/minecraftforge/fml/ModList$UncaughtModLoadingException	32	net/minecraftforge/fml/ModLoadingException	-
+M	1	<init>	(Lnet/minecraftforge/fml/ModLoadingStage;Ljava/lang/Throwable;)V
+C	net/minecraftforge/fml/ModList	33	java/lang/Object	-
+F	10	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	10	INSTANCE	Lnet/minecraftforge/fml/ModList;
+F	18	modFiles	Ljava/util/List;
+F	18	sortedList	Ljava/util/List;
+F	18	fileById	Ljava/util/Map;
+F	2	mods	Ljava/util/List;
+F	2	indexedMods	Ljava/util/Map;
+F	2	modFileScanData	Ljava/util/List;
+F	2	sortedContainers	Ljava/util/List;
+M	2	<init>	(Ljava/util/List;Ljava/util/List;)V
+M	2	getModContainerState	(Ljava/lang/String;)Ljava/lang/String;
+M	2	fileToLine	(Lnet/minecraftforge/forgespi/locating/IModFile;)Ljava/lang/String;
+M	2	crashReport	()Ljava/lang/String;
+M	9	of	(Ljava/util/List;Ljava/util/List;)Lnet/minecraftforge/fml/ModList;
+M	9	get	()Lnet/minecraftforge/fml/ModList;
+M	10	newForkJoinWorkerThread	(Ljava/util/concurrent/ForkJoinPool;)Ljava/util/concurrent/ForkJoinWorkerThread;
+M	1	getModFiles	()Ljava/util/List;
+M	1	getModFileById	(Ljava/lang/String;)Lnet/minecraftforge/forgespi/language/IModFileInfo;
+M	0	futureVisitor	(Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;Ljava/util/function/BiFunction;)Ljava/util/function/Function;
+M	8	completableFutureFromExceptionList	(Ljava/util/List;)Ljava/util/concurrent/CompletionStage;
+M	8	gather	(Ljava/util/List;)Ljava/util/concurrent/CompletableFuture;
+M	0	setLoadedMods	(Ljava/util/List;)V
+M	1	getModObjectById	(Ljava/lang/String;)Ljava/util/Optional;
+M	1	getModContainerById	(Ljava/lang/String;)Ljava/util/Optional;
+M	1	getModContainerByObject	(Ljava/lang/Object;)Ljava/util/Optional;
+M	1	getMods	()Ljava/util/List;
+M	1	isLoaded	(Ljava/lang/String;)Z
+M	1	size	()I
+M	1	getAllScanData	()Ljava/util/List;
+M	1	forEachModFile	(Ljava/util/function/Consumer;)V
+M	1	applyForEachModFile	(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+M	1	forEachModContainer	(Ljava/util/function/BiConsumer;)V
+M	1	forEachModInOrder	(Ljava/util/function/Consumer;)V
+M	1	applyForEachModContainer	(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+M	4106	lambda$getModContainerByObject$11	(Ljava/lang/Object;Lnet/minecraftforge/fml/ModContainer;)Z
+M	4106	lambda$getModObjectById$10	(Ljava/lang/Object;)Ljava/lang/Object;
+M	4098	lambda$setLoadedMods$9	(Lnet/minecraftforge/fml/ModContainer;)I
+M	4106	lambda$gather$8	(Ljava/util/List;Ljava/lang/Object;)Ljava/util/List;
+M	4106	lambda$gather$7	(Ljava/lang/Void;Ljava/lang/Throwable;)Ljava/lang/Object;
+M	4106	lambda$gather$6	(Ljava/util/List;[Ljava/util/concurrent/CompletableFuture;Ljava/util/concurrent/CompletableFuture;)V
+M	4106	lambda$gather$5	(Ljava/util/List;ILjava/lang/Object;Ljava/lang/Throwable;)V
+M	4106	lambda$completableFutureFromExceptionList$4	(Ljava/lang/RuntimeException;Ljava/lang/Throwable;)V
+M	4106	lambda$completableFutureFromExceptionList$3	(Ljava/util/Map$Entry;)Z
+M	4106	lambda$completableFutureFromExceptionList$2	(Ljava/util/Map$Entry;)Z
+M	4098	lambda$futureVisitor$1	(Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;Ljava/util/function/BiFunction;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/CompletableFuture;
+M	4106	lambda$futureVisitor$0	(Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;Ljava/util/function/BiFunction;Ljava/util/concurrent/Executor;Lnet/minecraftforge/fml/ModContainer;)Ljava/util/concurrent/CompletableFuture;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/ModLoader$ErroredModContainer	32	net/minecraftforge/fml/ModContainer	-
+M	1	<init>	()V
+M	1	matches	(Ljava/lang/Object;)Z
+M	1	getMod	()Ljava/lang/Object;
+C	net/minecraftforge/fml/ModLoader	33	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	10	INSTANCE	Lnet/minecraftforge/fml/ModLoader;
+F	18	loadingModList	Lnet/minecraftforge/fml/loading/LoadingModList;
+F	18	loadingExceptions	Ljava/util/List;
+F	18	loadingWarnings	Ljava/util/List;
+F	18	stateManager	Lnet/minecraftforge/fml/ModStateManager;
+F	2	loadingStateValid	Z
+F	18	statusConsumer	Ljava/util/Optional;
+F	2	modList	Lnet/minecraftforge/fml/ModList;
+F	10	runningDataGen	Z
+M	2	<init>	()V
+M	2	computeLanguageList	()Ljava/lang/String;
+M	2	computeModLauncherServiceList	()Ljava/lang/String;
+M	9	get	()Lnet/minecraftforge/fml/ModLoader;
+M	1	gatherAndInitializeMods	(Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/util/concurrent/Executor;Ljava/lang/Runnable;)V
+M	1	loadMods	(Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/util/concurrent/Executor;Ljava/lang/Runnable;)V
+M	1	finishMods	(Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/util/concurrent/Executor;Ljava/lang/Runnable;)V
+M	2	dispatchAndHandleError	(Lnet/minecraftforge/fml/IModLoadingState;Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/util/concurrent/Executor;Ljava/lang/Runnable;)V
+M	2	dispatchAndHandleError	(Lnet/minecraftforge/fml/IModLoadingState;Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/util/concurrent/Executor;Ljava/lang/Runnable;Ljava/util/function/Function;Ljava/util/function/Function;)V
+M	2	waitForTransition	(Lnet/minecraftforge/fml/IModLoadingState;Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/lang/Runnable;Ljava/util/concurrent/CompletableFuture;)V
+M	2	buildMods	(Lnet/minecraftforge/forgespi/locating/IModFile;)Ljava/util/List;
+M	2	buildModContainerFromTOML	(Lnet/minecraftforge/forgespi/locating/IModFile;Ljava/util/Map;Ljava/util/Map$Entry;)Lnet/minecraftforge/fml/ModContainer;
+M	9	isLoadingStateValid	()Z
+M	1	runEventGenerator	(Ljava/util/function/Function;)V
+M	1	postEvent	(Lnet/minecraftforge/eventbus/api/Event;)V
+M	1	postEventWithWrapInModOrder	(Lnet/minecraftforge/eventbus/api/Event;Ljava/util/function/BiConsumer;Ljava/util/function/BiConsumer;)V
+M	1	getWarnings	()Ljava/util/List;
+M	1	addWarning	(Lnet/minecraftforge/fml/ModLoadingWarning;)V
+M	9	isDataGenRunning	()Z
+M	4106	lambda$postEventWithWrapInModOrder$35	(Ljava/util/function/BiConsumer;Lnet/minecraftforge/eventbus/api/Event;Ljava/util/function/BiConsumer;Lnet/minecraftforge/fml/ModContainer;)V
+M	4106	lambda$postEvent$34	(Lnet/minecraftforge/eventbus/api/Event;Lnet/minecraftforge/fml/ModContainer;)V
+M	4106	lambda$runEventGenerator$33	(Ljava/util/function/Function;Lnet/minecraftforge/fml/ModContainer;)V
+M	4106	lambda$buildModContainerFromTOML$32	(Ljava/lang/String;)Lnet/minecraftforge/fml/ModLoadingException;
+M	4106	lambda$buildMods$31	(Lnet/minecraftforge/fml/ModContainer;)Z
+M	4106	lambda$buildMods$30	(Lnet/minecraftforge/fml/ModContainer;)Ljava/lang/String;
+M	4098	lambda$buildMods$29	(Lnet/minecraftforge/forgespi/locating/IModFile;Ljava/util/Map;Ljava/util/Map$Entry;)Lnet/minecraftforge/fml/ModContainer;
+M	4106	lambda$waitForTransition$28	(Ljava/lang/Throwable;)Z
+M	4098	lambda$dispatchAndHandleError$27	(Lnet/minecraftforge/fml/IModLoadingState;Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/lang/Runnable;Ljava/util/concurrent/CompletableFuture;)V
+M	4098	lambda$dispatchAndHandleError$26	(Ljava/util/function/Consumer;)V
+M	4098	lambda$dispatchAndHandleError$25	(Lnet/minecraftforge/fml/IModLoadingState;Ljava/util/function/Consumer;)V
+M	4098	lambda$dispatchAndHandleError$24	(Lnet/minecraftforge/fml/IModLoadingState;Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/lang/Runnable;Ljava/util/concurrent/CompletableFuture;)V
+M	4098	lambda$dispatchAndHandleError$23	(Ljava/util/function/Consumer;)V
+M	4098	lambda$dispatchAndHandleError$22	(Lnet/minecraftforge/fml/IModLoadingState;Ljava/util/function/Consumer;)V
+M	4098	lambda$finishMods$21	(Ljava/util/function/Consumer;)V
+M	4098	lambda$finishMods$20	(Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/util/concurrent/Executor;Ljava/lang/Runnable;Lnet/minecraftforge/fml/IModLoadingState;)V
+M	4106	lambda$finishMods$19	(Ljava/util/function/Consumer;)V
+M	4106	lambda$loadMods$18	(Ljava/util/function/Consumer;)V
+M	4098	lambda$loadMods$17	(Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/util/concurrent/Executor;Ljava/lang/Runnable;Lnet/minecraftforge/fml/IModLoadingState;)V
+M	4106	lambda$loadMods$16	(Ljava/util/function/Consumer;)V
+M	4106	lambda$gatherAndInitializeMods$15	(Ljava/util/function/Consumer;)V
+M	4098	lambda$gatherAndInitializeMods$14	(Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;Ljava/util/concurrent/Executor;Ljava/lang/Runnable;Lnet/minecraftforge/fml/IModLoadingState;)V
+M	4106	lambda$gatherAndInitializeMods$13	(Ljava/util/function/Consumer;)V
+M	4106	lambda$gatherAndInitializeMods$12	(Ljava/util/function/Consumer;)V
+M	4106	lambda$gatherAndInitializeMods$11	(Lnet/minecraftforge/forgespi/locating/ForgeFeature$Bound;)Lnet/minecraftforge/fml/ModLoadingException;
+M	4106	lambda$gatherAndInitializeMods$10	(Lnet/minecraftforge/forgespi/locating/ForgeFeature$Bound;)Z
+M	4106	lambda$gatherAndInitializeMods$9	(Ljava/util/function/Consumer;)V
+M	4106	lambda$gatherAndInitializeMods$8	(Ljava/util/function/Consumer;)V
+M	4106	lambda$gatherAndInitializeMods$7	(Ljava/util/function/Consumer;)V
+M	4106	lambda$computeModLauncherServiceList$6	(Ljava/util/Map;)Ljava/lang/String;
+M	4106	lambda$computeLanguageList$5	(Lnet/minecraftforge/forgespi/language/IModLanguageProvider;)Ljava/lang/String;
+M	4106	lambda$new$4	(Lnet/minecraftforge/fml/loading/moddiscovery/ModFileInfo;)Lnet/minecraftforge/fml/ModLoadingException;
+M	4098	lambda$new$3	(Lnet/minecraftforge/fml/loading/moddiscovery/ModFileInfo;)Z
+M	4098	lambda$new$2	(Lnet/minecraftforge/forgespi/language/IModInfo;)Z
+M	4106	lambda$new$1	(Lnet/minecraftforge/forgespi/language/IModInfo;Lnet/minecraftforge/forgespi/language/IModInfo;)Z
+M	4106	lambda$new$0	(Lnet/minecraftforge/forgespi/locating/IModFile;)Lnet/minecraftforge/fml/ModLoadingWarning;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/ModLoadingContext	33	java/lang/Object	-
+F	26	LOGGER	Lorg/slf4j/Logger;
+F	26	context	Ljava/lang/ThreadLocal;
+F	2	languageExtension	Ljava/lang/Object;
+F	2	stage	Lnet/minecraftforge/fml/ModLoadingStage;
+F	2	activeContainer	Lnet/minecraftforge/fml/ModContainer;
+M	1	<init>	()V
+M	9	get	()Lnet/minecraftforge/fml/ModLoadingContext;
+M	1	setActiveContainer	(Lnet/minecraftforge/fml/ModContainer;)V
+M	1	getActiveContainer	()Lnet/minecraftforge/fml/ModContainer;
+M	1	getActiveNamespace	()Ljava/lang/String;
+M	1	registerExtensionPoint	(Ljava/lang/Class;Ljava/util/function/Supplier;)V
+M	1	registerDisplayTest	(Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;)V
+M	1	registerDisplayTest	(Ljava/util/function/Supplier;)V
+M	1	registerDisplayTest	(Ljava/lang/String;Ljava/util/function/BiPredicate;)V
+M	1	registerDisplayTest	(Ljava/util/function/Supplier;Ljava/util/function/BiPredicate;)V
+M	1	registerConfig	(Lnet/minecraftforge/fml/config/ModConfig$Type;Lnet/minecraftforge/fml/config/IConfigSpec;)V
+M	1	registerConfig	(Lnet/minecraftforge/fml/config/ModConfig$Type;Lnet/minecraftforge/fml/config/IConfigSpec;Ljava/lang/String;)V
+M	1	extension	()Ljava/lang/Object;
+M	4106	lambda$registerDisplayTest$1	(Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;)Lnet/minecraftforge/fml/IExtensionPoint$DisplayTest;
+M	4106	lambda$getActiveContainer$0	()Ljava/lang/RuntimeException;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/ModLoadingException	33	java/lang/RuntimeException	-
+F	26	serialVersionUID	J
+F	18	modInfo	Lnet/minecraftforge/forgespi/language/IModInfo;
+F	18	errorStage	Lnet/minecraftforge/fml/ModLoadingStage;
+F	18	i18nMessage	Ljava/lang/String;
+F	18	context	Ljava/util/List;
+M	129	<init>	(Lnet/minecraftforge/forgespi/language/IModInfo;Lnet/minecraftforge/fml/ModLoadingStage;Ljava/lang/String;Ljava/lang/Throwable;[Ljava/lang/Object;)V
+M	8	fromEarlyException	(Lnet/minecraftforge/fml/loading/EarlyLoadingException;)Ljava/util/stream/Stream;
+M	1	getI18NMessage	()Ljava/lang/String;
+M	1	getContext	()[Ljava/lang/Object;
+M	1	formatToString	()Ljava/lang/String;
+M	1	getMessage	()Ljava/lang/String;
+M	1	getModInfo	()Lnet/minecraftforge/forgespi/language/IModInfo;
+M	1	getCleanMessage	()Ljava/lang/String;
+M	4106	lambda$fromEarlyException$0	(Lnet/minecraftforge/fml/loading/EarlyLoadingException;Lnet/minecraftforge/fml/loading/EarlyLoadingException$ExceptionData;)Lnet/minecraftforge/fml/ModLoadingException;
+C	net/minecraftforge/fml/ModLoadingPhase	16433	java/lang/Enum	-
+F	16409	ERROR	Lnet/minecraftforge/fml/ModLoadingPhase;
+F	16409	GATHER	Lnet/minecraftforge/fml/ModLoadingPhase;
+F	16409	LOAD	Lnet/minecraftforge/fml/ModLoadingPhase;
+F	16409	COMPLETE	Lnet/minecraftforge/fml/ModLoadingPhase;
+F	16409	DONE	Lnet/minecraftforge/fml/ModLoadingPhase;
+F	4122	$VALUES	[Lnet/minecraftforge/fml/ModLoadingPhase;
+M	9	values	()[Lnet/minecraftforge/fml/ModLoadingPhase;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/fml/ModLoadingPhase;
+M	2	<init>	(Ljava/lang/String;I)V
+M	4106	$values	()[Lnet/minecraftforge/fml/ModLoadingPhase;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/ModLoadingStage	16433	java/lang/Enum	-
+F	16409	ERROR	Lnet/minecraftforge/fml/ModLoadingStage;
+F	16409	VALIDATE	Lnet/minecraftforge/fml/ModLoadingStage;
+F	16409	CONSTRUCT	Lnet/minecraftforge/fml/ModLoadingStage;
+F	16409	COMMON_SETUP	Lnet/minecraftforge/fml/ModLoadingStage;
+F	16409	SIDED_SETUP	Lnet/minecraftforge/fml/ModLoadingStage;
+F	16409	ENQUEUE_IMC	Lnet/minecraftforge/fml/ModLoadingStage;
+F	16409	PROCESS_IMC	Lnet/minecraftforge/fml/ModLoadingStage;
+F	16409	COMPLETE	Lnet/minecraftforge/fml/ModLoadingStage;
+F	16409	DONE	Lnet/minecraftforge/fml/ModLoadingStage;
+F	18	deferredWorkQueue	Lnet/minecraftforge/fml/DeferredWorkQueue;
+F	4122	$VALUES	[Lnet/minecraftforge/fml/ModLoadingStage;
+M	9	values	()[Lnet/minecraftforge/fml/ModLoadingStage;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/fml/ModLoadingStage;
+M	2	<init>	(Ljava/lang/String;I)V
+M	0	nextState	(Ljava/lang/Throwable;)Lnet/minecraftforge/fml/ModLoadingStage;
+M	1	currentState	(Ljava/lang/Throwable;)Lnet/minecraftforge/fml/ModLoadingStage;
+M	1	getDeferredWorkQueue	()Lnet/minecraftforge/fml/DeferredWorkQueue;
+M	4106	$values	()[Lnet/minecraftforge/fml/ModLoadingStage;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/ModLoadingState	65585	java/lang/Record	net/minecraftforge/fml/IModLoadingState
+F	18	name	Ljava/lang/String;
+F	18	previous	Ljava/lang/String;
+F	18	message	Ljava/util/function/Function;
+F	18	phase	Lnet/minecraftforge/fml/ModLoadingPhase;
+F	18	inlineRunnable	Ljava/util/Optional;
+F	18	transition	Ljava/util/Optional;
+M	1	<init>	(Ljava/lang/String;Ljava/lang/String;Ljava/util/function/Function;Lnet/minecraftforge/fml/ModLoadingPhase;Ljava/util/Optional;Ljava/util/Optional;)V
+M	1	buildTransition	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;Ljava/util/function/Function;Ljava/util/function/Function;)Ljava/util/Optional;
+M	9	empty	(Ljava/lang/String;Ljava/lang/String;Lnet/minecraftforge/fml/ModLoadingPhase;)Lnet/minecraftforge/fml/ModLoadingState;
+M	9	withTransition	(Ljava/lang/String;Ljava/lang/String;Lnet/minecraftforge/fml/ModLoadingPhase;Lnet/minecraftforge/fml/IModStateTransition;)Lnet/minecraftforge/fml/ModLoadingState;
+M	9	withTransition	(Ljava/lang/String;Ljava/lang/String;Ljava/util/function/Function;Lnet/minecraftforge/fml/ModLoadingPhase;Lnet/minecraftforge/fml/IModStateTransition;)Lnet/minecraftforge/fml/ModLoadingState;
+M	9	withInline	(Ljava/lang/String;Ljava/lang/String;Lnet/minecraftforge/fml/ModLoadingPhase;Ljava/util/function/Consumer;)Lnet/minecraftforge/fml/ModLoadingState;
+M	17	toString	()Ljava/lang/String;
+M	17	hashCode	()I
+M	17	equals	(Ljava/lang/Object;)Z
+M	1	name	()Ljava/lang/String;
+M	1	previous	()Ljava/lang/String;
+M	1	message	()Ljava/util/function/Function;
+M	1	phase	()Lnet/minecraftforge/fml/ModLoadingPhase;
+M	1	inlineRunnable	()Ljava/util/Optional;
+M	1	transition	()Ljava/util/Optional;
+M	4106	lambda$withInline$3	(Ljava/lang/String;Lnet/minecraftforge/fml/ModList;)Ljava/lang/String;
+M	4106	lambda$withTransition$2	(Ljava/lang/String;Lnet/minecraftforge/fml/ModList;)Ljava/lang/String;
+M	4106	lambda$empty$1	(Lnet/minecraftforge/fml/ModList;)Ljava/lang/String;
+M	4106	lambda$buildTransition$0	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;Ljava/util/function/Function;Ljava/util/function/Function;Lnet/minecraftforge/fml/IModStateTransition;)Ljava/util/concurrent/CompletableFuture;
+C	net/minecraftforge/fml/ModLoadingWarning	33	java/lang/Object	-
+F	18	modInfo	Lnet/minecraftforge/forgespi/language/IModInfo;
+F	18	warningStage	Lnet/minecraftforge/fml/ModLoadingStage;
+F	18	i18nMessage	Ljava/lang/String;
+F	18	context	Ljava/util/List;
+M	129	<init>	(Lnet/minecraftforge/forgespi/language/IModInfo;Lnet/minecraftforge/fml/ModLoadingStage;Ljava/lang/String;[Ljava/lang/Object;)V
+M	1	formatToString	()Ljava/lang/String;
+C	net/minecraftforge/fml/ModStateManager	33	java/lang/Object	-
+F	8	INSTANCE	Lnet/minecraftforge/fml/ModStateManager;
+F	18	stateMap	Ljava/util/EnumMap;
+M	1	<init>	()V
+M	1	getStates	(Lnet/minecraftforge/fml/ModLoadingPhase;)Ljava/util/List;
+M	4106	lambda$getStates$3	(Lnet/minecraftforge/fml/ModLoadingState;Lnet/minecraftforge/fml/IModLoadingState;)Z
+M	4106	lambda$getStates$2	(Lcom/google/common/graph/MutableGraph;Ljava/util/Map;Lnet/minecraftforge/fml/ModLoadingState;Lnet/minecraftforge/fml/IModLoadingState;)V
+M	4106	lambda$new$1	()Ljava/util/EnumMap;
+M	4106	lambda$new$0	(Ljava/util/ServiceConfigurationError;)V
+C	net/minecraftforge/fml/ModWorkManager$DrivenExecutor	1537	java/lang/Object	java/util/concurrent/Executor
+M	1025	selfDriven	()Z
+M	1025	driveOne	()Z
+M	1	drive	(Ljava/lang/Runnable;)V
+C	net/minecraftforge/fml/ModWorkManager$SyncExecutor	32	java/lang/Object	net/minecraftforge/fml/ModWorkManager$DrivenExecutor
+F	2	tasks	Ljava/util/concurrent/ConcurrentLinkedDeque;
+M	2	<init>	()V
+M	1	driveOne	()Z
+M	1	selfDriven	()Z
+M	1	execute	(Ljava/lang/Runnable;)V
+C	net/minecraftforge/fml/ModWorkManager$WrappingExecutor	32	java/lang/Object	net/minecraftforge/fml/ModWorkManager$DrivenExecutor
+F	18	wrapped	Ljava/util/concurrent/Executor;
+M	1	<init>	(Ljava/util/concurrent/Executor;)V
+M	1	selfDriven	()Z
+M	1	driveOne	()Z
+M	1	execute	(Ljava/lang/Runnable;)V
+C	net/minecraftforge/fml/ModWorkManager	33	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	26	PARK_TIME	J
+F	10	syncExecutor	Lnet/minecraftforge/fml/ModWorkManager$SyncExecutor;
+F	10	parallelThreadPool	Ljava/util/concurrent/ForkJoinPool;
+M	1	<init>	()V
+M	9	syncExecutor	()Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;
+M	9	wrappedExecutor	(Ljava/util/concurrent/Executor;)Lnet/minecraftforge/fml/ModWorkManager$DrivenExecutor;
+M	9	parallelExecutor	()Ljava/util/concurrent/Executor;
+M	10	newForkJoinWorkerThread	(Ljava/util/concurrent/ForkJoinPool;)Ljava/util/concurrent/ForkJoinWorkerThread;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/NoopTransition	65584	java/lang/Record	net/minecraftforge/fml/IModStateTransition
+M	0	<init>	()V
+M	1	eventFunctionStream	()Ljava/util/function/Supplier;
+M	1	threadSelector	()Lnet/minecraftforge/fml/ThreadSelector;
+M	1	finalActivityGenerator	()Ljava/util/function/BiFunction;
+M	1	preDispatchHook	()Ljava/util/function/BiFunction;
+M	1	postDispatchHook	()Ljava/util/function/BiFunction;
+M	17	toString	()Ljava/lang/String;
+M	17	hashCode	()I
+M	17	equals	(Ljava/lang/Object;)Z
+M	4106	lambda$postDispatchHook$3	(Ljava/util/concurrent/Executor;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;)Ljava/util/concurrent/CompletableFuture;
+M	4106	lambda$preDispatchHook$2	(Ljava/util/concurrent/Executor;Lnet/minecraftforge/fml/IModStateTransition$EventGenerator;)Ljava/util/concurrent/CompletableFuture;
+M	4106	lambda$finalActivityGenerator$1	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/CompletableFuture;)Ljava/util/concurrent/CompletableFuture;
+M	4106	lambda$eventFunctionStream$0	()Ljava/util/stream/Stream;
+C	net/minecraftforge/fml/OptionalMod	49	java/lang/Object	-
+F	18	modId	Ljava/lang/String;
+F	2	value	Ljava/lang/Object;
+F	2	searched	Z
+F	10	EMPTY	Lnet/minecraftforge/fml/OptionalMod;
+M	9	of	(Ljava/lang/String;)Lnet/minecraftforge/fml/OptionalMod;
+M	10	empty	()Lnet/minecraftforge/fml/OptionalMod;
+M	2	<init>	(Z)V
+M	2	<init>	(Ljava/lang/String;)V
+M	2	getValue	()Ljava/lang/Object;
+M	1	get	()Ljava/lang/Object;
+M	1	getModId	()Ljava/lang/String;
+M	1	isPresent	()Z
+M	1	ifPresent	(Ljava/util/function/Consumer;)V
+M	1	filter	(Ljava/util/function/Predicate;)Lnet/minecraftforge/fml/OptionalMod;
+M	1	map	(Ljava/util/function/Function;)Ljava/util/Optional;
+M	1	flatMap	(Ljava/util/function/Function;)Ljava/util/Optional;
+M	1	orElse	(Ljava/lang/Object;)Ljava/lang/Object;
+M	1	orElseGet	(Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	1	orElseThrow	(Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	1	equals	(Ljava/lang/Object;)Z
+M	1	hashCode	()I
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/StartupMessageManager	33	java/lang/Object	-
+M	1	<init>	()V
+M	9	addModMessage	(Ljava/lang/String;)V
+M	9	modLoaderConsumer	()Ljava/util/Optional;
+M	9	mcLoaderConsumer	()Ljava/util/Optional;
+C	net/minecraftforge/fml/ThreadSelector	16433	java/lang/Enum	java/util/function/BinaryOperator
+F	16409	SYNC	Lnet/minecraftforge/fml/ThreadSelector;
+F	16409	PARALLEL	Lnet/minecraftforge/fml/ThreadSelector;
+F	18	selector	Ljava/util/function/BinaryOperator;
+F	4122	$VALUES	[Lnet/minecraftforge/fml/ThreadSelector;
+M	9	values	()[Lnet/minecraftforge/fml/ThreadSelector;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/fml/ThreadSelector;
+M	2	<init>	(Ljava/lang/String;ILjava/util/function/BinaryOperator;)V
+M	1	apply	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/Executor;
+M	4161	apply	(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+M	4106	lambda$static$1	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/Executor;
+M	4106	lambda$static$0	(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;)Ljava/util/concurrent/Executor;
+M	4106	$values	()[Lnet/minecraftforge/fml/ThreadSelector;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/VersionChecker$1	32	java/lang/Thread	-
+F	2	client	Ljava/net/http/HttpClient;
+M	0	<init>	(Ljava/lang/String;)V
+M	1	run	()V
+M	2	openUrlString	(Ljava/net/URL;Lnet/minecraftforge/forgespi/language/IModInfo;)Ljava/lang/String;
+M	2	process	(Lnet/minecraftforge/forgespi/language/IModInfo;)V
+M	4106	lambda$openUrlString$0	(Ljava/net/URL;)Ljava/io/IOException;
+C	net/minecraftforge/fml/VersionChecker$CheckResult	65585	java/lang/Record	-
+F	18	status	Lnet/minecraftforge/fml/VersionChecker$Status;
+F	18	target	Lorg/apache/maven/artifact/versioning/ComparableVersion;
+F	18	changes	Ljava/util/Map;
+F	18	url	Ljava/lang/String;
+M	1	<init>	(Lnet/minecraftforge/fml/VersionChecker$Status;Lorg/apache/maven/artifact/versioning/ComparableVersion;Ljava/util/Map;Ljava/lang/String;)V
+M	17	toString	()Ljava/lang/String;
+M	17	hashCode	()I
+M	17	equals	(Ljava/lang/Object;)Z
+M	1	status	()Lnet/minecraftforge/fml/VersionChecker$Status;
+M	1	target	()Lorg/apache/maven/artifact/versioning/ComparableVersion;
+M	1	changes	()Ljava/util/Map;
+M	1	url	()Ljava/lang/String;
+C	net/minecraftforge/fml/VersionChecker$Status	16433	java/lang/Enum	-
+F	16409	PENDING	Lnet/minecraftforge/fml/VersionChecker$Status;
+F	16409	FAILED	Lnet/minecraftforge/fml/VersionChecker$Status;
+F	16409	UP_TO_DATE	Lnet/minecraftforge/fml/VersionChecker$Status;
+F	16409	OUTDATED	Lnet/minecraftforge/fml/VersionChecker$Status;
+F	16409	AHEAD	Lnet/minecraftforge/fml/VersionChecker$Status;
+F	16409	BETA	Lnet/minecraftforge/fml/VersionChecker$Status;
+F	16409	BETA_OUTDATED	Lnet/minecraftforge/fml/VersionChecker$Status;
+F	16	sheetOffset	I
+F	16	draw	Z
+F	16	animated	Z
+F	4122	$VALUES	[Lnet/minecraftforge/fml/VersionChecker$Status;
+M	9	values	()[Lnet/minecraftforge/fml/VersionChecker$Status;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/fml/VersionChecker$Status;
+M	2	<init>	(Ljava/lang/String;I)V
+M	2	<init>	(Ljava/lang/String;II)V
+M	2	<init>	(Ljava/lang/String;IIZ)V
+M	2	<init>	(Ljava/lang/String;IIZZ)V
+M	1	getSheetOffset	()I
+M	1	shouldDraw	()Z
+M	1	isAnimated	()Z
+M	4106	$values	()[Lnet/minecraftforge/fml/VersionChecker$Status;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/VersionChecker	33	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	26	MAX_HTTP_REDIRECTS	I
+F	26	HTTP_TIMEOUT_SECS	I
+F	10	results	Ljava/util/Map;
+F	26	PENDING_CHECK	Lnet/minecraftforge/fml/VersionChecker$CheckResult;
+M	1	<init>	()V
+M	9	startVersionCheck	()V
+M	10	gatherMods	()Ljava/util/List;
+M	9	getResult	(Lnet/minecraftforge/forgespi/language/IModInfo;)Lnet/minecraftforge/fml/VersionChecker$CheckResult;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/config/ConfigFileTypeHandler$ConfigLoadingException	32	java/lang/RuntimeException	-
+M	1	<init>	(Lnet/minecraftforge/fml/config/ModConfig;Ljava/lang/Exception;)V
+C	net/minecraftforge/fml/config/ConfigFileTypeHandler$ConfigWatcher	32	java/lang/Object	java/lang/Runnable
+F	18	modConfig	Lnet/minecraftforge/fml/config/ModConfig;
+F	18	commentedFileConfig	Lcom/electronwill/nightconfig/core/file/CommentedFileConfig;
+F	18	realClassLoader	Ljava/lang/ClassLoader;
+M	0	<init>	(Lnet/minecraftforge/fml/config/ModConfig;Lcom/electronwill/nightconfig/core/file/CommentedFileConfig;Ljava/lang/ClassLoader;)V
+M	1	run	()V
+C	net/minecraftforge/fml/config/ConfigFileTypeHandler	33	java/lang/Object	-
+F	26	LOGGER	Lorg/slf4j/Logger;
+F	8	TOML	Lnet/minecraftforge/fml/config/ConfigFileTypeHandler;
+F	26	defaultConfigPath	Ljava/nio/file/Path;
+M	1	<init>	()V
+M	1	reader	(Ljava/nio/file/Path;)Ljava/util/function/Function;
+M	1	unload	(Ljava/nio/file/Path;Lnet/minecraftforge/fml/config/ModConfig;)V
+M	2	setupConfigFile	(Lnet/minecraftforge/fml/config/ModConfig;Ljava/nio/file/Path;Lcom/electronwill/nightconfig/core/ConfigFormat;)Z
+M	9	backUpConfig	(Lcom/electronwill/nightconfig/core/file/CommentedFileConfig;)V
+M	9	backUpConfig	(Lcom/electronwill/nightconfig/core/file/CommentedFileConfig;I)V
+M	4098	lambda$reader$1	(Ljava/nio/file/Path;Lnet/minecraftforge/fml/config/ModConfig;)Lcom/electronwill/nightconfig/core/file/CommentedFileConfig;
+M	4098	lambda$reader$0	(Lnet/minecraftforge/fml/config/ModConfig;Ljava/nio/file/Path;Lcom/electronwill/nightconfig/core/ConfigFormat;)Z
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/config/ConfigTracker	33	java/lang/Object	-
+F	26	LOGGER	Lorg/slf4j/Logger;
+F	24	CONFIG	Lorg/slf4j/Marker;
+F	25	INSTANCE	Lnet/minecraftforge/fml/config/ConfigTracker;
+F	18	fileMap	Ljava/util/concurrent/ConcurrentHashMap;
+F	18	configSets	Ljava/util/EnumMap;
+F	18	configsByMod	Ljava/util/concurrent/ConcurrentHashMap;
+M	2	<init>	()V
+M	0	trackConfig	(Lnet/minecraftforge/fml/config/ModConfig;)V
+M	1	loadConfigs	(Lnet/minecraftforge/fml/config/ModConfig$Type;Ljava/nio/file/Path;)V
+M	1	unloadConfigs	(Lnet/minecraftforge/fml/config/ModConfig$Type;Ljava/nio/file/Path;)V
+M	2	openConfig	(Lnet/minecraftforge/fml/config/ModConfig;Ljava/nio/file/Path;)V
+M	2	closeConfig	(Lnet/minecraftforge/fml/config/ModConfig;Ljava/nio/file/Path;)V
+M	1	loadDefaultServerConfigs	()V
+M	1	getConfigFileName	(Ljava/lang/String;Lnet/minecraftforge/fml/config/ModConfig$Type;)Ljava/lang/String;
+M	1	configSets	()Ljava/util/Map;
+M	1	fileMap	()Ljava/util/concurrent/ConcurrentHashMap;
+M	4106	lambda$loadDefaultServerConfigs$3	(Lnet/minecraftforge/fml/config/ModConfig;)V
+M	4098	lambda$unloadConfigs$2	(Ljava/nio/file/Path;Lnet/minecraftforge/fml/config/ModConfig;)V
+M	4098	lambda$loadConfigs$1	(Ljava/nio/file/Path;Lnet/minecraftforge/fml/config/ModConfig;)V
+M	4106	lambda$trackConfig$0	(Ljava/lang/String;)Ljava/util/Map;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/config/IConfigEvent$ConfigConfig	65585	java/lang/Record	-
+F	18	loading	Ljava/util/function/Function;
+F	18	reloading	Ljava/util/function/Function;
+M	1	<init>	(Ljava/util/function/Function;Ljava/util/function/Function;)V
+M	17	toString	()Ljava/lang/String;
+M	17	hashCode	()I
+M	17	equals	(Ljava/lang/Object;)Z
+M	1	loading	()Ljava/util/function/Function;
+M	1	reloading	()Ljava/util/function/Function;
+C	net/minecraftforge/fml/config/IConfigEvent	1537	java/lang/Object	-
+F	25	CONFIGCONFIG	Lnet/minecraftforge/fml/config/IConfigEvent$ConfigConfig;
+M	9	reloading	(Lnet/minecraftforge/fml/config/ModConfig;)Lnet/minecraftforge/fml/config/IConfigEvent;
+M	9	loading	(Lnet/minecraftforge/fml/config/ModConfig;)Lnet/minecraftforge/fml/config/IConfigEvent;
+M	1025	getConfig	()Lnet/minecraftforge/fml/config/ModConfig;
+M	1	self	()Lnet/minecraftforge/eventbus/api/Event;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/config/IConfigSpec	1537	java/lang/Object	com/electronwill/nightconfig/core/UnmodifiableConfig
+M	1	self	()Lnet/minecraftforge/fml/config/IConfigSpec;
+M	1025	acceptConfig	(Lcom/electronwill/nightconfig/core/CommentedConfig;)V
+M	1025	isCorrecting	()Z
+M	1025	isCorrect	(Lcom/electronwill/nightconfig/core/CommentedConfig;)Z
+M	1025	correct	(Lcom/electronwill/nightconfig/core/CommentedConfig;)I
+M	1025	afterReload	()V
+C	net/minecraftforge/fml/config/ModConfig$Type	16433	java/lang/Enum	-
+F	16409	COMMON	Lnet/minecraftforge/fml/config/ModConfig$Type;
+F	16409	CLIENT	Lnet/minecraftforge/fml/config/ModConfig$Type;
+F	16409	SERVER	Lnet/minecraftforge/fml/config/ModConfig$Type;
+F	4122	$VALUES	[Lnet/minecraftforge/fml/config/ModConfig$Type;
+M	9	values	()[Lnet/minecraftforge/fml/config/ModConfig$Type;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/fml/config/ModConfig$Type;
+M	2	<init>	(Ljava/lang/String;I)V
+M	1	extension	()Ljava/lang/String;
+M	4106	$values	()[Lnet/minecraftforge/fml/config/ModConfig$Type;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/config/ModConfig	33	java/lang/Object	-
+F	18	type	Lnet/minecraftforge/fml/config/ModConfig$Type;
+F	18	spec	Lnet/minecraftforge/fml/config/IConfigSpec;
+F	18	fileName	Ljava/lang/String;
+F	18	container	Lnet/minecraftforge/fml/ModContainer;
+F	18	configHandler	Lnet/minecraftforge/fml/config/ConfigFileTypeHandler;
+F	2	configData	Lcom/electronwill/nightconfig/core/CommentedConfig;
+F	2	saveHandler	Ljava/util/concurrent/Callable;
+M	1	<init>	(Lnet/minecraftforge/fml/config/ModConfig$Type;Lnet/minecraftforge/fml/config/IConfigSpec;Lnet/minecraftforge/fml/ModContainer;Ljava/lang/String;)V
+M	1	<init>	(Lnet/minecraftforge/fml/config/ModConfig$Type;Lnet/minecraftforge/fml/config/IConfigSpec;Lnet/minecraftforge/fml/ModContainer;)V
+M	10	defaultConfigName	(Lnet/minecraftforge/fml/config/ModConfig$Type;Ljava/lang/String;)Ljava/lang/String;
+M	1	getType	()Lnet/minecraftforge/fml/config/ModConfig$Type;
+M	1	getFileName	()Ljava/lang/String;
+M	1	getHandler	()Lnet/minecraftforge/fml/config/ConfigFileTypeHandler;
+M	1	getSpec	()Lnet/minecraftforge/fml/config/IConfigSpec;
+M	1	getModId	()Ljava/lang/String;
+M	1	getConfigData	()Lcom/electronwill/nightconfig/core/CommentedConfig;
+M	0	setConfigData	(Lcom/electronwill/nightconfig/core/CommentedConfig;)V
+M	0	fireEvent	(Lnet/minecraftforge/fml/config/IConfigEvent;)V
+M	1	save	()V
+M	1	getFullPath	()Ljava/nio/file/Path;
+M	1	acceptSyncedConfig	([B)V
+C	net/minecraftforge/fml/event/IModBusEvent	1537	java/lang/Object	-
+C	net/minecraftforge/fml/util/CertificateHelper	33	java/lang/Object	-
+F	26	HEXES	Ljava/lang/String;
+M	1	<init>	()V
+M	9	getFingerprints	([Ljava/security/cert/Certificate;)Lcom/google/common/collect/ImmutableList;
+M	9	getFingerprint	(Ljava/security/cert/Certificate;)Ljava/lang/String;
+M	9	getFingerprint	(Ljava/nio/ByteBuffer;)Ljava/lang/String;
+M	10	hexify	([B)Ljava/lang/String;
+C	net/minecraftforge/fml/util/EnhancedRuntimeException$1	32	net/minecraftforge/fml/util/EnhancedRuntimeException$WrappedPrintStream	-
+F	4112	val$buf	Ljava/io/StringWriter;
+F	4112	this$0	Lnet/minecraftforge/fml/util/EnhancedRuntimeException;
+M	0	<init>	(Lnet/minecraftforge/fml/util/EnhancedRuntimeException;Ljava/io/StringWriter;)V
+M	1	println	(Ljava/lang/String;)V
+C	net/minecraftforge/fml/util/EnhancedRuntimeException$2	32	net/minecraftforge/fml/util/EnhancedRuntimeException$WrappedPrintStream	-
+F	4112	val$s	Ljava/io/PrintWriter;
+F	4112	this$0	Lnet/minecraftforge/fml/util/EnhancedRuntimeException;
+M	0	<init>	(Lnet/minecraftforge/fml/util/EnhancedRuntimeException;Ljava/io/PrintWriter;)V
+M	1	println	(Ljava/lang/String;)V
+C	net/minecraftforge/fml/util/EnhancedRuntimeException$3	32	net/minecraftforge/fml/util/EnhancedRuntimeException$WrappedPrintStream	-
+F	4112	val$s	Ljava/io/PrintStream;
+F	4112	this$0	Lnet/minecraftforge/fml/util/EnhancedRuntimeException;
+M	0	<init>	(Lnet/minecraftforge/fml/util/EnhancedRuntimeException;Ljava/io/PrintStream;)V
+M	1	println	(Ljava/lang/String;)V
+C	net/minecraftforge/fml/util/EnhancedRuntimeException$WrappedPrintStream	1057	java/lang/Object	-
+M	1	<init>	()V
+M	1025	println	(Ljava/lang/String;)V
+C	net/minecraftforge/fml/util/EnhancedRuntimeException	1057	java/lang/RuntimeException	-
+F	26	serialVersionUID	J
+M	1	<init>	()V
+M	1	<init>	(Ljava/lang/String;)V
+M	1	<init>	(Ljava/lang/String;Ljava/lang/Throwable;)V
+M	1	<init>	(Ljava/lang/Throwable;)V
+M	1	getMessage	()Ljava/lang/String;
+M	1	printStackTrace	(Ljava/io/PrintWriter;)V
+M	1	printStackTrace	(Ljava/io/PrintStream;)V
+M	1028	printStackTrace	(Lnet/minecraftforge/fml/util/EnhancedRuntimeException$WrappedPrintStream;)V
+C	net/minecraftforge/fml/util/LoaderException	33	net/minecraftforge/fml/util/EnhancedRuntimeException	-
+F	26	serialVersionUID	J
+M	1	<init>	(Ljava/lang/Throwable;)V
+M	1	<init>	()V
+M	1	<init>	(Ljava/lang/String;)V
+M	1	<init>	(Ljava/lang/String;Ljava/lang/Throwable;)V
+M	4	printStackTrace	(Lnet/minecraftforge/fml/util/EnhancedRuntimeException$WrappedPrintStream;)V
+C	net/minecraftforge/fml/util/LoaderExceptionModCrash	33	net/minecraftforge/fml/util/LoaderException	-
+F	26	serialVersionUID	J
+M	1	<init>	(Ljava/lang/String;Ljava/lang/Throwable;)V
+M	33	fillInStackTrace	()Ljava/lang/Throwable;
+C	net/minecraftforge/fml/util/ObfuscationReflectionHelper$UnableToAccessFieldException	33	java/lang/RuntimeException	-
+M	2	<init>	(Ljava/lang/Exception;)V
+C	net/minecraftforge/fml/util/ObfuscationReflectionHelper$UnableToFindFieldException	33	java/lang/RuntimeException	-
+M	2	<init>	(Ljava/lang/Exception;)V
+C	net/minecraftforge/fml/util/ObfuscationReflectionHelper$UnableToFindMethodException	33	java/lang/RuntimeException	-
+M	1	<init>	(Ljava/lang/Throwable;)V
+C	net/minecraftforge/fml/util/ObfuscationReflectionHelper$UnknownConstructorException	33	java/lang/RuntimeException	-
+M	1	<init>	(Ljava/lang/String;)V
+C	net/minecraftforge/fml/util/ObfuscationReflectionHelper	33	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	26	REFLECTION	Lorg/apache/logging/log4j/Marker;
+M	1	<init>	()V
+M	9	remapName	(Lcpw/mods/modlauncher/api/INameMappingService$Domain;Ljava/lang/String;)Ljava/lang/String;
+M	9	getPrivateValue	(Ljava/lang/Class;Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+M	9	setPrivateValue	(Ljava/lang/Class;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;)V
+M	137	findMethod	(Ljava/lang/Class;Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+M	137	findConstructor	(Ljava/lang/Class;[Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
+M	9	findField	(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/reflect/Field;
+M	4106	lambda$remapName$0	(Lcpw/mods/modlauncher/api/INameMappingService$Domain;Ljava/lang/String;Ljava/util/function/BiFunction;)Ljava/lang/String;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/util/thread/EffectiveSide	33	java/lang/Object	-
+M	1	<init>	()V
+M	9	get	()Lnet/minecraftforge/fml/LogicalSide;
+C	net/minecraftforge/fml/util/thread/SidedThreadGroup	49	java/lang/ThreadGroup	java/util/concurrent/ThreadFactory
+F	18	side	Lnet/minecraftforge/fml/LogicalSide;
+M	0	<init>	(Lnet/minecraftforge/fml/LogicalSide;)V
+M	1	getSide	()Lnet/minecraftforge/fml/LogicalSide;
+M	1	newThread	(Ljava/lang/Runnable;)Ljava/lang/Thread;
+C	net/minecraftforge/fml/util/thread/SidedThreadGroups	49	java/lang/Object	-
+F	25	CLIENT	Lnet/minecraftforge/fml/util/thread/SidedThreadGroup;
+F	25	SERVER	Lnet/minecraftforge/fml/util/thread/SidedThreadGroup;
+M	2	<init>	()V
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus	16433	java/lang/Enum	-
+F	16409	FORGE	Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus;
+F	16409	MOD	Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus;
+F	18	busSupplier	Ljava/util/function/Supplier;
+F	4122	$VALUES	[Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus;
+M	9	values	()[Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus;
+M	2	<init>	(Ljava/lang/String;ILjava/util/function/Supplier;)V
+M	1	bus	()Ljava/util/function/Supplier;
+M	4106	lambda$static$0	()Lnet/minecraftforge/eventbus/api/IEventBus;
+M	4106	$values	()[Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/common/Mod$EventBusSubscriber	9729	java/lang/Object	java/lang/annotation/Annotation
+M	1025	value	()[Lnet/minecraftforge/api/distmarker/Dist;
+M	1025	modid	()Ljava/lang/String;
+M	1025	bus	()Lnet/minecraftforge/fml/common/Mod$EventBusSubscriber$Bus;
+C	net/minecraftforge/fml/common/Mod	9729	java/lang/Object	java/lang/annotation/Annotation
+M	1025	value	()Ljava/lang/String;
+C	net/minecraftforge/fml/javafmlmod/AutomaticEventSubscriber	33	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	26	AUTO_SUBSCRIBER	Lorg/objectweb/asm/Type;
+F	26	MOD_TYPE	Lorg/objectweb/asm/Type;
+M	1	<init>	()V
+M	9	inject	(Lnet/minecraftforge/fml/ModContainer;Lnet/minecraftforge/forgespi/language/ModFileScanData;Ljava/lang/ClassLoader;)V
+M	4106	lambda$inject$6	(Ljava/util/Map;Lnet/minecraftforge/fml/ModContainer;Ljava/lang/ClassLoader;Lnet/minecraftforge/forgespi/language/ModFileScanData$AnnotationData;)V
+M	4106	lambda$inject$5	()Ljava/util/EnumSet;
+M	4106	lambda$inject$4	(Lnet/minecraftforge/fml/loading/moddiscovery/ModAnnotation$EnumHolder;)Lnet/minecraftforge/api/distmarker/Dist;
+M	4106	lambda$inject$3	(Lnet/minecraftforge/forgespi/language/ModFileScanData$AnnotationData;)Ljava/lang/String;
+M	4106	lambda$inject$2	(Lnet/minecraftforge/forgespi/language/ModFileScanData$AnnotationData;)Ljava/lang/String;
+M	4106	lambda$inject$1	(Lnet/minecraftforge/forgespi/language/ModFileScanData$AnnotationData;)Z
+M	4106	lambda$inject$0	(Lnet/minecraftforge/forgespi/language/ModFileScanData$AnnotationData;)Z
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/javafmlmod/FMLJavaModLanguageProvider$FMLModTarget	32	java/lang/Object	net/minecraftforge/forgespi/language/IModLanguageProvider$IModLanguageLoader
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	18	className	Ljava/lang/String;
+F	18	modId	Ljava/lang/String;
+M	2	<init>	(Ljava/lang/String;Ljava/lang/String;)V
+M	1	getModId	()Ljava/lang/String;
+M	1	loadMod	(Lnet/minecraftforge/forgespi/language/IModInfo;Lnet/minecraftforge/forgespi/language/ModFileScanData;Ljava/lang/ModuleLayer;)Ljava/lang/Object;
+M	4106	lambda$loadMod$3	(Ljava/lang/Class;Ljava/lang/Class;Lnet/minecraftforge/forgespi/language/IModInfo;Ljava/lang/ReflectiveOperationException;)Ljava/lang/RuntimeException;
+M	4106	lambda$loadMod$2	(Ljava/lang/Class;Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
+M	4106	lambda$loadMod$1	()Ljava/lang/Class;
+M	4106	lambda$loadMod$0	()Ljava/lang/Class;
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/javafmlmod/FMLJavaModLanguageProvider	33	java/lang/Object	net/minecraftforge/forgespi/language/IModLanguageProvider
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	25	MODANNOTATION	Lorg/objectweb/asm/Type;
+M	1	<init>	()V
+M	1	name	()Ljava/lang/String;
+M	1	getFileVisitor	()Ljava/util/function/Consumer;
+M	1	consumeLifecycleEvent	(Ljava/util/function/Supplier;)V
+M	4106	lambda$getFileVisitor$4	(Lnet/minecraftforge/forgespi/language/ModFileScanData;)V
+M	4106	lambda$getFileVisitor$3	(Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLanguageProvider$FMLModTarget;Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLanguageProvider$FMLModTarget;)Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLanguageProvider$FMLModTarget;
+M	4106	lambda$getFileVisitor$2	(Lnet/minecraftforge/forgespi/language/ModFileScanData$AnnotationData;)Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLanguageProvider$FMLModTarget;
+M	4106	lambda$getFileVisitor$1	(Lnet/minecraftforge/forgespi/language/ModFileScanData$AnnotationData;)V
+M	4106	lambda$getFileVisitor$0	(Lnet/minecraftforge/forgespi/language/ModFileScanData$AnnotationData;)Z
+M	8	<clinit>	()V
+C	net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext	33	java/lang/Object	-
+F	18	container	Lnet/minecraftforge/fml/javafmlmod/FMLModContainer;
+M	0	<init>	(Lnet/minecraftforge/fml/javafmlmod/FMLModContainer;)V
+M	1	getModEventBus	()Lnet/minecraftforge/eventbus/api/IEventBus;
+M	9	get	()Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext;
+C	net/minecraftforge/fml/javafmlmod/FMLModContainer	33	net/minecraftforge/fml/ModContainer	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	26	LOADING	Lorg/apache/logging/log4j/Marker;
+F	18	scanResults	Lnet/minecraftforge/forgespi/language/ModFileScanData;
+F	18	eventBus	Lnet/minecraftforge/eventbus/api/IEventBus;
+F	2	modInstance	Ljava/lang/Object;
+F	18	modClass	Ljava/lang/Class;
+M	1	<init>	(Lnet/minecraftforge/forgespi/language/IModInfo;Ljava/lang/String;Lnet/minecraftforge/forgespi/language/ModFileScanData;Ljava/lang/ModuleLayer;)V
+M	2	onEventFailed	(Lnet/minecraftforge/eventbus/api/IEventBus;Lnet/minecraftforge/eventbus/api/Event;[Lnet/minecraftforge/eventbus/api/IEventListener;ILjava/lang/Throwable;)V
+M	2	constructMod	()V
+M	1	matches	(Ljava/lang/Object;)Z
+M	1	getMod	()Ljava/lang/Object;
+M	1	getEventBus	()Lnet/minecraftforge/eventbus/api/IEventBus;
+M	4	acceptEvent	(Lnet/minecraftforge/eventbus/api/Event;)V
+M	4106	lambda$new$1	(Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext;)Ljava/lang/Object;
+M	4098	lambda$new$0	(Lnet/minecraftforge/fml/config/IConfigEvent;)V
 M	8	<clinit>	()V

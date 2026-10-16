@@ -12,12 +12,30 @@ public final class MethodCatalogCheck implements Opcodes {
     public static final String EVENT = "net/minecraftforge/fml/event/lifecycle/FMLCommonSetupEvent";
     private static final String DESC = "(Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;";
     public static void run() throws Exception {
+        check(Forge1192NativeConfigRewriter.descriptor("Lnet/minecraftforge/common/ForgeConfigSpec$ConfigValue<Ljava/lang/String;>;").equals("Lnet/neoforged/neoforge/common/ModConfigSpec$ConfigValue<Ljava/lang/String;>;"),"config generic value type projection");
+        check(Forge1192NativeConfigRewriter.descriptor("(Lnet/minecraftforge/fml/config/IConfigSpec<Ljava/util/List<Ljava/lang/String;>;>;)V").equals("(Lnet/neoforged/fml/config/IConfigSpec;)V"),"source generic interface did not erase to exact raw native interface");
+        var sourceDeclarations=new Forge1192MethodDeclarations(owner->null);
+        String configContext="net/minecraftforge/fml/ModLoadingContext";
+        String configArgs="(Lnet/minecraftforge/fml/config/ModConfig$Type;Lnet/minecraftforge/fml/config/IConfigSpec;";
+        var configSurface=new Forge1192CompatibilitySurface();
+        for(String ending:List.of(")V","Ljava/lang/String;)V")) {
+            String desc=configArgs+ending;
+            check(Forge1192MethodRules.catalog().resolve(INVOKEVIRTUAL,configContext,"registerConfig",desc,sourceDeclarations::owner).isPresent(),"source config registration missing shared catalog");
+            var boundary=new Forge1192RegistrationPlanner.Boundary("fixture",configContext.replace('/','.'),"registerConfig",desc,Forge1192RegistrationPlanner.ExecutionPhase.RUNTIME,INVOKEVIRTUAL);
+            check(configSurface.assess(List.of(boundary)).executable(),"source config admission/implementation divergence");
+            var wrong=new Forge1192RegistrationPlanner.Boundary("fixture",configContext.replace('/','.'),"registerConfig",desc,Forge1192RegistrationPlanner.ExecutionPhase.RUNTIME,INVOKESTATIC);
+            check(!configSurface.assess(List.of(wrong)).executable(),"invalid config opcode admitted");
+            var fixture=new ClassNode();fixture.name="fixture/BadConfigCall";fixture.superName="java/lang/Object";
+            var method=new MethodNode(ACC_PUBLIC|ACC_STATIC,"bad","()V",null,null);fixture.methods.add(method);
+            method.instructions.add(new MethodInsnNode(INVOKESTATIC,configContext,"registerConfig",desc,false));
+            reject(()->Forge1192NativeConfigRewriter.rewrite(fixture,sourceDeclarations));
+        }
         var raw = new HashMap<String,byte[]>(); var reads = new java.util.concurrent.atomic.AtomicInteger();
         var declarations = new Forge1192MethodDeclarations(owner -> { reads.incrementAndGet(); return raw.get(owner); });
         int descendants = 0;
         for (String owner : Forge1192SourceHierarchyIndex.owners()) {
             if (!declarations.subtype(owner, ROOT)) continue;
-            for (var rule : Forge1192MethodRules.catalog().entries())
+            for (var rule : Forge1192MethodRules.catalog().entries().stream().filter(r -> r.family().equals("LIFECYCLE_WORK")).toList())
                 check(Forge1192MethodRules.catalog().resolve(INVOKEVIRTUAL, owner, "enqueueWork", rule.source().descriptor(), declarations::owner).isPresent(), "pinned event subclass lost inherited rule: " + owner);
             descendants++;
         }
@@ -45,7 +63,7 @@ public final class MethodCatalogCheck implements Opcodes {
         check(declarations.owner("fixture/Missing","enqueueWork",DESC)==null,"negative snapshot changed without rebind");
         declarations.clear();
         check(ROOT.equals(declarations.owner("fixture/Missing","enqueueWork",DESC)),"negative lookup not invalidated");
-        var rule = Forge1192MethodRules.catalog().entries().getFirst();
+        var rule = Forge1192MethodRules.catalog().entries().stream().filter(r -> r.family().equals("LIFECYCLE_WORK")).findFirst().orElseThrow();
         try { new MethodRuleCatalog(List.of(rule,rule)); throw new AssertionError("duplicate rule accepted"); } catch (IllegalArgumentException expected) {}
         var surface = new Forge1192CompatibilitySurface();
         var good = new Forge1192RegistrationPlanner.Boundary("fixture", EVENT.replace('/','.'), "enqueueWork", DESC, Forge1192RegistrationPlanner.ExecutionPhase.RUNTIME, INVOKEVIRTUAL);

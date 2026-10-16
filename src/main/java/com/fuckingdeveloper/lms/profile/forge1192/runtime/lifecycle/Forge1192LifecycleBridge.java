@@ -115,6 +115,15 @@ public final class Forge1192LifecycleBridge {
         return context.modEventBus();
     }
 
+    public static void requireConfigOwner(Object token) {
+        Context context=requireActive();
+        if(token!=context)throw new IllegalStateException("Source config token escaped its owner scope");
+        Object active=context.container().active();
+        if(active!=context.container() && !(active instanceof Forge1192ModContainerView view
+                && view.nativeOwner().isEmpty() && view.getModId().equals(context.modId())))
+            throw new UnsupportedOperationException("Source config registration with a different active container is not adapted");
+    }
+
     public static Object getModLoadingContext() {
         return requireActive();
     }
@@ -154,6 +163,10 @@ public final class Forge1192LifecycleBridge {
     public static final class LegacyContainer {
         private final String modId;
         private Object active;
+        private Forge1192ModLoadingContext sourceContext;
+        private Forge1192JavaModLoadingContext sourceJavaContext;
+        Forge1192ModLoadingContext sourceContext(Context context){if(sourceContext==null)sourceContext=new Forge1192ModLoadingContext(context);return sourceContext;}
+        Forge1192JavaModLoadingContext sourceJavaContext(Context context){if(sourceJavaContext==null)sourceJavaContext=new Forge1192JavaModLoadingContext(context);return sourceJavaContext;}
         private LegacyContainer(String modId) { this.modId = modId; this.active = this; }
         public String modId() { return modId; }
         private Object active() { return active; }

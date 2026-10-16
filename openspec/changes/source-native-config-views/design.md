@@ -12,8 +12,10 @@ absence, not a fabricated config. Source save writes the actual file through the
 native atomic writer WITHOUT implicitly dispatching reload. Source explicit config
 event dispatch MUST target the actual native owner, preserve its lock, and dispatch
 exactly once. Native LoadedConfig.save, which already dispatches reload, MUST NOT
-stand in for source save. Managed Forge config registration and source custom
-IConfigSpec implementation are separate unsupported contracts.
+stand in for source save. Managed Forge config registration is specified separately by
+`../source-config-registration/design.md`; source custom IConfigSpec implementations
+remain unsupported. Managed source views use recorded provenance while the native
+backend retains its actual host container.
 
 Verified ForgeConfigSpec inspection may project to native ModConfigSpec: path,
 default, comment, type/range and value validation getters retain native definition

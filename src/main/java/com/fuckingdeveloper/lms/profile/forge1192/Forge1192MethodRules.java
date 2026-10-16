@@ -5,11 +5,12 @@ import java.util.List;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 
-/** First migrated family; both admission and transformation consume these exact entries. */
+/** Evidence-backed migrated families shared by admission and source transformation. */
 public final class Forge1192MethodRules {
     public static final String WORK = "net/minecraftforge/fml/event/lifecycle/ParallelDispatchEvent";
-    private static final MethodRuleCatalog CATALOG = new MethodRuleCatalog(List.of(work("Runnable", "java/lang/Runnable"), work("Supplier", "java/util/function/Supplier")));
+    private static final MethodRuleCatalog CATALOG = new MethodRuleCatalog(entries());
     private Forge1192MethodRules() {}
+    private static List<MethodRuleCatalog.Rule> entries(){var result=new java.util.ArrayList<MethodRuleCatalog.Rule>(Forge1192ConfigRules.entries());result.add(work("Runnable","java/lang/Runnable"));result.add(work("Supplier","java/util/function/Supplier"));return List.copyOf(result);}
     private static MethodRuleCatalog.Rule work(String id, String argument) {
         String desc = "(L" + argument + ";)Ljava/util/concurrent/CompletableFuture;";
         return new MethodRuleCatalog.Rule("lifecycle-work-" + id, "LIFECYCLE_WORK",
@@ -19,7 +20,7 @@ public final class Forge1192MethodRules {
     }
     public static Handle bridge(int opcode, String owner, String name, String descriptor, Forge1192MethodDeclarations declarations) {
         var rule = CATALOG.resolve(opcode, owner, name, descriptor, declarations::owner);
-        if (rule.isPresent()) return rule.get().bridge();
+        if (rule.isPresent() && rule.get().family().equals("LIFECYCLE_WORK")) return rule.get().bridge();
         if (name.equals("enqueueWork") && declarations.subtype(owner, WORK))
             throw new IllegalStateException("Unadapted lifecycle work invocation/override: " + owner + "#" + name + descriptor + " opcode=" + opcode);
         return null;
@@ -40,6 +41,13 @@ public final class Forge1192MethodRules {
             bridge(Opcodes.INVOKESTATIC,handle.getOwner(),handle.getName(),handle.getDesc(),declarations);
         else if (value instanceof org.objectweb.asm.ConstantDynamic dynamic)
             for(int i=0;i<dynamic.getBootstrapMethodArgumentCount();i++)validateStatic(dynamic.getBootstrapMethodArgument(i),declarations);
+    }
+    public static java.util.Optional<String> family(String owner, String name, String descriptor, Forge1192MethodDeclarations declarations) {
+        for(int opcode:new int[]{Opcodes.INVOKESTATIC,Opcodes.INVOKEVIRTUAL,Opcodes.INVOKESPECIAL,Opcodes.INVOKEINTERFACE}) {
+            var rule=CATALOG.resolve(opcode,owner,name,descriptor,declarations::owner);
+            if(rule.isPresent())return java.util.Optional.of(rule.get().family());
+        }
+        return java.util.Optional.empty();
     }
     public static MethodRuleCatalog catalog() { return CATALOG; }
 }

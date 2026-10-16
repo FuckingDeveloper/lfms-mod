@@ -19,7 +19,7 @@ Minecraft generation from a JAR filename. `API_BLOCKED` groups exact method
 requirements; repeated call sites are not independent bug counts. Grouping lets
 one proven family correction be applied to all affected artifacts.
 
-The first method catalog family is lifecycle deferred work. The same immutable
+The method catalog covers lifecycle deferred work and the proven source configuration family. The same immutable
 rules drive source invocation transformation and admission. Source declaration
 lookup uses hash-pinned Forge headers and raw managed bytes, preserves override
 identity and caches positive/negative results only within one evidence graph.
@@ -29,10 +29,32 @@ callable constants are tested against the real native work queue.
 
 Other existing compatibility families still use the legacy assessment list.
 Migrating them requires their actual implementation/evidence, not blanket
-approval of every name that happens to link. Config registration, display-test
-negotiation and event-network channels remain explicit separate gaps.
+approval of every name that happens to link. Source configuration registration uses native files and source ownership/cache
+semantics; custom specs/list correction remain explicit boundaries. Display-test
+negotiation and event-network channels remain separate gaps.
+
+Regenerate source declaration evidence with the immutable pinned Forge 43.4.0
+named patched JAR plus its FML core and Java FML JARs:
+
+```bash
+./gradlew generateSourceHierarchy -PlegacySourceJar=/absolute/forge-named.jar -PlegacyFmlCoreJar=/absolute/fmlcore.jar -PlegacyJavaFmlJar=/absolute/javafmllanguage.jar
+```
+
+The generator verifies all three hashes and rejects duplicate declarations. Loader
+APIs are not assumed to live in the main Forge artifact.
 
 Run compile/focused/native checks before a fresh client. This CLI is an inventory,
 not a Minecraft automation framework; game checks use the existing MCP tools and
 workflow in [runtime debugging](runtime-debugging-mcp.md). Keep generated TSV/logs
 outside Git.
+
+## Configuration checkpoint (2026-10-17)
+
+TNT Expansion passes the bounded constructor surface and its actual constructor
+initializes in runtime90 after source config registration is implemented. It then
+fails deferred registry callbacks on the projectile base-class and menu-factory
+families. This is direct evidence that `SURFACE_READY_UNVERIFIED` is not a promise
+of full initialization or world load. JEI still has11 grouped API requirements,
+Wick2; Fetzi remains profile-unresolved. See the
+[configuration verification](../openspec/changes/source-config-registration/tasks.md)
+for tests, runtime limits and the next causal blockers.

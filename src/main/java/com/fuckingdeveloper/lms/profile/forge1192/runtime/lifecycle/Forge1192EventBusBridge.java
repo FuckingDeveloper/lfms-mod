@@ -259,6 +259,12 @@ public final class Forge1192EventBusBridge {
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
             Class<T> eventType, Consumer<T> listener, boolean receiveCanceled,
             boolean deferUntilItemComponentsBound) {
+        if (net.neoforged.fml.event.config.ModConfigEvent.class.isAssignableFrom(eventType)
+                && bus == Forge1192LifecycleBridge.requireActive().modEventBus()) {
+            listen(com.fuckingdeveloper.lms.target.neoforge263.Target263SourceConfigAdapter.sourceBus(
+                    Forge1192LifecycleBridge.requireActive().modId()),priority,receiveCanceled,eventType,listener);
+            return;
+        }
         if (bus == NeoForge.EVENT_BUS && eventType.isAssignableFrom(net.neoforged.neoforge.event.level.ChunkEvent.Unload.class)) {
             for(Class<? extends Event> concrete:concreteEventTypes(eventType))
                 listen(bus,priority,receiveCanceled,(Class)concrete,(Consumer<Event>)event->{if(!Forge1192ChunkUnloadBridge.alreadyDelivered(event))listener.accept((T)event);});

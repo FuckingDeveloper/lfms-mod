@@ -32,7 +32,10 @@ tasks.register('generateSourceHierarchy', JavaExec) {
     doFirst {
         def sourceJar = providers.gradleProperty('legacySourceJar').orNull
         if (sourceJar == null || !file(sourceJar).isFile()) throw new GradleException('Supply -PlegacySourceJar=/absolute/path/to/Forge-1.19.2-43.4.0-named-patched.jar')
-        args sourceJar, layout.projectDirectory.file('src/main/resources/lms/profile/forge1192/loader-hierarchy.tsv').asFile.absolutePath
+        def fmlCore = providers.gradleProperty('legacyFmlCoreJar').orNull
+        def javaFml = providers.gradleProperty('legacyJavaFmlJar').orNull
+        if (fmlCore == null || javaFml == null) throw new GradleException('Supply -PlegacyFmlCoreJar and -PlegacyJavaFmlJar for the pinned Forge 43.4.0 loader declarations')
+        args sourceJar, layout.projectDirectory.file('src/main/resources/lms/profile/forge1192/loader-hierarchy.tsv').asFile.absolutePath, fmlCore, javaFml
     }
 }
 
@@ -41,6 +44,7 @@ def nativeSmokeJar = tasks.register('nativeSmokeJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
     archiveClassifier = 'native-smoke'
     from(sourceSets.compatibilityTest.output) {
+        include '**/SourceConfigRegistrationCheck*.class'
         include '**/LifecycleWorkFamilyCheck*.class', '**/LifecycleWorkFixture*.class'
         include '**/AnalogOutputFamilyCheck*.class'
         include '**/VanillaItemTransferFamilyCheck*.class'

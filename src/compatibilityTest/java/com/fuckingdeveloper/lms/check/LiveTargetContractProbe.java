@@ -235,6 +235,7 @@ public final class LiveTargetContractProbe {
         GameRulesFamilyCheck.run();
         GuiPointerFamilyCheck.run();
         NativeConfigFamilyCheck.run();
+        SourceConfigRegistrationCheck.run();
         SelectionListFamilyCheck.run();
         WidgetPointerFamilyCheck.run();
         EditBoxFamilyCheck.run();
