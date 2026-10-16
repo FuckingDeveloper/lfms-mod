@@ -42,3 +42,13 @@ MUST agree, and procedural source data MUST NOT be cached across native load
 phases. This exception MUST NOT be applied to native packs or arbitrary JSON
 schemas. Public source key construction MUST preserve fresh object identity;
 factory interning MUST retain the authoritative target key identity.
+
+For source raw GUI texture binds, the target adapter MAY expose immutable
+source-generation minecraft GUI sheets through isolated profile identifiers.
+Projection MUST be confined to legacy GUI extraction and to resources actually
+indexed from the configured source archive or admitted legacy artifacts. Preserve
+pixels and accompanying texture metadata; preserve deterministic source overrides.
+Unknown/non-GUI/other-namespace binds and native rendering MUST remain unchanged.
+Modern vanilla resources MUST NOT be overwritten. Resource lookup, enumeration,
+namespaces, snapshot ownership and cache identity MUST agree with the exposed
+catalog. This is raw sheet/UV compatibility, not arbitrary screen-render support.

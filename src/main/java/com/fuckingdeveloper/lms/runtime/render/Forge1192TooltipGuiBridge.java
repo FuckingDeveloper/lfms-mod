@@ -75,7 +75,7 @@ public final class Forge1192TooltipGuiBridge {
     }
     public static void shaderTexture(int unit, Identifier texture) {
         if (unit != 0) throw new IllegalStateException("Unsupported legacy tooltip texture unit " + unit);
-        scope().texture = java.util.Objects.requireNonNull(texture, "tooltip texture");
+        scope().texture = com.fuckingdeveloper.lms.runtime.Target263LegacyWidgetAssets.sourceTexture(java.util.Objects.requireNonNull(texture, "tooltip texture"));
         scope().textureObject = null;
     }
     public static void blit(PoseStack pose, int x, int y, float u, float v,

@@ -40,3 +40,32 @@ state for hovered source widget extraction. It is bounded to128 distinct string
 records and retains no widget or managed classloader. It does not modify drawing,
 resource pixels, mappings or source artifacts. Runtime64 will collect evidence;
 no visual fix is claimed from adding this instrumentation.
+
+## Source GUI sheet resource family
+
+Runtime64 traces identify CarbonCheckBox's hovered quad as a bind of
+minecraft:textures/gui/checkbox.png with source UVs20/64..40/64. The source archive
+contains the64x64 sheet; the target no longer supplies it. Target TextureManager's
+loadContents catches FileNotFoundException and returns its missing checkerboard
+without logging an error. This explains the magenta region despite clean logs.
+
+Extend the existing isolated source widgets resource pack to the catalog of
+minecraft:textures/gui/*.png (including subdirectories) actually present in the
+configured immutable source-client archive or admitted legacy artifacts. Preserve
+all original pixels and accompanying texture metadata; do not synthesize sprites.
+Only source texture-bind operations in the existing GUI extraction bridge project
+known catalog IDs into the isolated source-profile namespace. Unknown IDs, other
+namespaces/non-GUI assets and native rendering remain unchanged. Existing WIDGETS
+identity remains stable. Legacy artifact entries retain the existing deterministic
+source override order. Hash all exposed resource paths and bytes into pack identity;
+lookup/list/namespaces must agree, and pack snapshots must not change on rediscovery.
+No source JAR is changed and modern vanilla resource paths are never replaced.
+
+Verification for the source GUI sheet correction: wrapper compatibilityTest,
+nativeCompatibilitySmoke and compileLaunchJava passed in batch-check-24. Native
+checks compare every source GUI PNG byte-for-byte, decode the actual64x64 checkbox
+sheet, check stable WIDGETS identity, unknown/non-GUI/other-namespace isolation,
+lookup/list/namespaces, texture metadata/cache identity and immutable old pack
+snapshots after rediscovery. Native-only resource paths are not served by this
+pack. Runtime65 starts with widget trace; actual hovered checkbox visual
+acceptance remains pending. No source fixture JAR was changed.
