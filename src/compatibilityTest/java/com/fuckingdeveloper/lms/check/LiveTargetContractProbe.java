@@ -128,6 +128,7 @@ public final class LiveTargetContractProbe {
         WidgetHierarchyFamilyCheck.run();
         CommonTagFamilyCheck.run();
         CommonTagProjectionCheck.run();
+        ScreenLayerFamilyCheck.run();
         ReloadLookupFamilyCheck.run();
         SmithingFamilyCheck.run();
         VanillaItemRenameCheck.run();

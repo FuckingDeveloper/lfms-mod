@@ -21,6 +21,12 @@ final class Forge1192ConfigUiRewriter {
         }
         int tag=h.getTag();if(tag!=Opcodes.H_INVOKESTATIC&&tag!=Opcodes.H_INVOKEVIRTUAL&&tag!=Opcodes.H_INVOKESPECIAL&&tag!=Opcodes.H_INVOKEINTERFACE)return h;
         String owner=h.getOwner(),name=h.getName(),desc=h.getDesc();
+        if (owner.equals("net/minecraftforge/client/ForgeHooksClient") && tag==Opcodes.H_INVOKESTATIC) {
+            String client="Lnet/minecraft/client/Minecraft;", screen="Lnet/minecraft/client/gui/screens/Screen;";
+            if ((name.equals("pushGuiLayer") && desc.equals("("+client+screen+")V"))
+                    || (Set.of("popGuiLayer","clearGuiLayers").contains(name) && desc.equals("("+client+")V")))
+                return new Handle(tag,"com/fuckingdeveloper/lms/runtime/render/Forge1192MinecraftClientBridge",name,desc,false);
+        }
         if(owner.equals("net/minecraft/client/Minecraft")&&tag==Opcodes.H_INVOKEVIRTUAL&&desc.equals("()L"+MANAGER+";")&&"getToasts".equals(canonical(owner,name,desc,e)))
             return new Handle(Opcodes.H_INVOKESTATIC,VIEW,"getToasts","(Lnet/minecraft/client/Minecraft;)L"+MANAGER+";",false);
         if(owner.equals("net/minecraft/network/chat/CommonComponents")&&tag==Opcodes.H_INVOKESTATIC&&desc.equals("("+COMPONENT+COMPONENT+")Lnet/minecraft/network/chat/MutableComponent;")&&"joinForNarration".equals(canonical(owner,name,desc,e)))

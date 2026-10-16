@@ -50,3 +50,26 @@ collisions MUST fail explicitly. Verification MUST include original immutable
 consumer construction/state callbacks plus native queue identity/cancellation and
 component mutation tests. A real client is required for visual and complete
 configuration workflow acceptance.
+
+## Layered screens
+
+Runtime59 preserves boolean edits/save, but enum/numeric editors fail before
+opening with a residual ForgeHooksClient.pushGuiLayer call. Exact source static
+push/pop/clear operations MUST use the target Gui-owned screen-layer stack.
+Source push retains the parent without removing it, initializes the child at
+current GUI dimensions and narrates it; target pushScreenLayer does this through
+Screen.init including immediate narration. Pop removes the child and restores/
+narrates its parent; an empty stack delegates to normal setScreen(null). Clear
+unwinds to the bottom parent. Preserve the native init/events/removal/resizing
+lifecycle; do not emulate a separate stack or substitute setScreen for push.
+The original source getGuiFarPlane/rendering helpers remain outside this
+transition contract. Callable constants require the same exact operation evidence.
+
+Runtime59 file comparison confirms auto-backup=true persisted and the actual
+source backup ZIP contains2026_10_16-10_49_42.cfg; the numeric and enum values
+remained unchanged while mouse handlers failed at pushExternalScreen. The test
+backup toggle was restored to its original false before runtime60. Checks in
+batch-check-15 verify all three layer transition calls/handles, actual target
+Gui method declarations and both original immutable pushScreen consumers.
+Interactive runtime60 editor/return/save acceptance is pending human input;
+MCP cannot activate arbitrary configuration widgets.

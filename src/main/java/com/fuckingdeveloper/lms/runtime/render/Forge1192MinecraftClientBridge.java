@@ -17,4 +17,19 @@ public final class Forge1192MinecraftClientBridge {
         if (minecraft.gui == null) throw new IllegalStateException("Client GUI is not initialized for a legacy screen transition");
         minecraft.gui.setScreen(screen);
     }
+    /** Source Forge layered screens retain the native stack, initialization and return lifecycle. */
+    public static void pushGuiLayer(Minecraft minecraft, Screen screen) {
+        requireGui(minecraft).pushScreenLayer(screen);
+    }
+    public static void popGuiLayer(Minecraft minecraft) {
+        requireGui(minecraft).popScreenLayer();
+    }
+    public static void clearGuiLayers(Minecraft minecraft) {
+        requireGui(minecraft).clearScreenLayers();
+    }
+    private static net.minecraft.client.gui.Gui requireGui(Minecraft minecraft) {
+        java.util.Objects.requireNonNull(minecraft, "minecraft");
+        if (minecraft.gui == null) throw new IllegalStateException("Client GUI is not initialized for a legacy layered screen transition");
+        return minecraft.gui;
+    }
 }
