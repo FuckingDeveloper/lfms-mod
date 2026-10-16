@@ -41,3 +41,16 @@ Target generations MUST follow the build/upgrade gates in
 ranges or advertise an untested target tuple. Shared contracts SHOULD be extracted
 from verified operations as required by the runtime vision, not invented for
 unimplemented generations.
+
+## Block-data callback composition
+
+The source block-data pass MUST receive an explicit immutable target callback
+layout for load, save, update-tag and update-tag handling. Source member identity,
+aliases and source-super/default semantics MUST remain source-owned. Target base
+owner, callback names/descriptors and native input/output view descriptors MUST
+come from the selected target layout. Missing operations and unsupported ABI
+shapes MUST fail explicitly. The live target binding MUST reject a mismatched
+layout before source-bootstrap creation. Installed-build convenience constructors
+MAY select the explicitly installed layout; they MUST NOT infer another target
+or advertise support from descriptor parameterization alone. Runtime storage and
+registry-context adaptation require separate native verification.

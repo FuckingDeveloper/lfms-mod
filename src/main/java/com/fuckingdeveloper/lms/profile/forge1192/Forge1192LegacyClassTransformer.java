@@ -3,6 +3,8 @@ package com.fuckingdeveloper.lms.profile.forge1192;
 import com.fuckingdeveloper.lms.classloading.InstrumentedClassTransformer;
 import com.fuckingdeveloper.lms.transform.TransformationPipeline;
 import com.fuckingdeveloper.lms.transform.SemanticInvocationRewriter;
+import com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout;
+import com.fuckingdeveloper.lms.target.InstalledTargetAdapters;
 
 import com.fuckingdeveloper.lms.classloading.LegacyClassTransformer;
 import com.fuckingdeveloper.lms.mapping.Forge1192MappingLayer;
@@ -34,7 +36,27 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     private final String physicalDistribution;
     private final TransformationPipeline pipeline;
     private final SemanticInvocationRewriter semanticInvocations = new SemanticInvocationRewriter(this::isManagedSubtypeOf);
-    private final Forge1192BlockDataRewriter blockDataRewriter = new Forge1192BlockDataRewriter(
+    private final Forge1192BlockDataRewriter blockDataRewriter;
+
+    /** Distribution-neutral offline audit for the explicitly installed target build. */
+    public Forge1192LegacyClassTransformer() {
+        this(null, InstalledTargetAdapters.blockDataCallbacks());
+    }
+
+    public Forge1192LegacyClassTransformer(String physicalDistribution) {
+        this(java.util.Objects.requireNonNull(physicalDistribution), InstalledTargetAdapters.blockDataCallbacks());
+    }
+
+    public Forge1192LegacyClassTransformer(String physicalDistribution, BlockDataTargetLayout target) {
+        if (physicalDistribution != null && !java.util.Set.of("CLIENT", "DEDICATED_SERVER").contains(physicalDistribution))
+            throw new IllegalArgumentException("Unknown physical distribution: " + physicalDistribution);
+        this.physicalDistribution = physicalDistribution;
+        this.blockDataRewriter = createBlockDataRewriter(java.util.Objects.requireNonNull(target));
+        this.pipeline = createPipeline();
+    }
+
+    private Forge1192BlockDataRewriter createBlockDataRewriter(BlockDataTargetLayout target) {
+        return new Forge1192BlockDataRewriter(
             new Forge1192BlockDataRewriter.Evidence() {
                 public byte[] managedBytes(String owner) throws java.io.IOException {
                     return managedClassBytes == null ? null : managedClassBytes.find(owner);
@@ -48,16 +70,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                 public String sourceMethod(ClassNode node, String owner, String name, String descriptor) {
                     return sourceGuiMethod(node, owner, name, descriptor);
                 }
-            }, semanticInvocations);
-
-    /** Distribution-neutral offline audit; runtime sessions must bind their physical side. */
-    public Forge1192LegacyClassTransformer() { this.physicalDistribution = null; this.pipeline = createPipeline(); }
-
-    public Forge1192LegacyClassTransformer(String physicalDistribution) {
-        if (!java.util.Set.of("CLIENT", "DEDICATED_SERVER").contains(physicalDistribution))
-            throw new IllegalArgumentException("Unknown physical distribution: " + physicalDistribution);
-        this.physicalDistribution = physicalDistribution;
-        this.pipeline = createPipeline();
+            }, semanticInvocations, target);
     }
 
     private static final String SOURCE_MATERIAL = "net/minecraft/world/level/material/Material";

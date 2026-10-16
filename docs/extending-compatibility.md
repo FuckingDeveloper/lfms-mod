@@ -33,6 +33,15 @@ callback rewriting lives in `Forge1192BlockDataRewriter` with explicit evidence
 inputs and a cache reset on managed-source rebinding. Both preserve the existing
 pass position and callback semantics; extracting them does not add version support.
 
+`BlockDataTargetLayout` describes the four proven native callback entrypoints.
+`Target263BlockDataLayout` owns the pinned ABI; `InstalledTargetAdapters` selects it
+explicitly for this build. The source profile carries that immutable layout into
+its transformers. Source method recognition, aliases and super/default behavior
+remain in the source pass; native wrapper names, arguments and view return types
+come from the selected layout. The live target binding rejects a mismatched layout
+before creating a source bootstrap. Synthetic alternate-layout tests prove
+parameterization only, not another supported target.
+
 ## Adding a source profile
 
 - Establish exact source ABI/mapping/lifecycle evidence and its immutable fixtures.
@@ -58,7 +67,9 @@ unverified fallback to the closest target.
 The Forge transformer still owns many implementation helpers; the ordered pass
 composition is the first extraction boundary, not a completed decomposition into
 176 independent subsystems. Many source bridges and their admission implementation
-still use native types. Extract another semantic contract only when its tested
+still use native types. In particular, `Forge1192BlockDataBridge` still implements
+native ValueInput/ValueOutput and registry-context handling; isolating the callback
+layout does not make that implementation target-independent. Extract another semantic contract only when its tested
 behavior justifies it. Fluids, source/native energy and rendering retain their
 previously documented semantic gaps.
 

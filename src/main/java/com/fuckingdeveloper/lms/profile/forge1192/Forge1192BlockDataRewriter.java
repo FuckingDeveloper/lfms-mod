@@ -1,6 +1,8 @@
 package com.fuckingdeveloper.lms.profile.forge1192;
 
 import com.fuckingdeveloper.lms.transform.SemanticInvocationRewriter;
+import com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout;
+import com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout.Operation;
 import java.util.Objects;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
@@ -16,29 +18,31 @@ final class Forge1192BlockDataRewriter {
 
     private final Evidence evidence;
     private final SemanticInvocationRewriter invocations;
+    private final BlockDataTargetLayout target;
     private record BlockDataHierarchy(String parent, java.util.Set<String> callbacks) {}
     private final java.util.Map<String, java.util.Optional<BlockDataHierarchy>> blockDataHierarchyEvidence =
             new java.util.concurrent.ConcurrentHashMap<>();
 
-    Forge1192BlockDataRewriter(Evidence evidence, SemanticInvocationRewriter invocations) {
+    Forge1192BlockDataRewriter(Evidence evidence, SemanticInvocationRewriter invocations, BlockDataTargetLayout target) {
         this.evidence = Objects.requireNonNull(evidence);
         this.invocations = Objects.requireNonNull(invocations);
+        this.target = Objects.requireNonNull(target);
     }
 
     /** Caller holds the transformer's evidence write lock. No loader is stored in this cache. */
     void clearEvidence() { blockDataHierarchyEvidence.clear(); }
 
     private record BlockDataMember(String sourceName, String descriptor, String alias,
-            String targetName, String targetDescriptor, String bridgeName) {}
+            Operation operation, String bridgeName) {}
     private static BlockDataMember blockDataMember(String name, String desc) {
         if (desc.equals("(Lnet/minecraft/nbt/CompoundTag;)V")) return switch (name) {
-            case "m_142466_", "load" -> new BlockDataMember(name, desc, "lms$sourceLoad", "loadAdditional", "(Lnet/minecraft/world/level/storage/ValueInput;)V", "loadLegacy");
-            case "m_183515_", "saveAdditional" -> new BlockDataMember(name, desc, "lms$sourceSave", "saveAdditional", "(Lnet/minecraft/world/level/storage/ValueOutput;)V", "saveLegacy");
-            case "handleUpdateTag" -> new BlockDataMember(name, desc, "lms$sourceHandleUpdateTag", "handleUpdateTag", "(Lnet/minecraft/world/level/storage/ValueInput;)V", "handleUpdateTagLegacy");
+            case "m_142466_", "load" -> new BlockDataMember(name, desc, "lms$sourceLoad", Operation.LOAD, "loadLegacy");
+            case "m_183515_", "saveAdditional" -> new BlockDataMember(name, desc, "lms$sourceSave", Operation.SAVE, "saveLegacy");
+            case "handleUpdateTag" -> new BlockDataMember(name, desc, "lms$sourceHandleUpdateTag", Operation.HANDLE_UPDATE_TAG, "handleUpdateTagLegacy");
             default -> null;
         };
         if ((name.equals("m_5995_") || name.equals("getUpdateTag")) && desc.equals("()Lnet/minecraft/nbt/CompoundTag;"))
-            return new BlockDataMember(name, desc, "lms$sourceUpdateTag", "getUpdateTag", "(Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/nbt/CompoundTag;", "updateTagLegacy");
+            return new BlockDataMember(name, desc, "lms$sourceUpdateTag", Operation.UPDATE_TAG, "updateTagLegacy");
         return null;
     }
     private boolean inheritedSourceDataCallback(String owner, BlockDataMember member) {
@@ -91,7 +95,7 @@ final class Forge1192BlockDataRewriter {
                 throw new IllegalStateException("Source block data alias collision: " + node.name + "#" + member.alias());
             if ((method.access & org.objectweb.asm.Opcodes.ACC_STATIC) != 0)
                 throw new IllegalStateException("Unadapted source block data callback shape: " + node.name + "#" + method.name);
-            if (node.methods.stream().anyMatch(other -> other != method && other.name.equals(member.targetName()) && other.desc.equals(member.targetDescriptor())))
+            if (node.methods.stream().anyMatch(other -> other != method && other.name.equals(target.callback(member.operation()).name()) && other.desc.equals(target.callback(member.operation()).descriptor())))
                 throw new IllegalStateException("Native/source block data callback collision: " + node.name + "#" + method.name);
             method.name = member.alias(); rewrites++;
             if (!node.interfaces.contains("com/fuckingdeveloper/lms/profile/forge1192/runtime/block/LegacyBlockDataCallbacks")) node.interfaces.add("com/fuckingdeveloper/lms/profile/forge1192/runtime/block/LegacyBlockDataCallbacks");
@@ -101,11 +105,11 @@ final class Forge1192BlockDataRewriter {
                 case "lms$sourceUpdateTag" -> "updateTag"; default -> "handleUpdateTag";
             };
             var wrapper = new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_SYNTHETIC,
-                    member.targetName(), member.targetDescriptor(), null, null);
+                    target.callback(member.operation()).name(), target.callback(member.operation()).descriptor(), null, null);
             wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
             wrapper.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
             wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, operation,
-                    "(L" + base + ";" + member.targetDescriptor().substring(1), false));
+                    "(L" + target.baseOwner() + ";" + target.callback(member.operation()).descriptor().substring(1), false));
             wrapper.instructions.add(new org.objectweb.asm.tree.InsnNode(member.alias().equals("lms$sourceUpdateTag") ? org.objectweb.asm.Opcodes.ARETURN : org.objectweb.asm.Opcodes.RETURN));
             wrappers.add(wrapper); rewrites++;
         }
@@ -145,7 +149,7 @@ final class Forge1192BlockDataRewriter {
         });
         node.methods.addAll(wrappers); return rewrites;
     }
-    private static org.objectweb.asm.tree.MethodNode sourceBaseDataThunk(ClassNode node, BlockDataMember member, int ordinal, boolean containerBase) {
+    private org.objectweb.asm.tree.MethodNode sourceBaseDataThunk(ClassNode node, BlockDataMember member, int ordinal, boolean containerBase) {
         String base = "net/minecraft/world/level/block/entity/BlockEntity", bridge = "com/fuckingdeveloper/lms/profile/forge1192/runtime/block/Forge1192BlockDataBridge";
         String name = "lms$baseData$" + ordinal;
         if (node.methods.stream().anyMatch(method -> method.name.equals(name))) throw new IllegalStateException("Source block data thunk collision: " + node.name);
@@ -168,8 +172,8 @@ final class Forge1192BlockDataRewriter {
         code.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));
         boolean save = member.alias().equals("lms$sourceSave");
         code.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, save ? "sourceOutput" : "sourceInput",
-                "(L" + base + ";Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/level/storage/" + (save ? "ValueOutput" : "ValueInput") + ";", false));
-        code.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESPECIAL, base, member.targetName(), member.targetDescriptor(), false));
+                "(L" + target.baseOwner() + ";Lnet/minecraft/nbt/CompoundTag;)" + target.callback(member.operation()).argumentDescriptor(), false));
+        code.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESPECIAL, target.baseOwner(), target.callback(member.operation()).name(), target.callback(member.operation()).descriptor(), false));
         if (!member.alias().equals("lms$sourceHandleUpdateTag")) {
             code.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 0));
             code.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD, 1));

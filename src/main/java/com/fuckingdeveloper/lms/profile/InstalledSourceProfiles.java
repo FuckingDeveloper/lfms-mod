@@ -7,6 +7,9 @@ import java.util.List;
 public final class InstalledSourceProfiles {
     private InstalledSourceProfiles() {}
     public static SourceProfiles create() {
-        return new SourceProfiles(List.of(new Forge1192Profile()));
+        return create(com.fuckingdeveloper.lms.target.InstalledTargetAdapters.blockDataCallbacks());
+    }
+    public static SourceProfiles create(com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout target) {
+        return new SourceProfiles(List.of(new Forge1192Profile(target)));
     }
 }

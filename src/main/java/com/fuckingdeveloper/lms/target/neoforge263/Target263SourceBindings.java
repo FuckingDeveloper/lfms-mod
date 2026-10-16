@@ -16,8 +16,10 @@ public final class Target263SourceBindings {
     public static List<SourceRuntimeBinding> create(SourceProfiles profiles, IEventBus bus,
             ModContainer host, List<RuntimeSession> sessions, Target263LegacyResourcePackBridge packs) {
         return profiles.installed().stream().map(profile -> {
-            if (profile instanceof Forge1192Profile forge)
+            if (profile instanceof Forge1192Profile forge) {
+                Target263BlockDataLayout.requireLayout(forge.blockDataTarget());
                 return (SourceRuntimeBinding)new Forge1192RuntimeBootstrap(forge,bus,host,sessions,packs);
+            }
             throw new UnsupportedOperationException("No NeoForge26.3 runtime binding for " + profile.id());
         }).toList();
     }

@@ -50,7 +50,40 @@ public final class BlockDataFamilyCheck {
         public CompoundTag serializeNBT() { saves++; var tag = new CompoundTag(); tag.putInt("value", value); return tag; }
         public void deserializeNBT(CompoundTag tag) { loads++; value = tag.getIntOr("value", -1); }
     }
+    private static void verifyTargetLayout() throws Exception {
+        var layout = com.fuckingdeveloper.lms.target.neoforge263.Target263BlockDataLayout.layout();
+        check(Type.getInternalName(BlockEntity.class).equals(layout.baseOwner()), "wrong native base");
+        for (var operation : com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout.Operation.values()) {
+            var callback = layout.callback(operation);
+            var argument = Class.forName(Type.getType(callback.argumentDescriptor()).getClassName());
+            java.lang.reflect.Method nativeMethod = null;
+            for (Class<?> type = BlockEntity.class; type != null && nativeMethod == null; type = type.getSuperclass()) {
+                try { nativeMethod = type.getDeclaredMethod(callback.name(), argument); }
+                catch (NoSuchMethodException absent) { /* inherited NeoForge default checked below */ }
+            }
+            if (nativeMethod == null) nativeMethod = BlockEntity.class.getMethod(callback.name(), argument);
+            check(Type.getMethodDescriptor(nativeMethod).equals(callback.descriptor()), "native callback ABI drift: " + operation);
+            check(!java.lang.reflect.Modifier.isStatic(nativeMethod.getModifiers()) && !java.lang.reflect.Modifier.isFinal(nativeMethod.getModifiers()), "native callback not overridable");
+            String bridgeName = switch (operation) { case LOAD -> "load"; case SAVE -> "save"; case UPDATE_TAG -> "updateTag"; case HANDLE_UPDATE_TAG -> "handleUpdateTag"; };
+            var bridge = Forge1192BlockDataBridge.class.getDeclaredMethod(bridgeName, BlockEntity.class, argument);
+            check(java.lang.reflect.Modifier.isStatic(bridge.getModifiers()) && Type.getDescriptor(bridge.getReturnType()).equals(callback.returnDescriptor()), "bridge ABI drift");
+        }
+        for (String name : List.of("sourceInput", "sourceOutput")) {
+            var operation = name.equals("sourceInput") ? com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout.Operation.LOAD : com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout.Operation.SAVE;
+            check(Type.getDescriptor(Forge1192BlockDataBridge.class.getDeclaredMethod(name, BlockEntity.class, CompoundTag.class).getReturnType()).equals(layout.callback(operation).argumentDescriptor()), "source view ABI drift");
+        }
+        var mismatch = new com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout("synthetic-test-only", layout.baseOwner(), layout.callbacks());
+        try {
+            com.fuckingdeveloper.lms.target.neoforge263.Target263SourceBindings.create(
+                    com.fuckingdeveloper.lms.profile.InstalledSourceProfiles.create(mismatch), null, null, new ArrayList<>(), null);
+            throw new AssertionError("mismatched layout admitted to live target");
+        } catch (IllegalStateException expected) {
+            check(expected.getMessage().contains("layout"), "wrong admission blocker");
+        }
+        System.out.println("PASS: pinned native block callback/view/bridge ABI and pre-session layout mismatch gate");
+    }
     public static void run() throws Exception {
+        verifyTargetLayout();
         var parent = fixture("fixture/SourceDataParent", BASE, false);
         var child = fixture("fixture/SourceDataChild", parent.name, true);
         var partial = fixture("fixture/SourceDataPartial", BASE, false);

@@ -9,9 +9,18 @@ import com.fuckingdeveloper.lms.runtime.CompatibilityContract;
 import com.fuckingdeveloper.lms.discovery.LegacyModDescriptor;
 
 import java.util.Arrays;
+import com.fuckingdeveloper.lms.runtime.blockdata.BlockDataTargetLayout;
+import com.fuckingdeveloper.lms.target.InstalledTargetAdapters;
 
 public final class Forge1192Profile implements SourceProfile<Forge1192RuntimeSession> {
     private static final String SOURCE_VERSION = "1.19.2";
+    private final BlockDataTargetLayout blockDataTarget;
+
+    public Forge1192Profile() { this(InstalledTargetAdapters.blockDataCallbacks()); }
+    public Forge1192Profile(BlockDataTargetLayout blockDataTarget) {
+        this.blockDataTarget = java.util.Objects.requireNonNull(blockDataTarget);
+    }
+    public BlockDataTargetLayout blockDataTarget() { return blockDataTarget; }
 
     public String id() { return "forge-1.19.2"; }
 
@@ -30,8 +39,7 @@ public final class Forge1192Profile implements SourceProfile<Forge1192RuntimeSes
     }
 
     @Override public Forge1192LegacyClassTransformer createTransformer(String distribution) {
-        return distribution == null ? new Forge1192LegacyClassTransformer()
-                : new Forge1192LegacyClassTransformer(distribution);
+        return new Forge1192LegacyClassTransformer(distribution, blockDataTarget);
     }
 
     @Override public Forge1192RuntimeSession createSession(
