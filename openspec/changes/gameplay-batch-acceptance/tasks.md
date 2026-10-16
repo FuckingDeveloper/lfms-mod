@@ -118,3 +118,31 @@ barrel(-206,78,13), slot0; source furnace(-206,78,12) was removed by the human.
 Restore poppy and original air after remaining probes; revoke test-earned
 Stone Age only. Retain the newer user-owned rotten flesh/lead. Charged-copy and
 remaining mechanism/editor acceptance are still pending.
+
+## Runtime59 charged copies and remaining mechanism blocker
+
+After the repeated damage-singleton traversal correction, actual client survival
+mining consumes 50EU from a source chainsaw copied through native ItemStack copy
+operations. Control stacks in barrel slots1/2 remain1000 while the held stack
+becomes950. A second independent held copy also becomes950 while the first used
+copy stored in slot3 stays950 and both controls stay1000. Instant MCP server
+break did not consume charge and is explicitly not used as proof; realistic
+client survival mining supplied the positive callback evidence. Player is back
+in creative; no aerial/damage test was intentionally initiated.
+
+A fresh macerator opens, closes and reopens; real Shift insertion accepts gold
+ore and original processing consumes800EU, yielding2 gold dust. Shift extraction
+takes those dusts. Copper ore is rejected. Native commands establish c:ores/copper
+membership and absence of forge:ores/copper. Immutable source copper recipe
+uses a dynamically constructed Forge key rather than a migrated static field.
+This exposes the standard-tag identity gap, not missing GUI/slot functionality.
+Proposed general contract: common-tag-identity-projection/proposal.md, awaiting
+user decision; no identity-specific production patch was added.
+
+Test machines/barrel/copies/dust/copper/logs are removed. Structured inventory
+equals the runtime58 baseline; armor source/native damage0 restored, XP progress
+restored with native experience command, source position/camera/selected slot
+restored, Stone Age revoked. Server saturation20 is authoritative (MCP client
+state retained stale11); no blanket effect clearing. Crash/startup explosion
+terrain limitation is documented in source-damage-singleton-traversal/design.md.
+Configuration backups for the next human UI batch are in /tmp only.
