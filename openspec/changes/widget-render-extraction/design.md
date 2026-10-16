@@ -27,3 +27,16 @@ storage from the first projected ancestor rather than creating divergent storage
 Source RenderSystem texture-unit/color setters feed the same scoped GUI extraction
 state for ordinary calls and callable handles/constants. This includes hovered
 widget branches; it does not equate arbitrary source GL state with target rendering.
+
+## Runtime63 hover artifact investigation
+
+The user reports a magenta strip on CarbonConfig icon buttons only while hovered
+and provided a cropped screenshot. Enum/numeric save acceptance is separate and
+remains valid. Source widget-sheet rows for disabled/normal/hovered states contain
+no magenta pixels; no GUI texture load exception appears in runtime63. Root cause
+is not yet established. An opt-in `lms.traceWidgetQuads` diagnostic records the
+source widget class name, bound resource/object, UVs, vertex/global color and blend
+state for hovered source widget extraction. It is bounded to128 distinct string
+records and retains no widget or managed classloader. It does not modify drawing,
+resource pixels, mappings or source artifacts. Runtime64 will collect evidence;
+no visual fix is claimed from adding this instrumentation.

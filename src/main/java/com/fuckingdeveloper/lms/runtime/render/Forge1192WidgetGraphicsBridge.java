@@ -5,7 +5,11 @@ import net.minecraft.client.gui.components.AbstractWidget;
 public final class Forge1192WidgetGraphicsBridge {
     private Forge1192WidgetGraphicsBridge() {}
     public static void extract(LegacyWidgetGraphics widget,GuiGraphicsExtractor graphics,int x,int y,float partial) {
-        Forge1192TooltipGuiBridge.extractGui(graphics,Forge1192TooltipGuiBridge.Phase.WIDGET,()->widget.lms$widget(new PoseStack(),x,y,partial));
+        Forge1192TooltipGuiBridge.extractGui(graphics,Forge1192TooltipGuiBridge.Phase.WIDGET,()->{
+            if(Boolean.getBoolean("lms.traceWidgetQuads") && widget instanceof AbstractWidget nativeWidget && nativeWidget.isHovered())
+                Forge1192TooltipGuiBridge.scope().diagnosticWidget=widget.getClass().getName();
+            widget.lms$widget(new PoseStack(),x,y,partial);
+        });
     }
     public static void render(AbstractWidget widget,PoseStack pose,int x,int y,float partial) {
         var scope=Forge1192TooltipGuiBridge.scope();var graphics=scope.graphics;

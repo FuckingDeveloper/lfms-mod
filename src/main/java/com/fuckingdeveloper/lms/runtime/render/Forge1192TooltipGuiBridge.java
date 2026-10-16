@@ -14,6 +14,7 @@ public final class Forge1192TooltipGuiBridge {
     static final class Scope {
         final GuiGraphicsExtractor graphics;
         final LegacyTooltipItemRenderer renderer = new LegacyTooltipItemRenderer();
+        String diagnosticWidget;
         Identifier texture;
         net.minecraft.client.renderer.texture.AbstractTexture textureObject;
         int color = -1;

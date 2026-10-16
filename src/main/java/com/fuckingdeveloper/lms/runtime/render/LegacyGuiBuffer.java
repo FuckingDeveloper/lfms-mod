@@ -35,6 +35,8 @@ public final class LegacyGuiBuffer implements VertexConsumer {
                 .withColorTargetState(new ColorTargetState(blend,state.format(),writeMask)).build();});
     }
     public record Point(float x,float y,float z,float u,float v,int color) {}
+    // Bounded opt-in diagnostics retain strings only, never a managed receiver/classloader.
+    private static final Set<String> TRACED=java.util.concurrent.ConcurrentHashMap.newKeySet();
     private boolean building,texture,color,current;
     private float x,y,z,u,v;private int argb=-1;
     private final List<Point> points=new ArrayList<>();
@@ -74,6 +76,12 @@ public final class LegacyGuiBuffer implements VertexConsumer {
         for(var point:points){var xy=transform.transformPosition(new Vector2f(point.x,point.y));snapshot.add(new Point(xy.x,xy.y,0,point.u,point.v,ARGB.multiply(point.color,scope.color)));}
         TextureSetup textures=TextureSetup.noTexture();
         if(texture){if(scope.texture==null && scope.textureObject==null)throw new IllegalStateException("No source GUI texture bound");var nativeTexture=scope.textureObject!=null?scope.textureObject:Minecraft.getInstance().getTextureManager().getTexture(scope.texture);textures=TextureSetup.singleTexture(nativeTexture.getTextureView(),nativeTexture.getSampler());}
+        if(scope.diagnosticWidget!=null && TRACED.size()<128){
+            String sample="widget="+scope.diagnosticWidget+" texture="+scope.texture+" object="+(scope.textureObject==null?"null":scope.textureObject.getClass().getName())
+                    +" textured="+texture+" blend="+scope.blend+" color="+Integer.toHexString(scope.color)
+                    +" vertices="+points.stream().map(p->p.u+","+p.v+","+Integer.toHexString(p.color)).toList();
+            if(TRACED.add(sample))org.slf4j.LoggerFactory.getLogger(LegacyGuiBuffer.class).info("LMS widget-quad trace {}",sample);
+        }
         RenderPipeline pipeline=pipeline(texture,scope.blend?Optional.of(scope.blendFunction):Optional.empty(),scope.colorWriteMask);
         var clip=graphics.peekScissorStack();
         Forge1192GuiPlaneBridge.submit(depth);
