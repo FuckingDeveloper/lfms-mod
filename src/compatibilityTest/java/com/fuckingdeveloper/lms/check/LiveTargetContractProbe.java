@@ -123,6 +123,7 @@ public final class LiveTargetContractProbe {
         SlotRenderFamilyCheck.run();
         SubscriberIndexCheck.run(bus, host);
         BlockDataFamilyCheck.run();
+        PlayerMessageFamilyCheck.run();
         SearchTooltipContextCheck.run();
         ScreenStateFamilyCheck.runNative();
         ButtonFamilyCheck.run();

@@ -338,6 +338,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         rewrites += rewriteWidgetPrimitiveFamily(node);
         rewrites += rewriteContainerGraphicsPhases(node);
         rewrites += rewriteContainerRenderLifecycle(node);
+        rewrites += rewritePlayerMessageFamily(node);
         rewrites += rewriteGuiBatchOperations(node);
         rewrites += rewriteRecipeRewardKeys(node);
         rewrites += rewriteLegacyDirectionPropertyFactories(node);
@@ -4647,6 +4648,20 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
             if(!declaresManagedMethod(node,"m_93250_","(I)V")){var setter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93250_","(I)V",null,null);setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));setter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.PUTFIELD,node.name,"lms$widgetDepth","I"));setter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));setter.maxStack=2;setter.maxLocals=2;node.methods.add(setter);}
         }
         return 1;
+    }
+
+    private int rewritePlayerMessageFamily(ClassNode node) {
+        return rewriteSemanticInstanceCalls(node,(opcode,owner,name,desc)->{
+            if(!name.equals("m_5661_")||!desc.equals("(Lnet/minecraft/network/chat/Component;Z)V"))return null;
+            String identity=sourceGuiMethod(node,owner,name,desc);
+            String player="net/minecraft/world/entity/player/Player",server="net/minecraft/server/level/ServerPlayer",client="net/minecraft/client/player/LocalPlayer";
+            if(!java.util.Set.of(player+"#displayClientMessage",server+"#displayClientMessage",client+"#displayClientMessage").contains(identity==null?"":identity))return null;
+            String operation="display";
+            if(opcode==org.objectweb.asm.Opcodes.INVOKESPECIAL) {
+                operation=identity.equals(player+"#displayClientMessage")?"baseDisplay":identity.equals(server+"#displayClientMessage")?"serverDisplay":"clientDisplay";
+            }
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/runtime/Forge1192PlayerMessageBridge",operation,"(L"+player+";"+desc.substring(1),false);
+        });
     }
 
     /** Keep the entire source render callback, including logic outside panel/labels. */
