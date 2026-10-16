@@ -229,12 +229,35 @@ public final class Forge1192ItemBridge {
 
     /** Decode the complete Forge 1.19.2 stack schema through target data fixes. */
     public static ItemStack of(CompoundTag legacy) {
+        int sourceCount = legacy.getByteOr("Count", (byte) 0);
+        CompoundTag input = legacy.copy();
+        // The source constructor reads a signed byte (including numeric narrowing
+        // and a missing/wrong-type default of zero), before its empty-state test.
+        if (!input.isEmpty()) input.putByte("Count", (byte) sourceCount);
         Dynamic<Tag> fixed = DataFixers.getDataFixer().update(
                 References.ITEM_STACK,
-                new Dynamic<>(NbtOps.INSTANCE, legacy.copy()),
+                new Dynamic<>(NbtOps.INSTANCE, input),
                 FORGE_1192_DATA_VERSION,
                 SharedConstants.getCurrentVersion().dataVersion().version());
         HolderLookup.Provider registries = registryProvider();
+        if (fixed.getValue() instanceof CompoundTag data && data.contains("id")
+                && (sourceCount <= 0 || data.getStringOr("id", "").equals("minecraft:air"))) {
+            // Source empty stacks still retain their fully decoded payload. The
+            // target optional codec instead rejects nonpositive counts/air.
+            var id = net.minecraft.resources.Identifier.parse(data.getStringOr("id", ""));
+            var holder = registries.lookupOrThrow(net.minecraft.core.registries.Registries.ITEM)
+                    .getOrThrow(net.minecraft.resources.ResourceKey.create(
+                            net.minecraft.core.registries.Registries.ITEM, id));
+            if (!holder.areComponentsBound())
+                throw new IllegalStateException("Source empty stack item components are not bound: " + id);
+            Tag encodedComponents = data.get("components");
+            var components = net.minecraft.core.component.DataComponentPatch.CODEC.parse(
+                    registries.createSerializationContext(NbtOps.INSTANCE),
+                    encodedComponents == null ? new CompoundTag() : encodedComponents)
+                    .getOrThrow(error -> new IllegalArgumentException(
+                            "Invalid Forge 1.19.2 empty stack components after target data fix: " + error));
+            return new ItemStack(holder, sourceCount, components);
+        }
         return ItemStack.OPTIONAL_CODEC.parse(
                 registries.createSerializationContext(NbtOps.INSTANCE), fixed.getValue())
                 .getOrThrow(error -> new IllegalArgumentException(

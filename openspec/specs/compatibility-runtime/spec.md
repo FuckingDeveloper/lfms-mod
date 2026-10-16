@@ -44,3 +44,18 @@ Ownership state MUST belong to the stack, not a global map of stacks/loaders.
 Native replacement/removal of the component MUST supersede its old ownership.
 This establishes ownership and change-detection semantics, not callback delivery,
 item energy algorithms or successful packet synchronization in a running world.
+
+## Source logical empty stacks
+
+Complete source stack decoding MUST preserve the source signed-byte count/default
+semantics while migrating the full copied schema through the target data fixer.
+Source nonpositive counts and explicit air items MUST NOT fail solely because the
+target ordinary stack codec requires positive non-air values. Their item identity
+and component payload MUST still be decoded against authoritative bound registry
+holders; malformed/unknown data MUST NOT be hidden by arbitrary empty returns.
+
+Source mutable tag access MUST retain the decoded payload and live ownership when
+a native stack count becomes zero. A target public component view hiding an empty
+stack's underlying data MUST NOT be treated as component removal. Native public
+component visibility MUST remain unchanged; genuine replacement/removal of the
+underlying source-data component MUST continue to supersede its old ownership.

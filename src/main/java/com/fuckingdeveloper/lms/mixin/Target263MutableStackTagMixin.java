@@ -9,6 +9,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ItemStack.class)
 abstract class Target263MutableStackTagMixin implements LegacyMutableTagCarrier {
+    @Shadow @Final private net.minecraft.core.component.PatchedDataComponentMap components;
+    @Override public net.minecraft.core.component.DataComponentMap lms$sourceComponents() { return components; }
     @Unique private LegacyMutableTagState lms$tags;
     @Override public LegacyMutableTagState lms$mutableTags() {
         if (lms$tags == null) lms$tags = new LegacyMutableTagState();

@@ -9,9 +9,16 @@ import net.minecraft.world.item.component.CustomData;
 public final class LegacyMutableTagState {
     private CustomData owned;
     private Integer lastDamage;
+    private static net.minecraft.core.component.DataComponentMap components(ItemStack stack) {
+        if ((Object) stack instanceof LegacyMutableTagCarrier carrier) return carrier.lms$sourceComponents();
+        // The native public map is authoritative for nonempty stacks, including
+        // isolated non-FML probes. Only empty visibility needs the target accessor.
+        if (!stack.isEmpty()) return stack.getComponents();
+        throw new IllegalStateException("Source empty stack component access mixin was not applied");
+    }
     public CompoundTag acquire(ItemStack stack, boolean create) {
-        CustomData current = stack.get(DataComponents.CUSTOM_DATA);
-        int nativeDamage = stack.getOrDefault(DataComponents.DAMAGE, 0);
+        CustomData current = components(stack).get(DataComponents.CUSTOM_DATA);
+        int nativeDamage = components(stack).getOrDefault(DataComponents.DAMAGE, 0);
         if (current == null) {
             owned = null;
             if (!create && nativeDamage == 0) { lastDamage = nativeDamage; return null; }
@@ -35,12 +42,12 @@ public final class LegacyMutableTagState {
     }
     /** Source raw damage may exceed max; the native component mirror has a bounded representation. */
     public void mirrorDamage(ItemStack stack, int sourceDamage) {
-        int max = stack.getOrDefault(DataComponents.MAX_DAMAGE, 0);
+        int max = components(stack).getOrDefault(DataComponents.MAX_DAMAGE, 0);
         int value = Math.clamp(sourceDamage, 0, max);
-        boolean present = stack.has(DataComponents.DAMAGE);
-        if ((present || max > 0) && (!present || stack.getOrDefault(DataComponents.DAMAGE, 0) != value))
+        boolean present = components(stack).has(DataComponents.DAMAGE);
+        if ((present || max > 0) && (!present || components(stack).getOrDefault(DataComponents.DAMAGE, 0) != value))
             stack.set(DataComponents.DAMAGE, value);
-        lastDamage = stack.getOrDefault(DataComponents.DAMAGE, 0);
+        lastDamage = components(stack).getOrDefault(DataComponents.DAMAGE, 0);
     }
     public void detachCopy(ItemStack original, ItemStack copied) {
         if (copied == original || copied.isEmpty() || !owns(original)) return;
@@ -49,7 +56,7 @@ public final class LegacyMutableTagState {
             copied.set(DataComponents.CUSTOM_DATA, new CustomData(owned.tag.copy()));
     }
     public boolean owns(ItemStack stack) {
-        if (owned != null && stack.get(DataComponents.CUSTOM_DATA) != owned) owned = null;
+        if (owned != null && components(stack).get(DataComponents.CUSTOM_DATA) != owned) owned = null;
         return owned != null;
     }
     public ItemStack resourceSnapshot(ItemStack stack) {
