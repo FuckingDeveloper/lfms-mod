@@ -244,6 +244,7 @@ public final class Forge1192LegacyClassTransformer implements LegacyClassTransfo
         // required by a removed-API adapter.
         int rewrites = physicalDistribution == null ? 0
                 : Forge1192DistributionFilter.apply(node, physicalDistribution);
+        rewrites += Forge1192SoundEventRewriter.rewrite(node, Forge1192LegacyClassTransformer::matchingConstructor);
         rewrites += rewriteRemovedOptionalClientScreenConstructors(node);
         rewrites += rewriteLegacyEnvironmentFieldAccess(node);
         rewrites += rewriteLegacyLevelClientSideFieldAccess(node);

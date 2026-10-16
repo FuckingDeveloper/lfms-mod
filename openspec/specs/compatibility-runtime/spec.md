@@ -59,3 +59,14 @@ a native stack count becomes zero. A target public component view hiding an empt
 stack's underlying data MUST NOT be treated as component removal. Native public
 component visibility MUST remain unchanged; genuine replacement/removal of the
 underlying source-data component MUST continue to supersede its old ownership.
+
+## Source sound values
+
+Verified source SoundEvent location/range operations and variable/fixed constructor
+intent MAY use native target value accessors/factories. Constructor migration MUST
+preserve allocation pairing, including nested allocations and callable constants.
+The source flat identifier codec MUST preserve its scalar encoding and variable
+range decode; it MUST NOT be replaced with a target holder/record codec merely
+because the field name matches. These operations MUST be selected by verified
+source owner/member/descriptors before namespace projection. Target-final source
+subclasses and unknown constructor shapes MUST fail explicitly until adapted.

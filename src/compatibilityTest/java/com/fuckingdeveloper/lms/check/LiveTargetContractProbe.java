@@ -161,6 +161,7 @@ public final class LiveTargetContractProbe {
         PoseMatrixDrawCheck.run();
         EmptyStackDecodeCheck.run();
         SoundHolderFieldCheck.run();
+        try { SoundEventValueCheck.run(); } catch (Throwable failure) { throw new AssertionError(failure); }
         DamageDescriptorFamilyCheck.run();
         BootstrapFamilyCheck.run();
         SourceContainerFamilyCheck.run(host);
