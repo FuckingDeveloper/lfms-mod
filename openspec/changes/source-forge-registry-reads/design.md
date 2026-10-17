@@ -117,3 +117,29 @@ Compile, compatibility/native checks and full audit pass in
 transform failures. Independent fixtures reproduce the exact inherited reverse
 lookup and MappedRegistry method-reference/DefaultedRegistry capture shape from
 the fluid helper. Live holder-read acceptance awaits runtime132.
+
+## Runtime132 bounded acceptance
+
+The exact fresh build loads the explicit existing world and local Dev player.
+All seven source constructors initialize. The original JEI registry/key path
+passes, and the original fluid helper gets past the former verifier failure:
+its construction advances from helper line 187 to renderer construction at 188.
+This establishes original helper linkage; executing its tag stream in a live GUI
+is still unverified. Native independent fixtures exercise the holder operations.
+
+The first remaining chronological error is EnchantedBookItem in JEI's subtype
+callback. The first fatal vanilla-plugin setup error is now Matrix4f in fluid
+renderer construction. Neither is a registry-read failure. The original factory
+logs/skips the failed book entries; full ingredients and JEI startup are NOT
+accepted. Missing vanilla crafting category is fallout from failed setup.
+Runtime log: /tmp/lms-container-families-runtime-132.log. The dev JVM was stopped
+with TERM after MCP/log verification. No gameplay fixture mutation or recovery
+is pending. Highest overall observed milestone remains world load (level 6).
+
+Implementation checkpoints pushed: 03b8e85 (ACTIVE read views), ef623e9 (callable
+keys, producer casts and interface capture), fc54a18 (inherited holder reads).
+Existing user modifications remain outside these commits. Remaining semantic
+limits include source mutable/snapshot/custom registries, moved data-driven and
+loader-specific views, inactive overrides, and unsupported holder/delegate/codec
+members of the concrete source ForgeRegistry. The original CarbonConfig
+NamedRegistry data-driven initialization path is outside this bounded contract.

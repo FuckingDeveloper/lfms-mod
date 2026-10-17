@@ -6,6 +6,6 @@
 - [x] Implement target native lookup boundary and interface interoperability.
 - [x] Add positive/negative transformed and native fixtures.
 - [x] Compile, run checks and audit with no live dev client.
-- [ ] Run fresh explicit world, MCP gates and causal log inspection.
-- [ ] Record acceptance, remaining gaps and first next blocker.
-- [ ] Commit and push coherent verified checkpoints.
+- [x] Run fresh explicit world, MCP gates and causal log inspection.
+- [x] Record acceptance, remaining gaps and first next blocker.
+- [x] Commit and push coherent verified checkpoints.

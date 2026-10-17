@@ -406,3 +406,35 @@ shape, optional absence and explicit missing-holder failure. Checks/audit pass:
 1141 groups/6742 sites are inventory, with the same two pre-existing unrelated
 transformation failures. Live acceptance of the narrow holder correction remains
 pending; enchanted-book subtype data is the next separate API family.
+
+## Runtime132: read family accepted, subtype/rendering families next
+
+Fresh source build on the pinned 26.3 target loads the explicit existing world;
+MCP status confirms client+integrated server, Dev in minecraft:overworld, unchanged
+position/vitals/selected slot and baseline inventory summary. All seven source
+entrypoints initialize. Original ACTIVE and callable key operations pass.
+FluidIngredientHelper now passes verification/construction (VanillaPlugin:187),
+then setup reaches fluid renderer construction (:188). Native fixtures prove
+actual optional/throwing holder reads; live fluid-tag GUI execution is unverified.
+
+The first chronological causal blocker remains removed EnchantedBookItem in the
+original book subtype callback. The original factory catches it and skips those
+entries; this is not complete ingredient functionality. A separate first fatal
+vanilla-plugin setup blocker is missing com.mojang.math.Matrix4f during fluid
+renderer construction. The later vanilla crafting category error is secondary.
+There is no old ACTIVE/key/registry VerifyError in this run. Full JEI startup and
+rendering remain BLOCKED. Overall observed milestone: world loaded (level 6).
+
+Evidence: /tmp/lms-container-families-runtime-132.log. Latest executable checks:
+`./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava compatibilityAudit --args='legacy-mods /tmp/lms-registry-holder-audit.tsv'`
+(/tmp/lms-registry-holder-check.log), all pass. Audit retains the same two prior
+unrelated transform failures; totals are inventory, not functional coverage.
+The client was stopped with TERM after evidence collection, before a screen
+retry; no gameplay fixture was created and no recovery is pending.
+
+Pushed implementation: 03b8e85, ef623e9, fc54a18. Original dirty user changes are
+preserved. The next separate work is stored-enchantment/book subtype data with
+authoritative dynamic registry reads, followed by the immediate matrix/vertex
+family used by the fluid ingredient renderer. Existing mutable/snapshot/custom
+registry gaps, unsupported concrete holder/delegate/codec members and the
+CarbonConfig NamedRegistry data-driven initialization path remain explicit gaps.
