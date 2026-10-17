@@ -85,6 +85,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     private static final Forge1192MappingLayer VANILLA_RELOCATIONS = new Forge1192MappingLayer();
     private static final java.util.Map<String, String> EXPLICIT_VANILLA_CLASS_RELOCATIONS = java.util.Map.ofEntries(
             java.util.Map.entry(SOURCE_MATERIAL, RUNTIME_MATERIAL),
+            java.util.Map.entry("net/minecraft/world/level/Explosion$BlockInteraction", "com/fuckingdeveloper/lms/profile/forge1192/runtime/world/Forge1192ExplosionBlockInteraction"),
             java.util.Map.entry("net/minecraft/client/renderer/BlockEntityWithoutLevelRenderer", "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192CustomItemRenderer"),
             java.util.Map.entry("net/minecraftforge/client/extensions/common/IClientItemExtensions", "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192ItemExtensions"),
             java.util.Map.entry("net/minecraft/world/level/biome/BiomeGenerationSettings$Builder", "net/minecraft/world/level/biome/BiomeGenerationSettings$PlainBuilder"),
@@ -314,6 +315,27 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("catalogued-source-methods",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192MethodRules.rewrite(node, methodDeclarations, semanticInvocations)),
+            new TransformationPipeline.Pass("source-entity-position-snaps",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192EntityPositionRewriter.rewrite(node,
+                            (owner,base)->owner.equals(node.name)?isManagedSubtypeOf(node,base):owner.equals(base)||isManagedSubtypeOf(owner,base),
+                            (name,desc)->registryCanonicalMethods.computeIfAbsent("net/minecraft/world/entity/Entity#"+name+desc,
+                                    ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName("net/minecraft/world/entity/Entity",name,desc))).orElse(null),
+                            com.fuckingdeveloper.lms.target.InstalledTargetAdapters.entityPositionMethod())),
+            new TransformationPipeline.Pass("source-entity-type-allocation",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteSemanticInstanceCalls(node,(opcode,owner,name,desc)->{
+                        String root="net/minecraft/world/entity/EntityType";
+                        if(opcode!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL || !owner.equals(root)
+                                || !desc.equals("(Lnet/minecraft/world/level/Level;)Lnet/minecraft/world/entity/Entity;"))return null;
+                        String canonical=name.equals("create")?name:registryCanonicalMethods.computeIfAbsent(root+"#"+name+desc,
+                                ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(root,name,desc))).orElse(null);
+                        return "create".equals(canonical)?new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                                com.fuckingdeveloper.lms.target.InstalledTargetAdapters.entityAllocationBridge(),"create","(L"+root+";"+desc.substring(1),false):null;
+                    })),
+            new TransformationPipeline.Pass("source-explosion-execution",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteSourceExplosions(node)),
             new TransformationPipeline.Pass("source-sound-manager-playback",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteSoundManagerPlayback(node)),
@@ -333,6 +355,18 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                                     ignored -> SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalMethodName(
                                             Forge1192HeightQueryRewriter.ROOT, name, desc))).orElse(null),
                             semanticInvocations)),
+            new TransformationPipeline.Pass("source-entity-data-builder",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> isManagedSubtypeOf(node, Forge1192ProjectileRewriter.SOURCE) ? 0 : Forge1192EntityDataRewriter.rewrite(node, new Forge1192EntityDataRewriter.Evidence() {
+                        public boolean entity(String owner) { return owner.equals(node.name) ? isManagedSubtypeOf(node, Forge1192EntityDataRewriter.ENTITY)
+                                : owner.equals(Forge1192EntityDataRewriter.ENTITY) || isManagedSubtypeOf(owner, Forge1192EntityDataRewriter.ENTITY); }
+                        public String method(String owner, String name, String desc) { if(!name.startsWith("m_")) return name; return registryCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,
+                                ignored -> SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalMethodName(owner,name,desc))).orElse(null); }
+                        public boolean dataField(FieldInsnNode field) {
+                            String owner=sourceFieldOwner(node.name,fieldHierarchy(node),field.owner,field.name,field.desc,new java.util.HashSet<>());
+                            return Forge1192EntityDataRewriter.ENTITY.equals(owner) && "entityData".equals(SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalFieldName(owner,field.name,field.desc)).orElse(field.name));
+                        }
+                    }, com.fuckingdeveloper.lms.target.InstalledTargetAdapters.entityDataBuilder())),
             new TransformationPipeline.Pass("source-item-projectiles",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192ProjectileRewriter.rewrite(node,new Forge1192ProjectileRewriter.Evidence(){
@@ -4878,6 +4912,33 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             if(!declaresManagedMethod(node,"m_93250_","(I)V")){var setter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93250_","(I)V",null,null);setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));setter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.PUTFIELD,node.name,"lms$widgetDepth","I"));setter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));setter.maxStack=2;setter.maxLocals=2;node.methods.add(setter);}
         }
         return 1;
+    }
+
+    private int rewriteSourceExplosions(ClassNode node) {
+        String level="net/minecraft/world/level/Level", mode="Lnet/minecraft/world/level/Explosion$BlockInteraction;", result="Lnet/minecraft/world/level/Explosion;";
+        return rewriteSemanticInstanceCalls(node,(opcode,owner,name,desc)->{
+            String explosion="net/minecraft/world/level/Explosion";
+            if(opcode==org.objectweb.asm.Opcodes.INVOKEVIRTUAL && owner.equals(explosion)) {
+                String query=name.startsWith("m_") ? registryCanonicalMethods.computeIfAbsent(explosion+"#"+name+desc,
+                        ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(explosion,name,desc))).orElse(null) : name;
+                String expected=query==null ? null : switch(query) {
+                    case "getDamageSource" -> "()Lnet/minecraft/world/damagesource/DamageSource;";
+                    case "getHitPlayers" -> "()Ljava/util/Map;";
+                    case "getSourceMob" -> "()Lnet/minecraft/world/entity/LivingEntity;";
+                    default -> null;
+                };
+                if(desc.equals(expected))return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                        com.fuckingdeveloper.lms.target.InstalledTargetAdapters.explosionsBridge(),query,"(L"+explosion+";"+desc.substring(1),false);
+            }
+            if(opcode!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL || !(owner.equals(level)||isManagedSubtypeOf(owner,level)))return null;
+            String canonical=name.equals("explode") ? name : registryCanonicalMethods.computeIfAbsent(level+"#"+name+desc,
+                    ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(level,name,desc))).orElse(null);
+            if(!"explode".equals(canonical))return null;
+            if(!java.util.Set.of("(Lnet/minecraft/world/entity/Entity;DDDF"+mode+")"+result,
+                    "(Lnet/minecraft/world/entity/Entity;DDDFZ"+mode+")"+result,
+                    "(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/damagesource/DamageSource;Lnet/minecraft/world/level/ExplosionDamageCalculator;DDDFZ"+mode+")"+result).contains(desc))return null;
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,com.fuckingdeveloper.lms.target.InstalledTargetAdapters.explosionsBridge(),"explode","(L"+level+";"+desc.substring(1),false);
+        });
     }
 
     private int rewriteSoundManagerPlayback(ClassNode node) {

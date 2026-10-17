@@ -91,6 +91,40 @@ Evidence: [height checks](../openspec/changes/source-height-query-family/tasks.m
 `/tmp/lms-container-families-runtime-104.log`. Overall level6 plus observed level7
 subpaths; no complete-mod/remote-client/persistence claim.
 
+## Runtime106–108: entity allocation and native explosions (2026-10-17)
+
+- Runtime106 reported no click sound; native master volume was 0.0. The removed
+  SoundManager member exception did not recur. Audible output remains UNVERIFIED.
+- Source entity data definition hooks now use the real native construction
+  builder. Independent named/SRG parent/child fixtures verify local indices,
+  inherited fuse, dirty get/set and duplicate/unsupported read boundaries.
+- Native explosion execution preserves source NONE/BREAK/DESTROY identities and
+  explicit no-break/no-decay/decay intent. The actual ServerLevel path supplies
+  its real result, NeoForge events and packets; no second/dummy explosion.
+- Runtime107's saved projectile reached another missing raw EntityType allocation
+  call. Raw allocation and all four source position-snap overloads are now covered
+  together. Native checks preserve factory operands/results/null/failure and
+  source override/super dispatch, old position/rotation and unchanged motion.
+- Runtime108 loaded the same world and completed the saved projectile. MCP then
+  threw tagged original Weak and Mini TNT Dynamite from an isolated sky platform.
+  Mini TNT changed glass at (-157,245,28) to air and left no projectile; the log
+  remained free of errors through those throws. Weak TNT did not break stone:
+  its source dynamite scale is 0.25, so this is not a failed blast assertion.
+- Block ignition created/tracked the original primed entity, then exposed two
+  remaining causal blockers: raw GameEvent fields/delivery now require holders;
+  the original immediate EntityRenderer lacks native createRenderState/extraction.
+  Runtime108 crashed on those boundaries. Block-TNT gameplay is not accepted.
+
+Checks: `compatibilityTest nativeCompatibilitySmoke compileLaunchJava` passed in
+`/tmp/lms-entity-allocation-position-check.log`; selected 4323-class audit reports
+1134 grouped findings / 5709 sites (`/tmp/lms-entity-allocation-position-audit.tsv`).
+This inventory is not a compatibility percentage. Explosion subclasses/manual
+lifecycle, custom Level/EntityType overrides and entity persistence remain gaps.
+Cleanup is pending client recovery: only owned sky fixtures at (-157,245,32),
+(-157,244,28), (-157,245,28), tagged runtime108 mini dynamite and prior owned
+workbench (-197,79,12). Original hotbar4 chicken dynamite is safely in slot21;
+restore it after clearing the tagged test stack. Baseline player/inventory retained.
+
 ## Symptoms not requiring another mechanics-specific fix
 
 | Report | Current disposition |

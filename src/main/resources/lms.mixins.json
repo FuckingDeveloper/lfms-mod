@@ -3,6 +3,7 @@
   "package": "com.fuckingdeveloper.lms.mixin",
   "mixins": [
     "Target263SourceToolDefaultMixin",
+    "Target263SourceExplosionMixin",
     "Target263SourceMenuTypeMixin",
     "Target263LegacyLootManagerMixin",
     "Target263InitialDataTransactionMixin",
