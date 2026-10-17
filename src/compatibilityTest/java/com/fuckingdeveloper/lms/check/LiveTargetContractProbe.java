@@ -268,6 +268,7 @@ public final class LiveTargetContractProbe {
         ForgeRegistryReadFamilyCheck.run();
         ResourceKeyFamilyCheck.run();
         EnchantedBookReadFamilyCheck.run();
+        ListTagReadFamilyCheck.run();
         GuiModelViewFamilyCheck.run();
         GuiStaticAccessorFamilyCheck.run();
         SourceProjectileFamilyCheck.run();

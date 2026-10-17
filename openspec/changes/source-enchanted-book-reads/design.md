@@ -50,3 +50,15 @@ native replacement, list identity and source bytecode/handle linkage. Audit:
 transformation failures remain. This inventory is not functional coverage.
 Stored levels outside the native representable range fail explicitly.
 Runtime consumer acceptance remains pending.
+
+## Typed list reads
+
+Runtime133 loads the world and passes the removed-book class boundary. The next
+causal book failure is the source ListTag.getCompound(int) descriptor, whose
+native counterpart now returns Optional. The bounded source read family MUST
+preserve the exact tag type for numeric getters, source defaults for wrong types
+and invalid indices, actual compound/list/array identity, string extraction and
+non-string SNBT fallback. Source getElementType rejects heterogeneous native lists
+which have no source representation. Direct/handle/lambda/nested-constant reads
+share the existing semantic traversal. Native collection mutations and Java List
+aliases are outside this typed-read contract.
