@@ -299,3 +299,31 @@ The next family is read-only tab enumeration, special-tab identities and tab ite
 population against native registry/population phases; source array mutation and
 old numeric-index semantics must not be silently redefined. Source Mixin execution,
 remote full-recipe access and source seating gameplay remain separate gaps.
+
+Runtime128 subsequently crashes at 21:20:47 when opening a screen triggers the
+original JEI observer's startup retry. The fatal exception is
+`NullPointerException: vanilla crafting category`; the first causal failure
+remains the 21:04:07 missing `CreativeModeTab.f_40748_` field. The original
+plugin's failed initialization leaves its vanilla category unavailable on retry.
+Evidence: `/tmp/lms-container-families-runtime-128.log` and
+`run/crash-reports/crash-2026-10-17_21.20.48-client.txt`. The client process has
+exited. This is not a new accepted milestone or a verified fix; the proposed
+enumeration contract is still pending approval.
+
+## Creative enumeration family (implementation checkpoint)
+
+The approved adapter admits proven enhanced-for iteration of source TABS and
+projects SEARCH/HOTBAR/INVENTORY identity. Native registry order, current client
+features/permissions and genuine content building determine enumeration.
+Source tab-level overrides now participate in native custom-tab population;
+source super calls retain item membership and item overrides. External consumers
+receive copied, validated native display contents. Unsupported mutation, escaping
+arrays, numeric-index dependence and array handles fail before execution.
+
+Compilation, compatibilityTest, nativeCompatibilitySmoke, compileLaunchJava and
+static audit pass (/tmp/lms-creative-final-check.log). Independent fixtures cover
+iteration admission, negative array shapes, callable/nested special identities,
+source-super dispatch, source ownership restoration, duplicate stacks, invalid
+counts, context absence and immutable input JARs. The audit still reports the two
+previous unrelated transformation failures; its 1161 groups/6781 sites are gap
+inventory. Full native population and JEI acceptance await runtime129.

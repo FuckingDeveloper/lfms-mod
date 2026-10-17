@@ -4,7 +4,7 @@ import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192Lif
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
+import com.fuckingdeveloper.lms.target.InstalledTargetAdapters;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackLinkedSet;
@@ -46,7 +46,69 @@ public final class Forge1192CreativeTabBridge {
 
     /** Exact modern identity for Forge 1.19.2's global search tab token. */
     public static CreativeModeTab searchTab() {
-        return CreativeModeTabs.searchTab();
+        return InstalledTargetAdapters.specialCreativeTab(com.fuckingdeveloper.lms.runtime.item.CreativeTabRole.SEARCH);
+    }
+
+    public static CreativeModeTab hotbarTab() { return InstalledTargetAdapters.specialCreativeTab(com.fuckingdeveloper.lms.runtime.item.CreativeTabRole.HOTBAR); }
+    public static CreativeModeTab inventoryTab() { return InstalledTargetAdapters.specialCreativeTab(com.fuckingdeveloper.lms.runtime.item.CreativeTabRole.INVENTORY); }
+    public static CreativeModeTab[] tabs() { return InstalledTargetAdapters.creativeTabs(); }
+
+    private static final ClassValue<java.util.Optional<java.lang.invoke.MethodHandle>> TAB_ENUMERATION =
+            new ClassValue<>() {
+                @Override protected java.util.Optional<java.lang.invoke.MethodHandle> computeValue(Class<?> type) {
+                    return enumerationOverride(type, "m_6151_", NonNullList.class);
+                }
+            };
+    private static final ClassValue<java.util.Optional<java.lang.invoke.MethodHandle>> ITEM_ENUMERATION =
+            new ClassValue<>() {
+                @Override protected java.util.Optional<java.lang.invoke.MethodHandle> computeValue(Class<?> type) {
+                    return enumerationOverride(type, "m_6787_", CreativeModeTab.class, NonNullList.class);
+                }
+            };
+
+    private static java.util.Optional<java.lang.invoke.MethodHandle> enumerationOverride(
+            Class<?> type, String name, Class<?>... arguments) {
+        try {
+            return java.util.Optional.of(MethodHandles.privateLookupIn(type, MethodHandles.lookup())
+                    .findVirtual(type, name, MethodType.methodType(void.class, arguments)));
+        } catch (NoSuchMethodException absent) {
+            return java.util.Optional.empty();
+        } catch (IllegalAccessException failure) {
+            throw new IllegalStateException("Cannot access source creative callback " + type.getName(), failure);
+        }
+    }
+
+    /** Enumerate the same validated, feature-filtered contents as the native tab. */
+    public static void fillTab(CreativeModeTab tab, NonNullList<ItemStack> output) {
+        Objects.requireNonNull(output).addAll(InstalledTargetAdapters.creativeTabContents(tab));
+    }
+
+    /** Native population entry: preserve source virtual dispatch in the tab owner's scope. */
+    private static void fillSourceTab(CreativeModeTab tab, NonNullList<ItemStack> output) {
+        var intent = TABS.stream().filter(candidate -> candidate.tab == tab).findFirst();
+        if (intent.isEmpty()) {
+            throw new IllegalStateException("Native source population requires a recorded custom tab");
+        }
+        try (var scope = Forge1192LifecycleBridge.enterCallback(intent.get().modId)) {
+            var callback = TAB_ENUMERATION.get(tab.getClass());
+            if (callback.isPresent()) callback.get().invoke(tab, output);
+            else fillBaseTab(tab, output);
+        } catch (Throwable failure) {
+            throw new IllegalStateException("Source creative-tab enumeration failed: " + intent.get().label, failure);
+        }
+    }
+
+    /** Source super.fillItemList: item membership, never virtual tab dispatch again. */
+    public static void fillBaseTab(CreativeModeTab tab, NonNullList<ItemStack> output) {
+        if (TABS.stream().noneMatch(intent -> intent.tab == tab)) {
+            throw new UnsupportedOperationException("Source base tab enumeration requires preserved source membership");
+        }
+        for (Identifier id : Forge1192VanillaConstructionBridge.legacyCreativeItemIds(tab)) {
+            Item item = BuiltInRegistries.ITEM.getValue(id);
+            if (item == null || !id.equals(BuiltInRegistries.ITEM.getKey(item)))
+                throw new IllegalStateException("Legacy creative-tab item is not registered: " + id);
+            fillItemCategory(item, tab, output);
+        }
     }
 
     /** Reconstruct Item#allowedIn for preserved legacy tab intent. */
@@ -68,21 +130,13 @@ public final class Forge1192CreativeTabBridge {
      */
     public static void fillItemCategory(
             Item item, CreativeModeTab tab, NonNullList<ItemStack> output) {
-        java.lang.invoke.MethodHandle override;
-        try {
-            Class<?> type = item.getClass();
-            override = MethodHandles.privateLookupIn(type, MethodHandles.lookup()).findVirtual(
-                    type, "m_6787_",
-                    MethodType.methodType(void.class, CreativeModeTab.class, NonNullList.class));
-        } catch (NoSuchMethodException e) {
+        var override = ITEM_ENUMERATION.get(item.getClass());
+        if (override.isEmpty()) {
             fillBaseItemCategory(item, tab, output);
             return;
-        } catch (IllegalAccessException e) {
-            throw new IllegalStateException("Cannot access legacy creative item enumeration for "
-                    + item.getClass().getName(), e);
         }
         try {
-            override.invoke(item, tab, output);
+            override.get().invoke(item, tab, output);
         } catch (Throwable cause) {
             throw new IllegalStateException("Legacy creative item enumeration failed for "
                     + item.getClass().getName(), cause);
@@ -152,21 +206,15 @@ public final class Forge1192CreativeTabBridge {
     private static void populate(LegacyTabIntent intent, CreativeModeTab.Output output) {
         CreativeModeTab tab = requireTab(intent);
         var unique = ItemStackLinkedSet.createTypeAndComponentsSet();
-        for (Identifier itemId : Forge1192VanillaConstructionBridge.legacyCreativeItemIds(tab)) {
-            Item item = BuiltInRegistries.ITEM.getValue(itemId);
-            if (item == null || !itemId.equals(BuiltInRegistries.ITEM.getKey(item))) {
-                throw new IllegalStateException("Legacy creative-tab item is not registered: " + itemId);
+        NonNullList<ItemStack> sourceItems = NonNullList.create();
+        fillSourceTab(tab, sourceItems);
+        for (ItemStack stack : sourceItems) {
+            if (stack.isEmpty()) continue;
+            if (stack.getCount() != 1) {
+                throw new IllegalStateException("Legacy creative-tab stack count is not representable: "
+                        + intent.label + " count=" + stack.getCount());
             }
-            NonNullList<ItemStack> sourceItems = NonNullList.create();
-            fillItemCategory(item, tab, sourceItems);
-            for (ItemStack stack : sourceItems) {
-                if (stack.isEmpty()) continue;
-                if (stack.getCount() != 1) {
-                    throw new IllegalStateException("Legacy creative-tab stack count is not representable: "
-                            + itemId + " count=" + stack.getCount());
-                }
-                if (unique.add(stack)) output.accept(stack);
-            }
+            if (unique.add(stack)) output.accept(stack);
         }
         LOG.info("LMS populated legacy creative tab sourceLabel={} stacks={}",
                 intent.label, unique.size());

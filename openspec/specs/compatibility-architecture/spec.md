@@ -555,6 +555,13 @@ MUST be selected by preserved tab-object identity. LMS MUST execute source item
 enumeration through its verified override contract, deduplicate only stacks
 that the target defines as identical, and fail explicitly when source output
 cannot satisfy target tab invariants.
+For proven read-only source tab enumeration, LMS MAY expose a snapshot of the
+current native registry order and native feature/permission-aware contents.
+It MUST preserve special-tab and source custom-tab identities and source tab-
+level as well as item-level callbacks. Historical array mutation, persistent
+array identity and old numeric-position semantics MUST NOT be inferred from
+that snapshot; unproven uses MUST fail explicitly. See
+`openspec/changes/source-creative-tab-enumeration/design.md`.
 
 When source model baking is ordered after texture-stitch completion but the
 target uploads the prepared atlas only after it snapshots model dispatch,

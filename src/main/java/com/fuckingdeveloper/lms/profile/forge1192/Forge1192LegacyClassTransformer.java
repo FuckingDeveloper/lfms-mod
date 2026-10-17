@@ -3682,8 +3682,10 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
      * target Item/BlockItem base implementations are reconstructed explicitly.
      * This is distinct from populating Minecraft 26.3 creative tabs.
      */
-    private static int rewriteLegacyCreativeTabEnumeration(ClassNode node) {
-        int rewrites = 0;
+    private int rewriteLegacyCreativeTabEnumeration(ClassNode node) {
+        int rewrites = Forge1192CreativeEnumerationRewriter.rewrite(node,
+                owner -> owner.equals(node.name) ? isManagedSubtypeOf(node, "net/minecraft/world/item/CreativeModeTab")
+                        : isManagedSubtypeOf(owner, "net/minecraft/world/item/CreativeModeTab"));
         final String tab = "Lnet/minecraft/world/item/CreativeModeTab;";
         final String list = "Lnet/minecraft/core/NonNullList;";
         for (var method : node.methods) {

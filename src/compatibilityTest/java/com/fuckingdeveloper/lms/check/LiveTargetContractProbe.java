@@ -217,6 +217,7 @@ public final class LiveTargetContractProbe {
         BlockExtensionDefaultsCheck.run();
         AttributeOperationFamilyCheck.run();
         CreativeConstructionFamilyCheck.run();
+        CreativeEnumerationFamilyCheck.run();
         SoundManagerPlaybackFamilyCheck.run();
         EntityDataBuilderFamilyCheck.run();
         GameEventDeliveryFamilyCheck.run();

@@ -11,6 +11,9 @@ import com.fuckingdeveloper.lms.target.neoforge263.Target263BlockDataLayout;
 /** Explicit build composition. This does not discover or guess future runtimes. */
 public final class InstalledTargetAdapters {
     private InstalledTargetAdapters() {}
+    public static net.minecraft.world.item.CreativeModeTab[] creativeTabs() { return com.fuckingdeveloper.lms.target.neoforge263.Target263CreativeEnumeration.tabs(); }
+    public static net.minecraft.world.item.CreativeModeTab specialCreativeTab(com.fuckingdeveloper.lms.runtime.item.CreativeTabRole role) { return com.fuckingdeveloper.lms.target.neoforge263.Target263CreativeEnumeration.special(role); }
+    public static java.util.List<net.minecraft.world.item.ItemStack> creativeTabContents(net.minecraft.world.item.CreativeModeTab tab) { return com.fuckingdeveloper.lms.target.neoforge263.Target263CreativeEnumeration.contents(tab); }
     public static BlockDataContext<CompoundTag, HolderLookup.Provider>
             blockDataContext(BlockEntity entity) {
         return Target263BlockDataStorage.forEntity(entity);
