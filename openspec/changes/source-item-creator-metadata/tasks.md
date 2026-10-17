@@ -4,4 +4,4 @@
 - [x] Verify component-backed potion, default egg and exact enchanted-book identity.
 - [x] Verify foreign enchantment namespace and unrelated component-owner negative.
 - [x] Compile and native family tests without mutating frozen registries.
-- [ ] Verify original JEI metadata consumer in a fresh explicit-world client.
+- [x] Verify original JEI metadata consumer in runtime139; GUI construction advances to LanguageManager.getSelected.

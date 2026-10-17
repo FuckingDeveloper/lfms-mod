@@ -4414,8 +4414,19 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     }
 
     private Handle recipeAccessMember(int opcode, String owner, String name, String descriptor) {
-        if (opcode != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                || !descriptor.equals("()Lnet/minecraft/world/item/crafting/RecipeManager;")) return null;
+        if (opcode != org.objectweb.asm.Opcodes.INVOKEVIRTUAL) return null;
+        String query = switch (name) {
+            case "m_44051_", "getRecipes" -> descriptor.equals("()Ljava/util/Collection;") ? "legacyRecipes" : null;
+            case "m_44013_", "getAllRecipesFor" -> descriptor.equals("(Lnet/minecraft/world/item/crafting/RecipeType;)Ljava/util/List;") ? "legacyRecipesByType" : null;
+            case "m_44043_", "byKey" -> descriptor.equals("(Lnet/minecraft/resources/ResourceLocation;)Ljava/util/Optional;") ? "legacyRecipeByKey" : null;
+            case "m_44073_", "getRecipeIds" -> descriptor.equals("()Ljava/util/stream/Stream;") ? "legacyRecipeIds" : null;
+            default -> null;
+        };
+        if (query != null && isManagedSubtypeOf(owner, "net/minecraft/world/item/crafting/RecipeManager"))
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/profile/forge1192/runtime/recipe/Forge1192RecipeBridge", query,
+                    "(Lnet/minecraft/world/item/crafting/RecipeManager;" + descriptor.substring(1), false);
+        if (!descriptor.equals("()Lnet/minecraft/world/item/crafting/RecipeManager;")) return null;
         String base, bridgeName;
         if ((name.equals("m_7465_") || name.equals("getRecipeManager"))
                 && isManagedSubtypeOf(owner, "net/minecraft/world/level/Level")) {
@@ -4434,7 +4445,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
 
     private int rewriteRecipeAccessFamily(ClassNode node) {
         for (String base : java.util.List.of("net/minecraft/world/level/Level",
-                "net/minecraft/client/multiplayer/ClientPacketListener", "net/minecraft/server/MinecraftServer")) {
+                "net/minecraft/client/multiplayer/ClientPacketListener", "net/minecraft/server/MinecraftServer",
+                "net/minecraft/world/item/crafting/RecipeManager")) {
             if (!isManagedSubtypeOf(node, base)) continue;
             for (var method : node.methods) {
                 if ((method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0
@@ -7520,19 +7532,6 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                     continue;
                 }
 
-                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        && call.owner.equals("net/minecraft/world/item/crafting/RecipeManager")
-                        && call.name.equals("m_44051_")
-                        && call.desc.equals("()Ljava/util/Collection;")) {
-                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                    call.owner = "com/fuckingdeveloper/lms/profile/forge1192/runtime/recipe/Forge1192RecipeBridge";
-                    call.name = "legacyRecipes";
-                    call.desc = "(Lnet/minecraft/world/item/crafting/RecipeManager;)"
-                            + "Ljava/util/Collection;";
-                    call.itf = false;
-                    rewrites++;
-                    continue;
-                }
 
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
                         && call.owner.equals("net/minecraft/client/gui/screens/Screen")

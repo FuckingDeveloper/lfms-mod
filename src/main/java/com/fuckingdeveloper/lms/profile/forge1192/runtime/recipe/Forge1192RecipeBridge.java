@@ -83,9 +83,37 @@ public final class Forge1192RecipeBridge {
 
     public static Collection<Recipe<?>> legacyRecipes(RecipeManager manager) {
         Objects.requireNonNull(manager, "manager");
-        java.util.ArrayList<Recipe<?>> recipes = new java.util.ArrayList<>();
-        for (RecipeHolder<?> holder : manager.getRecipes()) { recordRecipeIdentity(holder); recipes.add(holder.value()); }
+        var recipes = new java.util.HashSet<Recipe<?>>();
+        for (RecipeHolder<?> holder : manager.getRecipes()) {
+            recordRecipeIdentity(holder); recipes.add(holder.value());
+        }
+        return recipes;
+    }
+
+    public static <I extends net.minecraft.world.item.crafting.RecipeInput, T extends Recipe<I>>
+            java.util.List<T> legacyRecipesByType(RecipeManager manager,
+            net.minecraft.world.item.crafting.RecipeType<T> type) {
+        Objects.requireNonNull(manager, "manager");
+        var recipes = new java.util.ArrayList<T>();
+        for (RecipeHolder<T> holder : manager.recipeMap().byType(type)) {
+            recordRecipeIdentity(holder); recipes.add(holder.value());
+        }
         return java.util.List.copyOf(recipes);
+    }
+
+    public static java.util.Optional<Recipe<?>> legacyRecipeByKey(RecipeManager manager,
+            net.minecraft.resources.Identifier id) {
+        Objects.requireNonNull(manager, "manager");
+        if (id == null) return java.util.Optional.empty();
+        return manager.byKey(net.minecraft.resources.ResourceKey.create(
+                net.minecraft.core.registries.Registries.RECIPE, id)).map(holder -> {
+                    recordRecipeIdentity(holder); return holder.value();
+                });
+    }
+
+    public static java.util.stream.Stream<net.minecraft.resources.Identifier> legacyRecipeIds(RecipeManager manager) {
+        return Objects.requireNonNull(manager, "manager").getRecipes().stream()
+                .map(holder -> holder.id().identifier());
     }
 
     public static net.minecraft.resources.Identifier legacyId(Recipe<?> recipe) {

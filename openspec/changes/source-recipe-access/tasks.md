@@ -3,5 +3,9 @@
 - [x] Preserve callable receiver types; reject unrelated owners and source overrides.
 - [x] Validate current client world/connection and use its integrated server.
 - [x] Compile and native family checks, including inherited owners and negative override.
-- [ ] Verify original JEI world-recipe consumer in a fresh explicit-world client.
-- [ ] Record first remaining causal blocker; no remote/full-sync claim.
+- [x] Verify original JEI world-recipe consumer in runtime139 (past VanillaRecipes construction).
+- [x] Record runtime139 first blocker: manager getAllRecipesFor; no remote/full-sync claim.
+
+- [x] Adapt type/all/key/id information queries with holder provenance and source collection contracts.
+- [x] Verify direct/callable/nested forms against an isolated actual native recipe manager.
+- [ ] Verify original JEI type enumeration in a fresh client after runtime139.
