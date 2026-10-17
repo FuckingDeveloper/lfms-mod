@@ -15,6 +15,7 @@ final class StaticItemResourcesCheck {
     static void run() throws Exception {
         blockInheritance();
         nativeModelParsing();
+        modelAtlasDependencies();
         Path archive = Files.createTempFile("lms-static-item-probe-", ".jar");
         try {
             var entries = Map.of(
@@ -75,6 +76,27 @@ final class StaticItemResourcesCheck {
                 "immutable source generated-model inventory changed");
         System.out.println("PASS: native generated-model definition codec/resource discovery, five source tint callbacks, explicit-model precedence and immutable artifact inventory");
     }
+    private static void modelAtlasDependencies() throws Exception {
+        Path archive=Files.createTempFile("lms-source-model-textures-", ".jar");
+        try {
+            var entries=Map.of("models/block/source.json","{\"textures\":{\"a\":\"probe:blocks/custom\",\"b\":\"#a\",\"c\":\"probe:entity/model_skin\",\"external\":\"other:item/unproven\"}}",
+                    "textures/blocks/custom.png","probe","textures/entity/model_skin.png","probe","textures/unused.png","probe");
+            try(var zip=new ZipOutputStream(Files.newOutputStream(archive))) {for(var entry:entries.entrySet()){zip.putNextEntry(new ZipEntry("assets/probe/"+entry.getKey()));zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));zip.closeEntry();}}
+            byte[] original=Files.readAllBytes(archive);
+            var sprites=com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyAtlasSources.modelTextures(List.of(archive));
+            check(sprites.equals(Set.of(id("blocks/custom"),id("entity/model_skin"))),"model texture identities, variable slots, external or unused PNG selection changed");
+            var definitions=com.fuckingdeveloper.lms.target.neoforge263.Target263LegacyAtlasSources.definitions(List.of(net.minecraft.data.AtlasIds.BLOCKS,Identifier.parse("probe:custom_atlas")),sprites);
+            var source=com.google.gson.JsonParser.parseString(new String(definitions.get(Identifier.parse("minecraft:atlases/blocks.json")),StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonArray("sources");
+            check(source.size()==3,"missing/duplicated native single sources or source callback intent");
+            for(int i=1;i<source.size();i++) {
+                var nativeSource=net.minecraft.client.renderer.texture.atlas.sources.SingleFile.MAP_CODEC.codec().parse(JsonOps.INSTANCE,source.get(i)).getOrThrow();
+                check(sprites.contains(nativeSource.resourceId())&&nativeSource.spriteId().isEmpty(),"native sprite source renamed source texture identity");
+            }
+            var custom=JsonParser.parseString(new String(definitions.get(id("atlases/custom_atlas.json")),StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonArray("sources");
+            check(custom.size()==1,"block-model textures leaked into custom atlas");
+            check(Arrays.equals(original,Files.readAllBytes(archive)),"model texture artifact changed");
+        }finally{Files.deleteIfExists(archive);}
+    }
     private static void nativeModelParsing() throws Exception {
         // Actual native model loading reads one strict root, without an extra
         // END_DOCUMENT check. Resource inventory must not be stricter than baking.
@@ -104,6 +126,8 @@ final class StaticItemResourcesCheck {
             entries.put("models/block/geometry.json", "{\"textures\":{\"a\":\"probe:block/a\"},\"elements\":[{\"from\":[0,0,0],\"to\":[16,8,16],\"faces\":{\"up\":{\"texture\":\"#a\"}}}]}");
             entries.put("models/item/unknown_leaf.json", "{\"parent\":\"probe:block/unknown_leaf\"}");
             entries.put("models/block/unknown_leaf.json", "{\"textures\":{}}");
+            entries.put("models/item/retained_template.json", "{\"parent\":\"minecraft:block/cube_all\"}");
+            entries.put("models/item/changed_template.json", "{\"parent\":\"minecraft:block/wall_inventory\"}");
             entries.put("models/item/direct.json", "{\"parent\":\"minecraft:block/cube\"}");
             entries.put("models/item/missing.json", "{\"parent\":\"probe:block/absent\"}");
             entries.put("models/item/cycle.json", "{\"parent\":\"probe:block/cycle\"}");
@@ -125,7 +149,7 @@ final class StaticItemResourcesCheck {
             }
             byte[] original = Files.readAllBytes(archive);
             var definitions = Target263LegacyStaticItemResources.definitions(archive);
-            check(definitions.keySet().equals(Set.of(id("items/cube.json"), id("items/direct.json"), id("items/geometry.json"))),
+            check(definitions.keySet().equals(Set.of(id("items/cube.json"), id("items/direct.json"), id("items/geometry.json"), id("items/retained_template.json"))),
                     "closed block inheritance admission/negative boundaries");
             var model = JsonParser.parseString(new String(definitions.get(id("items/cube.json")), StandardCharsets.UTF_8))
                     .getAsJsonObject().getAsJsonObject("model");

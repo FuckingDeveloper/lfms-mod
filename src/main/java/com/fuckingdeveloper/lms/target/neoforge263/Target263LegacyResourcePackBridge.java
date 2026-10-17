@@ -62,7 +62,7 @@ public final class Target263LegacyResourcePackBridge {
                 .sorted(Comparator.comparing(Path::toString))
                 .toList();
         event.addRepositorySource(output -> {
-            if (packType == PackType.CLIENT_RESOURCES) output.accept(createAtlasExtensionPack());
+            if (packType == PackType.CLIENT_RESOURCES) output.accept(createAtlasExtensionPack(snapshot));
             if (packType == PackType.CLIENT_RESOURCES) {
                 Pack widgets = Target263LegacyWidgetAssets.createPack(snapshot);
                 if (widgets != null) output.accept(widgets);
@@ -98,8 +98,8 @@ public final class Target263LegacyResourcePackBridge {
         return new Pack(location, Target263LegacyTagResources.wrap(new FilePackResources.FileResourcesSupplier(artifact)), metadata, selection);
     }
 
-    private static Pack createAtlasExtensionPack() {
-        return Target263LegacyAtlasSources.createPack();
+    private static Pack createAtlasExtensionPack(List<Path> artifacts) {
+        return Target263LegacyAtlasSources.createPack(artifacts);
     }
 
     private static final class AtlasExtensionResources extends AbstractPackMetadataResources

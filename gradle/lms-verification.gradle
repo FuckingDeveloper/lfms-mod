@@ -93,3 +93,18 @@ tasks.register('generateSourcePublicBlockAccess', JavaExec) {
             layout.projectDirectory.file('src/main/resources/META-INF/accesstransformer.cfg').asFile.absolutePath
     }
 }
+
+tasks.register('generateRetainedModelTemplates', JavaExec) {
+    group = 'verification'
+    description = 'Prove unchanged source/native block model graphs from pinned resource artifacts'
+    dependsOn tasks.named('compatibilityTestClasses')
+    classpath = sourceSets.compatibilityTest.runtimeClasspath
+    mainClass = 'com.fuckingdeveloper.lms.check.GenerateRetainedModelTemplates'
+    doFirst {
+        def sourceAssets = providers.gradleProperty('legacySourceAssetsJar').orNull
+        if (sourceAssets == null || !file(sourceAssets).isFile()) throw new GradleException('Supply -PlegacySourceAssetsJar=/absolute/path/to/1.19.2/client-extra.jar')
+        args sourceAssets,
+            layout.buildDirectory.file('moddev/artifacts/minecraft-patched-26.3.0.58-beta.jar').get().asFile.absolutePath,
+            layout.projectDirectory.file('src/main/resources/lms/target/neoforge263/forge1192-retained-block-models.txt').asFile.absolutePath
+    }
+}

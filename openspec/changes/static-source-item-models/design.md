@@ -62,3 +62,21 @@ Runtime114 exposed the parser difference after source banner initialization
 succeeded. Independent fixtures compare actual native CuboidModel reading,
 immutable graph discovery and malformed-root rejection. Native resource baking
 and actual fixture rendering remain separate runtime acceptance.
+
+## Indexed verified vanilla template graphs
+
+The native adapter MAY admit additional vanilla block templates using a generated
+source/target evidence table. Each selected model and every reachable vanilla
+parent MUST have equal JSON intent in the pinned source assets and configured
+target resources. Only the target-only on_shelf display context, absent from the
+source generation, may be excluded from comparison; that new context uses the
+native placement policy already approved for shelves. Changed source fields,
+missing parents, cycles, loaders and overrides MUST prevent admission.
+
+Generation pins the immutable1.19.2 client-extra.jar by SHA256 and writes only
+verified identifiers, not vanilla asset bodies. Runtime lookup MUST use a loaded
+set, not rescan source/target resources per item. Artifact-local overrides MUST
+be inspected before trusting a table entry. Runtime116 exposed64 missing native
+item definitions; the expanded table proves cube_all/slab/stairs families too.
+The changed wall_inventory template (source ambientocclusion=false, target default
+true) is intentionally excluded rather than silently changing that source intent.

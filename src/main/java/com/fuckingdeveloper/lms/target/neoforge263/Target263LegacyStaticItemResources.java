@@ -20,9 +20,17 @@ public final class Target263LegacyStaticItemResources extends AbstractPackMetada
             Identifier.withDefaultNamespace("item/handheld"),
             Identifier.withDefaultNamespace("item/handheld_rod"),
             Identifier.withDefaultNamespace("builtin/generated"));
-    private static final Set<Identifier> BLOCK_PARENTS = Set.of(
-            Identifier.withDefaultNamespace("block/cube"),
-            Identifier.withDefaultNamespace("block/cube_bottom_top"));
+    private static final Set<Identifier> BLOCK_PARENTS=retainedTemplates();
+    private static Set<Identifier> retainedTemplates() {
+        String path="/lms/target/neoforge263/forge1192-retained-block-models.txt";
+        try(var input=Target263LegacyStaticItemResources.class.getResourceAsStream(path)) {
+            if(input==null)throw new IllegalStateException("Missing verified source/native model template table");
+            var result=new HashSet<Identifier>();
+            for(String line:new String(input.readAllBytes(),StandardCharsets.UTF_8).split("\\R"))
+                if(!line.isBlank()&&!line.startsWith("#"))result.add(Identifier.parse(line));
+            return Set.copyOf(result);
+        }catch(IOException failure){throw new UncheckedIOException("Cannot read verified native model templates",failure);}
+    }
     private final Map<Identifier, byte[]> definitions;
 
     private Target263LegacyStaticItemResources(PackLocationInfo location, Map<Identifier, byte[]> definitions) {
