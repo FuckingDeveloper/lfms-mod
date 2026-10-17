@@ -20,6 +20,7 @@ public final class InstalledTargetAdapters {
     public static net.minecraft.world.item.ItemStack setSourcePotionEffects(net.minecraft.world.item.ItemStack stack,java.util.Collection<net.minecraft.world.effect.MobEffectInstance> effects) { return com.fuckingdeveloper.lms.target.neoforge263.Target263PotionContents.setCustomEffects(stack,effects); }
     public static java.util.List<net.minecraft.world.effect.MobEffectInstance> sourcePotionEffects(net.minecraft.world.item.ItemStack stack) { return com.fuckingdeveloper.lms.target.neoforge263.Target263PotionContents.customEffects(stack); }
     public static java.util.Optional<Integer> sourcePotionColor(net.minecraft.world.item.ItemStack stack) { return com.fuckingdeveloper.lms.target.neoforge263.Target263PotionContents.customColor(stack); }
+    public static boolean hasSourcePotionTag(net.minecraft.world.item.ItemStack stack) { return com.fuckingdeveloper.lms.target.neoforge263.Target263PotionContents.hasSourcePotionTag(stack); }
     public static void requireSourcePotionTagProjection(net.minecraft.world.item.ItemStack stack) { com.fuckingdeveloper.lms.target.neoforge263.Target263PotionContents.requireRawTagProjection(stack); }
     public static String resourceKeyLocationName() { return "identifier"; }
     public static boolean projectedUnsupportedForgeRegistry(net.minecraft.resources.Identifier identity) { return com.fuckingdeveloper.lms.target.neoforge263.Target263ForgeRegistryReads.projectedUnsupported(identity); }

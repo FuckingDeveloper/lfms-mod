@@ -58,3 +58,14 @@ them. Source raw getTag/getOrCreateTag/setTag on potion-component stacks fail un
 a complete source schema projection is implemented. A no-change setPotion does
 not create an unnecessary native patch. Source EMPTY is an LMS-owned absence
 token with source empty name/effects; it is never added to the native registry.
+
+
+## Source hasTag consumption
+
+Runtime136 loads the world, but original ingredient subtype enumeration calls
+source hasTag before PotionUtils. Source hasTag MUST report the presence of base
+potion, custom effects or custom color without exposing a writable detached NBT
+snapshot. Ordinary source custom tags/damage retain their existing live ownership.
+The raw getTag/getOrCreateTag/setTag boundary remains explicit. Independent native
+checks MUST execute the original immutable PotionSubtypeInterpreter chain,
+including hasTag, potion identity/name and custom-effect reads.

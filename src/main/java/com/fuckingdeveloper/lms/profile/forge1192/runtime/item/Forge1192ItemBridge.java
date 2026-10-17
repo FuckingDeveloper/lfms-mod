@@ -284,7 +284,8 @@ public final class Forge1192ItemBridge {
     }
 
     public static boolean hasTag(ItemStack stack) {
-        var tag = getTag(stack);
+        if (com.fuckingdeveloper.lms.target.InstalledTargetAdapters.hasSourcePotionTag(stack)) return true;
+        var tag = mutableTags(stack).acquire(stack, false);
         return tag != null && !tag.isEmpty();
     }
 

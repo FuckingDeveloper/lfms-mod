@@ -45,6 +45,7 @@ public final class PotionContentsFamilyCheck {
                 check(type.getMethod("set",ItemStack.class,Potion.class).invoke(null,stack,Potions.WATER.value())==stack,"source set receiver identity");
                 check(type.getMethod("get",ItemStack.class).invoke(null,stack)==Potions.WATER.value(),"source typed contents read");
                 check(type.getMethod("name",Potion.class,String.class).invoke(null,Potions.LONG_SWIFTNESS.value(),"item.effect.").equals("item.effect.swiftness"),"source name suffix");
+                check(Forge1192ItemBridge.hasTag(stack),"source hasTag ignored native base potion");
                 stack.setCount(0);
                 check(Forge1192PotionBridge.getPotion(stack)==Potions.WATER.value(),"source empty-count potion data disappeared");
                 stack.setCount(1);
@@ -73,6 +74,15 @@ public final class PotionContentsFamilyCheck {
             }
             check(Arrays.equals(original,Files.readAllBytes(path)),"source input mutated");
         } finally {Files.deleteIfExists(path);}
+        Path jei=Path.of("legacy-mods/jei-1.19.2-forge-11.8.1.1032.jar");
+        if(Files.isRegularFile(jei))try(var loader=new ManagedLegacyClassLoader(jei,PotionContentsFamilyCheck.class.getClassLoader(),new Forge1192LegacyClassTransformer())) {
+            var type=loader.linkOwnedClass("mezz.jei.library.plugins.vanilla.brewing.PotionSubtypeInterpreter");
+            var context=loader.linkOwnedClass("mezz.jei.api.ingredients.subtypes.UidContext");
+            Object receiver=type.getField("INSTANCE").get(null), mode=context.getField("Ingredient").get(null);
+            var stack=stack();check(!Forge1192ItemBridge.hasTag(stack),"absent source potion tag was fabricated");
+            Forge1192PotionBridge.setPotion(stack,Potions.WATER.value());
+            check(type.getMethod("apply",ItemStack.class,context).invoke(receiver,stack,mode).equals("water"),"original hasTag/potion/name/custom-effect consumer chain");
+        }
         System.out.println("PASS: all pinned potion constants/direct/callable identity, typed contents/custom data/effect copies, source EMPTY absence, name suffix, source color arithmetic and raw NBT boundary");
     }
     private static ItemStack stack(){return new ItemStack(Items.POTION.builtInRegistryHolder(),1,new PatchedDataComponentMap(DataComponentMap.builder().set(DataComponents.MAX_STACK_SIZE,1).build()));}

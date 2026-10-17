@@ -58,6 +58,10 @@ public final class Target263PotionContents {
     }
     public static List<MobEffectInstance> customEffects(ItemStack stack) { return new ArrayList<>(contents(stack).customEffects()); }
     public static Optional<Integer> customColor(ItemStack stack) { return contents(stack).customColor(); }
+    public static boolean hasSourcePotionTag(ItemStack stack) {
+        var value=sourceComponents(stack).get(DataComponents.POTION_CONTENTS);
+        return value!=null && (value.potion().isPresent()||value.customColor().isPresent()||!value.customEffects().isEmpty());
+    }
     public static void requireRawTagProjection(ItemStack stack) {
         if(sourceComponents(stack).has(DataComponents.POTION_CONTENTS))
             throw new UnsupportedOperationException("Source raw potion NBT projection is not implemented; typed potion contents are supported separately");
