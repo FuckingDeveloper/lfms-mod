@@ -38,6 +38,17 @@ public final class CreativeEnumerationFamilyCheck {
             try{transformer.transform(HOST.replace('/','.'),iteration(shape));throw new AssertionError("unsupported array shape accepted "+shape);}
             catch(UnsupportedOperationException expected){check(expected.getMessage().contains("Creative tab enumeration"),"wrong negative boundary");}
         }
+        var noOverride=new ClassNode();new ClassReader(tab()).accept(noOverride,0);
+        noOverride.methods.removeIf(m->m.name.equals("m_6151_"));
+        var parentWriter=new ClassWriter(0);noOverride.accept(parentWriter);byte[] parentBytes=parentWriter.toByteArray();
+        var unresolvedSuper=new Forge1192LegacyClassTransformer();
+        unresolvedSuper.bindManagedClassBytes(name->name.equals("fixture/EnumerationTab")?parentBytes:null);
+        try {
+            unresolvedSuper.transform("fixture.ChildEnumerationTab",child());
+            throw new AssertionError("unproven inherited native-base super accepted");
+        } catch (UnsupportedOperationException expected) {
+            check(expected.getMessage().contains("unproven inherited source super"),"wrong inherited-super gap");
+        }
         var file=Files.createTempFile("creative-enumeration-", ".jar");
         var bus=BusBuilder.builder().build();
         var info=(IModInfo)java.lang.reflect.Proxy.newProxyInstance(CreativeEnumerationFamilyCheck.class.getClassLoader(),new Class[]{IModInfo.class},(p,m,a)->{if(m.getName().equals("getModId"))return "creative_enumeration_fixture";throw new AssertionError(m);});
@@ -46,6 +57,7 @@ public final class CreativeEnumerationFamilyCheck {
             try(var jar=new JarOutputStream(Files.newOutputStream(file))) {
                 jar.putNextEntry(new JarEntry(HOST+".class"));jar.write(source);jar.closeEntry();
                 jar.putNextEntry(new JarEntry("fixture/EnumerationTab.class"));jar.write(tab());jar.closeEntry();
+                jar.putNextEntry(new JarEntry("fixture/ChildEnumerationTab.class"));jar.write(child());jar.closeEntry();
             }
             byte[] original=Files.readAllBytes(file);
             try(var loader=new ManagedLegacyClassLoader(file,CreativeEnumerationFamilyCheck.class.getClassLoader(),new Forge1192LegacyClassTransformer())) {
@@ -77,6 +89,13 @@ public final class CreativeEnumerationFamilyCheck {
                 generator.accept(new CreativeModeTab.ItemDisplayParameters(net.minecraft.world.flag.FeatureFlags.VANILLA_SET,false,net.minecraft.core.RegistryAccess.EMPTY),(stack,visibility)->output.add(stack));
                 check(output.size()==1&&output.getFirst().is(Items.STONE)&&calls==i+1,"native custom-tab population lost tab-level override/source super dispatch");
                 }
+                CreativeModeTab child;
+                try (var scope=Forge1192LifecycleBridge.enterRecorded("creative_enumeration_fixture")) {
+                    child=(CreativeModeTab)loader.linkOwnedClass("fixture.ChildEnumerationTab").getConstructor(String.class).newInstance("enumeration_child");
+                }
+                var childOutput=new ArrayList<ItemStack>();
+                ((CreativeModeTab.DisplayItemsGenerator)field.get(child)).accept(new CreativeModeTab.ItemDisplayParameters(net.minecraft.world.flag.FeatureFlags.VANILLA_SET,false,net.minecraft.core.RegistryAccess.EMPTY),(stack,visibility)->childOutput.add(stack));
+                check(childOutput.size()==1&&calls==5,"source parent override was skipped or duplicated");
                 invalidCount = true;
                 try {
                     generator.accept(new CreativeModeTab.ItemDisplayParameters(net.minecraft.world.flag.FeatureFlags.VANILLA_SET,false,net.minecraft.core.RegistryAccess.EMPTY),(stack,visibility)->{});
@@ -89,7 +108,7 @@ public final class CreativeEnumerationFamilyCheck {
                 Forge1192LifecycleBridge.release("creative_enumeration_fixture",loader);
             }
         }finally{Files.deleteIfExists(file);}
-        System.out.println("PASS: creative enhanced-for admission, mutation/escape/index/handle negatives, real special-tab identity, readiness guard, virtual/source-super and installed native generator dispatch, callback ownership and immutable artifact");
+        System.out.println("PASS: creative enhanced-for admission, mutation/escape/index/handle negatives, real special-tab identity, readiness guard, virtual/native-base/source-parent super and installed native generator dispatch, callback ownership and immutable artifact");
     }
     private static byte[] iteration(int shape) {
         var w=new ClassWriter(ClassWriter.COMPUTE_MAXS|ClassWriter.COMPUTE_FRAMES);w.visit(V17,ACC_PUBLIC,HOST,null,"java/lang/Object",null);
@@ -129,6 +148,12 @@ public final class CreativeEnumerationFamilyCheck {
         var m=w.visitMethod(ACC_PUBLIC,"<init>","(Ljava/lang/String;)V",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKESPECIAL,TAB,"<init>","(Ljava/lang/String;)V",false);m.visitInsn(RETURN);m.visitMaxs(0,0);m.visitEnd();
         m=w.visitMethod(ACC_PUBLIC,"m_6151_","("+LIST+")V",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKESPECIAL,TAB,"m_6151_","("+LIST+")V",false);
         m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKESTATIC,"com/fuckingdeveloper/lms/check/CreativeEnumerationFamilyCheck","append","("+LIST+")V",false);m.visitInsn(RETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();
+    }
+    private static byte[] child() {
+        var w=new ClassWriter(ClassWriter.COMPUTE_MAXS);String parent="fixture/EnumerationTab";
+        w.visit(V17,ACC_PUBLIC,"fixture/ChildEnumerationTab",null,parent,null);
+        var m=w.visitMethod(ACC_PUBLIC,"<init>","(Ljava/lang/String;)V",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKESPECIAL,parent,"<init>","(Ljava/lang/String;)V",false);m.visitInsn(RETURN);m.visitMaxs(0,0);m.visitEnd();
+        m=w.visitMethod(ACC_PUBLIC,"m_6151_","("+LIST+")V",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKESPECIAL,parent,"m_6151_","("+LIST+")V",false);m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKESTATIC,"com/fuckingdeveloper/lms/check/CreativeEnumerationFamilyCheck","append","("+LIST+")V",false);m.visitInsn(RETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();
     }
     public static Object constant(java.lang.invoke.MethodHandles.Lookup lookup, String name, Class<?> type, Object value) { return value; }
     private static void check(boolean value,String reason){if(!value)throw new AssertionError(reason);}

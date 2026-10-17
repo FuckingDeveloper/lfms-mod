@@ -327,3 +327,32 @@ source-super dispatch, source ownership restoration, duplicate stacks, invalid
 counts, context absence and immutable input JARs. The audit still reports the two
 previous unrelated transformation failures; its 1161 groups/6781 sites are gap
 inventory. Full native population and JEI acceptance await runtime129.
+
+## Runtime129 creative population acceptance and next blocker
+
+All seven source entrypoints initialize and the explicit existing world/player
+are ready through MCP (Dev, minecraft:overworld). Native content building produces
+nine nonempty source tabs: IC2 874/649/141, furniture 1967, Iron Chests 21, TNT
+147/106/110/40 stacks. The original JEI consumer passes TABS, special-tab identity
+and fillItemList, then fails in its registry wrapper at removed
+RegistryManager.ACTIVE. Its later missing vanilla crafting category is still
+secondary. The original StackHelper bytecode also obtains item registry names
+through that wrapper before subtype handling. No full JEI acceptance is claimed.
+
+The screen-opening retry crashes at 21:34:00; the client exited before attempted
+TERM. Evidence: /tmp/lms-container-families-runtime-129.log and
+run/crash-reports/crash-2026-10-17_21.34.00-client.txt. No fixture/player/inventory
+mutation was performed for this run; no recovery remains pending. Last observed
+overall milestone is world load (level 6), with bounded creative population
+functional acceptance. RegistryManager/ForgeRegistry read views are the next API
+family; source Mixins, complete recipe UI and other previous gaps remain separate.
+
+A subsequent review added verified source-parent super dispatch and explicit
+rejection of unresolved inherited-super declarations. Native child/parent/base
+fixtures pass, including owner restoration, duplicate output and invalid stack
+counts. Commands actually executed:
+`./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava compatibilityAudit --args='legacy-mods /tmp/lms-creative-super-audit.tsv'`
+and `./gradlew nativeCompatibilitySmoke` (additional negative fixture).
+Logs: /tmp/lms-creative-super-check.log and
+/tmp/lms-creative-super-negative-check.log. This narrow refinement has not had
+another live client run; the audit has the same two prior unrelated failures.

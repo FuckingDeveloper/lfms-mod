@@ -3685,7 +3685,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     private int rewriteLegacyCreativeTabEnumeration(ClassNode node) {
         int rewrites = Forge1192CreativeEnumerationRewriter.rewrite(node,
                 owner -> owner.equals(node.name) ? isManagedSubtypeOf(node, "net/minecraft/world/item/CreativeModeTab")
-                        : isManagedSubtypeOf(owner, "net/minecraft/world/item/CreativeModeTab"));
+                        : isManagedSubtypeOf(owner, "net/minecraft/world/item/CreativeModeTab"),
+                call -> methodDeclarations.owner(call.owner, call.name, call.desc));
         final String tab = "Lnet/minecraft/world/item/CreativeModeTab;";
         final String list = "Lnet/minecraft/core/NonNullList;";
         for (var method : node.methods) {

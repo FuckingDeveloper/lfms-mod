@@ -2,6 +2,7 @@ package com.fuckingdeveloper.lms.profile.forge1192;
 
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.function.Function;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import static org.objectweb.asm.Opcodes.*;
@@ -14,7 +15,7 @@ final class Forge1192CreativeEnumerationRewriter {
     private static final String FILL = "(Lnet/minecraft/core/NonNullList;)V";
     private static final String BRIDGE = "com/fuckingdeveloper/lms/profile/forge1192/runtime/item/Forge1192CreativeTabBridge";
 
-    static int rewrite(ClassNode node, Predicate<String> tabOwner) {
+    static int rewrite(ClassNode node, Predicate<String> tabOwner, Function<MethodInsnNode, String> sourceDeclaration) {
         int changes = 0;
         for (var method : node.methods) {
             for (var insn : method.instructions.toArray()) {
@@ -36,6 +37,14 @@ final class Forge1192CreativeEnumerationRewriter {
                     if (call.getOpcode() != INVOKEVIRTUAL && call.getOpcode() != INVOKESPECIAL)
                         throw unsupported(node, "tab enumeration invocation kind");
                     boolean base = call.getOpcode() == INVOKESPECIAL;
+                    if (base && !call.owner.equals(TAB)) {
+                        String declaration = sourceDeclaration.apply(call);
+                        if (declaration == null || declaration.equals(TAB))
+                            throw unsupported(node, "unproven inherited source super declaration " + call.owner);
+                        // A real source parent override still exists. Preserve its
+                        // invokespecial dispatch rather than skipping its body.
+                        continue;
+                    }
                     call.setOpcode(INVOKESTATIC); call.owner = BRIDGE;
                     call.name = base ? "fillBaseTab" : "fillTab";
                     call.desc = "(" + VALUE + FILL.substring(1); call.itf = false; changes++;

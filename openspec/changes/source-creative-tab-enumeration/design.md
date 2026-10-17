@@ -65,3 +65,21 @@ population requires the integration client. The static audit processes 3829
 classes with the same two prior unrelated transformation failures. Inventory
 counts are not functional coverage. Logs: /tmp/lms-creative-final-check.log and
 /tmp/lms-creative-audit.tsv. Runtime acceptance remains pending at this checkpoint.
+
+Source-parent super calls with a verified managed declaration retain their exact
+invokespecial dispatch. Only the proven native source-base super call is replaced
+by base membership enumeration. An inherited super call whose declaration cannot
+be established remains fail-fast rather than skipping a potential parent body.
+Independent native fixtures cover the child/parent/native-base chain, duplicate
+outputs, source-scope restoration and unresolved inherited-super rejection.
+
+Runtime129 confirms the original consumer passed the array/token/fill boundary
+and native population produced nine nonempty source tabs. Complete JEI startup
+is still blocked by removed RegistryManager.ACTIVE; reopening a screen retries
+its failed startup and crashes with missing vanilla crafting category. The client
+exited before the attempted TERM; no process was killed or relaunched afterward.
+After this live run, the source-parent dispatch refinement passed compatibilityTest,
+nativeCompatibilitySmoke, compileLaunchJava and the full audit; the additional
+negative fixture passed nativeCompatibilitySmoke. The refinement has native-smoke
+acceptance, not another live-client acceptance. Logs:
+/tmp/lms-creative-super-check.log and /tmp/lms-creative-super-negative-check.log.

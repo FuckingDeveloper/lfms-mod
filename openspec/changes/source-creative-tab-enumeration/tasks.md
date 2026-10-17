@@ -9,6 +9,6 @@
 - [x] Add independent positive/negative transformation and native fixtures.
 - [x] Stop the existing dev client before compilation/native smoke.
 - [x] Run wrapper compilation, focused checks and transformation audit.
-- [ ] Launch fresh runtime129 with explicit test world and MCP readiness gates.
-- [ ] Record original consumer acceptance and next first causal blocker.
-- [ ] Commit and push verified implementation separately from unrelated changes.
+- [x] Launch fresh runtime129 with explicit test world and MCP readiness gates.
+- [x] Record original consumer acceptance and next first causal blocker.
+- [x] Commit and push verified implementation separately from unrelated changes (98b615c).
