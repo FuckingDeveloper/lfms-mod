@@ -640,6 +640,11 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("rewriteSourceRecipeIdCalls",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteSourceRecipeIdCalls(node)),
+            new TransformationPipeline.Pass("Forge1192LanguageRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192LanguageRewriter.rewrite(node,
+                            (owner, base) -> owner.equals(node.name) ? isManagedSubtypeOf(node, base) : isManagedSubtypeOf(owner, base),
+                            (owner, name, desc) -> SRG_RUNTIME_RESOLVER.flatMap(resolver -> resolver.canonicalMethodName(owner, name, desc)).orElse(name))),
             new TransformationPipeline.Pass("rewriteRecipeAccessFamily",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteRecipeAccessFamily(node)),
@@ -13053,6 +13058,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     }
 
     private static String migrateInternalName(String value) {
+        if (value.equals(Forge1192LanguageRewriter.INFO)) return Forge1192LanguageRewriter.VIEW;
         String sourceTags=Forge1192TagNotificationRewriter.type(value);if(sourceTags!=null)return sourceTags;
         if(value.equals(Forge1192RecipeNotificationRewriter.SOURCE))return InstalledTargetAdapters.recipeNotificationEvent();
         if(value.equals("com/mojang/blaze3d/vertex/Tesselator"))return "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyImmediateTesselator";
@@ -13314,6 +13320,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {
             migrated = migrated.replace(relocation.getKey(), relocation.getValue());
         }
+        migrated = migrated.replace("L" + Forge1192LanguageRewriter.INFO + ";", "L" + Forge1192LanguageRewriter.VIEW + ";")
+                .replace("L" + Forge1192LanguageRewriter.INFO + "<", "L" + Forge1192LanguageRewriter.VIEW + "<");
         migrated = Forge1192EntityRelocations.projectDescriptor(migrated);
         migrated = Forge1192BootstrapRewriter.descriptor(migrated);
         return migrated

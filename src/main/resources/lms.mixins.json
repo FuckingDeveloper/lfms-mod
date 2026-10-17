@@ -49,7 +49,8 @@
     "Target263KeyCategoryLabelMixin",
     "Target263EntityRenderStateMixin",
     "Target263FluidModelLookupMixin",
-    "Target263ClientEntityFactoryMixin"
+    "Target263ClientEntityFactoryMixin",
+    "Target263LanguageManagerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

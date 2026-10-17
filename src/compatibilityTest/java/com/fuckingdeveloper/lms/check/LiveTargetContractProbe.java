@@ -199,6 +199,7 @@ public final class LiveTargetContractProbe {
         CookingRecipeInformationCheck.run();
         RecipeAccessMetadataCheck.run();
         RecipeEnumerationFamilyCheck.run();
+        LanguageSelectionFamilyCheck.run();
         InteractionResultInformationCheck.run();
         ContainerGraphicsCheck.run();
         WorldRenderFamilyCheck.run(bus,host);

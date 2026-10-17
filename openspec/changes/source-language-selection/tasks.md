@@ -1,0 +1,6 @@
+- [x] Verify exact source value/getter/locale/equality ABI and native catalog/selection/reload.
+- [x] Preserve complete source value identity through namespace projection.
+- [x] Adapt four manager queries/selection through one callable traversal.
+- [x] Keep per-manager state and clear it on actual native selection/catalog replacement.
+- [x] Native tests: source override/base dispatch, exact selected object, sort-set isolation, real native reload and original JEI locale consumer.
+- [ ] Fresh client verifies original JEI GUI consumer passes previous language blocker.
