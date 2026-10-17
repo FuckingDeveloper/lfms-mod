@@ -3,4 +3,4 @@
 - [x] Adapt 35 surviving constants with cached names/native ABI, inherited and nested callable forms.
 - [x] Preserve hiding declarations and reject final writes and removed BED reads.
 - [x] Native probes compare all supported values with actual source IDs; local source bytecode validates the snapshot.
-- [ ] Fresh client passes the previous banner block-entity field blocker.
+- [x] Runtime142 passes original BANNER field access; next blocker is BlockItem.setBlockEntityData legacy CompoundTag ABI.

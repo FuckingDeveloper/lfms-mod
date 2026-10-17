@@ -676,3 +676,61 @@ queries. Approved native brewing queries remain pending.
 Evidence: /tmp/lms-container-families-runtime-141.log. Implementations d55320c
 (language family) and 8b8fe4e (approved nominal recipe identities) are pushed;
 pre-existing uncommitted user changes remain preserved.
+
+## Built-in block-entity constants and fluid display — runtime142
+
+Forge1.19.2 -> Minecraft26.3 / NeoForge26.3.0.58-beta / Java25.
+All 36 source block-entity constants are accounted for. A pinned source-owned
+catalog records original canonical fields and registry identifiers, with the
+immutable source artifact SHA256. Cached source-name resolution and indexed
+actual target public/static/final field ABI adapt the 35 surviving values to
+BlockEntityTypes. Source type descriptors and genuine native values are retained.
+Direct/named/SRG/inherited reads, field handles and nested constants share the
+rule. Managed hiding declarations are preserved. Final writes fail explicitly.
+Source BED has no native field or minecraft:bed block-entity registry entry and
+remains an explicit unsupported read, without a dummy or substituted type.
+
+Source FluidStack getDisplayName/getTranslationKey now execute verified native
+getHoverName/getDescriptionId through one exact-member callable traversal. Both
+retain the original stack and active FluidType callback results. Native probes
+verify once-only stack-sensitive callbacks, component identity, direct/handle/
+nested forms and the original immutable JEI fluid display consumer. Native empty/
+zero fluid selection and exact unavailable-registry failure propagation are
+verified. Actual empty-fluid description text is UNVERIFIED: the isolated native
+probe does not register neoforge:fluid_type, and the live ordinary ingredient
+consumer does not establish an empty-stack text assertion. No global registry was
+mutated to satisfy the probe. Source FluidStack subclasses (native type is final),
+raw fluid NBT/codecs/transfer and source getRawFluid remain independent gaps.
+
+Executed successfully:
+`./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava compatibilityAudit --args='legacy-mods /tmp/lms-blocktypes-fluid-audit.tsv'`.
+Evidence: /tmp/lms-blocktypes-fluid-final-check.log. The local pinned source
+BlockEntityType registration bytecode was independently compared with the shipped
+catalog; all 35 surviving values match actual native registry identifiers.
+Audit: 3829 classes, 1116 grouped gaps / 6382 sites; same two dormant source
+custom-renderer/PackFinder transform failures. Inventory is not functional proof.
+
+Fresh runtime142 explicitly opened Новый мир. All seven source entrypoints
+initialize; MCP status/capability/player/dimension gates pass. Baseline player
+position/vitals/inventory summary are unchanged. No gameplay fixture, inventory
+mutation or recovery is pending. Dev JVM was stopped with user-authorized TERM.
+Highest overall observed milestone remains level 6, world load.
+
+Both runtime141 blockers disappear. Original JEI builds its complete ingredient
+list: 5241 entries, 67.61 ms. Full recipe/GUI acceptance remains BLOCKED:
+- First causal recipe-registration blocker: BlockItem.m_186338_(ItemStack,
+  BlockEntityType, CompoundTag), ShieldDecorationRecipeMaker.createOutput:60.
+  The native writer now consumes TagValueOutput/components, so blind renaming
+  would not establish legacy banner/stack NBT semantics.
+- First tooltip-filter blocker: ItemStack.m_41651_(Player,TooltipFlag) in
+  ItemStackRenderer.getTooltip:56 (the original renderer logs/catches it).
+- Independent tag-filter blocker: ItemStack.m_204131_()->Stream in
+  ItemStackHelper.getTagStream:149, which aborts GUI startup.
+The later unknown ItemStack ingredient-type failure follows incomplete GUI
+startup. A JEI completion timer is not recipe/GUI functionality evidence.
+
+Evidence: /tmp/lms-container-families-runtime-142.log. Production checkpoints
+08a61e5 (constant catalog) and 6116918 (fluid display) are pushed; pre-existing
+uncommitted user changes are preserved. Next work is source block-item metadata
+writes and item tooltip/tag queries. Approved native brewing queries remain
+pending, with no functional brewing claim.
