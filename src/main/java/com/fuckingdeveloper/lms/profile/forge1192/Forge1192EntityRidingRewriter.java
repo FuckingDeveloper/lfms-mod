@@ -50,9 +50,9 @@ final class Forge1192EntityRidingRewriter {
             node.methods.add(adapter); count++;
         }
         for (var method : node.methods) for (var insn : method.instructions) {
-            if (insn instanceof LdcInsnNode ldc) ldc.cst = sourceSuperConstant(ldc.cst, evidence);
+            if (insn instanceof LdcInsnNode ldc) { Object next = sourceSuperConstant(ldc.cst, evidence); if (next != ldc.cst) { ldc.cst = next; count++; } }
             if (insn instanceof InvokeDynamicInsnNode indy) for (int i = 0; i < indy.bsmArgs.length; i++)
-                indy.bsmArgs[i] = sourceSuperConstant(indy.bsmArgs[i], evidence);
+                { Object next = sourceSuperConstant(indy.bsmArgs[i], evidence); if (next != indy.bsmArgs[i]) { indy.bsmArgs[i] = next; count++; } }
         }
         count += invocations.rewrite(node, (opcode, owner, name, desc) -> {
             if (opcode == INVOKESTATIC || !evidence.entity(owner)) return null;
