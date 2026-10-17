@@ -125,6 +125,19 @@ Cleanup is pending client recovery: only owned sky fixtures at (-157,245,32),
 workbench (-197,79,12). Original hotbar4 chicken dynamite is safely in slot21;
 restore it after clearing the tagged test stack. Baseline player/inventory retained.
 
+Game-event follow-up: source registered constants/field handles and four level /
+two entity delivery overloads now pass independent native entry checks. Actual
+holder, actor, Vec3/context identity, center defaults, native virtual dispatch and
+original exceptions are preserved; custom raw callbacks fail explicitly. Full
+checks passed (`/tmp/lms-game-events-final-check.log`), selected audit now reports
+1124 grouped findings / 5693 sites (`/tmp/lms-game-events-final-audit.tsv`). This
+is structural/entrypoint evidence; real listener/ignition acceptance remains
+BLOCKED by custom entity renderer extraction. A new static-block model-context
+choice is prepared in
+[source entity rendering](../openspec/changes/source-entity-render-extraction/proposal.md).
+The current client is stopped; do not launch into the known renderer crash for
+another startup-only test. Owned fixture/inventory cleanup remains pending.
+
 ## Symptoms not requiring another mechanics-specific fix
 
 | Report | Current disposition |

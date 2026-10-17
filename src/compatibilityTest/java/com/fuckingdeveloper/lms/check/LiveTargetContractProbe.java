@@ -219,6 +219,7 @@ public final class LiveTargetContractProbe {
         CreativeConstructionFamilyCheck.run();
         SoundManagerPlaybackFamilyCheck.run();
         EntityDataBuilderFamilyCheck.run();
+        GameEventDeliveryFamilyCheck.run();
         EntityAllocationFamilyCheck.run();
         ExplosionExecutionFamilyCheck.run();
         ChunkLightPacketFamilyCheck.run();

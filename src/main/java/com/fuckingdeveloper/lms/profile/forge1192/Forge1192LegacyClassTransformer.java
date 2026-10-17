@@ -315,6 +315,14 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("catalogued-source-methods",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192MethodRules.rewrite(node, methodDeclarations, semanticInvocations)),
+            new TransformationPipeline.Pass("source-game-event-delivery",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192GameEventRewriter.rewrite(node,new Forge1192GameEventRewriter.Evidence() {
+                        public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):owner.equals(root)||isManagedSubtypeOf(owner,root);}
+                        public String method(String owner,String name,String desc){return registryCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,
+                                ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(owner,name,desc))).orElse(null);}
+                        public String field(String name){return SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalFieldName("net/minecraft/world/level/gameevent/GameEvent",name,"Lnet/minecraft/world/level/gameevent/GameEvent;")).orElse(null);}
+                    },com.fuckingdeveloper.lms.target.InstalledTargetAdapters.gameEventFields(),com.fuckingdeveloper.lms.target.InstalledTargetAdapters.gameEventsBridge(),semanticInvocations)),
             new TransformationPipeline.Pass("source-entity-position-snaps",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192EntityPositionRewriter.rewrite(node,
