@@ -15,4 +15,7 @@
   model-view PoseStack). Screen visual acceptance/reopen remain BLOCKED.
   `/tmp/lms-container-families-runtime-95.log`,
   `run/crash-reports/crash-2026-10-17_03.33.59-client.txt`.
-- [ ] Remove the temporary workbench at (-197,79,12) after a cleanup world launch.
+- [x] Runtime96 cleanup: world loads without ERROR/FATAL; MCP verifies the
+  temporary workbench, removes it and confirms air at (-197,79,12). Player
+  position and selected slot are unchanged; restore original camera orientation.
+  Client remains in the test world. `/tmp/lms-container-families-runtime-96-cleanup.log`.
