@@ -438,3 +438,44 @@ authoritative dynamic registry reads, followed by the immediate matrix/vertex
 family used by the fluid ingredient renderer. Existing mutable/snapshot/custom
 registry gaps, unsupported concrete holder/delegate/codec members and the
 CarbonConfig NamedRegistry data-driven initialization path remain explicit gaps.
+
+
+## Runtime134: enchanted-book and typed NBT-list read acceptance
+
+Source scope: Forge1.19.2. Target: Minecraft26.3 / NeoForge26.3.0.58-beta / Java25.
+The removed source static book reader now acquires a receiver-owned live stored
+list. Nested entry edits reconcile with native STORED_ENCHANTMENTS before native
+component reads/snapshots/copy/comparison/mutation. Native replacement supersedes
+the observed mirror, absent lists stay detached, and source tag assignment/removal
+and copy ownership have native FML checks. ACTIVE enchantment views retain only a
+key and resolve authoritative current registries; source description IDs retain
+registry-derived translation identity. No fixture identity selects these rules.
+
+Runtime133 revealed the related ListTag Optional-return migration after the book
+reader passed. The complete pinned typed-read family now preserves exact source
+numeric tag types, wrong-type/index defaults, live nested/array values and source
+string/SNBT fallback across direct and callable forms. Native heterogeneous list
+element-type queries fail explicitly. Arbitrary collection mutation aliases are
+outside this bounded read-family acceptance.
+
+Executed: `./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava
+compatibilityAudit --args='legacy-mods /tmp/lms-enchanted-book-list-audit.tsv'`.
+All pass; /tmp/lms-enchanted-book-list-check.log. Audit: 3829 classes, 1137 grouped
+gaps / 6725 sites, same two prior unrelated dormant transform failures. This is
+symbol inventory, not functional coverage.
+
+Fresh `./gradlew runClient -PlmsTestWorld='Новый мир'` loads the explicit existing
+world; MCP confirms integrated server, Dev, overworld, baseline position/vitals
+and inventory summary. All seven source constructors initialize. Runtime134 has
+zero original book-variant “Couldn't get unique name” errors; original subtype
+reads reach completion before fluid renderer construction fails on Matrix4f at
+VanillaPlugin:188. Vanilla crafting category NPE is secondary. Book/list reads
+are accepted at that bounded functional consumer; full JEI startup is BLOCKED.
+Highest overall observed milestone remains world load (level 6).
+
+Evidence: /tmp/lms-container-families-runtime-134.log. No gameplay fixture or
+inventory mutation was performed; no recovery is pending. Client left running.
+Code checkpoints 5de5095 and 3e2dcd3 are pushed. Pre-existing user changes are
+preserved. Next first causal family: old immediate matrix/vertex rendering.
+Custom enchantment subclasses, EnchantmentCategory/EnchantmentInstance, book
+construction/subclasses and general enchanting simulation remain explicit gaps.

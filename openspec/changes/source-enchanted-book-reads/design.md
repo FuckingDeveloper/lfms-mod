@@ -62,3 +62,25 @@ non-string SNBT fallback. Source getElementType rejects heterogeneous native lis
 which have no source representation. Direct/handle/lambda/nested-constant reads
 share the existing semantic traversal. Native collection mutations and Java List
 aliases are outside this typed-read contract.
+
+## Runtime134 acceptance
+
+The fresh explicit-world Gradle client loads Новый мир. MCP verifies the actual
+integrated server, local Dev player in overworld, matching position/vitals and
+baseline inventory summary. All seven source entrypoint constructors initialize.
+Original JEI book subtype enumeration produces zero “Couldn't get unique name”
+errors and no removed-book/ListTag linkage errors, then advances to fluid renderer
+construction at VanillaPlugin:188. The first causal ERROR is missing Matrix4f;
+the later vanilla crafting category NPE is secondary. Full JEI startup/rendering
+remains BLOCKED. Overall highest observed milestone remains world load (level 6).
+Source read-family acceptance does not establish native in-world enchanting,
+custom enchantment subclasses, book construction/subclass semantics, category
+migration or source EnchantmentInstance compatibility.
+
+Evidence: /tmp/lms-container-families-runtime-134.log. The final list-family
+checks pass in /tmp/lms-enchanted-book-list-check.log using the same Gradle command
+with audit report /tmp/lms-enchanted-book-list-audit.tsv: 3829 classes, 1137 grouped
+gaps / 6725 sites, same two prior unrelated transform failures. No gameplay
+fixture or inventory mutation was performed; no recovery is pending. The client
+is left running. Implementation commits 5de5095 and 3e2dcd3 are pushed; unrelated
+pre-existing worktree changes remain preserved.
