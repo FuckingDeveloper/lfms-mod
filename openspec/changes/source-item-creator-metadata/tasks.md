@@ -1,0 +1,7 @@
+- [x] Verify Forge43.4.0 and NeoForge26.3 creator/default rules.
+- [x] Adapt source item/interface/default queries and callable/nested forms.
+- [x] Preserve source overrides, stack identity, base dispatch and native callback.
+- [x] Verify component-backed potion, default egg and exact enchanted-book identity.
+- [x] Verify foreign enchantment namespace and unrelated component-owner negative.
+- [x] Compile and native family tests without mutating frozen registries.
+- [ ] Verify original JEI metadata consumer in a fresh explicit-world client.

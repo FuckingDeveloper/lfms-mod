@@ -1,0 +1,7 @@
+- [x] Verify pinned source delegation and target full/reduced recipe ABI.
+- [x] Consolidate exact server/world/connection queries through shared traversal.
+- [x] Preserve callable receiver types; reject unrelated owners and source overrides.
+- [x] Validate current client world/connection and use its integrated server.
+- [x] Compile and native family checks, including inherited owners and negative override.
+- [ ] Verify original JEI world-recipe consumer in a fresh explicit-world client.
+- [ ] Record first remaining causal blocker; no remote/full-sync claim.

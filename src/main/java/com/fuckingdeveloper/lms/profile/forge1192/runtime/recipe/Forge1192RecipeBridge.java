@@ -58,14 +58,26 @@ public final class Forge1192RecipeBridge {
     public static float cookingExperience(net.minecraft.world.item.crafting.AbstractCookingRecipe recipe) { return recipe instanceof com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe.LegacyCookingExperience source ? source.lms$cookingExperience() : recipe.experience(); }
 
 
+    public static RecipeManager worldRecipeManager(net.minecraft.world.level.Level level) {
+        Objects.requireNonNull(level, "level");
+        if (!level.isClientSide()) {
+            if (level.recipeAccess() instanceof RecipeManager manager) return manager;
+            throw new UnsupportedOperationException("Source world has no authoritative full recipe manager");
+        }
+        var client = net.minecraft.client.Minecraft.getInstance();
+        if (client.level != level) throw new IllegalStateException("Source recipe query uses a stale client world");
+        return clientRecipeManager(Objects.requireNonNull(client.getConnection(), "Active client connection"));
+    }
+
     public static RecipeManager clientRecipeManager(ClientPacketListener connection) {
         Objects.requireNonNull(connection, "connection");
-        var server = ServerLifecycleHooks.getCurrentServer();
-        if (server == null) {
-            throw new UnsupportedOperationException(
-                    "Forge 1.19.2 full client recipe access requires a co-resident integrated server; "
-                            + "Minecraft 26.3 only synchronizes a reduced RecipeAccess view");
-        }
+        var client = net.minecraft.client.Minecraft.getInstance();
+        if (client.getConnection() != connection)
+            throw new IllegalStateException("Source recipe query uses a stale client connection");
+        var server = client.getSingleplayerServer();
+        if (server == null) throw new UnsupportedOperationException(
+                "Forge 1.19.2 full client recipe access requires a co-resident integrated server; "
+                        + "Minecraft 26.3 only synchronizes a reduced RecipeAccess view");
         return server.getRecipeManager();
     }
 

@@ -640,6 +640,13 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("rewriteSourceRecipeIdCalls",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteSourceRecipeIdCalls(node)),
+            new TransformationPipeline.Pass("rewriteRecipeAccessFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteRecipeAccessFamily(node)),
+            new TransformationPipeline.Pass("Forge1192CreatorMetadataRewriter.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192CreatorMetadataRewriter.rewrite(node, (owner, base) ->
+                            owner.equals(node.name) ? isManagedSubtypeOf(node, base) : isManagedSubtypeOf(owner, base))),
             new TransformationPipeline.Pass("rewriteRecipeInformationFamily",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteRecipeInformationFamily(node)),
@@ -4406,14 +4413,43 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         return rewrites;
     }
 
+    private Handle recipeAccessMember(int opcode, String owner, String name, String descriptor) {
+        if (opcode != org.objectweb.asm.Opcodes.INVOKEVIRTUAL
+                || !descriptor.equals("()Lnet/minecraft/world/item/crafting/RecipeManager;")) return null;
+        String base, bridgeName;
+        if ((name.equals("m_7465_") || name.equals("getRecipeManager"))
+                && isManagedSubtypeOf(owner, "net/minecraft/world/level/Level")) {
+            base = "net/minecraft/world/level/Level"; bridgeName = "worldRecipeManager";
+        } else if ((name.equals("m_105141_") || name.equals("getRecipeManager"))
+                && isManagedSubtypeOf(owner, "net/minecraft/client/multiplayer/ClientPacketListener")) {
+            base = "net/minecraft/client/multiplayer/ClientPacketListener"; bridgeName = "clientRecipeManager";
+        } else if ((name.equals("m_129894_") || name.equals("getRecipeManager"))
+                && isManagedSubtypeOf(owner, "net/minecraft/server/MinecraftServer")) {
+            base = "net/minecraft/server/MinecraftServer"; bridgeName = "serverRecipeManager";
+        } else return null;
+        return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/profile/forge1192/runtime/recipe/Forge1192RecipeBridge",
+                bridgeName, "(L" + base + ";)Lnet/minecraft/world/item/crafting/RecipeManager;", false);
+    }
+
+    private int rewriteRecipeAccessFamily(ClassNode node) {
+        for (String base : java.util.List.of("net/minecraft/world/level/Level",
+                "net/minecraft/client/multiplayer/ClientPacketListener", "net/minecraft/server/MinecraftServer")) {
+            if (!isManagedSubtypeOf(node, base)) continue;
+            for (var method : node.methods) {
+                if ((method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0
+                        && recipeAccessMember(org.objectweb.asm.Opcodes.INVOKEVIRTUAL, base, method.name, method.desc) != null)
+                    throw new UnsupportedOperationException("Unadapted source full-recipe accessor override: " + node.name + "." + method.name);
+            }
+        }
+        return rewriteSemanticInstanceCalls(node, this::recipeAccessMember);
+    }
+
     private Handle recipeInformationHandle(Handle handle) {
         int tag=handle.getTag();
         if (tag!=org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL && tag!=org.objectweb.asm.Opcodes.H_INVOKEINTERFACE) return null;
         String name=null, receiver=null, result=null;
-        if (handle.getOwner().equals("net/minecraft/server/MinecraftServer") && handle.getName().equals("m_129894_")
-                && handle.getDesc().equals("()Lnet/minecraft/world/item/crafting/RecipeManager;")) {
-            name="serverRecipeManager";receiver=handle.getOwner();result="Lnet/minecraft/world/item/crafting/RecipeManager;";
-        } else if (isManagedSubtypeOf(handle.getOwner(),"net/minecraft/world/item/crafting/Recipe")) {
+        if (isManagedSubtypeOf(handle.getOwner(),"net/minecraft/world/item/crafting/Recipe")) {
             if (handle.getName().equals("m_6423_") && handle.getDesc().equals("()Lnet/minecraft/resources/ResourceLocation;")) { name="legacyId";result="Lnet/minecraft/resources/ResourceLocation;"; }
             if (handle.getName().equals("m_8043_") && handle.getDesc().equals("()Lnet/minecraft/world/item/ItemStack;")) { name="legacyResult";result="Lnet/minecraft/world/item/ItemStack;"; }
             if (handle.getName().equals("m_7527_") && handle.getDesc().equals("()Lnet/minecraft/core/NonNullList;")) { name="legacyIngredients";result="Lnet/minecraft/core/NonNullList;"; }
@@ -7545,19 +7581,6 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                     continue;
                 }
 
-                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        && call.owner.equals("net/minecraft/client/multiplayer/ClientPacketListener")
-                        && call.name.equals("m_105141_")
-                        && call.desc.equals("()Lnet/minecraft/world/item/crafting/RecipeManager;")) {
-                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                    call.owner = "com/fuckingdeveloper/lms/profile/forge1192/runtime/recipe/Forge1192RecipeBridge";
-                    call.name = "clientRecipeManager";
-                    call.desc = "(Lnet/minecraft/client/multiplayer/ClientPacketListener;)"
-                            + "Lnet/minecraft/world/item/crafting/RecipeManager;";
-                    call.itf = false;
-                    rewrites++;
-                    continue;
-                }
 
                 if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                         && call.owner.equals("net/neoforged/neoforge/client/event/RenderLevelStageEvent")

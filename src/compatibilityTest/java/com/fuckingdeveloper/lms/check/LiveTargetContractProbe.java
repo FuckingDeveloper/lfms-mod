@@ -197,6 +197,7 @@ public final class LiveTargetContractProbe {
         FuelQueryFamilyCheck.run();
         StackComparisonFamilyCheck.run();
         CookingRecipeInformationCheck.run();
+        RecipeAccessMetadataCheck.run();
         InteractionResultInformationCheck.run();
         ContainerGraphicsCheck.run();
         WorldRenderFamilyCheck.run(bus,host);

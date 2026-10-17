@@ -9,6 +9,9 @@ package com.fuckingdeveloper.lms.profile.forge1192.runtime.item;
  * interface identity until each executable boundary has semantic evidence.</p>
  */
 public interface LegacyIForgeItem {
+    default String getCreatorModId(net.minecraft.world.item.ItemStack stack) {
+        return Forge1192CreatorMetadataBridge.defaultCreatorModId(stack);
+    }
     default int getBurnTime(net.minecraft.world.item.ItemStack stack, net.minecraft.world.item.crafting.RecipeType<?> type) { return -1; }
     default boolean hasCraftingRemainingItem(net.minecraft.world.item.ItemStack stack) {
         return com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192CraftingRemainderBridge.defaultHas((net.minecraft.world.item.Item)this,stack);
