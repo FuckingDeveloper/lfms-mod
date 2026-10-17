@@ -1,0 +1,7 @@
+- [x] Identify runtime122 original empty-plugin failure.
+- [x] Inspect source metadata/reflection use and current LMS scan/owner lifecycle.
+- [x] Inspect pinned Forge ModList/JavaFML and cached ModLauncher layer construction.
+- [ ] Agree shared source-domain versus strict dependency/export policy.
+- [ ] Update the normative classloading and related source/resource contracts.
+- [ ] Implement truthful scan metadata and the selected owner/visibility boundary.
+- [ ] Verify independent graph/discovery/identity fixtures and actual client behavior.
