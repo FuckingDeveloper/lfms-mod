@@ -44,7 +44,7 @@ def nativeSmokeJar = tasks.register('nativeSmokeJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
     archiveClassifier = 'native-smoke'
     from(sourceSets.compatibilityTest.output) {
-        include '**/SourceConfigRegistrationCheck*.class', '**/SourceProjectileFamilyCheck*.class'
+        include '**/SourceConfigRegistrationCheck*.class', '**/SourceMenuFactoryCheck*.class', '**/SourceProjectileFamilyCheck*.class'
         include '**/LifecycleWorkFamilyCheck*.class', '**/LifecycleWorkFixture*.class'
         include '**/AnalogOutputFamilyCheck*.class'
         include '**/VanillaItemTransferFamilyCheck*.class'

@@ -319,6 +319,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                         public boolean subtype(String owner,String base){return owner.equals(base)||isManagedSubtypeOf(owner,base);}
                         public String canonical(String owner,String name,String desc){return projectileCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(owner,name,desc))).orElse(null);}
                     },semanticInvocations)),
+            new TransformationPipeline.Pass("source-menu-factories",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192MenuRewriter.rewrite(node, methodDeclarations)),
             new TransformationPipeline.Pass("Forge1192SoundEventRewriter.rewrite",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192SoundEventRewriter.rewrite(node, Forge1192LegacyClassTransformer::matchingConstructor)),
@@ -12819,6 +12822,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         String selectionView = Forge1192SelectionListRewriter.relocation(value);
         if(selectionView != null)return selectionView;
         if (value.equals(Forge1192ProjectileRewriter.SOURCE)) return Forge1192ProjectileRewriter.target();
+        String menuView = Forge1192MenuRewriter.relocation(value);
+        if (menuView != null) return menuView;
         String configView = Forge1192NativeConfigRewriter.relocation(value);
         if (configView != null) return configView;
         String ruleView = Forge1192GameRulesRewriter.relocation(value);
@@ -13045,7 +13050,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     }
 
     private static String migrateDescriptor(String descriptor) {
-        String migrated = Forge1192SelectionListRewriter.descriptor(Forge1192NativeConfigRewriter.descriptor(Forge1192GameRulesRewriter.descriptor(descriptor)));
+        String migrated = Forge1192MenuRewriter.descriptor(Forge1192SelectionListRewriter.descriptor(Forge1192NativeConfigRewriter.descriptor(Forge1192GameRulesRewriter.descriptor(descriptor))));
         migrated = migrated.replace("L"+Forge1192ProjectileRewriter.SOURCE+";","L"+Forge1192ProjectileRewriter.target()+";")
                 .replace("L"+Forge1192ProjectileRewriter.SOURCE+"<","L"+Forge1192ProjectileRewriter.target()+"<");
         for (var relocation : EXPLICIT_VANILLA_CLASS_RELOCATIONS.entrySet()) {

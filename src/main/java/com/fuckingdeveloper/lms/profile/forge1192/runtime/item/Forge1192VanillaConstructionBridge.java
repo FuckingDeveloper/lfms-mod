@@ -468,7 +468,7 @@ public final class Forge1192VanillaConstructionBridge {
                 (BlockEntityType.BlockEntitySupplier) supplier,
                 (Set<Block>) (Set) validBlocks);
     }
-    public static net.minecraft.world.inventory.MenuType<?> menuType(net.minecraft.world.inventory.MenuType.MenuSupplier<?> factory) {
+    public static <T extends net.minecraft.world.inventory.AbstractContainerMenu> net.minecraft.world.inventory.MenuType<T> menuType(net.minecraft.world.inventory.MenuType.MenuSupplier<T> factory) {
         return new net.minecraft.world.inventory.MenuType<>(factory,net.minecraft.world.flag.FeatureFlags.VANILLA_SET);
     }
 

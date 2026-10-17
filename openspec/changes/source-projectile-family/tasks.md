@@ -29,5 +29,5 @@ Evidence: `/tmp/lms-menu-projectile-check-7.log` (native constructor/data tests)
 absent), `/tmp/lms-container-families-runtime-91.log` and preserved crash report.
 The selected static graph contains six source fixtures plus Carbon's actual nested
 Primitive Collections dependency, not Wick's nested MixinExtras. Counts are not a
-whole-mod compatibility measure. Last observed fresh milestone is registration4;
-no successful world load or flight/persistence acceptance is recorded here.
+whole-mod compatibility measure. Registry registration completed, but client-setup lifecycle is incomplete;
+menu/world milestones5/6 and flight/persistence acceptance were not reached.

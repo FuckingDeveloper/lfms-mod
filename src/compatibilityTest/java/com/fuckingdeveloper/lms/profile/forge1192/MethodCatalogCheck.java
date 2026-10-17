@@ -30,6 +30,13 @@ public final class MethodCatalogCheck implements Opcodes {
             method.instructions.add(new MethodInsnNode(INVOKESTATIC,configContext,"registerConfig",desc,false));
             reject(()->Forge1192NativeConfigRewriter.rewrite(fixture,sourceDeclarations));
         }
+        for(var menuRule:Forge1192MethodRules.catalog().entries().stream().filter(r->r.family().equals("MENU_FACTORY")).toList()) {
+            var member=menuRule.source();
+            var boundary=new Forge1192RegistrationPlanner.Boundary("fixture",member.owner().replace('/','.'),member.name(),member.descriptor(),Forge1192RegistrationPlanner.ExecutionPhase.RUNTIME,menuRule.opcode());
+            check(configSurface.assess(List.of(boundary)).executable(),"menu admission did not use implemented rule");
+            var wrong=new Forge1192RegistrationPlanner.Boundary("fixture",member.owner().replace('/','.'),member.name(),member.descriptor(),Forge1192RegistrationPlanner.ExecutionPhase.RUNTIME,INVOKEVIRTUAL);
+            check(!configSurface.assess(List.of(wrong)).executable(),"invalid menu invocation shape admitted");
+        }
         var raw = new HashMap<String,byte[]>(); var reads = new java.util.concurrent.atomic.AtomicInteger();
         var declarations = new Forge1192MethodDeclarations(owner -> { reads.incrementAndGet(); return raw.get(owner); });
         int descendants = 0;

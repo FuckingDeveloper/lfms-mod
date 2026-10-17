@@ -19,7 +19,7 @@ Minecraft generation from a JAR filename. `API_BLOCKED` groups exact method
 requirements; repeated call sites are not independent bug counts. Grouping lets
 one proven family correction be applied to all affected artifacts.
 
-The method catalog covers lifecycle deferred work and the proven source configuration family. The same immutable
+The method catalog covers lifecycle deferred work, the proven source configuration family and source menu factories. The same immutable
 rules drive source invocation transformation and admission. Source declaration
 lookup uses hash-pinned Forge headers and raw managed bytes, preserves override
 identity and caches positive/negative results only within one evidence graph.
@@ -58,3 +58,12 @@ of full initialization or world load. JEI still has11 grouped API requirements,
 Wick2; Fetzi remains profile-unresolved. See the
 [configuration verification](../openspec/changes/source-config-registration/tasks.md)
 for tests, runtime limits and the next causal blockers.
+
+
+The projectile/menu checkpoint passed the former deferred registry blockers in
+runtime91. The subsequent client-setup deferred task hits the existing source
+screen-phase guard. Registry completion does not establish completed client
+lifecycle, a menu or a loaded world. The menu-factory tests preserve the existing
+source VANILLA_SET construction policy, original buffer/null identity and native
+MenuType source-interface support. Changing the later screen registration policy
+is a separately pending decision, not an implemented compatibility claim.

@@ -10,7 +10,7 @@ public final class Forge1192MethodRules {
     public static final String WORK = "net/minecraftforge/fml/event/lifecycle/ParallelDispatchEvent";
     private static final MethodRuleCatalog CATALOG = new MethodRuleCatalog(entries());
     private Forge1192MethodRules() {}
-    private static List<MethodRuleCatalog.Rule> entries(){var result=new java.util.ArrayList<MethodRuleCatalog.Rule>(Forge1192ConfigRules.entries());result.add(work("Runnable","java/lang/Runnable"));result.add(work("Supplier","java/util/function/Supplier"));return List.copyOf(result);}
+    private static List<MethodRuleCatalog.Rule> entries(){var result=new java.util.ArrayList<MethodRuleCatalog.Rule>(Forge1192ConfigRules.entries());result.addAll(Forge1192MenuRewriter.entries());result.add(work("Runnable","java/lang/Runnable"));result.add(work("Supplier","java/util/function/Supplier"));return List.copyOf(result);}
     private static MethodRuleCatalog.Rule work(String id, String argument) {
         String desc = "(L" + argument + ";)Ljava/util/concurrent/CompletableFuture;";
         return new MethodRuleCatalog.Rule("lifecycle-work-" + id, "LIFECYCLE_WORK",
