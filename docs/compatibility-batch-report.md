@@ -132,3 +132,21 @@ Source-header regeneration additionally requires
 `-PlegacyEventBusJar=/absolute/path/to/eventbus-6.0.3.jar`; all four hashes are
 verified. No original legacy input, local configuration, token or runtime output
 belongs in the checkpoint.
+
+## Native construction follow-up (runtime111)
+
+Native one-time stair base resolution was approved and implemented for the exact
+supplier constructor/source super/constructor-handle forms. The source custom
+entity factory now retains its owner on the actual builder/type and receives the
+actual native spawn packet and client level at native creation. Original source
+spawn-packet overrides run under the real native tracker context. Additional
+spawn-data buffers and old wire codecs remain explicit gaps.
+
+Independent checks pass in `/tmp/lms-client-factory-check.log`; 4355-class audit
+reports1131 groups/5732 sites, still an inventory. Runtime111 passed the previous
+source SpawnEntity and stair-constructor errors, then Fetzi hit the unmigrated
+BANNER_PATTERN registry key. Its deferred block constructors additionally exposed
+cross-block access to formerly public callbacks and captured item properties
+created before their registration entry. Wick passed UNKNOWN/SDL key construction
+and reached the deliberate direct-Button allocation guard. The client failed
+registration and was stopped; no world/content/seat acceptance is claimed.

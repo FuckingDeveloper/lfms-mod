@@ -338,9 +338,9 @@ public final class Forge1192VanillaConstructionBridge {
      */
     public static <T extends Entity> EntityType<T> entityType(
             EntityType.Builder<T> builder, String legacyName) {
-        return builder.build(ResourceKey.create(
+        return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceEntityFactories.bind(builder,builder.build(ResourceKey.create(
                 Registries.ENTITY_TYPE,
-                Forge1192RegistrationContext.checkPrefix(legacyName, false)));
+                Forge1192RegistrationContext.checkPrefix(legacyName, false))));
     }
 
     /** Resolve a legacy raw built-in effect to its canonical modern holder. */

@@ -1,0 +1,6 @@
+- [x] Verify source lazy supplier behavior and native required base state.
+- [x] Obtain user approval of one-time native construction policy.
+- [x] Adapt exact supplier constructor, source super calls and constructor handles/constants.
+- [x] Verify once-only base evaluation, source failure identity and actual native frozen-registry rejection without thawing global registries.
+- [x] Compile and pass compatibilityTest/nativeCompatibilitySmoke/compileLaunchJava.
+- [ ] Verify actual native stair construction during valid source registration and inspect world placement.

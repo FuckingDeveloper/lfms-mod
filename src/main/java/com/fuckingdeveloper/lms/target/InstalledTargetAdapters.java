@@ -27,6 +27,10 @@ public final class InstalledTargetAdapters {
                 "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192EventBusBridge",
                 "addListenerExplicit","(L"+sourceBus+";"+descriptor.substring(1),false);
     }
+    public static String sourceEntityFactories() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceEntityFactories"; }
+    public static String sourceSpawnPacketInterface() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceSpawnPacket"; }
+    public static String sourceSpawnEntity() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceSpawnEntity"; }
+    public static String sourceStairs() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceStairs"; }
     public static String sourceEntityRenderer() { return "com/fuckingdeveloper/lms/target/neoforge263/render/Target263SourceEntityRenderer"; }
     public static String throwableItemBase() { return "net/minecraft/world/entity/projectile/throwableitemprojectile/ThrowableItemProjectile"; }
     public static String throwableItemAdapter() { return "com/fuckingdeveloper/lms/target/neoforge263/entity/Target263Forge1192ThrowableItemProjectile"; }

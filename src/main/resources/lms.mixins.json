@@ -27,7 +27,8 @@
     "Target263CreativeItemIntentMixin",
     "Target263VillagerTradeMixin",
     "Target263WanderingTraderTradeMixin",
-    "Target263SingleRecipeResultAccess"
+    "Target263SingleRecipeResultAccess",
+    "Target263SourceEntityFactoryMixin"
   ],
   "client": [
     "Target263SearchTooltipContextMixin",
@@ -41,7 +42,8 @@
     "Target263GroundItemExtractionMixin",
     "Target263KeyCategoryLabelMixin",
     "Target263EntityRenderStateMixin",
-    "Target263FluidModelLookupMixin"
+    "Target263FluidModelLookupMixin",
+    "Target263ClientEntityFactoryMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -1,0 +1,8 @@
+- [x] Inspect source builder/SpawnEntity/NetworkHooks and actual native packet creation/publication.
+- [x] Preserve factory intent on actual native builder/type objects without global loader-retaining maps.
+- [x] Invoke original source factory at native packet construction with real packet/level.
+- [x] Preserve original source spawn-packet override under real ServerEntity scope.
+- [x] Verify native packet view, source-shaped factory capture/bind, result/null/failure/owner and native fallback; no fabricated extra-data buffer.
+- [x] Compile and pass compatibilityTest/nativeCompatibilitySmoke/compileLaunchJava.
+- [ ] Inspect transformed audit and fresh runtime registration/world/client factory acceptance.
+- [ ] Verify actual source seating interaction/publication; source entity persistence is separate.

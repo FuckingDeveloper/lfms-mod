@@ -323,6 +323,16 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                         public String method(String owner,String name,String desc){return registryCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,
                                 ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(owner,name,desc))).orElse(null);}
                     },com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceEntityRenderer(),semanticInvocations)),
+            new TransformationPipeline.Pass("source-client-entity-factories",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192EntitySpawnRewriter.rewrite(node,new Forge1192EntitySpawnRewriter.Evidence() {
+                        public boolean entity(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,"net/minecraft/world/entity/Entity"):owner.equals("net/minecraft/world/entity/Entity")||isManagedSubtypeOf(owner,"net/minecraft/world/entity/Entity");}
+                        public String method(String name,String desc){return registryCanonicalMethods.computeIfAbsent("net/minecraft/world/entity/Entity#"+name+desc,
+                                ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName("net/minecraft/world/entity/Entity",name,desc))).orElse(null);}
+                    },com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceEntityFactories(),com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnPacketInterface(),semanticInvocations)),
+            new TransformationPipeline.Pass("source-stair-construction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192StairConstructionRewriter.rewrite(node,com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceStairs())),
             new TransformationPipeline.Pass("source-game-event-delivery",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192GameEventRewriter.rewrite(node,new Forge1192GameEventRewriter.Evidence() {
@@ -13082,6 +13092,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             return value.replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192DistExecutorBridge");
         if (value.equals("net/minecraftforge/api/distmarker/Dist"))
             return "net/neoforged/api/distmarker/Dist";
+        if (value.equals("net/minecraftforge/network/PlayMessages$SpawnEntity"))
+            return com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnEntity();
         if (value.equals("net/minecraftforge/network/NetworkRegistry"))
             return "com/fuckingdeveloper/lms/profile/forge1192/runtime/network/Forge1192NetworkBridge";
         if (value.equals("net/minecraftforge/network/simple/SimpleChannel")
@@ -13288,6 +13300,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         migrated = Forge1192EntityRelocations.projectDescriptor(migrated);
         migrated = Forge1192BootstrapRewriter.descriptor(migrated);
         return migrated
+                .replace("net/minecraftforge/network/PlayMessages$SpawnEntity", com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnEntity())
                 .replace("net/minecraftforge/fml/IExtensionPoint", "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/LegacyExtensionPoint")
                 .replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192DistExecutorBridge")
                 .replace("net/minecraftforge/api/distmarker/Dist", "net/neoforged/api/distmarker/Dist")
