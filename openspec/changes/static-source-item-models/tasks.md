@@ -37,4 +37,6 @@ subpaths remains unchanged by resource discovery alone.
   interrupted by a user-thrown dynamite cooldown linkage crash before MCP control;
   crash report `crash-2026-10-17_14.17.34-client.txt`. Separate cooldown work
   continues in `source-item-cooldowns`; visual acceptance is still pending.
-- [ ] Human visual acceptance: creative icons and workbench preview/selection.
+- [x] Runtime104 user accepted workbench block icons, large preview and variant
+  selection. Native item model warnings remained absent. Separate creative-tab
+  visual check was not repeated; the workbench uses the same source item models.

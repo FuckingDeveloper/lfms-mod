@@ -1,6 +1,6 @@
 # API-family coverage and verification queue
 
-Evidence review: 2026-10-16. Source: Forge 1.19.2. Target: Minecraft26.3 /
+Evidence review: 2026-10-17 (bounded runtime104 addition; earlier inventory retained). Source: Forge 1.19.2. Target: Minecraft26.3 /
 NeoForge26.3.0.58-beta / Java25. This is an implementation/testing inventory,
 not a new compatibility contract or a promise to implement every source API.
 
@@ -57,6 +57,39 @@ Evidence anchors:
 - F07: [empty handler interface](../src/main/java/com/fuckingdeveloper/lms/profile/forge1192/runtime/fluid/LegacyIFluidHandler.java), [tank facade](../src/main/java/com/fuckingdeveloper/lms/profile/forge1192/runtime/fluid/LegacyFluidTank.java), [native fluid-operation boundary](../src/main/java/com/fuckingdeveloper/lms/profile/forge1192/runtime/capability/Forge1192BlockCapabilityBridge.java).
 - F08: [equipment acceptance](../openspec/changes/source-armor-equipment/tasks.md), [gameplay batch](../openspec/changes/gameplay-batch-acceptance/tasks.md).
 - F09/F10: [world overlay](../openspec/changes/source-world-render-extraction/tasks.md), [source consumer thread](../openspec/changes/source-network-consumer-thread/design.md), [search context](../openspec/changes/client-search-tooltip-context/design.md).
+
+## Runtime104 bounded terrain and preview acceptance (2026-10-17)
+
+This fresh test does not revalidate every historical matrix row. Source/target
+versions remain pinned above. `compatibilityTest nativeCompatibilitySmoke
+compileLaunchJava` and the selected 4323-class audit passed. The audit now reports
+1146 grouped findings / 5748 sites; these remain an inventory, not bug counts.
+
+- Height queries: eleven native-backed source query overloads and factory preserve
+  source exclusive maxima over native inclusive bounds. Negative/unaligned ranges,
+  endpoints, section indices and integer overflow have native regression coverage.
+  Custom source height implementations/super callbacks remain an explicit gap.
+- Chunk/light snapshots: three constructors, thirteen getters and callable forms
+  use actual target snapshots/codecs under user-approved native lighting. Legacy
+  trustEdges reads, raw codecs and custom packet subclasses remain unsupported.
+- Gameplay: MCP used the original TNT x5 Dynamite on one stone block at
+  (-157,245,28), high above terrain. Original collision/terrain processing changed
+  it to air; native sky light returned 15 and no height/packet exception followed.
+  This does not establish arbitrary explosive variants or full chunk-edit APIs.
+- Preview: the original TNT workbench opened/closed/reopened with 13 slots. User
+  accepted block icons, large preview and selection. No missing-item-model warning.
+- Cleanup: tagged test item removed; inventory/equipment summaries matched baseline;
+  vitals, selected slot, position and camera restored. Prior owned workbench at
+  (-197,79,12) removed and air confirmed. No legacy JAR was modified.
+
+Next causal GUI blocker: runtime104 human clicks logged removed
+SoundManager.play(SoundInstance):void (source m_120367_) twice without terminating
+the client. Preview acceptance is not a claim of an error-free complete GUI.
+Evidence: [height checks](../openspec/changes/source-height-query-family/tasks.md),
+[packet checks](../openspec/changes/source-chunk-light-packets/tasks.md), local logs
+`/tmp/lms-chunk-light-check.log`, `/tmp/lms-height-light-audit.log` and
+`/tmp/lms-container-families-runtime-104.log`. Overall level6 plus observed level7
+subpaths; no complete-mod/remote-client/persistence claim.
 
 ## Symptoms not requiring another mechanics-specific fix
 

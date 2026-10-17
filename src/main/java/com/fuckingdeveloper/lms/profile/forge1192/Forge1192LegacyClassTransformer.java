@@ -314,6 +314,22 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("catalogued-source-methods",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192MethodRules.rewrite(node, methodDeclarations, semanticInvocations)),
+            new TransformationPipeline.Pass("source-chunk-light-packets",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192ChunkLightPacketRewriter.rewrite(node,
+                            (owner, name, desc) -> registryCanonicalMethods.computeIfAbsent(
+                                    owner + "#" + name + desc, ignored -> SRG_RUNTIME_RESOLVER.flatMap(
+                                            r -> r.canonicalMethodName(owner, name, desc))).orElse(null))),
+            new TransformationPipeline.Pass("source-height-queries",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192HeightQueryRewriter.rewrite(node,
+                            (owner, base) -> owner.equals(node.name) ? isManagedSubtypeOf(node, base)
+                                    : owner.equals(base) || isManagedSubtypeOf(owner, base),
+                            (name, desc) -> registryCanonicalMethods.computeIfAbsent(
+                                    Forge1192HeightQueryRewriter.ROOT + "#" + name + desc,
+                                    ignored -> SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalMethodName(
+                                            Forge1192HeightQueryRewriter.ROOT, name, desc))).orElse(null),
+                            semanticInvocations)),
             new TransformationPipeline.Pass("source-item-projectiles",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192ProjectileRewriter.rewrite(node,new Forge1192ProjectileRewriter.Evidence(){

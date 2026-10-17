@@ -33,7 +33,11 @@
   next causal blocker is ServerLevel.m_141937_ (source getMinBuildHeight), then
   related height queries in chunk carving. World readiness was transient; MCP
   disconnected at that crash, so player restoration/GUI checks remain pending.
-- [ ] Final visual checks and test cleanup after the terrain API blocker.
+- [x] Runtime104 after height/packet adaptation: source dynamite use, collision
+  and original terrain change completed on an isolated sky fixture without the
+  earlier damage/tracker exceptions. User accepted workbench images/selection.
+  Temporary item/block and old workbench cleaned; baseline inventory/vitals,
+  position/camera/slot restored. Separate SoundManager click error remains.
 
 Remaining boundaries: arbitrary source damage constructors/mutators/super bodies,
 unscoped ownerless callable factories, ambiguous world operands and custom native
