@@ -25,10 +25,15 @@ public final class Forge1192Profile implements SourceProfile<Forge1192RuntimeSes
     public String id() { return "forge-1.19.2"; }
 
     public boolean supports(LegacyModDescriptor mod) {
-        // Fail closed: require Forge metadata and prove that its Minecraft
-        // version range actually contains 1.19.2.
-        return "FORGE_METADATA".equals(mod.loader())
-                && containsVersion(mod.minecraftVersion(), SOURCE_VERSION);
+        if (!"FORGE_METADATA".equals(mod.loader())) return false;
+        // An explicit Minecraft contract wins, even when the loader range includes us.
+        if (mod.minecraftVersion() != null && !mod.minecraftVersion().isBlank())
+            return containsVersion(mod.minecraftVersion(), SOURCE_VERSION);
+        // This declares compatibility with JavaFML 43, not the exact compiler version.
+        // Other installed profiles must independently match; the catalog rejects ambiguity.
+        return "javafml".equals(mod.languageLoader())
+                && numericLoaderRange(mod.languageLoaderVersion())
+                && containsVersion(mod.languageLoaderVersion(), "43");
     }
 
     @Override public SourceEvidencePaths evidence(java.nio.file.Path run) {
@@ -64,6 +69,20 @@ public final class Forge1192Profile implements SourceProfile<Forge1192RuntimeSes
             launchRoot = normalized;
         }
         return launchPlanner.plan(descriptor);
+    }
+
+    private static boolean numericLoaderRange(String range) {
+        if (range == null || range.isBlank()) return false;
+        String value = range.trim();
+        if (value.matches("[0-9]+(?:\\.[0-9]+)*")) return true;
+        if (value.length() < 3 || (value.charAt(0) != '[' && value.charAt(0) != '(')
+                || (value.charAt(value.length()-1) != ']' && value.charAt(value.length()-1) != ')')) return false;
+        String[] parts = value.substring(1,value.length()-1).split(",",-1);
+        if (parts.length == 1) return value.startsWith("[") && value.endsWith("]")
+                && parts[0].trim().matches("[0-9]+(?:\\.[0-9]+)*");
+        if (parts.length != 2 || parts[0].isBlank() && parts[1].isBlank()) return false;
+        for (String part : parts) if (!part.isBlank() && !part.trim().matches("[0-9]+(?:\\.[0-9]+)*")) return false;
+        return true;
     }
 
     static boolean containsVersion(String range, String version) {

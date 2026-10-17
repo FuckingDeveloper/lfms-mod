@@ -29,6 +29,7 @@ public final class GameplayFamilyCheck {
         com.fuckingdeveloper.lms.profile.forge1192.BlockDataExtractionCheck.run();
         com.fuckingdeveloper.lms.profile.forge1192.MethodCatalogCheck.run();
         CompositionContractCheck.run();
+        LoaderEvidenceCheck.run();
         DistributionFilterCheck.run();
         NativeEnergyOperationsCheck.run();
         SourceCanonicalInformationCheck.run();

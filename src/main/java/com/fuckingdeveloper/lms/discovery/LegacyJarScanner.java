@@ -8,14 +8,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 public final class LegacyJarScanner {
-    private static final Pattern MOD_ID = Pattern.compile("(?m)^\\s*modId\\s*=\\s*[\"']([a-zA-Z0-9_]+)[\"']");
-    private static final Pattern MC_RANGE = Pattern.compile("(?s)\\[\\[dependencies\\.[^]]+]](?:(?!\\[\\[).)*?modId\\s*=\\s*[\"']minecraft[\"'](?:(?!\\[\\[).)*?versionRange\\s*=\\s*[\"']([^\"']+)[\"']");
 
     public List<LegacyModDescriptor> scan(Path directory) throws IOException {
         if (!Files.isDirectory(directory)) return List.of();
@@ -38,13 +34,23 @@ public final class LegacyJarScanner {
             try (var in = jar.getInputStream(entry)) {
                 metadata = new String(in.readNBytes(1024 * 1024), StandardCharsets.UTF_8);
             }
-            Matcher id = MOD_ID.matcher(metadata);
-            Matcher range = MC_RANGE.matcher(metadata);
-            String modId = id.find() ? id.group(1) : "";
-            String version = range.find() ? range.group(1) : "";
+            var config = new com.electronwill.nightconfig.toml.TomlParser().parse(metadata);
+            List<com.electronwill.nightconfig.core.UnmodifiableConfig> mods = config.getOrElse("mods", List.of());
+            String modId = mods.isEmpty() ? "" : mods.getFirst().getOrElse("modId", "");
+            String version = "";
+            List<com.electronwill.nightconfig.core.UnmodifiableConfig> dependencies = config.getOrElse(List.of("dependencies", modId), List.of());
+            for (var dependency : dependencies) if ("minecraft".equals(dependency.getOrElse("modId", ""))) {
+                String declared = dependency.getOrElse("versionRange", "");
+                if (declared.isBlank() || !version.isEmpty())
+                    return new LegacyModDescriptor(file, modId, "INVALID", "", "Missing/duplicate Minecraft dependency range");
+                version = declared;
+            }
+            String language = config.getOrElse("modLoader", "");
+            String languageVersion = config.getOrElse("loaderVersion", "");
             return new LegacyModDescriptor(file, modId, "FORGE_METADATA", version,
-                    "META-INF/mods.toml");
-        } catch (IOException ex) {
+                    "META-INF/mods.toml; modLoader=" + language + "; loaderVersion=" + languageVersion,
+                    language, languageVersion);
+        } catch (IOException | com.electronwill.nightconfig.core.io.ParsingException ex) {
             return new LegacyModDescriptor(file, "", "INVALID", "", ex.toString());
         }
     }

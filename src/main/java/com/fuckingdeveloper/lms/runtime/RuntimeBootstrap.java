@@ -29,8 +29,8 @@ public final class RuntimeBootstrap {
         log.info("LMS discovery: {} candidate(s) in {}", discovered.size(), directory.toAbsolutePath());
         for (var mod : discovered) {
             var profile = profiles.resolve(mod);
-            log.info("LMS candidate={} id={} loader={} minecraft={} profile={}", mod.file().getFileName(),
-                    mod.modId(), mod.loader(), mod.minecraftVersion(), profile.map(p -> p.id()).orElse("UNRESOLVED"));
+            log.info("LMS candidate={} id={} loader={} minecraft={} profile={} evidence={}", mod.file().getFileName(),
+                    mod.modId(), mod.loader(), mod.minecraftVersion(), profile.map(p -> p.id()).orElse("UNRESOLVED"), mod.evidence());
             if (profile.isEmpty()) continue;
             var binding = indexed.get(profile.get().id());
             if (binding == null) throw new IllegalStateException("Missing runtime binding for " + profile.get().id());

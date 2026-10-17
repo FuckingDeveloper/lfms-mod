@@ -1,0 +1,6 @@
+- [x] Preserve parsed JavaFML identifier/range separately from Minecraft evidence.
+- [x] Retain explicit Minecraft precedence and ambiguous-profile rejection.
+- [x] Verify renamed immutable JAR, wrong/malformed loader and description isolation.
+- [x] Compile, compatibilityTest, nativeCompatibilitySmoke and compileLaunchJava.
+- [x] Fresh runtime110 selects the actual Fetzi artifact as Forge1.19.2.
+- [ ] Actual content behavior: BLOCKED by source SpawnEntity/client factory and supplier-backed stair construction, not discovery.
