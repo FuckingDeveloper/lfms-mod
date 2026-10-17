@@ -20,6 +20,9 @@ public final class Target263SourceRegistryQueries {
     public static <T> Identifier getKey(Registry<T> registry,T value){nativeReceiver(registry);return registry.getKey(value);}
     public static <T> Optional<ResourceKey<T>> getResourceKey(Registry<T> registry,T value){nativeReceiver(registry);return registry.getResourceKey(value);}
     public static <T> int getId(Registry<T> registry,T value){nativeReceiver(registry);return registry.getId(value);}
+    public static <T> Optional<Holder.Reference<T>> getHolder(Registry<T> registry,int id){nativeReceiver(registry);return registry.get(id);}
+    public static <T> Optional<Holder.Reference<T>> getHolder(Registry<T> registry,ResourceKey<T> key){nativeReceiver(registry);return registry.get(key);}
+    public static <T> Holder<T> getHolderOrThrow(Registry<T> registry,ResourceKey<T> key){nativeReceiver(registry);return registry.get(key).orElseThrow(()->new IllegalStateException("Missing key in "+registry.key()+": "+key));}
     public static <T> T byId(Registry<T> registry,int id){nativeReceiver(registry);return registry.byId(id);}
     public static Identifier getDefaultKey(DefaultedRegistry<?> registry){nativeReceiver(registry);return registry.getDefaultKey();}
     public static <T> Optional<Holder.Reference<T>> getRandom(Registry<T> registry,RandomSource random){nativeReceiver(registry);return registry.getRandom(random);}

@@ -385,3 +385,24 @@ compatibilityAudit --args='legacy-mods /tmp/lms-registry-callables-audit.tsv'`.
 Checks pass (/tmp/lms-registry-callables-check.log); audit has the same two prior
 unrelated transform failures and is not gameplay coverage. Live acceptance of
 callable key migration awaits runtime131. Prior user changes remain untouched.
+
+## Runtime131: registry/key boundary passed, subtype and fluid blockers exposed
+
+MCP confirms the intended world/player and unchanged test inventory/position.
+The original registry wrapper passes ACTIVE and callable ResourceKey lookup.
+The first chronological error is now NoClassDefFoundError EnchantedBookItem in
+VanillaPlugin's subtype callback. The original JEI code catches/logs these errors
+and omits those ingredient entries; LMS does not claim the resulting list complete.
+A later VerifyError in FluidIngredientHelper.getTagStream is a separate registry
+read boundary: source DefaultedRegistry's inherited SRG call got a concrete native
+MappedRegistry owner, incompatible with the new DefaultedRegistry interface.
+The missing vanilla crafting category remains secondary. Runtime131 was stopped
+with TERM after evidence collection; no gameplay state was modified.
+
+Inherited source declaration lookup and three holder-read operations are now
+covered by actual native registry fixtures, including the original bound-capture
+shape, optional absence and explicit missing-holder failure. Checks/audit pass:
+/tmp/lms-registry-holder-check.log, /tmp/lms-registry-holder-audit.tsv. The audit's
+1141 groups/6742 sites are inventory, with the same two pre-existing unrelated
+transformation failures. Live acceptance of the narrow holder correction remains
+pending; enchanted-book subtype data is the next separate API family.

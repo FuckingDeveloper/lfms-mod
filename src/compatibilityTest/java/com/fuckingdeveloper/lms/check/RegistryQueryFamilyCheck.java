@@ -33,7 +33,9 @@ public final class RegistryQueryFamilyCheck {
                 new Query("getDefaultKey","()"+id,new Class[]{},new Object[]{},new Object[]{},air,air),
                 new Query("getRandom","(Lnet/minecraft/util/RandomSource;)"+optional,new Class[]{RandomSource.class},new Object[]{},new Object[]{},null,null),
                 new Query("containsKey","("+id+")Z",new Class[]{Identifier.class},new Object[]{stone},new Object[]{unknown},true,false),
-                new Query("containsKey","("+key+")Z",new Class[]{ResourceKey.class},new Object[]{stoneKey},new Object[]{unknownKey},true,false));
+                new Query("containsKey","("+key+")Z",new Class[]{ResourceKey.class},new Object[]{stoneKey},new Object[]{unknownKey},true,false),
+                new Query("getHolder","(I)"+optional,new Class[]{int.class},new Object[]{registry.getId(Blocks.STONE)},new Object[]{-1},registry.get(stoneKey),Optional.empty()),
+                new Query("getHolder","("+key+")"+optional,new Class[]{ResourceKey.class},new Object[]{stoneKey},new Object[]{unknownKey},registry.get(stoneKey),Optional.empty()));
         String[] owners={"net/minecraft/core/Registry","net/minecraft/core/DefaultedRegistry","net/minecraft/core/MappedRegistry"};
         var writer=new ClassWriter(ClassWriter.COMPUTE_MAXS);writer.visit(Opcodes.V17,Opcodes.ACC_PUBLIC,"fixture/RegistryQueries",null,"java/lang/Object",null);
         for(int root=0;root<owners.length;root++)for(int i=0;i<queries.size();i++) {
@@ -41,6 +43,11 @@ public final class RegistryQueryFamilyCheck {
             emit(writer,owners[root],query.name(),query.descriptor(),root+"_"+i);
         }
         emit(writer,owners[1],"m_7745_",queries.getFirst().descriptor(),"Srg");
+        emit(writer,owners[1],"m_7854_",queries.get(5).descriptor(),"SrgInherited");
+        emit(writer,owners[1],"m_203636_","("+key+")"+optional,"SrgHolder");
+        emit(writer,owners[1],"getHolderOrThrow","("+key+")Lnet/minecraft/core/Holder;","HolderOrThrow");
+        var bound=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"boundHolder","(L"+owners[1]+";)Ljava/util/function/Function;",null,null);bound.visitCode();bound.visitVarInsn(Opcodes.ALOAD,0);
+        bound.visitInvokeDynamicInsn("apply","(L"+owners[1]+";)Ljava/util/function/Function;",new Handle(Opcodes.H_INVOKESTATIC,"java/lang/invoke/LambdaMetafactory","metafactory","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",false),Type.getMethodType("(Ljava/lang/Object;)Ljava/lang/Object;"),new Handle(Opcodes.H_INVOKEVIRTUAL,owners[2],"m_203636_","("+key+")"+optional,false),Type.getMethodType("("+key+")"+optional));bound.visitInsn(Opcodes.ARETURN);bound.visitMaxs(0,0);bound.visitEnd();
         writer.visitEnd();var path=Files.createTempFile("lms-registry-queries", ".jar");
         try(var jar=new JarOutputStream(Files.newOutputStream(path))){jar.putNextEntry(new JarEntry("fixture/RegistryQueries.class"));jar.write(writer.toByteArray());jar.closeEntry();}
         byte[] original=Files.readAllBytes(path);
@@ -63,12 +70,18 @@ public final class RegistryQueryFamilyCheck {
                 }
             }
             check(type.getMethod("directSrg",DefaultedRegistry.class,Identifier.class).invoke(null,registry,unknown)==Blocks.AIR,"SRG defaulted query not mapped");
+            check(type.getMethod("directSrgInherited",DefaultedRegistry.class,Object.class).invoke(null,registry,Blocks.STONE).equals(Optional.of(stoneKey)),"inherited SRG reverse lookup not normalized");
+            check(type.getMethod("directSrgHolder",DefaultedRegistry.class,ResourceKey.class).invoke(null,registry,stoneKey).equals(registry.get(stoneKey)),"inherited holder lookup not normalized");
+            check(type.getMethod("directHolderOrThrow",DefaultedRegistry.class,ResourceKey.class).invoke(null,registry,stoneKey)==registry.get(stoneKey).orElseThrow(),"holder identity changed");
+            try{type.getMethod("directHolderOrThrow",DefaultedRegistry.class,ResourceKey.class).invoke(null,registry,unknownKey);throw new AssertionError("missing holder manufactured");}catch(java.lang.reflect.InvocationTargetException expected){check(expected.getCause() instanceof IllegalStateException,"missing holder exception changed");}
+            var function=(java.util.function.Function<ResourceKey<?>,Optional<?>>)type.getMethod("boundHolder",DefaultedRegistry.class).invoke(null,registry);
+            check(function.apply(stoneKey).equals(registry.get(stoneKey))&&function.apply(unknownKey).isEmpty(),"bound source MappedRegistry holder callback lost DefaultedRegistry capture type");
             var plain=BuiltInRegistries.SOUND_EVENT;
             check(type.getMethod("direct0_0",Registry.class,Identifier.class).invoke(null,plain,unknown)==null,"ordinary registry gained a default");
             check(type.getMethod("direct0_2",Registry.class,Identifier.class).invoke(null,plain,unknown).equals(Optional.empty()),"ordinary missing optional changed");
             check(Arrays.equals(original,Files.readAllBytes(path)),"source artifact mutated");
         }finally{Files.deleteIfExists(path);}
-        System.out.println("PASS: twelve source registry queries through three native receiver types, direct/handle/nested/SRG calls, default-vs-optional/key absence, reverse/numeric identity and seeded random; no registry mutation");
+        System.out.println("PASS: source registry queries plus optional/throwing holders and inherited SRG/defaulted bound captures through three native receiver types, direct/handle/nested/SRG calls, default-vs-optional/key absence, reverse/numeric identity and seeded random; no registry mutation");
     }
     private static void emit(ClassWriter writer,String owner,String name,String desc,String suffix) {
         var direct=writer.visitMethod(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"direct"+suffix,"(L"+owner+";"+desc.substring(1),null,null);direct.visitCode();direct.visitVarInsn(Opcodes.ALOAD,0);

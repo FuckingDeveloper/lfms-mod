@@ -95,3 +95,25 @@ transform failures, 1143 groups/6745 sites). Producer casts, interface-bound lam
 capture, raw-name/tag reads and null/projected-key boundaries have independent
 fixtures. Original CarbonConfig NamedRegistry's data-driven registry path remains
 unverified and outside the bounded process-global read-view contract.
+
+## Runtime131 and inherited native registry reads
+
+Runtime131 passes both ACTIVE and ResourceKey callable lookup. JEI reaches item
+subtype analysis. Its first chronological failure is the removed EnchantedBookItem
+class; its original factory logs/skips those entries. A later fluid-helper class
+fails verification because an inherited DefaultedRegistry SRG member was resolved
+to a concrete MappedRegistry target owner, while the target receiver is an interface.
+These failures must not be reported as successful complete ingredient registration.
+
+The registry read traversal now proves the source parent edge before canonical
+SRG lookup. Native optional holder lookup (numeric/key) and throwing holder lookup
+are normalized to actual target Registry reads. Source direct/inherited/callable
+forms retain their original receiver type at lambda capture, genuine optional
+absence, holder identity and missing-holder exception semantics. No holders are
+created and no registry is mutated.
+
+Compile, compatibility/native checks and full audit pass in
+/tmp/lms-registry-holder-check.log; the audit retains the same two unrelated
+transform failures. Independent fixtures reproduce the exact inherited reverse
+lookup and MappedRegistry method-reference/DefaultedRegistry capture shape from
+the fluid helper. Live holder-read acceptance awaits runtime132.

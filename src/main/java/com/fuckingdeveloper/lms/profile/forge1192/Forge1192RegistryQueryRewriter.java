@@ -19,7 +19,9 @@ final class Forge1192RegistryQueryRewriter {
             Map.entry("getId("+OBJECT+")I","getId"),Map.entry("byId(I)"+OBJECT,"byId"),
             Map.entry("getDefaultKey()"+ID,"getDefaultKey"),
             Map.entry("getRandom(Lnet/minecraft/util/RandomSource;)"+OPTIONAL,"getRandom"),
-            Map.entry("containsKey("+ID+")Z","containsKey"),Map.entry("containsKey("+KEY+")Z","containsKey"));
+            Map.entry("containsKey("+ID+")Z","containsKey"),Map.entry("containsKey("+KEY+")Z","containsKey"),
+            Map.entry("getHolder(I)"+OPTIONAL,"getHolder"),Map.entry("getHolder("+KEY+")"+OPTIONAL,"getHolder"),
+            Map.entry("getHolderOrThrow("+KEY+")Lnet/minecraft/core/Holder;","getHolderOrThrow"));
     private static boolean registryIdMap() {
         byte[] bytes=Forge1192SourceHierarchyIndex.methodBytes("net/minecraft/core/Registry");
         if(bytes==null)throw new IllegalStateException("Missing source Registry declaration evidence");
@@ -29,6 +31,16 @@ final class Forge1192RegistryQueryRewriter {
         return calls.rewrite(node,(opcode,owner,name,descriptor)->{
             if(opcode!=Opcodes.INVOKEVIRTUAL||!ROOTS.contains(owner))return null;
             String mapped=name.startsWith("m_")?canonical.name(owner,name,descriptor):name;
+            if(mapped==null&&name.startsWith("m_")) {
+                // An SRG use may name DefaultedRegistry while the source member
+                // is declared only on MappedRegistry/Registry. Prove the source
+                // parent edge before asking its indexed symbol evidence.
+                for(String parent:List.of("net/minecraft/core/MappedRegistry","net/minecraft/core/Registry")) {
+                    if(parent.equals(owner)||!declarations.subtype(owner,parent))continue;
+                    String inherited=canonical.name(parent,name,descriptor);
+                    if(inherited!=null&&QUERIES.containsKey(inherited+descriptor)){mapped=inherited;break;}
+                }
+            }
             String target=mapped==null?null:QUERIES.get(mapped+descriptor);
             if(target==null)return null;
             String declaration=declarations.owner(owner,mapped,descriptor);
