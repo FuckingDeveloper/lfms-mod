@@ -33,7 +33,7 @@ final class SearchTooltipContextCheck {
         thread.start();thread.join();if(failure.get()!=null)throw new AssertionError("worker context",failure.get());
         check(calls.get()==1,"nested callback duplicated");
         var target=net.minecraft.client.multiplayer.SessionSearchTrees.class;
-        var injected=java.util.Arrays.stream(target.getDeclaredMethods()).filter(m->m.getName().contains("lms$searchTooltip") && m.getParameterCount()==5).findFirst().orElseThrow();
+        var injected=java.util.Arrays.stream(target.getDeclaredMethods()).filter(m->m.getName().contains("lms$searchTooltip") && java.util.Arrays.equals(m.getParameterTypes(),new Class<?>[]{net.minecraft.world.item.ItemStack.class,net.minecraft.world.item.Item.TooltipContext.class,net.minecraft.world.entity.player.Player.class,net.minecraft.world.item.TooltipFlag.class,com.llamalad7.mixinextras.injector.wrapoperation.Operation.class})).findFirst().orElseThrow();
         injected.setAccessible(true);
         var lines=java.util.List.<net.minecraft.network.chat.Component>of(net.minecraft.network.chat.Component.literal("probe"));
         com.llamalad7.mixinextras.injector.wrapoperation.Operation<java.util.List<net.minecraft.network.chat.Component>> original=args->{
