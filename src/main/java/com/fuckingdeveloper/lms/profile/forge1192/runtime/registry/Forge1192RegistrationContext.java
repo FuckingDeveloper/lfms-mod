@@ -466,21 +466,27 @@ public final class Forge1192RegistrationContext {
     }
 
     public static boolean containsKey(Object registryToken, Identifier name) {
+        if (registryToken instanceof LegacyForgeRegistryView<?> view) return view.containsKey(name);
         Objects.requireNonNull(name, "name");
         return requireRegistryToken(registryToken).containsKey(name);
     }
 
     public static Object getValue(Object registryToken, Identifier name) {
+        if (registryToken instanceof LegacyForgeRegistryView<?> view) return view.getValue(name);
         Objects.requireNonNull(name, "name");
         return requireRegistryToken(registryToken).getValue(name);
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static Identifier getKey(Object registryToken, Object value) {
+        if (registryToken instanceof LegacyForgeRegistryView view) return view.getKey(value);
         Objects.requireNonNull(value, "value");
         return requireRegistryToken(registryToken).getKey(value);
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static Iterator<Object> iterator(Object registryToken) {
+        if (registryToken instanceof LegacyForgeRegistryView view) return view.iterator();
         return requireRegistryToken(registryToken).iterator();
     }
 }

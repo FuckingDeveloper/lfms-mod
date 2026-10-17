@@ -265,6 +265,7 @@ public final class LiveTargetContractProbe {
         RendererContextFamilyCheck.run();
         SourceEntityRenderFamilyCheck.run();
         RegistryQueryFamilyCheck.run();
+        ForgeRegistryReadFamilyCheck.run();
         GuiModelViewFamilyCheck.run();
         GuiStaticAccessorFamilyCheck.run();
         SourceProjectileFamilyCheck.run();

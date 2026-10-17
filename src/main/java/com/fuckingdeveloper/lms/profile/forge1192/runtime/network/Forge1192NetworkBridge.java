@@ -95,6 +95,12 @@ public final class Forge1192NetworkBridge {
     public static void writeRegistryIdUnsafe(FriendlyByteBuf buffer, Object registryToken, Object value) {
         Objects.requireNonNull(buffer, "buffer");
         Objects.requireNonNull(value, "value");
+        if (registryToken instanceof com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.LegacyForgeRegistryView view) {
+            int id = view.getID(value);
+            if (id < 0) throw new IllegalArgumentException("Value is not present in source registry read view");
+            buffer.writeVarInt(id);
+            return;
+        }
         if (!(registryToken instanceof net.minecraft.core.Registry registry)) {
             throw new IllegalStateException("Legacy registry network token is not a vanilla Registry: "
                     + (registryToken == null ? "null" : registryToken.getClass().getName()));
@@ -114,6 +120,12 @@ public final class Forge1192NetworkBridge {
     @SuppressWarnings("rawtypes")
     public static Object readRegistryIdUnsafe(FriendlyByteBuf buffer, Object registryToken) {
         Objects.requireNonNull(buffer, "buffer");
+        if (registryToken instanceof com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.LegacyForgeRegistryView<?> view) {
+            int id = buffer.readVarInt();
+            Object value = view.getValue(id);
+            if (value == null) throw new IllegalArgumentException("Unknown raw source registry id " + id);
+            return value;
+        }
         if (!(registryToken instanceof net.minecraft.core.Registry registry)) {
             throw new IllegalStateException("Legacy registry network token is not a vanilla Registry: "
                     + (registryToken == null ? "null" : registryToken.getClass().getName()));
@@ -130,6 +142,11 @@ public final class Forge1192NetworkBridge {
 
     /** Source full registry id prepends its registry identifier to the raw id. */
     public static void writeRegistryId(FriendlyByteBuf buffer,Object token,Object value) {
+        if(token instanceof com.fuckingdeveloper.lms.profile.forge1192.runtime.registry.LegacyForgeRegistryView<?> view) {
+            buffer.writeIdentifier(view.getRegistryName());
+            writeRegistryIdUnsafe(buffer,token,value);
+            return;
+        }
         if(!(token instanceof net.minecraft.core.Registry<?> registry))throw new IllegalStateException("Source registry wire requires actual registry token");
         buffer.writeIdentifier(registry.key().identifier());
         writeRegistryIdUnsafe(buffer,token,value);

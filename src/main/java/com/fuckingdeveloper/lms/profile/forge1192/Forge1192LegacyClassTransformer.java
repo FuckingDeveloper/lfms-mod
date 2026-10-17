@@ -424,6 +424,11 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("source-gui-model-view",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     Forge1192GuiModelViewRewriter::rewrite),
+            new TransformationPipeline.Pass("source-forge-registry-reads",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192ForgeRegistryReadRewriter.rewrite(node,
+                            owner -> owner.equals(node.name) ? isManagedSubtypeOf(node, Forge1192ForgeRegistryReadRewriter.REGISTRY) : isManagedSubtypeOf(owner, Forge1192ForgeRegistryReadRewriter.REGISTRY),
+                            owner -> owner.equals(node.name) ? isManagedSubtypeOf(node, Forge1192ForgeRegistryReadRewriter.MANAGER) : isManagedSubtypeOf(owner, Forge1192ForgeRegistryReadRewriter.MANAGER))),
             new TransformationPipeline.Pass("source-registry-queries",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192RegistryQueryRewriter.rewrite(node, methodDeclarations,
@@ -13149,6 +13154,10 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         // IForgeRegistry was removed. Keep only a verifier-visible LMS facade;
         // all executable registry operations are redirected to
         // Forge1192RegistrationContext by semantic adapters below.
+        if (value.equals("net/minecraftforge/registries/RegistryManager"))
+            return "com/fuckingdeveloper/lms/profile/forge1192/runtime/registry/LegacyRegistryManagerView";
+        if (value.equals("net/minecraftforge/registries/ForgeRegistry"))
+            return "com/fuckingdeveloper/lms/profile/forge1192/runtime/registry/LegacyForgeRegistryView";
         if (value.equals("net/minecraftforge/registries/IForgeRegistry"))
             return "com/fuckingdeveloper/lms/profile/forge1192/runtime/registry/LegacyForgeRegistry";
         if (value.equals("net/minecraftforge/registries/tags/ITagManager"))

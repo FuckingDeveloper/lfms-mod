@@ -33,6 +33,7 @@ public final class Forge1192RegistryTagBridge {
     }
 
     private static Registry<?> requireRegistry(Object registryToken) {
+        if (registryToken instanceof LegacyForgeRegistryView<?> view) return view.nativeRegistry();
         if (registryToken instanceof Registry<?> registry) return registry;
         throw new IllegalArgumentException("Legacy registry tag query requires a target Registry token");
     }
