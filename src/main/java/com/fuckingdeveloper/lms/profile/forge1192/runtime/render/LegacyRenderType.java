@@ -1,7 +1,6 @@
 package com.fuckingdeveloper.lms.profile.forge1192.runtime.render;
 
 import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
 
 import java.util.List;
@@ -11,7 +10,8 @@ import java.util.Objects;
 public class LegacyRenderType extends LegacyRenderStateShard {
     public enum Kind {
         SOLID, CUTOUT_MIPPED, CUTOUT, TRANSLUCENT, TRIPWIRE,
-        ENTITY_SOLID, ENTITY_CUTOUT, ENTITY_TRANSLUCENT_CULL, ENTITY_TRANSLUCENT,
+        ENTITY_SOLID, ENTITY_CUTOUT, ENTITY_CUTOUT_NO_CULL, ENTITY_CUTOUT_NO_CULL_Z_OFFSET,
+        ARMOR_CUTOUT_NO_CULL, ENTITY_TRANSLUCENT_CULL, ENTITY_TRANSLUCENT,
         EYES, OUTLINE, CRUMBLING, TEXT, TEXT_SEE_THROUGH,
         LEASH, WATER_MASK, LIGHTNING, LINES, CUSTOM
     }
@@ -28,6 +28,7 @@ public class LegacyRenderType extends LegacyRenderStateShard {
     private static final List<LegacyRenderType> CHUNK_LAYERS = List.of(
             SOLID, CUTOUT_MIPPED, CUTOUT, TRANSLUCENT, TRIPWIRE);
 
+    private final boolean affectsOutline;
     private final Kind kind;
     private final Identifier texture;
     private final String customName;
@@ -35,6 +36,11 @@ public class LegacyRenderType extends LegacyRenderStateShard {
     private final LegacyCompositeState compositeState;
 
     private LegacyRenderType(Kind kind, Identifier texture) {
+        this(kind, texture, true);
+    }
+
+    private LegacyRenderType(Kind kind, Identifier texture, boolean affectsOutline) {
+        this.affectsOutline = affectsOutline;
         this.kind = Objects.requireNonNull(kind, "kind");
         this.texture = texture;
         this.customName = null;
@@ -46,6 +52,7 @@ public class LegacyRenderType extends LegacyRenderStateShard {
     protected LegacyRenderType(String name, LegacyVertexFormat format,
             LegacyVertexFormatMode mode, int bufferSize, boolean affectsCrumbling,
             boolean sortOnUpload, Runnable setup, Runnable clear) {
+        this.affectsOutline = false;
         this.kind = Kind.CUSTOM;
         this.texture = null;
         this.customName = Objects.requireNonNull(name, "name");
@@ -53,6 +60,7 @@ public class LegacyRenderType extends LegacyRenderStateShard {
         this.compositeState = null;
     }
 
+    public boolean affectsOutline() { return affectsOutline; }
     public Kind kind() { return kind; }
     public Identifier texture() { return texture; }
     public boolean isTranslucentChunkLayer() {
@@ -70,6 +78,7 @@ public class LegacyRenderType extends LegacyRenderStateShard {
 
     protected LegacyRenderType(String name, LegacyVertexFormat format,
             LegacyVertexFormatMode mode, int bufferSize, LegacyCompositeState state) {
+        this.affectsOutline = false;
         this.kind = Kind.CUSTOM;
         this.texture = null;
         this.customName = Objects.requireNonNull(name, "name");
@@ -86,10 +95,16 @@ public class LegacyRenderType extends LegacyRenderStateShard {
     public static LegacyRenderType m_110466_() { return TRANSLUCENT; }
     public static LegacyRenderType m_110503_() { return TRIPWIRE; }
     public static List<LegacyRenderType> m_110506_() { return CHUNK_LAYERS; }
+    public static LegacyRenderType m_110431_(Identifier texture) { return textured(Kind.ARMOR_CUTOUT_NO_CULL, texture); }
+    public static LegacyRenderType m_110443_(Identifier texture, boolean outline) { return textured(Kind.ENTITY_CUTOUT_NO_CULL, texture, outline); }
+    public static LegacyRenderType m_110458_(Identifier texture) { return m_110443_(texture, true); }
+    public static LegacyRenderType m_110448_(Identifier texture, boolean outline) { return textured(Kind.ENTITY_CUTOUT_NO_CULL_Z_OFFSET, texture, outline); }
+    public static LegacyRenderType m_110464_(Identifier texture) { return m_110448_(texture, true); }
+    public static LegacyRenderType m_110454_(Identifier texture, boolean outline) { return textured(Kind.ENTITY_TRANSLUCENT, texture, outline); }
     public static LegacyRenderType m_110446_(Identifier texture) { return textured(Kind.ENTITY_SOLID, texture); }
     public static LegacyRenderType m_110452_(Identifier texture) { return textured(Kind.ENTITY_CUTOUT, texture); }
     public static LegacyRenderType m_110470_(Identifier texture) { return textured(Kind.ENTITY_TRANSLUCENT_CULL, texture); }
-    public static LegacyRenderType m_110473_(Identifier texture) { return textured(Kind.ENTITY_TRANSLUCENT, texture); }
+    public static LegacyRenderType m_110473_(Identifier texture) { return m_110454_(texture, true); }
     public static LegacyRenderType m_110475_() { return LEASH; }
     public static LegacyRenderType m_110478_() { return WATER_MASK; }
     public static LegacyRenderType m_110488_(Identifier texture) { return textured(Kind.EYES, texture); }
@@ -101,30 +116,16 @@ public class LegacyRenderType extends LegacyRenderStateShard {
     public static LegacyRenderType m_110504_() { return LINES; }
 
     private static LegacyRenderType textured(Kind kind, Identifier texture) {
-        return new LegacyRenderType(kind, Objects.requireNonNull(texture, "texture"));
+        return textured(kind, texture, true);
+    }
+
+    private static LegacyRenderType textured(Kind kind, Identifier texture, boolean outline) {
+        return new LegacyRenderType(kind, Objects.requireNonNull(texture, "texture"), outline);
     }
 
     /** Resolves only identities with a verified deferred-pipeline counterpart. */
     public RenderType requireTargetRenderType() {
-        return switch (kind) {
-            case ENTITY_SOLID -> RenderTypes.entitySolid(texture);
-            case ENTITY_CUTOUT -> RenderTypes.entityCutout(texture);
-            case ENTITY_TRANSLUCENT_CULL -> RenderTypes.entityTranslucentCull(texture);
-            case ENTITY_TRANSLUCENT -> RenderTypes.entityTranslucent(texture);
-            case EYES -> RenderTypes.eyes(texture);
-            case OUTLINE -> RenderTypes.outline(texture);
-            case CRUMBLING -> RenderTypes.crumbling(texture);
-            case TEXT -> RenderTypes.text(texture);
-            case TEXT_SEE_THROUGH -> RenderTypes.textSeeThrough(texture);
-            case LEASH -> RenderTypes.leash();
-            case WATER_MASK -> RenderTypes.waterMask();
-            case LIGHTNING -> RenderTypes.lightning();
-            case LINES -> RenderTypes.linesTranslucent();
-            default -> throw new UnsupportedOperationException(
-                    "Forge 1.19.2 render type "
-                            + (customName == null ? kind : customName)
-                            + " has no standalone Minecraft 26.3 RenderType");
-        };
+        return com.fuckingdeveloper.lms.target.neoforge263.render.Target263SourceRenderTypes.resolve(this);
     }
 
     @Override
