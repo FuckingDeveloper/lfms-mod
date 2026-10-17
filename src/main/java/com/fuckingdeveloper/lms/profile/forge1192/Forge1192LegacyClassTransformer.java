@@ -37,6 +37,22 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     private final TransformationPipeline pipeline;
     private final SemanticInvocationRewriter semanticInvocations = new SemanticInvocationRewriter(this::isManagedSubtypeOf);
     private final Forge1192BlockDataRewriter blockDataRewriter;
+    private final Forge1192BlockEntityConstantsRewriter blockEntityConstants = new Forge1192BlockEntityConstantsRewriter(
+            new Forge1192BlockEntityConstantsRewriter.Evidence() {
+                public String declaration(ClassNode node,String owner,String name,String desc) {
+                    return sourceFieldOwner(node.name,fieldHierarchy(node),owner,name,desc,new java.util.HashSet<>());
+                }
+                public String canonical(String name) {
+                    return SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalFieldName(Forge1192BlockEntityConstantsRewriter.SOURCE,
+                            name,Forge1192BlockEntityConstantsRewriter.DESC)).orElse(null);
+                }
+                public java.util.Map<String,Handle> targetCatalog() {
+                    try { return com.fuckingdeveloper.lms.target.neoforge263.Target263BuiltinBlockEntityConstants.inspect(
+                            targetAbiBytes(com.fuckingdeveloper.lms.target.neoforge263.Target263BuiltinBlockEntityConstants.OWNER)); }
+                    catch(java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+                }
+            });
+
     private final java.util.Map<String,java.util.Optional<String>> registryCanonicalMethods = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String,java.util.Optional<String>> projectileCanonicalMethods = new java.util.concurrent.ConcurrentHashMap<>();
     private final Forge1192MethodDeclarations methodDeclarations = new Forge1192MethodDeclarations(owner -> {
@@ -648,6 +664,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("Forge1192SpecialRecipeIdentities.verify",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192SpecialRecipeIdentities.verify(node)),
+            new TransformationPipeline.Pass("blockEntityConstants.rewrite",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> blockEntityConstants.rewrite(node)),
             new TransformationPipeline.Pass("rewriteRecipeAccessFamily",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteRecipeAccessFamily(node)),
@@ -9686,6 +9705,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             }).orElse(null);
         }
         if (evidence != null && evidence.fields().contains(new FieldDeclaration(name, migrateDescriptor(desc)))) return owner;
+        if (Forge1192BlockEntityConstantsRewriter.declares(owner,name,desc)) return owner;
         if (owner.startsWith("net/minecraft/") && SRG_RUNTIME_RESOLVER.isPresent()
                 && SRG_RUNTIME_RESOLVER.get().canonicalFieldName(owner, name, desc).isPresent()) return owner;
         if (evidence == null) return null;

@@ -1,0 +1,6 @@
+- [x] Verify all 36 pinned source declarations/registration IDs and actual target ABI.
+- [x] Ship a source-owned catalog snapshot with immutable artifact provenance.
+- [x] Adapt 35 surviving constants with cached names/native ABI, inherited and nested callable forms.
+- [x] Preserve hiding declarations and reject final writes and removed BED reads.
+- [x] Native probes compare all supported values with actual source IDs; local source bytecode validates the snapshot.
+- [ ] Fresh client passes the previous banner block-entity field blocker.
