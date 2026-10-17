@@ -9,7 +9,17 @@
   composition side effect and a malformed fixture descriptor; both corrected.
 - [x] Audit selected immutable inputs:4355 classes,1113 grouped findings/5671 sites
   (`/tmp/lms-banner-data-audit.tsv`). Inventory only, not compatibility coverage.
-- [ ] Verify fresh runtime114 initialization, native loaded pattern identities and item tags/components.
+- [x] Runtime114/115: Fetzi INITIALIZED; subsequent unrelated resource/parser
+  and empty-renderer blockers were fixed in separate checkpoints.
+- [x] Runtime116: explicit world opened with MCP readiness gates. Native pack
+  published five patterns plus the loom item tag. Native banner component parsing
+  accepted all five real registry identities (sunburst/sakura/fish/flower/bamboo).
+  Original flower item was observed in inventory; native predicates confirmed its
+  exact delayed pattern tag component and membership in minecraft:loom_patterns.
+  Both tagged test stacks were removed. No ERROR/FATAL/causal exception occurred.
+  Full loom application remains UNVERIFIED: exposed tools cannot select its
+  pattern/output widgets. Source renderer registration succeeds; source seats
+  were not gameplay-accepted (native summon rejected the attempted fixture).
 - [ ] Verify bounded actual loom application and native registry reload behavior.
 - [ ] Independently verify source factory failure/null/subclass rejection before publication.
 
