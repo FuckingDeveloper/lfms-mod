@@ -5,6 +5,7 @@ import com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransforme
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge;
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.network.*;
 import io.netty.buffer.Unpooled;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263RawNetworkChannels;
 import java.lang.reflect.Proxy;
 import java.nio.file.*;
 import java.util.*;
@@ -50,9 +51,9 @@ public final class RawNetworkFamilyCheck {
                     channel.addListener(LegacyNetworkEvent.class,event->check(event==observed&&event.getPayload().readUnsignedByte()==43&&event.getSource()==observed.getSource(),"listener buffer/context identity and shared reader index"));
                 }
                 var input=new FriendlyByteBuf(Unpooled.buffer());input.writeByte(99);input.writeByte(42);input.readerIndex(1);
-                var outgoing=Forge1192RawNetworkBridge.outgoing(channel,input);input.writeByte(43);
+                var outgoing=Target263RawNetworkChannels.outgoing(channel,input);input.writeByte(43);
                 var wire=new RegistryFriendlyByteBuf(Unpooled.buffer(),RegistryAccess.EMPTY);
-                var codec=Forge1192RawNetworkBridge.codec(channel);codec.encode(wire,outgoing);
+                var codec=Target263RawNetworkChannels.codec(channel);codec.encode(wire,outgoing);
                 check(input.readerIndex()==1&&wire.readableBytes()==2&&wire.getUnsignedByte(0)==42&&wire.getUnsignedByte(1)==43,"raw codec prefixed/snapshotted/mutated source buffer");
                 var incoming=codec.decode(wire);wire.release();input.release();
                 var queued=new ArrayList<Runnable>();
@@ -61,13 +62,24 @@ public final class RawNetworkFamilyCheck {
                     if(m.getName().equals("enqueueWork")){queued.add((Runnable)a[0]);return CompletableFuture.completedFuture(null);}
                     throw new AssertionError(m);
                 });
-                Forge1192RawNetworkBridge.handle(incoming,context);
+                var registrar=new net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent().registrar("1")
+                        .executesOn(net.neoforged.neoforge.network.registration.HandlerThread.NETWORK);
+                check(Target263RawNetworkChannels.register(Forge1192RawNetworkBridge.requireChannel(channel),registrar),"raw native registrar dispatch");
+                NativeRegistration.client(channel.name()).handle(incoming,context);
                 check(deliveries==1&&observed.getPayload().refCnt()==0&&queued.size()==1,"delivery/lifetime/enqueue");
                 queued.getFirst().run();check(Forge1192LifecycleBridge.currentContext().isEmpty(),"network scope leaked");
                 check(Arrays.equals(original,Files.readAllBytes(file)),"source JAR changed");
             }
         }finally{Files.deleteIfExists(file);observed=null;}
         System.out.println("PASS: immutable typed source raw channel/listener, unprefixed native codec, late writes, unchanged reader index, shared event/payload/context, release and deferred source scope; remote wire/login remain unverified");
+    }
+    private static final class NativeRegistration extends net.neoforged.neoforge.network.registration.NetworkRegistry {
+        @SuppressWarnings("unchecked")
+        static net.neoforged.neoforge.network.handling.IPayloadHandler<Target263RawNetworkChannels.RawPayload> client(Identifier id) {
+            var play=net.minecraft.network.ConnectionProtocol.PLAY;
+            check(CLIENTBOUND_HANDLERS.get(play).containsKey(id)&&SERVERBOUND_HANDLERS.get(play).containsKey(id),"both actual native raw play directions");
+            return (net.neoforged.neoforge.network.handling.IPayloadHandler<Target263RawNetworkChannels.RawPayload>)CLIENTBOUND_HANDLERS.get(play).get(id);
+        }
     }
     private static byte[] fixture(){
         String channel="net/minecraftforge/network/event/EventNetworkChannel",event="net/minecraftforge/network/NetworkEvent",name="probe/RawListener";

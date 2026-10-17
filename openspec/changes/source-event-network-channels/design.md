@@ -20,3 +20,8 @@ packet construction and arbitrary legacy wire negotiation remain explicit gaps.
 Source registration predicates MUST remain captured and own-version validated;
 native negotiation remains authoritative. No remote-network functionality claim
 may follow from constructor admission, codec tests or integrated-server startup.
+
+Source-profile code owns the event bus, source context, provenance and delivery
+lifetime. The installed target adapter owns native payload registration, codecs,
+connection presence and native flow/thread translation. Extracting these native
+operations MUST NOT alter raw bytes, listener identity or buffer timing.

@@ -27,6 +27,13 @@ public final class InstalledTargetAdapters {
                 "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192EventBusBridge",
                 "addListenerExplicit","(L"+sourceBus+";"+descriptor.substring(1),false);
     }
+    public static boolean rawChannelPresent(net.minecraft.network.Connection connection,net.minecraft.resources.Identifier channel) {
+        return com.fuckingdeveloper.lms.target.neoforge263.Target263RawNetworkChannels.isRemotePresent(connection,channel);
+    }
+    public static boolean registerRawChannel(com.fuckingdeveloper.lms.profile.forge1192.runtime.network.Forge1192NetworkBridge.LegacyChannel channel,
+            net.neoforged.neoforge.network.registration.PayloadRegistrar registrar) {
+        return com.fuckingdeveloper.lms.target.neoforge263.Target263RawNetworkChannels.register(channel,registrar);
+    }
     public static String sourceTextureAtlasHolder() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceTextureAtlasHolder"; }
     public static String sourceAtlasPreparations() { return "net/minecraft/client/renderer/texture/SpriteLoader$Preparations"; }
     public static String sourceRidingBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceRiding"; }

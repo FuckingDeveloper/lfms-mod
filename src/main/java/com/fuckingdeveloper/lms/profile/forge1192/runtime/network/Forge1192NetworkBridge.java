@@ -487,7 +487,7 @@ public final class Forge1192NetworkBridge {
                             && channel.serverAcceptedVersions().test(absent)) {
                         registrar = registrar.optional();
                     }
-                    if(Forge1192RawNetworkBridge.register(channel,registrar))return;
+                    if(com.fuckingdeveloper.lms.target.InstalledTargetAdapters.registerRawChannel(channel,registrar))return;
                     registrar.playBidirectional(channel.payloadType(), payloadCodec(channel),
                             Forge1192NetworkBridge::handlePayload,
                             Forge1192NetworkBridge::handlePayload);
