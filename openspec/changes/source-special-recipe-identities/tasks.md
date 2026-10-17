@@ -3,4 +3,4 @@
 - [x] Project distinct nominal identities with explicit executable boundaries.
 - [x] Test native identity/non-special classification and original JEI exact-class selection.
 - [x] Reject source constructors/subclasses/nested constructor handles.
-- [ ] Fresh client verifies original replacement selection passes missing classes.
+- [x] Runtime141 passes removed type resolution and original replacement selection; advances to source banner block-entity constant in ShieldDecorationRecipeMaker.

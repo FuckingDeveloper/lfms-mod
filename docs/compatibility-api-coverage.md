@@ -626,3 +626,53 @@ Evidence: /tmp/lms-container-families-runtime-{139,140}.log. Code checkpoints
 b676bcf and 9a8dabc are pushed; pre-existing uncommitted user work is preserved.
 Next families: removed special-recipe type identity and language selection;
 approved native brewing queries remain pending, not claimed from typed potions.
+
+## Source language selection and special-recipe identity — runtime141
+
+Forge1.19.2 -> Minecraft26.3 / NeoForge26.3.0.58-beta / Java25.
+LanguageInfo now retains source code/metadata, Locale construction, code-based
+comparison/equality, ordinary subclass/base dispatch and distinct instance
+identity. Manager selected/lookup/sorted-set/setSelected calls, handles and nested
+constants consume the actual native manager. Its attached source state preserves
+catalog identity and exact source selection objects, and resets on native
+selection or actual catalog replacement during normal native reload. No static
+manager/classloader-retaining map or extra resource reload is introduced.
+Source manager construction/subclasses and the removed Mojang bridge-game
+interface remain explicit unproven boundaries.
+
+User approved keeping actual native recipe types. The three removed source
+special-recipe types have distinct nominal tokens with verified CustomRecipe
+ancestry; native ImbueRecipe/TransmuteRecipe/ShapelessRecipe are not aliased.
+Construction, subclassing, executable/field access and nested constructor handles
+fail explicitly. This is nominal type admission, not executable source recipes
+or reflective modifier/name parity. Native recipe objects and crafting remain
+unchanged. Original JEI class-key selection is tested on a real ordinary native
+ImbueRecipe; it is not incorrectly selected as an old special recipe.
+
+Executed successfully:
+`./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava compatibilityAudit --args='legacy-mods /tmp/lms-language-special-audit.tsv'`.
+Evidence: /tmp/lms-language-special-final-check.log. Native checks include actual
+source construction/override/base dispatch, all four source manager methods,
+source/native selection, actual native catalog reload and original JEI locale
+and exact-class replacement consumers. Audit inventory: 3829 classes, 1119
+grouped gaps / 6393 sites; the same two dormant renderer/PackFinder transform
+failures remain. Inventory is not functional acceptance.
+
+Fresh runtime141 explicitly loaded Новый мир. MCP status/capability/player/
+dimension gates pass; all seven entrypoints initialize. Player baseline vitals,
+position and inventory summary remain unchanged; no gameplay fixtures, inventory
+mutations or recovery are pending. Highest observed overall milestone remains
+level 6, world load. Dev JVM stopped with user-authorized TERM after observation.
+
+Both runtime140 blockers disappear. The first causal recipe-registration blocker
+is now BlockEntityType.f_58935_ (pinned source BANNER) in
+ShieldDecorationRecipeMaker.createOutput:60. Independent GUI/search blocker is
+FluidStack.getDisplayName in FluidHelper.getDisplayName:111. These are new
+boundaries; full JEI recipe registration/GUI functionality remains BLOCKED. The
+later unknown ItemStack ingredient-type failure follows partial GUI startup.
+Next families are block-entity constants/banner stack metadata and fluid display
+queries. Approved native brewing queries remain pending.
+
+Evidence: /tmp/lms-container-families-runtime-141.log. Implementations d55320c
+(language family) and 8b8fe4e (approved nominal recipe identities) are pushed;
+pre-existing uncommitted user changes remain preserved.
