@@ -10,8 +10,9 @@ handheld_rod or builtin/generated parent, LMS MAY derive the missing target
 ClientItem definition selecting that same source model. Original geometry,
 textures and display transforms MUST remain unchanged. Source overrides and
 custom loaders MUST NOT be discarded. An explicit target items definition MUST
-take precedence. Unknown parents and builtin/entity MUST remain unsupported by
-this adapter; they MUST NOT be replaced with empty or invented models.
+take precedence. Unknown parent graphs MUST remain unsupported and MUST NOT be replaced with
+empty or invented models. The separately specified builtin/entity adapter retains
+its own admission and rendering rules.
 
 Generated models have five verified source texture-layer tint indices (0..4).
 The derived definition MUST project each through the preserved source item-color
@@ -23,3 +24,21 @@ normal resource reload and never alter native packs or source JARs.
 This establishes generated inventory-model discovery and tint evaluation. It
 does not establish source override predicates, arbitrary parent graphs,
 custom geometry loaders or BlockEntityWithoutLevelRenderer migration.
+
+## Closed static block-model inheritance (2026-10-17)
+
+The adapter MAY also derive definitions for same-artifact parent chains ending at
+verified native minecraft:block/cube or minecraft:block/cube_bottom_top templates.
+Both retained templates have native cuboid geometry/texture-variable inheritance;
+the source model identity, textures and display properties MUST remain unchanged.
+The original source JSON is selected, never flattened or replaced. Each visited
+source model MUST be free of overrides and custom loaders. Missing parents,
+cycles, external unproven parents and inherited custom-render markers MUST leave
+the item unsupported. Ancestor lookup MUST be indexed/memoized per artifact,
+without retaining classloaders. Explicit target definitions retain precedence.
+This is a bounded extension, not admission of arbitrary resource graphs.
+
+Evidence: source 1.19.2 client and exact 26.3.0.58-beta cube and cube_bottom_top
+resources are JSON-equal (including geometry/texture inheritance), native
+CuboidItemModelWrapper codec, and immutable source block/item JSON. Native resource
+reload remains responsible for texture resolution and model baking.

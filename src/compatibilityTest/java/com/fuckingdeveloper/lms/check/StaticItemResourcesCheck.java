@@ -13,6 +13,7 @@ import net.minecraft.resources.Identifier;
 
 final class StaticItemResourcesCheck {
     static void run() throws Exception {
+        blockInheritance();
         Path archive = Files.createTempFile("lms-static-item-probe-", ".jar");
         try {
             var entries = Map.of(
@@ -72,6 +73,43 @@ final class StaticItemResourcesCheck {
         if (Files.isRegularFile(iron)) check(Target263LegacyStaticItemResources.definitions(iron).size() == 35,
                 "immutable source generated-model inventory changed");
         System.out.println("PASS: native generated-model definition codec/resource discovery, five source tint callbacks, explicit-model precedence and immutable artifact inventory");
+    }
+    private static void blockInheritance() throws Exception {
+        Path archive = Files.createTempFile("lms-static-block-models-", ".jar");
+        try {
+            var entries = new LinkedHashMap<String, String>();
+            entries.put("models/item/cube.json", "{\"parent\":\"probe:block/base\"}");
+            entries.put("models/block/base.json", "{\"parent\":\"minecraft:block/cube_bottom_top\",\"textures\":{\"side\":\"probe:block/side\"}}");
+            entries.put("models/item/direct.json", "{\"parent\":\"minecraft:block/cube\"}");
+            entries.put("models/item/missing.json", "{\"parent\":\"probe:block/absent\"}");
+            entries.put("models/item/cycle.json", "{\"parent\":\"probe:block/cycle\"}");
+            entries.put("models/block/cycle.json", "{\"parent\":\"probe:item/cycle\"}");
+            entries.put("models/item/custom_parent.json", "{\"parent\":\"probe:block/custom\"}");
+            entries.put("models/block/custom.json", "{\"parent\":\"minecraft:block/cube\",\"loader\":\"probe:custom\"}");
+            entries.put("models/item/override_parent.json", "{\"parent\":\"probe:block/dynamic\"}");
+            entries.put("models/block/dynamic.json", "{\"parent\":\"minecraft:block/cube\",\"overrides\":[]}");
+            entries.put("models/item/external.json", "{\"parent\":\"other:block/base\"}");
+            entries.put("models/item/inherited_entity.json", "{\"parent\":\"probe:block/entity\"}");
+            entries.put("models/block/entity.json", "{\"parent\":\"minecraft:builtin/entity\"}");
+            entries.put("models/item/native.json", "{\"parent\":\"probe:block/base\"}");
+            entries.put("items/native.json", "{\"explicit\":true}");
+            try (var zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+                for (var entry : entries.entrySet()) {
+                    zip.putNextEntry(new ZipEntry("assets/probe/" + entry.getKey()));
+                    zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8)); zip.closeEntry();
+                }
+            }
+            byte[] original = Files.readAllBytes(archive);
+            var definitions = Target263LegacyStaticItemResources.definitions(archive);
+            check(definitions.keySet().equals(Set.of(id("items/cube.json"), id("items/direct.json"))),
+                    "closed block inheritance admission/negative boundaries");
+            var model = JsonParser.parseString(new String(definitions.get(id("items/cube.json")), StandardCharsets.UTF_8))
+                    .getAsJsonObject().getAsJsonObject("model");
+            model.remove("tints");
+            var decoded = CuboidItemModelWrapper.Unbaked.MAP_CODEC.codec().parse(JsonOps.INSTANCE, model).getOrThrow();
+            check(decoded.model().equals(id("item/cube")), "inherited source model identity lost");
+            check(Arrays.equals(original, Files.readAllBytes(archive)), "block-model artifact modified");
+        } finally { Files.deleteIfExists(archive); }
     }
     private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("probe", path); }
     private static void check(boolean value, String reason) { if (!value) throw new AssertionError(reason); }
