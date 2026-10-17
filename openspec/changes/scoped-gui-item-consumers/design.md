@@ -25,3 +25,22 @@ GUI ordering and separate item-atlas depth remain authoritative. Source color-ma
 channels MUST be captured into immutable native quad pipelines; RGB-only highlights
 must preserve destination alpha. Masked text/item operations without a proven
 adapter MUST fail, rather than silently draw with a full write mask.
+
+## Static field-read accessors
+
+A direct GUI consumer MAY obtain the source Screen.itemRenderer through a static
+managed accessor, including javac synthetic accessors, only when its entire body
+is ALOAD0 / GETFIELD / ARETURN, its owner is a Screen subtype, its single
+argument is that owner or a subtype, and the source field declaration is exact.
+This retains the source protected-field receiver relationship. Source field hiding MUST prevent selection. Branches,
+handlers, synchronized accessors, different receiver/return types and side effects
+MUST remain unsupported. Accessor names and fixture identities MUST NOT select it.
+
+Bypassing that field-read accessor MUST retain INVOKESTATIC class initialization
+at the original invocation point, before null-receiver failure. Initializer errors
+MUST propagate. Source null reads MUST remain NullPointerException. The result is
+only the existing scoped GUI service view for the verified direct GUI consumer;
+no old world renderer or mutable Screen field is fabricated. Other consumers of
+the original accessor remain unchanged, and virtual getter override checks remain
+mandatory. Evidence caches MUST distinguish opcode and descriptor and clear when
+the raw managed evidence graph is rebound.

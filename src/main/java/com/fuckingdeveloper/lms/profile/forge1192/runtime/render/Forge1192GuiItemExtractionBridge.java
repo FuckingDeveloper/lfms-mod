@@ -33,8 +33,15 @@ public final class Forge1192GuiItemExtractionBridge {
         }
     };
     public static LegacyTooltipItemRenderer screenContext(Object screen) {
+        java.util.Objects.requireNonNull(screen);
         if(!(screen instanceof net.minecraft.client.gui.screens.Screen))throw new IllegalStateException("Invalid source screen renderer receiver");
         return Forge1192TooltipGuiBridge.scope().renderer;
+    }
+    public static LegacyTooltipItemRenderer screenStaticRenderer(Object screen,Class<?> owner) {
+        // INVOKESTATIC initializes its declaring class before entering even a pure getter.
+        try {Class.forName(owner.getName(),true,owner.getClassLoader());}
+        catch(ClassNotFoundException failure){throw new IllegalStateException("Source static renderer getter owner disappeared",failure);}
+        return screenContext(screen);
     }
     public static LegacyTooltipItemRenderer screenRenderer(Object screen,Class<?> owner,String method) {
         java.util.Objects.requireNonNull(screen);

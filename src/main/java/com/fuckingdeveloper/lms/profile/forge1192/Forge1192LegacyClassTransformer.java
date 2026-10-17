@@ -4576,15 +4576,38 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     }
     private boolean isProvenScreenRendererGetter(MethodInsnNode call) {
         if(call.getOpcode()!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL || !call.desc.equals("()Lnet/minecraft/client/renderer/entity/ItemRenderer;"))return false;
-        return guiItemGetterEvidence.computeIfAbsent(call.owner+'#'+call.name,key->{
+        return guiItemGetterEvidence.computeIfAbsent("virtual:"+call.owner+'#'+call.name+call.desc,key->{
             try {
                 byte[] bytes=managedClassBytes==null?null:managedClassBytes.find(call.owner);if(bytes==null)return false;
                 var source=new ClassNode();new ClassReader(bytes).accept(source,0);
                 var methods=source.methods.stream().filter(m->m.name.equals(call.name)&&m.desc.equals(call.desc)).toList();
-                if(methods.size()!=1 || !methods.getFirst().tryCatchBlocks.isEmpty())return false;
+                if(methods.size()!=1 || (methods.getFirst().access&(org.objectweb.asm.Opcodes.ACC_STATIC|org.objectweb.asm.Opcodes.ACC_SYNCHRONIZED))!=0 || !methods.getFirst().tryCatchBlocks.isEmpty())return false;
                 var code=java.util.stream.StreamSupport.stream(methods.getFirst().instructions.spliterator(),false).filter(i->i.getOpcode()>=0).toList();
                 return code.size()==3 && code.get(0) instanceof org.objectweb.asm.tree.VarInsnNode load && load.getOpcode()==org.objectweb.asm.Opcodes.ALOAD && load.var==0
                         && code.get(1) instanceof FieldInsnNode field && isSourceScreenRendererField(source,field) && code.get(2).getOpcode()==org.objectweb.asm.Opcodes.ARETURN;
+            }catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}
+        });
+    }
+    private boolean isProvenStaticScreenRendererGetter(MethodInsnNode call) {
+        if(call.getOpcode()!=org.objectweb.asm.Opcodes.INVOKESTATIC)return false;
+        Type[] arguments=Type.getArgumentTypes(call.desc);
+        if(arguments.length!=1||arguments[0].getSort()!=Type.OBJECT
+                ||!Type.getReturnType(call.desc).getDescriptor().equals("Lnet/minecraft/client/renderer/entity/ItemRenderer;")
+                ||!isManagedSubtypeOf(call.owner,"net/minecraft/client/gui/screens/Screen")
+                ||!isManagedSubtypeOf(arguments[0].getInternalName(),call.owner))return false;
+        return guiItemGetterEvidence.computeIfAbsent("static:"+call.owner+'#'+call.name+call.desc,key->{
+            try {
+                byte[] bytes=managedClassBytes==null?null:managedClassBytes.find(call.owner);if(bytes==null)return false;
+                var source=new ClassNode();new ClassReader(bytes).accept(source,0);
+                var methods=source.methods.stream().filter(m->m.name.equals(call.name)&&m.desc.equals(call.desc)).toList();
+                if(methods.size()!=1)return false;
+                var method=methods.getFirst();
+                if((method.access&org.objectweb.asm.Opcodes.ACC_STATIC)==0||(method.access&org.objectweb.asm.Opcodes.ACC_SYNCHRONIZED)!=0
+                        ||!method.tryCatchBlocks.isEmpty())return false;
+                var code=java.util.stream.StreamSupport.stream(method.instructions.spliterator(),false).filter(i->i.getOpcode()>=0).toList();
+                return code.size()==3&&code.get(0) instanceof org.objectweb.asm.tree.VarInsnNode load&&load.getOpcode()==org.objectweb.asm.Opcodes.ALOAD&&load.var==0
+                        &&code.get(1) instanceof FieldInsnNode field&&isSourceScreenRendererField(source,field)
+                        &&isManagedSubtypeOf(arguments[0].getInternalName(),field.owner)&&code.get(2).getOpcode()==org.objectweb.asm.Opcodes.ARETURN;
             }catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}
         });
     }
@@ -4611,14 +4634,17 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                     var source=frame.getStack(frame.getStackSize()-org.objectweb.asm.Type.getArgumentTypes(call.desc).length-1).insns;
                     if(source.size()!=1)continue;var producer=source.iterator().next();
                     boolean known=producer instanceof FieldInsnNode field && isSourceScreenRendererField(node,field)
-                            || producer instanceof MethodInsnNode getter && (isProvenScreenRendererGetter(getter)
+                            || producer instanceof MethodInsnNode getter && (isProvenStaticScreenRendererGetter(getter)||isProvenScreenRendererGetter(getter)
                             || getter.getOpcode()==org.objectweb.asm.Opcodes.INVOKEVIRTUAL && getter.owner.equals("net/minecraft/client/Minecraft")&&getter.name.equals("m_91291_")&&getter.desc.equals("()L"+renderer+";"));
                     if(!known)continue;
                     producers.putIfAbsent(producer,call);
                     call.name=SRG_RUNTIME_RESOLVER.get().canonicalMethodName(renderer,call.name,call.desc).orElse(call.name);call.owner=view;call.itf=false;count++;
                 }
                 for(var producer:producers.keySet()){
-                    if(producer instanceof MethodInsnNode getter && isProvenScreenRendererGetter(getter)) {
+                    if(producer instanceof MethodInsnNode getter && isProvenStaticScreenRendererGetter(getter)) {
+                        method.instructions.insertBefore(getter,new LdcInsnNode(Type.getObjectType(getter.owner)));
+                        getter.owner=bridge;getter.name="screenStaticRenderer";getter.desc="(Ljava/lang/Object;Ljava/lang/Class;)L"+view+";";getter.itf=false;
+                    }else if(producer instanceof MethodInsnNode getter && isProvenScreenRendererGetter(getter)) {
                         var metadata=new org.objectweb.asm.tree.InsnList();metadata.add(new LdcInsnNode(Type.getObjectType(getter.owner)));metadata.add(new LdcInsnNode(getter.name));method.instructions.insertBefore(getter,metadata);
                         getter.owner=bridge;getter.name="screenRenderer";getter.desc="(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;)L"+view+";";getter.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);getter.itf=false;
                     }else if(producer instanceof MethodInsnNode getter){getter.owner=bridge;getter.name="context";getter.desc="(Lnet/minecraft/client/Minecraft;)L"+view+";";getter.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);getter.itf=false;}
