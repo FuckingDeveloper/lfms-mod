@@ -205,8 +205,8 @@ public final class Forge1192CompatibilitySurface {
             String target = entry.getKey();
             boolean inactive=entry.getValue().stream().allMatch(boundary -> boundary.phase()==Forge1192RegistrationPlanner.ExecutionPhase.DATA_GENERATION);
             boolean catalogued = entry.getValue().stream().allMatch(boundary ->
-                    com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodRules.catalog()
-                            .resolve(boundary.opcode(), boundary.owner().replace('.', '/'), boundary.name(), boundary.descriptor(), declarations::owner).isPresent());
+                    com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodRules
+                            .resolve(boundary.opcode(), boundary.owner().replace('.', '/'), boundary.name(), boundary.descriptor(), declarations).isPresent());
             String catalogFamilyName=entry.getValue().stream().map(boundary->com.fuckingdeveloper.lms.profile.forge1192.Forge1192MethodRules.family(
                     boundary.owner().replace('.','/'),boundary.name(),boundary.descriptor(),declarations)).flatMap(java.util.Optional::stream).findFirst().orElse(null);
             boolean catalogFamily = catalogFamilyName!=null || entry.getValue().stream().anyMatch(boundary -> boundary.name().equals("enqueueWork")
