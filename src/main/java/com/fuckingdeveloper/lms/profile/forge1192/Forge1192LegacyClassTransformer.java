@@ -10949,6 +10949,19 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                     rewrites++;
                     continue;
                 }
+                if(Forge1192RawNetworkRules.listener(call.getOpcode(),call.owner,call.name,call.desc)) {
+                    var previous=call.getPrevious();while(previous!=null&&previous.getOpcode()<0)previous=previous.getPrevious();
+                    if(!(previous instanceof InvokeDynamicInsnNode lambda)||!lambda.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory"))
+                        throw new UnsupportedOperationException("Raw event listener needs an immediately supplied typed source lambda");
+                    Type eventType=inferLambdaEventType(call);
+                    if(eventType==null||!(eventType.getInternalName().equals(Forge1192RawNetworkRules.TARGET_EVENT)
+                            ||eventType.getInternalName().equals(Forge1192RawNetworkRules.TARGET_EVENT+"$ClientCustomPayloadEvent")
+                            ||eventType.getInternalName().equals(Forge1192RawNetworkRules.TARGET_EVENT+"$ServerCustomPayloadEvent")))
+                        throw new UnsupportedOperationException("Unproven source raw event listener type");
+                    method.instructions.insertBefore(call,new LdcInsnNode(eventType));
+                    method.instructions.insertBefore(call,new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.SWAP));
+                    call.desc="(Ljava/lang/Class;Ljava/util/function/Consumer;)V";rewrites++;continue;
+                }
                 if (!call.owner.equals("net/minecraftforge/network/NetworkEvent$Context")) continue;
                 String bridgeDesc = switch (call.name + call.desc) {
                     case "enqueueWork(Ljava/lang/Runnable;)Ljava/util/concurrent/CompletableFuture;" ->
@@ -10956,6 +10969,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                     case "getSender()Lnet/minecraft/server/level/ServerPlayer;" ->
                             "(Ljava/lang/Object;)Lnet/minecraft/server/level/ServerPlayer;";
                     case "setPacketHandled(Z)V" -> "(Ljava/lang/Object;Z)V";
+                    case "getPacketHandled()Z" -> "(Ljava/lang/Object;)Z";
                     default -> null;
                 };
                 if (bridgeDesc != null) {
@@ -12652,6 +12666,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                         case "getSender()Lnet/minecraft/server/level/ServerPlayer;" ->
                                 "(Ljava/lang/Object;)Lnet/minecraft/server/level/ServerPlayer;";
                         case "setPacketHandled(Z)V" -> "(Ljava/lang/Object;Z)V";
+                    case "getPacketHandled()Z" -> "(Ljava/lang/Object;)Z";
                         default -> null;
                     };
                     if (bridgeDesc != null) {
@@ -13106,6 +13121,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             return "net/neoforged/api/distmarker/Dist";
         if (value.equals("net/minecraftforge/network/PlayMessages$SpawnEntity"))
             return com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnEntity();
+        String rawNetworkType=Forge1192RawNetworkRules.type(value);
+        if(rawNetworkType!=null)return rawNetworkType;
         if (value.equals("net/minecraftforge/network/NetworkRegistry"))
             return "com/fuckingdeveloper/lms/profile/forge1192/runtime/network/Forge1192NetworkBridge";
         if (value.equals("net/minecraftforge/network/simple/SimpleChannel")

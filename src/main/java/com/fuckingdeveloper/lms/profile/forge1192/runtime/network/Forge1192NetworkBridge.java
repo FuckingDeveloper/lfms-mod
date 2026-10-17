@@ -178,6 +178,9 @@ public final class Forge1192NetworkBridge {
             Object channel=newSimpleChannel(name,Objects.requireNonNull(version,"protocol version"),Objects.requireNonNull(client,"client acceptance"),Objects.requireNonNull(server,"server acceptance"));
             built=true;return channel;
         }
+        public Forge1192RawNetworkBridge.LegacyEventChannel eventNetworkChannel(){
+            checkOpen();var channel=newEventChannel(name,Objects.requireNonNull(version),Objects.requireNonNull(client),Objects.requireNonNull(server));built=true;return channel;
+        }
         private void checkOpen(){if(built)throw new IllegalStateException("Legacy channel builder already consumed");}
     }
 
@@ -352,6 +355,9 @@ public final class Forge1192NetworkBridge {
         return channel;
     }
 
+    public static Forge1192RawNetworkBridge.LegacyEventChannel newEventChannel(Identifier name,Supplier<String> version,Predicate<String> client,Predicate<String> server) {
+        return Forge1192RawNetworkBridge.create((LegacyChannel)newSimpleChannel(name,version,client,server));
+    }
     public static LegacyChannel requireChannel(Object token) {
         if (!(token instanceof LegacyChannel channel))
             throw new IllegalStateException("Legacy SimpleChannel token escaped or has an invalid provenance");
@@ -481,6 +487,7 @@ public final class Forge1192NetworkBridge {
                             && channel.serverAcceptedVersions().test(absent)) {
                         registrar = registrar.optional();
                     }
+                    if(Forge1192RawNetworkBridge.register(channel,registrar))return;
                     registrar.playBidirectional(channel.payloadType(), payloadCodec(channel),
                             Forge1192NetworkBridge::handlePayload,
                             Forge1192NetworkBridge::handlePayload);
@@ -605,6 +612,7 @@ public final class Forge1192NetworkBridge {
         return requireContext(token).sender();
     }
 
+    public static boolean getPacketHandled(Object token) {return requireContext(token).packetHandled();}
     public static void setPacketHandled(Object token, boolean handled) {
         requireContext(token).setPacketHandled(handled);
     }

@@ -10,7 +10,7 @@ public final class Forge1192MethodRules {
     public static final String WORK = "net/minecraftforge/fml/event/lifecycle/ParallelDispatchEvent";
     private static final MethodRuleCatalog CATALOG = new MethodRuleCatalog(entries());
     private Forge1192MethodRules() {}
-    private static List<MethodRuleCatalog.Rule> entries(){var result=new java.util.ArrayList<MethodRuleCatalog.Rule>(Forge1192ConfigRules.entries());result.addAll(Forge1192MenuRewriter.entries());result.add(explicitListener());result.add(work("Runnable","java/lang/Runnable"));result.add(work("Supplier","java/util/function/Supplier"));return List.copyOf(result);}
+    private static List<MethodRuleCatalog.Rule> entries(){var result=new java.util.ArrayList<MethodRuleCatalog.Rule>(Forge1192ConfigRules.entries());result.addAll(Forge1192MenuRewriter.entries());result.addAll(Forge1192RawNetworkRules.entries());result.add(explicitListener());result.add(work("Runnable","java/lang/Runnable"));result.add(work("Supplier","java/util/function/Supplier"));return List.copyOf(result);}
     private static MethodRuleCatalog.Rule explicitListener() {
         String bus="net/minecraftforge/eventbus/api/IEventBus";
         String desc="(Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/lang/Class;Ljava/util/function/Consumer;)V";
