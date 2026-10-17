@@ -44,14 +44,16 @@ public final class SourceEntityRenderFamilyCheck {
         check(Target263EntityBlockContexts.forEntity((Entity)unsafe.allocateInstance(net.minecraft.world.entity.decoration.ArmorStand.class)).isEmpty(),"unknown context fabricated");
         var path=Files.createTempFile("lms-source-renderer", ".jar");
         try {
-            try(var jar=new JarOutputStream(Files.newOutputStream(path))){jar.putNextEntry(new JarEntry(NAME+".class"));jar.write(fixture());jar.closeEntry();jar.putNextEntry(new JarEntry("probe/ChildRenderer.class"));jar.write(childFixture());jar.closeEntry();}
+            try(var jar=new JarOutputStream(Files.newOutputStream(path))){jar.putNextEntry(new JarEntry(NAME+".class"));jar.write(fixture());jar.closeEntry();jar.putNextEntry(new JarEntry("probe/ChildRenderer.class"));jar.write(childFixture());jar.closeEntry();jar.putNextEntry(new JarEntry("probe/SuppressNames.class"));jar.write(suppressNames(false));jar.closeEntry();}
             byte[] original=Files.readAllBytes(path);
             try(var loader=new ManagedLegacyClassLoader(path,SourceEntityRenderFamilyCheck.class.getClassLoader(),new Forge1192LegacyClassTransformer())) {
                 var type=loader.linkOwnedClass(NAME.replace('/','.'));
                 check(type.getSuperclass()==Target263SourceEntityRenderer.class,"source construction base lost");
                 var context=new EntityRendererProvider.Context(null,new BlockModelResolver(null),null,null,null,null,null,null,null,null,null);
                 @SuppressWarnings("unchecked") var renderer=(Target263SourceEntityRenderer<Entity>)type.getConstructor(EntityRendererProvider.Context.class).newInstance(context);
-                var state=renderer.createRenderState();state.lightCoords=1234;renderer.lms$extractSource(expected,state,0.25F);
+                var state=renderer.createRenderState();state.lightCoords=1234;state.nameTag=net.minecraft.network.chat.Component.literal("native-label");renderer.lms$extractSource(expected,state,0.25F);
+                var names=Target263SourceEntityRenderer.State.class.getDeclaredField("names");names.setAccessible(true);
+                check(((List<?>)names.get(state)).size()==1,"native base name request lost");
                 check(calls==1&&renderer.lmsLegacyTexture(expected)==TEXTURE,"original callback/texture dispatch");
                 try{renderer.lms$extractSource(expected,state,0.25F);throw new AssertionError("double extraction accepted");}catch(IllegalStateException ok){}
                 try{Target263SourceEntityRenderer.baseRender(renderer,expected,0,0,new PoseStack(),LegacyMultiBufferSource.recording(),0);throw new AssertionError("active source entity leaked");}catch(UnsupportedOperationException ok){}
@@ -61,6 +63,11 @@ public final class SourceEntityRenderFamilyCheck {
                 @SuppressWarnings("unchecked") var child=(Target263SourceEntityRenderer<Entity>)loader.linkOwnedClass("probe.ChildRenderer").getConstructor(EntityRendererProvider.Context.class).newInstance(context);
                 var childState=child.createRenderState();childState.lightCoords=1234;child.lms$extractSource(expected,childState,0.25F);
                 check(calls==4&&child.lmsLegacyTexture(expected)==TEXTURE,"managed child/super dispatch lost");
+                @SuppressWarnings("unchecked") var suppressed=(Target263SourceEntityRenderer<Entity>)loader.linkOwnedClass("probe.SuppressNames").getConstructor(EntityRendererProvider.Context.class).newInstance(context);
+                var suppressedState=suppressed.createRenderState();suppressedState.lightCoords=1234;suppressedState.nameTag=state.nameTag;suppressed.lms$extractSource(expected,suppressedState,0.25F);
+                check(calls==5&&((List<?>)names.get(suppressedState)).isEmpty(),"empty source name callback did not suppress native label or duplicated source render");
+                try{Target263SourceEntityRenderer.nameTag(suppressed,(Entity)unsafe.allocateInstance(Minecart.class),state.nameTag,new PoseStack(),LegacyMultiBufferSource.recording(),1234);throw new AssertionError("source bridge cast was skipped");}catch(ClassCastException expectedCast){}
+                try{new Forge1192LegacyClassTransformer().transform("probe.SuppressNames",suppressNames(true));throw new AssertionError("nonempty text callback silently suppressed");}catch(UnsupportedOperationException expectedBoundary){}
                 check(((java.lang.reflect.ParameterizedType)type.getGenericSuperclass()).getRawType()==Target263SourceEntityRenderer.class,"generic superclass construction lost");
                 for(var field:Target263SourceEntityRenderer.State.class.getDeclaredFields())check(!Entity.class.isAssignableFrom(field.getType()),"submission retained live entity");
                 check(Arrays.equals(original,Files.readAllBytes(path)),"source artifact changed");
@@ -114,6 +121,17 @@ public final class SourceEntityRenderFamilyCheck {
         var w=new ClassWriter(ClassWriter.COMPUTE_MAXS);w.visit(V17,ACC_PUBLIC,"probe/ChildRenderer",null,NAME,null);
         var m=w.visitMethod(ACC_PUBLIC,"<init>","(Lnet/minecraft/client/renderer/entity/EntityRendererProvider$Context;)V",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKESPECIAL,NAME,"<init>","(Lnet/minecraft/client/renderer/entity/EntityRendererProvider$Context;)V",false);m.visitInsn(RETURN);m.visitMaxs(0,0);m.visitEnd();
         m=w.visitMethod(ACC_PUBLIC,"m_7392_",RENDER,null,null);m.visitCode();loadRender(m,true);m.visitMethodInsn(INVOKESPECIAL,NAME,"m_7392_",RENDER,false);m.visitInsn(RETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();
+    }
+    private static byte[] suppressNames(boolean nonempty) {
+        String name="probe/SuppressNames",tag="("+ENTITY+"Lnet/minecraft/network/chat/Component;"+POSE+BUFFER+"I)V";
+        String parent=nonempty?ROOT:NAME;
+        var w=new ClassWriter(ClassWriter.COMPUTE_MAXS);w.visit(V17,ACC_PUBLIC,name,null,parent,null);
+        var ctor=w.visitMethod(ACC_PUBLIC,"<init>","(Lnet/minecraft/client/renderer/entity/EntityRendererProvider$Context;)V",null,null);ctor.visitCode();ctor.visitVarInsn(ALOAD,0);ctor.visitVarInsn(ALOAD,1);ctor.visitMethodInsn(INVOKESPECIAL,parent,"<init>","(Lnet/minecraft/client/renderer/entity/EntityRendererProvider$Context;)V",false);ctor.visitInsn(RETURN);ctor.visitMaxs(0,0);ctor.visitEnd();
+        String typed=tag.replace(ENTITY,"Lnet/minecraft/world/entity/item/PrimedTnt;");
+        var method=w.visitMethod(ACC_PROTECTED,"renderNameTag",typed,null,null);method.visitCode();if(nonempty){method.visitInsn(ICONST_1);method.visitInsn(POP);}method.visitInsn(RETURN);method.visitMaxs(0,0);method.visitEnd();
+        method=w.visitMethod(ACC_PROTECTED|ACC_BRIDGE|ACC_SYNTHETIC,"m_7649_",tag,null,null);method.visitCode();
+        method.visitVarInsn(ALOAD,0);method.visitVarInsn(ALOAD,1);method.visitTypeInsn(CHECKCAST,"net/minecraft/world/entity/item/PrimedTnt");
+        for(int i=2;i<=4;i++)method.visitVarInsn(ALOAD,i);method.visitVarInsn(ILOAD,5);method.visitMethodInsn(INVOKEVIRTUAL,name,"renderNameTag",typed,false);method.visitInsn(RETURN);method.visitMaxs(0,0);method.visitEnd();w.visitEnd();return w.toByteArray();
     }
     private static void loadRender(MethodVisitor m,boolean receiver){if(receiver)m.visitVarInsn(ALOAD,0);m.visitVarInsn(ALOAD,1);m.visitVarInsn(FLOAD,2);m.visitVarInsn(FLOAD,3);m.visitVarInsn(ALOAD,4);m.visitVarInsn(ALOAD,5);m.visitVarInsn(ILOAD,6);}
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}

@@ -35,3 +35,14 @@ read real server block/entity changes and recover owned runtime108 fixtures and
 inventory; visual confirmation is required for pixels the structured API cannot expose.
 Optional MCP framebuffer captures may supply that evidence; request a human check
 when those captures cannot establish the result.
+
+## Proven empty source name-tag callbacks (runtime115 follow-up)
+
+A source root name-tag override MAY suppress native label submission only when
+its bytecode proves an empty implementation, including a verified compiler bridge
+to that empty typed implementation. The original callback and bridge MUST execute
+when native extracted label metadata requests a name pass; their cast/dispatch
+semantics MUST remain intact. The adapter MUST NOT replace a nonempty callback
+with a suppression flag. Nonempty/unknown source text-render overrides remain
+fail-fast. Default/source-super name passes MUST retain actual component, pose
+and lighting in the same frame and restore native state after submission.
