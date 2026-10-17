@@ -269,6 +269,7 @@ public final class LiveTargetContractProbe {
         ResourceKeyFamilyCheck.run();
         EnchantedBookReadFamilyCheck.run();
         ListTagReadFamilyCheck.run();
+        PotionContentsFamilyCheck.run();
         GuiModelViewFamilyCheck.run();
         GuiStaticAccessorFamilyCheck.run();
         SourceProjectileFamilyCheck.run();

@@ -1,0 +1,4 @@
+- [x] Inspect source/target item and brewing families and first causal failure.
+- [x] Implement proven potion constants, names and typed contents operations.
+- [x] Compile and execute independent compatibility/native checks and audit.
+- [ ] Verify fresh-world original consumer; record remaining gaps.

@@ -290,10 +290,12 @@ public final class Forge1192ItemBridge {
 
     /** Return the live source-era tag view, not a detached target copy. */
     public static net.minecraft.nbt.CompoundTag getTag(ItemStack stack) {
+        com.fuckingdeveloper.lms.target.InstalledTargetAdapters.requireSourcePotionTagProjection(stack);
         return mutableTags(stack).acquire(stack, false);
     }
 
     public static net.minecraft.nbt.CompoundTag getOrCreateTag(ItemStack stack) {
+        com.fuckingdeveloper.lms.target.InstalledTargetAdapters.requireSourcePotionTagProjection(stack);
         return mutableTags(stack).acquire(stack, true);
     }
 
@@ -328,6 +330,7 @@ public final class Forge1192ItemBridge {
     }
 
     public static void setTag(ItemStack stack, net.minecraft.nbt.CompoundTag tag) {
+        com.fuckingdeveloper.lms.target.InstalledTargetAdapters.requireSourcePotionTagProjection(stack);
         mutableTags(stack).assign(stack, tag);
     }
 

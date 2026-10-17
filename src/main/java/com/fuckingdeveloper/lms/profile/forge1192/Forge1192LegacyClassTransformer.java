@@ -424,6 +424,13 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("source-gui-model-view",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     Forge1192GuiModelViewRewriter::rewrite),
+            new TransformationPipeline.Pass("source-potion-contents",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192PotionRewriter.rewrite(node, new Forge1192PotionRewriter.Evidence() {
+                        public String field(String name) { return SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalFieldName("net/minecraft/world/item/alchemy/Potions",name,"Lnet/minecraft/world/item/alchemy/Potion;")).orElse(null); }
+                        public String method(String owner,String name,String desc) { return registryCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,ignored -> SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalMethodName(owner,name,desc))).orElse(null); }
+                        public boolean targetField(String name) { return VANILLA_RELOCATIONS.searchExactField("net.minecraft.world.item.alchemy.Potions",name,"Lnet/minecraft/core/Holder;").size()==1; }
+                    }, semanticInvocations)),
             new TransformationPipeline.Pass("source-list-tag-reads",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192ListTagRewriter.rewrite(node,
