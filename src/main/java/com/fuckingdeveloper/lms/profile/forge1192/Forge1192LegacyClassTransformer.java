@@ -550,6 +550,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("rewriteContainerRenderLifecycle",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteContainerRenderLifecycle(node)),
+            new TransformationPipeline.Pass("rewriteItemCooldownFamily",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteItemCooldownFamily(node)),
             new TransformationPipeline.Pass("rewritePlayerMessageFamily",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewritePlayerMessageFamily(node)),
@@ -4849,6 +4852,27 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             if(!declaresManagedMethod(node,"m_93250_","(I)V")){var setter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93250_","(I)V",null,null);setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));setter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.PUTFIELD,node.name,"lms$widgetDepth","I"));setter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));setter.maxStack=2;setter.maxLocals=2;node.methods.add(setter);}
         }
         return 1;
+    }
+
+    private int rewriteItemCooldownFamily(ClassNode node) {
+        String base = "net/minecraft/world/item/ItemCooldowns";
+        return rewriteSemanticInstanceCalls(node, (opcode, owner, name, desc) -> {
+            if (opcode != org.objectweb.asm.Opcodes.INVOKEVIRTUAL) return null;
+            String identity = sourceGuiMethod(node, owner, name, desc);
+            if (identity == null || !identity.startsWith(base + "#")) return null;
+            String operation = identity.substring(base.length() + 1);
+            String expected = switch (operation) {
+                case "addCooldown" -> "(Lnet/minecraft/world/item/Item;I)V";
+                case "removeCooldown" -> "(Lnet/minecraft/world/item/Item;)V";
+                case "isOnCooldown" -> "(Lnet/minecraft/world/item/Item;)Z";
+                case "getCooldownPercent" -> "(Lnet/minecraft/world/item/Item;F)F";
+                default -> null;
+            };
+            if (!desc.equals(expected)) return null;
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                    com.fuckingdeveloper.lms.target.InstalledTargetAdapters.itemCooldownsBridge(),
+                    operation, "(L" + base + ";" + desc.substring(1), false);
+        });
     }
 
     private int rewritePlayerMessageFamily(ClassNode node) {
