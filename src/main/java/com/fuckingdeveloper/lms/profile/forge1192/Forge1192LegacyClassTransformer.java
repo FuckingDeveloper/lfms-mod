@@ -1234,6 +1234,10 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                 return migrateInternalName(internalName);
             }
             @Override public String mapFieldName(String owner, String name, String descriptor) {
+                // Pinned 1.19.2 mappings: f_84822_ is UNKNOWN. The native SDL key
+                // carries its own unbound value; never transplant the old GLFW integer.
+                if(owner.equals("com/mojang/blaze3d/platform/InputConstants") && name.equals("f_84822_")
+                        && descriptor.equals("Lcom/mojang/blaze3d/platform/InputConstants$Key;")) return "UNKNOWN";
                 String material = owner.equals(SOURCE_MATERIAL)
                         && descriptor.equals("L" + SOURCE_MATERIAL + ";") ? legacyMaterialKind(name) : null;
                 return material == null ? name : material;
@@ -13072,8 +13076,10 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         // DistExecutor was removed from current NeoForge. Keep the Forge 1.19.2
         // physical-side execution contract behind an LMS-owned runtime boundary
         // instead of migrating it into a non-existent NeoForge class.
-        if (value.equals("net/minecraftforge/fml/DistExecutor"))
-            return "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192DistExecutorBridge";
+        if (value.equals("net/minecraftforge/fml/IExtensionPoint") || value.startsWith("net/minecraftforge/fml/IExtensionPoint$"))
+            return value.replace("net/minecraftforge/fml/IExtensionPoint", "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/LegacyExtensionPoint");
+        if (value.equals("net/minecraftforge/fml/DistExecutor") || value.startsWith("net/minecraftforge/fml/DistExecutor$"))
+            return value.replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192DistExecutorBridge");
         if (value.equals("net/minecraftforge/api/distmarker/Dist"))
             return "net/neoforged/api/distmarker/Dist";
         if (value.equals("net/minecraftforge/network/NetworkRegistry"))
@@ -13282,6 +13288,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         migrated = Forge1192EntityRelocations.projectDescriptor(migrated);
         migrated = Forge1192BootstrapRewriter.descriptor(migrated);
         return migrated
+                .replace("net/minecraftforge/fml/IExtensionPoint", "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/LegacyExtensionPoint")
                 .replace("net/minecraftforge/fml/DistExecutor", "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192DistExecutorBridge")
                 .replace("net/minecraftforge/api/distmarker/Dist", "net/neoforged/api/distmarker/Dist")
                 .replace("net/minecraft/client/color/block/BlockColor", "com/fuckingdeveloper/lms/profile/forge1192/runtime/color/LegacyBlockColor")

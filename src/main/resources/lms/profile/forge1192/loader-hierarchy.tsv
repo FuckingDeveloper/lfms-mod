@@ -1,7 +1,8 @@
-# Forge 1.19.2 / 43.4.0 official named patched artifact + FML core + Java FML
+# Forge 1.19.2 / 43.4.0 official named patched artifact + FML core + Java FML + EventBus6.0.3
 # forge-1.19.2-43.4.0_mapped_official_1.19.2.jar sha256=579b78e19ff551ae3b340a6f908ca0923633a9395b35e6ae446772a778793bb4
 # fmlcore-1.19.2-43.4.0.jar sha256=7759350688f802c2e7ed21b31ea21f7c45cfb960d1f495036872bee3a842d702
 # javafmllanguage-1.19.2-43.4.0.jar sha256=dace027d2ae25dc0a27b84924e561fc0ecb7914d7e9c2699b10f2caea189def5
+# eventbus-6.0.3.jar sha256=4bc0d5eaa086a4aecc613771fd02ad04373a06e83359185ee87f5caae4f29897
 C	com/mojang/blaze3d/vertex/BufferBuilder$1	4128	java/lang/Object	-
 F	4120	$SwitchMap$com$mojang$blaze3d$vertex$VertexFormat$IndexType	[I
 M	8	<clinit>	()V
@@ -13944,4 +13945,360 @@ M	1	getEventBus	()Lnet/minecraftforge/eventbus/api/IEventBus;
 M	4	acceptEvent	(Lnet/minecraftforge/eventbus/api/Event;)V
 M	4106	lambda$new$1	(Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext;)Ljava/lang/Object;
 M	4098	lambda$new$0	(Lnet/minecraftforge/fml/config/IConfigEvent;)V
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/ASMEventHandler	33	java/lang/Object	net/minecraftforge/eventbus/api/IEventListener
+F	18	factory	Lnet/minecraftforge/eventbus/IEventListenerFactory;
+F	18	handler	Lnet/minecraftforge/eventbus/api/IEventListener;
+F	18	subInfo	Lnet/minecraftforge/eventbus/api/SubscribeEvent;
+F	2	readable	Ljava/lang/String;
+F	2	filter	Ljava/lang/reflect/Type;
+M	1	<init>	(Lnet/minecraftforge/eventbus/IEventListenerFactory;Ljava/lang/Object;Ljava/lang/reflect/Method;Z)V
+M	1	invoke	(Lnet/minecraftforge/eventbus/api/Event;)V
+M	1	getPriority	()Lnet/minecraftforge/eventbus/api/EventPriority;
+M	1	toString	()Ljava/lang/String;
+C	net/minecraftforge/eventbus/BusBuilderImpl	49	java/lang/Object	net/minecraftforge/eventbus/api/BusBuilder
+F	0	exceptionHandler	Lnet/minecraftforge/eventbus/api/IEventExceptionHandler;
+F	0	trackPhases	Z
+F	0	startShutdown	Z
+F	0	checkTypesOnDispatch	Z
+F	0	markerType	Ljava/lang/Class;
+F	0	modLauncher	Z
+M	1	<init>	()V
+M	1	setTrackPhases	(Z)Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1	setExceptionHandler	(Lnet/minecraftforge/eventbus/api/IEventExceptionHandler;)Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1	startShutdown	()Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1	checkTypesOnDispatch	()Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1	markerType	(Ljava/lang/Class;)Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1	useModLauncher	()Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1	build	()Lnet/minecraftforge/eventbus/api/IEventBus;
+C	net/minecraftforge/eventbus/ClassLoaderFactory$ASMClassLoader	32	java/lang/ClassLoader	-
+M	2	<init>	()V
+M	4	loadClass	(Ljava/lang/String;Z)Ljava/lang/Class;
+M	0	define	(Ljava/lang/String;[B)Ljava/lang/Class;
+C	net/minecraftforge/eventbus/ClassLoaderFactory	33	java/lang/Object	net/minecraftforge/eventbus/IEventListenerFactory
+F	26	HANDLER_DESC	Ljava/lang/String;
+F	26	HANDLER_FUNC_DESC	Ljava/lang/String;
+F	26	LOADER	Lnet/minecraftforge/eventbus/ClassLoaderFactory$ASMClassLoader;
+F	26	cache	Lnet/minecraftforge/eventbus/LockHelper;
+M	1	<init>	()V
+M	1	create	(Ljava/lang/reflect/Method;Ljava/lang/Object;)Lnet/minecraftforge/eventbus/api/IEventListener;
+M	4	createWrapper	(Ljava/lang/reflect/Method;)Ljava/lang/Class;
+M	26	defineClass	(Lorg/objectweb/asm/tree/ClassNode;)Ljava/lang/Class;
+M	12	transformNode	(Ljava/lang/String;Ljava/lang/reflect/Method;Lorg/objectweb/asm/tree/ClassNode;)V
+M	4098	lambda$createWrapper$0	(Ljava/lang/reflect/Method;)Lorg/objectweb/asm/tree/ClassNode;
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/EventAccessTransformer	33	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+M	1	<init>	()V
+M	1	transform	(Lorg/objectweb/asm/tree/ClassNode;Lorg/objectweb/asm/Type;)Z
+M	2	illegalPrivateAccess	(Lorg/objectweb/asm/tree/MethodNode;Lorg/objectweb/asm/tree/ClassNode;)V
+M	10	changeAccess	(ILjava/util/concurrent/atomic/AtomicBoolean;)I
+M	2	toPublic	(Lorg/objectweb/asm/tree/MethodNode;Ljava/util/concurrent/atomic/AtomicBoolean;)V
+M	4098	lambda$transform$6	(Ljava/util/concurrent/atomic/AtomicBoolean;Lorg/objectweb/asm/tree/MethodNode;)V
+M	4106	lambda$transform$5	(Lorg/objectweb/asm/tree/ClassNode;Ljava/util/concurrent/atomic/AtomicBoolean;Lorg/objectweb/asm/tree/MethodNode;)V
+M	4106	lambda$transform$4	(Lorg/objectweb/asm/tree/ClassNode;Lorg/objectweb/asm/tree/MethodNode;)V
+M	4106	lambda$transform$3	(Lorg/objectweb/asm/tree/MethodNode;)Z
+M	4098	lambda$transform$2	(Lorg/objectweb/asm/tree/ClassNode;Lorg/objectweb/asm/tree/MethodNode;)V
+M	4106	lambda$transform$1	(Lorg/objectweb/asm/tree/MethodNode;)Z
+M	4106	lambda$transform$0	(Lorg/objectweb/asm/tree/AnnotationNode;)Z
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/EventBus	33	java/lang/Object	net/minecraftforge/eventbus/api/IEventExceptionHandler,net/minecraftforge/eventbus/api/IEventBus
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+F	26	checkTypesOnDispatchProperty	Z
+F	10	maxID	Ljava/util/concurrent/atomic/AtomicInteger;
+F	18	trackPhases	Z
+F	2	listeners	Ljava/util/concurrent/ConcurrentHashMap;
+F	18	busID	I
+F	18	exceptionHandler	Lnet/minecraftforge/eventbus/api/IEventExceptionHandler;
+F	66	shutdown	Z
+F	18	baseType	Ljava/lang/Class;
+F	18	checkTypesOnDispatch	Z
+F	18	factory	Lnet/minecraftforge/eventbus/IEventListenerFactory;
+M	2	<init>	()V
+M	2	<init>	(Lnet/minecraftforge/eventbus/api/IEventExceptionHandler;ZZLjava/lang/Class;ZLnet/minecraftforge/eventbus/IEventListenerFactory;)V
+M	1	<init>	(Lnet/minecraftforge/eventbus/BusBuilderImpl;)V
+M	2	registerClass	(Ljava/lang/Class;)V
+M	2	getDeclMethod	(Ljava/lang/Class;Ljava/lang/reflect/Method;)Ljava/util/Optional;
+M	2	registerObject	(Ljava/lang/Object;)V
+M	2	typesFor	(Ljava/lang/Class;Ljava/util/Set;)V
+M	1	register	(Ljava/lang/Object;)V
+M	2	registerListener	(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/lang/reflect/Method;)V
+M	2	passCancelled	(Z)Ljava/util/function/Predicate;
+M	2	passGenericFilter	(Ljava/lang/Class;)Ljava/util/function/Predicate;
+M	2	checkNotGeneric	(Ljava/util/function/Consumer;)V
+M	2	checkNotGeneric	(Ljava/lang/Class;)V
+M	1	addListener	(Ljava/util/function/Consumer;)V
+M	1	addListener	(Lnet/minecraftforge/eventbus/api/EventPriority;Ljava/util/function/Consumer;)V
+M	1	addListener	(Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/util/function/Consumer;)V
+M	1	addListener	(Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/lang/Class;Ljava/util/function/Consumer;)V
+M	1	addGenericListener	(Ljava/lang/Class;Ljava/util/function/Consumer;)V
+M	1	addGenericListener	(Ljava/lang/Class;Lnet/minecraftforge/eventbus/api/EventPriority;Ljava/util/function/Consumer;)V
+M	1	addGenericListener	(Ljava/lang/Class;Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/util/function/Consumer;)V
+M	1	addGenericListener	(Ljava/lang/Class;Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/lang/Class;Ljava/util/function/Consumer;)V
+M	2	getEventClass	(Ljava/util/function/Consumer;)Ljava/lang/Class;
+M	2	addListener	(Lnet/minecraftforge/eventbus/api/EventPriority;Ljava/util/function/Predicate;Ljava/util/function/Consumer;)V
+M	2	addListener	(Lnet/minecraftforge/eventbus/api/EventPriority;Ljava/util/function/Predicate;Ljava/lang/Class;Ljava/util/function/Consumer;)V
+M	2	doCastFilter	(Ljava/util/function/Predicate;Ljava/lang/Class;Ljava/util/function/Consumer;Lnet/minecraftforge/eventbus/api/Event;)V
+M	2	register	(Ljava/lang/Class;Ljava/lang/Object;Ljava/lang/reflect/Method;)V
+M	2	addToListeners	(Ljava/lang/Object;Ljava/lang/Class;Lnet/minecraftforge/eventbus/api/IEventListener;Lnet/minecraftforge/eventbus/api/EventPriority;)V
+M	1	unregister	(Ljava/lang/Object;)V
+M	1	post	(Lnet/minecraftforge/eventbus/api/Event;)Z
+M	1	post	(Lnet/minecraftforge/eventbus/api/Event;Lnet/minecraftforge/eventbus/api/IEventBusInvokeDispatcher;)Z
+M	1	handleException	(Lnet/minecraftforge/eventbus/api/IEventBus;Lnet/minecraftforge/eventbus/api/Event;[Lnet/minecraftforge/eventbus/api/IEventListener;ILjava/lang/Throwable;)V
+M	1	shutdown	()V
+M	1	start	()V
+M	4106	lambda$handleException$13	(Lnet/minecraftforge/eventbus/api/Event;I[Lnet/minecraftforge/eventbus/api/IEventListener;Ljava/lang/Throwable;)Lorg/apache/logging/log4j/message/Message;
+M	4106	lambda$addToListeners$12	(Ljava/lang/Object;)Ljava/util/List;
+M	4098	lambda$addListener$11	(Ljava/util/function/Predicate;Ljava/lang/Class;Ljava/util/function/Consumer;Lnet/minecraftforge/eventbus/api/Event;)V
+M	4106	lambda$passGenericFilter$10	(Ljava/lang/Class;Lnet/minecraftforge/eventbus/api/GenericEvent;)Z
+M	4106	lambda$passCancelled$9	(ZLnet/minecraftforge/eventbus/api/Event;)Z
+M	4098	lambda$typesFor$8	(Ljava/util/Set;Ljava/lang/Class;)V
+M	4098	lambda$registerObject$7	(Ljava/util/HashSet;Ljava/lang/Object;Ljava/lang/reflect/Method;)V
+M	4098	lambda$registerObject$6	(Ljava/lang/Object;Ljava/lang/reflect/Method;Ljava/util/Optional;)V
+M	4106	lambda$registerObject$5	(Ljava/util/Optional;)Z
+M	4098	lambda$registerObject$4	(Ljava/lang/reflect/Method;Ljava/lang/Class;)Ljava/util/Optional;
+M	4106	lambda$registerObject$3	(Ljava/lang/reflect/Method;)Z
+M	4098	lambda$registerClass$2	(Ljava/lang/Class;Ljava/lang/reflect/Method;)V
+M	4106	lambda$registerClass$1	(Ljava/lang/reflect/Method;)Z
+M	4106	lambda$registerClass$0	(Ljava/lang/reflect/Method;)Z
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/EventBusEngine	49	java/lang/Object	net/minecraftforge/eventbus/IEventBusEngine
+F	18	eventTransformer	Lnet/minecraftforge/eventbus/EventSubclassTransformer;
+F	18	accessTransformer	Lnet/minecraftforge/eventbus/EventAccessTransformer;
+F	16	EVENT_CLASS	Ljava/lang/String;
+M	1	<init>	()V
+M	1	processClass	(Lorg/objectweb/asm/tree/ClassNode;Lorg/objectweb/asm/Type;)I
+M	1	handlesClass	(Lorg/objectweb/asm/Type;)Z
+M	1	findASMEventDispatcher	(Lorg/objectweb/asm/Type;)Z
+C	net/minecraftforge/eventbus/EventBusErrorMessage	33	java/lang/Object	org/apache/logging/log4j/message/Message,org/apache/logging/log4j/util/StringBuilderFormattable
+F	18	index	I
+F	18	listeners	[Lnet/minecraftforge/eventbus/api/IEventListener;
+F	18	throwable	Ljava/lang/Throwable;
+M	1	<init>	(Lnet/minecraftforge/eventbus/api/Event;I[Lnet/minecraftforge/eventbus/api/IEventListener;Ljava/lang/Throwable;)V
+M	1	getFormattedMessage	()Ljava/lang/String;
+M	1	getFormat	()Ljava/lang/String;
+M	1	getParameters	()[Ljava/lang/Object;
+M	1	getThrowable	()Ljava/lang/Throwable;
+M	1	formatTo	(Ljava/lang/StringBuilder;)V
+C	net/minecraftforge/eventbus/EventSubclassTransformer	33	java/lang/Object	-
+F	26	LOGGER	Lorg/apache/logging/log4j/Logger;
+M	1	<init>	()V
+M	1	transform	(Lorg/objectweb/asm/tree/ClassNode;Lorg/objectweb/asm/Type;)Ljava/util/Optional;
+M	2	transformEvent	(Lorg/objectweb/asm/tree/ClassNode;)V
+M	10	clear	(Lorg/objectweb/asm/tree/MethodNode;)V
+M	2	buildEvents	(Lorg/objectweb/asm/tree/ClassNode;)Z
+M	2	addListenerList	(Lorg/objectweb/asm/tree/ClassNode;Z)Z
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/IEventBusEngine	1537	java/lang/Object	-
+M	1025	processClass	(Lorg/objectweb/asm/tree/ClassNode;Lorg/objectweb/asm/Type;)I
+M	1025	handlesClass	(Lorg/objectweb/asm/Type;)Z
+M	1025	findASMEventDispatcher	(Lorg/objectweb/asm/Type;)Z
+C	net/minecraftforge/eventbus/IEventListenerFactory	1537	java/lang/Object	-
+M	1025	create	(Ljava/lang/reflect/Method;Ljava/lang/Object;)Lnet/minecraftforge/eventbus/api/IEventListener;
+M	1	getUniqueName	(Ljava/lang/reflect/Method;)Ljava/lang/String;
+C	net/minecraftforge/eventbus/ListenerList$ListenerListInst	32	java/lang/Object	-
+F	2	rebuild	Z
+F	2	listeners	Ljava/util/concurrent/atomic/AtomicReference;
+F	2	priorities	Ljava/util/ArrayList;
+F	2	parent	Lnet/minecraftforge/eventbus/ListenerList$ListenerListInst;
+F	2	children	Ljava/util/List;
+F	2	writeLock	Ljava/util/concurrent/Semaphore;
+F	4112	this$0	Lnet/minecraftforge/eventbus/ListenerList;
+M	2	<init>	(Lnet/minecraftforge/eventbus/ListenerList;)V
+M	1	dispose	()V
+M	2	<init>	(Lnet/minecraftforge/eventbus/ListenerList;Lnet/minecraftforge/eventbus/ListenerList$ListenerListInst;)V
+M	1	getListeners	(Lnet/minecraftforge/eventbus/api/EventPriority;)Ljava/util/ArrayList;
+M	1	getListeners	()[Lnet/minecraftforge/eventbus/api/IEventListener;
+M	4	shouldRebuild	()Z
+M	4	forceRebuild	()V
+M	2	addChild	(Lnet/minecraftforge/eventbus/ListenerList$ListenerListInst;)V
+M	2	buildCache	()V
+M	1	register	(Lnet/minecraftforge/eventbus/api/EventPriority;Lnet/minecraftforge/eventbus/api/IEventListener;)V
+M	1	unregister	(Lnet/minecraftforge/eventbus/api/IEventListener;)V
+M	4098	lambda$unregister$2	(Ljava/util/ArrayList;)V
+M	4106	lambda$unregister$1	(Lnet/minecraftforge/eventbus/api/IEventListener;Ljava/util/ArrayList;)Z
+M	4098	lambda$buildCache$0	(Ljava/util/ArrayList;Lnet/minecraftforge/eventbus/api/EventPriority;)V
+C	net/minecraftforge/eventbus/ListenerList	33	java/lang/Object	-
+F	10	allLists	Ljava/util/List;
+F	10	maxSize	I
+F	2	parent	Lnet/minecraftforge/eventbus/ListenerList;
+F	2	lists	[Lnet/minecraftforge/eventbus/ListenerList$ListenerListInst;
+M	1	<init>	()V
+M	1	<init>	(Lnet/minecraftforge/eventbus/ListenerList;)V
+M	42	extendMasterList	(Lnet/minecraftforge/eventbus/ListenerList;)V
+M	8	resize	(I)V
+M	34	resizeLists	(I)V
+M	41	clearBusID	(I)V
+M	4	getInstance	(I)Lnet/minecraftforge/eventbus/ListenerList$ListenerListInst;
+M	1	getListeners	(I)[Lnet/minecraftforge/eventbus/api/IEventListener;
+M	1	register	(ILnet/minecraftforge/eventbus/api/EventPriority;Lnet/minecraftforge/eventbus/api/IEventListener;)V
+M	1	unregister	(ILnet/minecraftforge/eventbus/api/IEventListener;)V
+M	41	unregisterAll	(ILnet/minecraftforge/eventbus/api/IEventListener;)V
+M	4106	lambda$resize$0	(ILnet/minecraftforge/eventbus/ListenerList;)V
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/LockHelper	33	java/lang/Object	-
+F	2	lock	Ljava/util/concurrent/locks/ReadWriteLock;
+F	18	map	Ljava/util/Map;
+M	1	<init>	(Ljava/util/Map;)V
+M	1	get	(Ljava/lang/Object;)Ljava/lang/Object;
+M	1	containsKey	(Ljava/lang/Object;)Z
+M	1	computeIfAbsent	(Ljava/lang/Object;Ljava/util/function/Supplier;)Ljava/lang/Object;
+M	131073	get	(Ljava/lang/Object;Ljava/util/function/Supplier;Ljava/util/function/Function;)Ljava/lang/Object;
+M	1	computeIfAbsent	(Ljava/lang/Object;Ljava/util/function/Supplier;Ljava/util/function/Function;)Ljava/lang/Object;
+M	1	clearAll	()V
+C	net/minecraftforge/eventbus/LogMarkers	32	java/lang/Object	-
+F	24	EVENTBUS	Lorg/apache/logging/log4j/Marker;
+M	0	<init>	()V
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/ModLauncherFactory	33	net/minecraftforge/eventbus/ClassLoaderFactory	-
+F	26	PENDING	Lnet/minecraftforge/eventbus/LockHelper;
+M	1	<init>	()V
+M	4	createWrapper	(Ljava/lang/reflect/Method;)Ljava/lang/Class;
+M	2	enqueueWrapper	(Ljava/lang/reflect/Method;)V
+M	9	hasPendingWrapperClass	(Ljava/lang/String;)Z
+M	9	processWrapperClass	(Ljava/lang/String;Lorg/objectweb/asm/tree/ClassNode;)V
+M	4106	lambda$enqueueWrapper$0	(Ljava/lang/reflect/Method;)Ljava/lang/reflect/Method;
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/NamedEventListener	33	java/lang/Object	net/minecraftforge/eventbus/api/IEventListener
+F	25	DEBUG	Z
+F	18	wrap	Lnet/minecraftforge/eventbus/api/IEventListener;
+F	18	name	Ljava/lang/String;
+M	8	namedWrapper	(Lnet/minecraftforge/eventbus/api/IEventListener;Ljava/util/function/Supplier;)Lnet/minecraftforge/eventbus/api/IEventListener;
+M	1	<init>	(Lnet/minecraftforge/eventbus/api/IEventListener;Ljava/lang/String;)V
+M	1	listenerName	()Ljava/lang/String;
+M	1	invoke	(Lnet/minecraftforge/eventbus/api/Event;)V
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/Names$Method	65584	java/lang/Record	-
+F	18	name	Ljava/lang/String;
+F	18	desc	Ljava/lang/String;
+M	0	<init>	(Ljava/lang/String;Ljava/lang/String;)V
+M	0	equals	(Lorg/objectweb/asm/tree/MethodNode;)Z
+M	17	toString	()Ljava/lang/String;
+M	17	hashCode	()I
+M	17	equals	(Ljava/lang/Object;)Z
+M	1	name	()Ljava/lang/String;
+M	1	desc	()Ljava/lang/String;
+C	net/minecraftforge/eventbus/Names	32	java/lang/Object	-
+F	24	SUBSCRIBE_EVENT	Ljava/lang/String;
+F	24	HAS_RESULT	Ljava/lang/String;
+F	24	HAS_RESULT_M	Lnet/minecraftforge/eventbus/Names$Method;
+F	24	CANCELLABLE	Ljava/lang/String;
+F	24	CANCELABLE_M	Lnet/minecraftforge/eventbus/Names$Method;
+F	24	LISTENER_LIST	Ljava/lang/String;
+F	24	LISTENER_LIST_INIT	Lnet/minecraftforge/eventbus/Names$Method;
+F	24	LISTENER_LIST_GET	Lnet/minecraftforge/eventbus/Names$Method;
+F	24	LISTENER_LIST_F	Lnet/minecraftforge/eventbus/Names$Method;
+F	24	LISTENER_LIST_HELPER	Ljava/lang/String;
+F	24	EVENT	Ljava/lang/String;
+F	24	INIT_M	Lnet/minecraftforge/eventbus/Names$Method;
+F	24	STATIC_INIT_M	Lnet/minecraftforge/eventbus/Names$Method;
+M	0	<init>	()V
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/api/BusBuilder	1537	java/lang/Object	-
+M	9	builder	()Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1025	setTrackPhases	(Z)Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1025	setExceptionHandler	(Lnet/minecraftforge/eventbus/api/IEventExceptionHandler;)Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1025	startShutdown	()Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1025	checkTypesOnDispatch	()Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1025	markerType	(Ljava/lang/Class;)Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1025	useModLauncher	()Lnet/minecraftforge/eventbus/api/BusBuilder;
+M	1025	build	()Lnet/minecraftforge/eventbus/api/IEventBus;
+C	net/minecraftforge/eventbus/api/Cancelable	9729	java/lang/Object	java/lang/annotation/Annotation
+C	net/minecraftforge/eventbus/api/Event$HasResult	9729	java/lang/Object	java/lang/annotation/Annotation
+C	net/minecraftforge/eventbus/api/Event$Result	16433	java/lang/Enum	-
+F	16409	DENY	Lnet/minecraftforge/eventbus/api/Event$Result;
+F	16409	DEFAULT	Lnet/minecraftforge/eventbus/api/Event$Result;
+F	16409	ALLOW	Lnet/minecraftforge/eventbus/api/Event$Result;
+F	4122	$VALUES	[Lnet/minecraftforge/eventbus/api/Event$Result;
+M	9	values	()[Lnet/minecraftforge/eventbus/api/Event$Result;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/eventbus/api/Event$Result;
+M	2	<init>	(Ljava/lang/String;I)V
+M	4106	$values	()[Lnet/minecraftforge/eventbus/api/Event$Result;
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/api/Event	33	java/lang/Object	-
+F	2	isCanceled	Z
+F	2	result	Lnet/minecraftforge/eventbus/api/Event$Result;
+F	2	phase	Lnet/minecraftforge/eventbus/api/EventPriority;
+M	1	<init>	()V
+M	1	isCancelable	()Z
+M	1	isCanceled	()Z
+M	1	setCanceled	(Z)V
+M	1	hasResult	()Z
+M	1	getResult	()Lnet/minecraftforge/eventbus/api/Event$Result;
+M	1	setResult	(Lnet/minecraftforge/eventbus/api/Event$Result;)V
+M	1	getListenerList	()Lnet/minecraftforge/eventbus/ListenerList;
+M	1	getPhase	()Lnet/minecraftforge/eventbus/api/EventPriority;
+M	1	setPhase	(Lnet/minecraftforge/eventbus/api/EventPriority;)V
+C	net/minecraftforge/eventbus/api/EventListenerHelper	33	java/lang/Object	-
+F	26	listeners	Lnet/minecraftforge/eventbus/LockHelper;
+F	26	EVENTS_LIST	Lnet/minecraftforge/eventbus/ListenerList;
+F	26	cancelable	Lnet/minecraftforge/eventbus/LockHelper;
+F	26	hasResult	Lnet/minecraftforge/eventbus/LockHelper;
+M	1	<init>	()V
+M	9	getListenerList	(Ljava/lang/Class;)Lnet/minecraftforge/eventbus/ListenerList;
+M	8	getListenerListInternal	(Ljava/lang/Class;Z)Lnet/minecraftforge/eventbus/ListenerList;
+M	10	computeListenerList	(Ljava/lang/Class;Z)Lnet/minecraftforge/eventbus/ListenerList;
+M	10	clearAll	()V
+M	8	isCancelable	(Ljava/lang/Class;)Z
+M	8	hasResult	(Ljava/lang/Class;)Z
+M	10	hasAnnotation	(Ljava/lang/Class;Ljava/lang/Class;Lnet/minecraftforge/eventbus/LockHelper;)Z
+M	4106	lambda$hasAnnotation$1	(Ljava/lang/Class;Ljava/lang/Class;Lnet/minecraftforge/eventbus/LockHelper;)Ljava/lang/Boolean;
+M	4106	lambda$getListenerListInternal$0	(Ljava/lang/Class;Z)Lnet/minecraftforge/eventbus/ListenerList;
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/api/EventPriority	16433	java/lang/Enum	net/minecraftforge/eventbus/api/IEventListener
+F	16409	HIGHEST	Lnet/minecraftforge/eventbus/api/EventPriority;
+F	16409	HIGH	Lnet/minecraftforge/eventbus/api/EventPriority;
+F	16409	NORMAL	Lnet/minecraftforge/eventbus/api/EventPriority;
+F	16409	LOW	Lnet/minecraftforge/eventbus/api/EventPriority;
+F	16409	LOWEST	Lnet/minecraftforge/eventbus/api/EventPriority;
+F	4122	$VALUES	[Lnet/minecraftforge/eventbus/api/EventPriority;
+M	9	values	()[Lnet/minecraftforge/eventbus/api/EventPriority;
+M	9	valueOf	(Ljava/lang/String;)Lnet/minecraftforge/eventbus/api/EventPriority;
+M	2	<init>	(Ljava/lang/String;I)V
+M	1	invoke	(Lnet/minecraftforge/eventbus/api/Event;)V
+M	4106	$values	()[Lnet/minecraftforge/eventbus/api/EventPriority;
+M	8	<clinit>	()V
+C	net/minecraftforge/eventbus/api/GenericEvent	33	net/minecraftforge/eventbus/api/Event	net/minecraftforge/eventbus/api/IGenericEvent
+F	2	type	Ljava/lang/Class;
+M	1	<init>	()V
+M	4	<init>	(Ljava/lang/Class;)V
+M	1	getGenericType	()Ljava/lang/reflect/Type;
+C	net/minecraftforge/eventbus/api/IEventBus	1537	java/lang/Object	-
+M	1025	register	(Ljava/lang/Object;)V
+M	1025	addListener	(Ljava/util/function/Consumer;)V
+M	1025	addListener	(Lnet/minecraftforge/eventbus/api/EventPriority;Ljava/util/function/Consumer;)V
+M	1025	addListener	(Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/util/function/Consumer;)V
+M	1025	addListener	(Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/lang/Class;Ljava/util/function/Consumer;)V
+M	1025	addGenericListener	(Ljava/lang/Class;Ljava/util/function/Consumer;)V
+M	1025	addGenericListener	(Ljava/lang/Class;Lnet/minecraftforge/eventbus/api/EventPriority;Ljava/util/function/Consumer;)V
+M	1025	addGenericListener	(Ljava/lang/Class;Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/util/function/Consumer;)V
+M	1025	addGenericListener	(Ljava/lang/Class;Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/lang/Class;Ljava/util/function/Consumer;)V
+M	1025	unregister	(Ljava/lang/Object;)V
+M	1025	post	(Lnet/minecraftforge/eventbus/api/Event;)Z
+M	1025	post	(Lnet/minecraftforge/eventbus/api/Event;Lnet/minecraftforge/eventbus/api/IEventBusInvokeDispatcher;)Z
+M	1025	shutdown	()V
+M	1025	start	()V
+C	net/minecraftforge/eventbus/api/IEventBusInvokeDispatcher	1537	java/lang/Object	-
+M	1025	invoke	(Lnet/minecraftforge/eventbus/api/IEventListener;Lnet/minecraftforge/eventbus/api/Event;)V
+C	net/minecraftforge/eventbus/api/IEventExceptionHandler	1537	java/lang/Object	-
+M	1025	handleException	(Lnet/minecraftforge/eventbus/api/IEventBus;Lnet/minecraftforge/eventbus/api/Event;[Lnet/minecraftforge/eventbus/api/IEventListener;ILjava/lang/Throwable;)V
+C	net/minecraftforge/eventbus/api/IEventListener	1537	java/lang/Object	-
+M	1025	invoke	(Lnet/minecraftforge/eventbus/api/Event;)V
+M	1	listenerName	()Ljava/lang/String;
+C	net/minecraftforge/eventbus/api/IGenericEvent	1537	java/lang/Object	-
+M	1025	getGenericType	()Ljava/lang/reflect/Type;
+C	net/minecraftforge/eventbus/api/SubscribeEvent	9729	java/lang/Object	java/lang/annotation/Annotation
+M	1025	priority	()Lnet/minecraftforge/eventbus/api/EventPriority;
+M	1025	receiveCanceled	()Z
+C	net/minecraftforge/eventbus/service/ModLauncherService	33	java/lang/Object	cpw/mods/modlauncher/serviceapi/ILaunchPluginService
+F	2	eventBusEngine	Lnet/minecraftforge/eventbus/IEventBusEngine;
+F	26	DOIT	Ljava/util/EnumSet;
+F	26	YAY	Ljava/util/EnumSet;
+F	26	NAY	Ljava/util/EnumSet;
+M	1	<init>	()V
+M	1	name	()Ljava/lang/String;
+M	1	getEventBusEngine	()Lnet/minecraftforge/eventbus/IEventBusEngine;
+M	1	processClassWithFlags	(Lcpw/mods/modlauncher/serviceapi/ILaunchPluginService$Phase;Lorg/objectweb/asm/tree/ClassNode;Lorg/objectweb/asm/Type;Ljava/lang/String;)I
+M	1	handlesClass	(Lorg/objectweb/asm/Type;Z)Ljava/util/EnumSet;
+M	4106	lambda$getEventBusEngine$0	(Lcpw/mods/modlauncher/api/IModuleLayerManager;)Ljava/util/Optional;
 M	8	<clinit>	()V

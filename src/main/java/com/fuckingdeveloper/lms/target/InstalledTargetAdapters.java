@@ -22,6 +22,11 @@ public final class InstalledTargetAdapters {
     public static org.objectweb.asm.Handle lifecycleWorkBridge(String sourceDescriptor) {
         return com.fuckingdeveloper.lms.target.neoforge263.Target263LifecycleWorkLayout.bridge(sourceDescriptor);
     }
+    public static org.objectweb.asm.Handle explicitListenerBridge(String sourceBus,String descriptor) {
+        return new org.objectweb.asm.Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192EventBusBridge",
+                "addListenerExplicit","(L"+sourceBus+";"+descriptor.substring(1),false);
+    }
     public static String sourceEntityRenderer() { return "com/fuckingdeveloper/lms/target/neoforge263/render/Target263SourceEntityRenderer"; }
     public static String throwableItemBase() { return "net/minecraft/world/entity/projectile/throwableitemprojectile/ThrowableItemProjectile"; }
     public static String throwableItemAdapter() { return "com/fuckingdeveloper/lms/target/neoforge263/entity/Target263Forge1192ThrowableItemProjectile"; }

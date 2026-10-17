@@ -39,6 +39,13 @@ public final class Forge1192CompatibilitySurface {
      * exact legacy owner/name/descriptor contracts, not namespace guesses.
      */
     private static final Set<String> SUPPORTED_BRIDGES = Set.of(
+            "net.minecraftforge.fml.DistExecutor#safeRunWhenOn(Lnet/minecraftforge/api/distmarker/Dist;Ljava/util/function/Supplier;)V",
+            "net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingIn#getPlayer()Lnet/minecraft/client/player/LocalPlayer;",
+            "net.minecraftforge.client.event.ClientPlayerNetworkEvent$LoggingOut#getPlayer()Lnet/minecraft/client/player/LocalPlayer;",
+            "net.minecraftforge.client.event.ScreenEvent$Init$Pre#getScreen()Lnet/minecraft/client/gui/screens/Screen;",
+            "net.minecraftforge.fml.ModLoadingContext#registerExtensionPoint(Ljava/lang/Class;Ljava/util/function/Supplier;)V",
+            "net.minecraftforge.fml.IExtensionPoint$DisplayTest#<init>(Ljava/util/function/Supplier;Ljava/util/function/BiPredicate;)V",
+            "net.minecraftforge.fml.IExtensionPoint$DisplayTest#<init>(Ljava/lang/String;Ljava/util/function/BiPredicate;)V",
             "net.minecraftforge.client.event.InputEvent$Key#getAction()I",
             "net.minecraftforge.client.event.InputEvent$Key#getKey()I",
             "net.minecraftforge.client.event.InputEvent$Key#getScanCode()I",

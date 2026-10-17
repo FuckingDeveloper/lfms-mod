@@ -26,6 +26,7 @@ final class Forge1192NativeConfigRewriter {
         for(String owner:java.util.List.of(CONFIG,CONFIG+"$Type",EVENT,"net/minecraftforge/fml/ModLoadingContext","net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext"))
             desc=desc.replace("L"+owner+";","L"+relocation(owner)+";").replace("L"+owner+"<","L"+relocation(owner)+"<");
         desc=eraseSpecArguments(desc);
+        desc=desc.replace("net/minecraftforge/fml/IExtensionPoint", "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/LegacyExtensionPoint");
         desc=desc.replace("Lnet/minecraftforge/fml/config/IConfigSpec;","Lnet/neoforged/fml/config/IConfigSpec;")
                 .replace("Lnet/minecraftforge/fml/ModContainer;","Lcom/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192ModContainerView;")
                 .replace("Lnet/minecraftforge/eventbus/api/IEventBus;","Lnet/neoforged/bus/api/IEventBus;");

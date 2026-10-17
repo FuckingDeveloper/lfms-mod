@@ -103,3 +103,20 @@ MUST NOT repeat source setup, mutate frozen registries, loop until loading succe
 or apply this extra phase to ordinary reloads or subsequent world opens once setup
 has been consumed. Changes to world-generation/dimension data after its registry
 construction remain outside this contract and MUST NOT be claimed supported.
+
+### Source extension declarations and removed display UI
+
+Source extension registration MUST retain the active source container, original
+lazy supplier and lookup identity. ModLoadingContext convenience registration
+MUST delegate to its actual active source container. Managed declarations MUST
+NOT be stored on the native LMS host. Source DisplayTest constructors, accessors,
+constants and direct predicate calls MUST preserve source behavior. For the
+approved NeoForge26.3 subset, the removed Forge server-list mod-version indicator
+is an explicit unsupported feature: retaining its declaration MUST NOT imply
+native status-wire, server-list rendering or handshake support. Native networking
+checks MUST NOT be replaced by the source display predicate.
+
+An explicit-class source event-listener registration MUST preserve priority,
+receive-canceled policy, exact event type and consumer identity, source ownership,
+unregister and failure cleanup through the existing event adapter. Catalogued
+admission and transformation MUST use the same source declaration evidence.

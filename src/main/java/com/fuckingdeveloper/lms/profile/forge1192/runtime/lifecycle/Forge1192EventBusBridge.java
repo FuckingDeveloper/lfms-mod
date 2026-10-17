@@ -116,6 +116,13 @@ public final class Forge1192EventBusBridge {
                 event -> invokeScoped(modId, listener, event), deferUntilItemComponentsBound));
     }
 
+    public static <T extends Event> void addListenerExplicit(IEventBus bus,net.neoforged.bus.api.EventPriority priority,
+            boolean receiveCanceled,Class<T> eventType,Consumer<T> listener) {
+        String modId=Forge1192LifecycleBridge.requireActive().modId();
+        installConsumer(bus,listener,() -> registerListener(bus,priority,eventType,
+                event -> invokeScoped(modId,listener,event),receiveCanceled,false));
+    }
+
     /**
      * Forge 1.19.2 register(Object) discovers @SubscribeEvent methods. Register
      * each handler explicitly so LMS can wrap every callback in the owning

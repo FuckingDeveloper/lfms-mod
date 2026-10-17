@@ -15,7 +15,7 @@ final class Forge1192ConfigRules {
         var builder=Set.of("<init>","comment","translation","worldRestart","push","pop","build","configure","define","defineInRange","defineInList","defineEnum");
         var spec=Set.of("isLoaded","isEmpty","getSpec","getValues","getLevelComment","getLevelTranslationKey","save","afterReload");
         var value=Set.of("get","set","save","getPath","getDefault","next","clearCache","getAsBoolean","getAsInt","getAsLong","getAsDouble");
-        var contexts=Map.of("net/minecraftforge/fml/ModLoadingContext",Set.of("get","getActiveContainer","setActiveContainer","getActiveNamespace","registerConfig"),
+        var contexts=Map.of("net/minecraftforge/fml/ModLoadingContext",Set.of("get","getActiveContainer","setActiveContainer","getActiveNamespace","registerConfig","registerExtensionPoint","registerDisplayTest"),
                 "net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext",Set.of("get","getModEventBus"));
         for(String owner:Forge1192SourceHierarchyIndex.owners()) {
             boolean context=contexts.containsKey(owner);

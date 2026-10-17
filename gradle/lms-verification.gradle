@@ -35,7 +35,9 @@ tasks.register('generateSourceHierarchy', JavaExec) {
         def fmlCore = providers.gradleProperty('legacyFmlCoreJar').orNull
         def javaFml = providers.gradleProperty('legacyJavaFmlJar').orNull
         if (fmlCore == null || javaFml == null) throw new GradleException('Supply -PlegacyFmlCoreJar and -PlegacyJavaFmlJar for the pinned Forge 43.4.0 loader declarations')
-        args sourceJar, layout.projectDirectory.file('src/main/resources/lms/profile/forge1192/loader-hierarchy.tsv').asFile.absolutePath, fmlCore, javaFml
+        def eventBus = providers.gradleProperty('legacyEventBusJar').orNull
+        if (eventBus == null || !file(eventBus).isFile()) throw new GradleException('Supply -PlegacyEventBusJar=/absolute/path/to/eventbus-6.0.3.jar')
+        args sourceJar, layout.projectDirectory.file('src/main/resources/lms/profile/forge1192/loader-hierarchy.tsv').asFile.absolutePath, fmlCore, javaFml, eventBus
     }
 }
 
@@ -44,7 +46,7 @@ def nativeSmokeJar = tasks.register('nativeSmokeJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
     archiveClassifier = 'native-smoke'
     from(sourceSets.compatibilityTest.output) {
-        include '**/SourceEntityRenderFamilyCheck*.class', '**/GuiStaticAccessorFamilyCheck*.class', '**/GuiModelViewFamilyCheck*.class', '**/RegistryQueryFamilyCheck*.class', '**/RendererContextFamilyCheck*.class', '**/TexturedRenderTypeFamilyCheck*.class', '**/SourceConfigRegistrationCheck*.class', '**/SourceMenuFactoryCheck*.class', '**/SourceProjectileFamilyCheck*.class'
+        include '**/SourceExtensionEventCheck*.class', '**/SourceEntityRenderFamilyCheck*.class', '**/GuiStaticAccessorFamilyCheck*.class', '**/GuiModelViewFamilyCheck*.class', '**/RegistryQueryFamilyCheck*.class', '**/RendererContextFamilyCheck*.class', '**/TexturedRenderTypeFamilyCheck*.class', '**/SourceConfigRegistrationCheck*.class', '**/SourceMenuFactoryCheck*.class', '**/SourceProjectileFamilyCheck*.class'
         include '**/LifecycleWorkFamilyCheck*.class', '**/LifecycleWorkFixture*.class'
         include '**/AnalogOutputFamilyCheck*.class'
         include '**/VanillaItemTransferFamilyCheck*.class'

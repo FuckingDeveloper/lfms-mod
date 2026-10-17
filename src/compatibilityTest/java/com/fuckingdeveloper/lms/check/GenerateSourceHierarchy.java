@@ -11,13 +11,14 @@ import org.objectweb.asm.tree.*;
 public final class GenerateSourceHierarchy {
     private static final Set<String> REGISTRY_READ_TYPES = Set.of("net/minecraft/core/Registry", "net/minecraft/core/WritableRegistry", "net/minecraft/core/MappedRegistry", "net/minecraft/core/DefaultedRegistry", "net/minecraft/core/IdMap");
     public static void main(String[] args) throws Exception {
-        if(args.length!=4)throw new IllegalArgumentException("Expected Forge JAR, output TSV, FML core JAR and Java FML JAR");
+        if(args.length!=5)throw new IllegalArgumentException("Expected Forge JAR, output TSV, FML core JAR Java FML JAR and EventBus 6.0.3 JAR");
         Path destination=Path.of(args[1]);
         var expected=List.of("579b78e19ff551ae3b340a6f908ca0923633a9395b35e6ae446772a778793bb4",
                 "7759350688f802c2e7ed21b31ea21f7c45cfb960d1f495036872bee3a842d702",
-                "dace027d2ae25dc0a27b84924e561fc0ecb7914d7e9c2699b10f2caea189def5");
-        var inputs=List.of(Path.of(args[0]),Path.of(args[2]),Path.of(args[3]));
-        var text=new StringBuilder("# Forge 1.19.2 / 43.4.0 official named patched artifact + FML core + Java FML\n");
+                "dace027d2ae25dc0a27b84924e561fc0ecb7914d7e9c2699b10f2caea189def5",
+                "4bc0d5eaa086a4aecc613771fd02ad04373a06e83359185ee87f5caae4f29897");
+        var inputs=List.of(Path.of(args[0]),Path.of(args[2]),Path.of(args[3]),Path.of(args[4]));
+        var text=new StringBuilder("# Forge 1.19.2 / 43.4.0 official named patched artifact + FML core + Java FML + EventBus6.0.3\n");
         var declarations=new LinkedHashMap<String,ClassNode>();
         for(int i=0;i<inputs.size();i++) {
             var jarPath=inputs.get(i);

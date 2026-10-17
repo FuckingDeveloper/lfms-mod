@@ -34,7 +34,11 @@ public class Forge1192ModContainerView {
         Objects.requireNonNull(type);Objects.requireNonNull(supplier);
         if(nativeContainer!=null) Forge1192ConfigScreenBridge.registerExtensionPoint(nativeContainer,type,supplier);
         else synchronized(extensions){extensions.put(type,supplier);}
+        if(type==LegacyExtensionPoint.DisplayTest.class)
+            com.mojang.logging.LogUtils.getLogger().info("LMS source display extension owner={} retained=true nativeServerListIndicator=false",getModId());
     }
+    public void registerDisplayTest(LegacyExtensionPoint.DisplayTest test){registerDisplayTest(() -> test);}
+    public void registerDisplayTest(Supplier<LegacyExtensionPoint.DisplayTest> test){registerExtensionPoint(LegacyExtensionPoint.DisplayTest.class,test);}
     public Optional<?> getCustomExtension(Class<?> type) {
         if(nativeContainer!=null)return Forge1192ConfigScreenBridge.getCustomExtension(nativeContainer,type);
         Supplier<?> supplier; synchronized(extensions){supplier=extensions.get(type);}

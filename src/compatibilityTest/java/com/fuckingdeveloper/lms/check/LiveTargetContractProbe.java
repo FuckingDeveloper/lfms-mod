@@ -246,6 +246,7 @@ public final class LiveTargetContractProbe {
         GuiPointerFamilyCheck.run();
         NativeConfigFamilyCheck.run();
         SourceConfigRegistrationCheck.run();
+        SourceExtensionEventCheck.run();
         SourceMenuFactoryCheck.run();
         TexturedRenderTypeFamilyCheck.run();
         RendererContextFamilyCheck.run();

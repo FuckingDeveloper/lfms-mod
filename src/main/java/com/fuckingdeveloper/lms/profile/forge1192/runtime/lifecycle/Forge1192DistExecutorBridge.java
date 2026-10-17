@@ -17,6 +17,10 @@ import java.util.function.Supplier;
  */
 public final class Forge1192DistExecutorBridge {
     private Forge1192DistExecutorBridge() {}
+    public interface SafeReferent extends java.io.Serializable {}
+    @FunctionalInterface public interface SafeRunnable extends SafeReferent,Runnable {}
+    @FunctionalInterface public interface SafeSupplier<T> extends SafeReferent,Supplier<T> {}
+    @FunctionalInterface public interface SafeCallable<T> extends SafeReferent,java.util.concurrent.Callable<T> {}
 
     private static boolean matches(Dist requested) {
         return net.neoforged.fml.loading.FMLEnvironment.getDist() == requested;

@@ -95,3 +95,40 @@ compatibility and native smoke checks pass. The selected-artifact audit contains
 Source registry subclasses, immediate block drawing, custom entity submission,
 projectile gameplay and the remaining GUI matrix boundary are not claimed solved.
 Original mod artifacts remain unchanged.
+
+## Loader/extension checkpoint (2026-10-17, runtime110)
+
+Discovery now retains TOML JavaFML declarations. With no explicit Minecraft
+contract, profiles can use declared compatibility with their pinned language
+loader; this is eligibility, not exact compiler inference. Explicit Minecraft
+constraints win and catalog ambiguity still fails. Randomly named immutable
+source binaries cover positive/conflicting/malformed/unknown cases.
+
+User approved retaining DisplayTest rules and lazy source extension lookup while
+leaving the removed Forge server-list indicator unsupported. Native connection
+checks remain unchanged. Explicit-class listener priority/cancellation/owner and
+unregister use the same catalog/source evidence as transformation, including
+hash-pinned source EventBus6.0.3 headers. Source serializable safe callable tokens
+and actual native inherited client getters are independently checked.
+
+`compatibilityTest nativeCompatibilitySmoke compileLaunchJava` passed in
+`/tmp/lms-admission-key-check.log`; batch reports JEI's remaining six requirements
+in the raw EventNetworkChannel family. Six other constructor surfaces have no
+known static blocker; that is not initialization acceptance. The 4355-class audit
+includes Fetzi (1135 groups / 6061 sites before the unbound-key correction), not a
+compatibility percentage.
+
+Runtime110 selected Fetzi, then its constructor failed on source
+PlayMessages.SpawnEntity/client factory. Deferred block registration additionally
+reached supplier-backed StairBlock construction. The native stair policy was
+subsequently approved but is not implemented by this checkpoint. Wick retained
+its original lazy display declaration, then hit InputConstants' unbound-key field;
+the exact UNKNOWN/SDL identity correction now passes independent checks, but
+requires a fresh runtime. Client110 failed during registration and was stopped;
+no loaded world, content use or inventory changes are claimed. Source factory,
+stair, Wick rendering injections and JEI raw-network behavior remain open.
+
+Source-header regeneration additionally requires
+`-PlegacyEventBusJar=/absolute/path/to/eventbus-6.0.3.jar`; all four hashes are
+verified. No original legacy input, local configuration, token or runtime output
+belongs in the checkpoint.

@@ -1,0 +1,10 @@
+- [x] Inspect exact source display consumers and pinned native absence.
+- [x] Obtain user approval of the removed server-list indicator limitation.
+- [x] Preserve source record/constants/lazy supplier/accessor and per-container registration.
+- [x] Adapt explicit event listener scope/cancellation/unregister using catalogued declarations.
+- [x] Pin/generate actual EventBus6.0.3 source headers alongside existing three inputs.
+- [x] Verify original source-shaped binary extension/listener/safe callable/native getter behavior.
+- [x] Verify native unbound-key identity after runtime110's key-field blocker.
+- [x] Compile and pass compatibilityTest/nativeCompatibilitySmoke/compileLaunchJava.
+- [x] Fresh runtime110 reaches original Wick constructor and retains its display declaration.
+- [ ] Fresh runtime acceptance after the unbound-key correction; complete Wick rendering is not claimed.
