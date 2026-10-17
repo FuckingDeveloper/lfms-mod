@@ -18,17 +18,18 @@ public final class SemanticInvocationRewriter {
         Handle resolve(int opcode, String owner, String name, String descriptor);
     }
 
-    /** One evidence-selected traversal for instance calls and all callable constant shapes. */
+    /** One evidence-selected traversal for static/instance calls and callable constant shapes. */
     public int rewrite(ClassNode node, MemberMapping member) {
         var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>();
         int rewrites = 0;
         for (var method : node.methods) for (var instruction : method.instructions) {
             if (instruction instanceof MethodInsnNode call && (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
                     || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEINTERFACE
-                    || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL)) {
+                    || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                    || call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC)) {
                 Handle bridge = member.resolve(call.getOpcode(), call.owner, call.name, call.desc);
                 if (bridge != null) {
-                    verifySemanticInstanceShape(call.desc, bridge);
+                    verifyShape(call.getOpcode(),call.desc,bridge);
                     call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC); call.owner = bridge.getOwner();
                     call.name = bridge.getName(); call.desc = bridge.getDesc(); call.itf = bridge.isInterface(); rewrites++;
                 }
@@ -52,12 +53,14 @@ public final class SemanticInvocationRewriter {
                 case org.objectweb.asm.Opcodes.H_INVOKEVIRTUAL -> org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
                 case org.objectweb.asm.Opcodes.H_INVOKEINTERFACE -> org.objectweb.asm.Opcodes.INVOKEINTERFACE;
                 case org.objectweb.asm.Opcodes.H_INVOKESPECIAL -> org.objectweb.asm.Opcodes.INVOKESPECIAL;
+                case org.objectweb.asm.Opcodes.H_INVOKESTATIC -> org.objectweb.asm.Opcodes.INVOKESTATIC;
                 default -> -1;
             };
             if (opcode == -1) return value;
             Handle bridge = member.resolve(opcode, handle.getOwner(), handle.getName(), handle.getDesc());
             if (bridge == null) return value;
-            verifySemanticInstanceShape(handle.getDesc(), bridge);
+            verifyShape(opcode,handle.getDesc(),bridge);
+            if(opcode==org.objectweb.asm.Opcodes.INVOKESTATIC)return bridge;
             return preserveBridgeHandleType(node, handle, bridge, receiver, adapters);
         }
         if (value instanceof ConstantDynamic dynamic) {
@@ -69,6 +72,11 @@ public final class SemanticInvocationRewriter {
             return changed ? new ConstantDynamic(dynamic.getName(), dynamic.getDescriptor(), dynamic.getBootstrapMethod(), args) : value;
         }
         return value;
+    }
+    private static void verifyShape(int opcode,String descriptor,Handle bridge) {
+        if(opcode!=org.objectweb.asm.Opcodes.INVOKESTATIC){verifySemanticInstanceShape(descriptor,bridge);return;}
+        if(bridge.getTag()!=org.objectweb.asm.Opcodes.H_INVOKESTATIC||!bridge.getDesc().equals(descriptor))
+            throw new IllegalStateException("Semantic static bridge changes invocation shape: "+descriptor+" -> "+bridge);
     }
     private static void verifySemanticInstanceShape(String source, Handle bridge) {
         Type[] before = Type.getArgumentTypes(source), after = Type.getArgumentTypes(bridge.getDesc());

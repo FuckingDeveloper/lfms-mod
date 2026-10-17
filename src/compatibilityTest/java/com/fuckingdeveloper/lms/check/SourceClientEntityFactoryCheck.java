@@ -62,6 +62,10 @@ public final class SourceClientEntityFactoryCheck {
                 check(entity.getAddEntityPacket(tracker)==packet,"native callback did not invoke original source packet method");
                 check(source.getMethod("read",Target263SourceSpawnEntity.class).invoke(null,view).equals(17),"source view descriptor/member projection");
                 try{Target263SourceEntityFactories.getEntitySpawningPacket(entity);throw new AssertionError("tracker context escaped callback");}catch(UnsupportedOperationException expected){}
+                try{source.getMethod("hook",Entity.class).invoke(null,entity);throw new AssertionError("source static spawning hook bypassed tracker gate");}
+                catch(java.lang.reflect.InvocationTargetException expectedHook){check(expectedHook.getCause() instanceof UnsupportedOperationException&&expectedHook.getCause().getMessage().contains("tracker"),"source spawning hook was not rewritten to native tracker bridge");}
+                var handle=(java.lang.invoke.MethodHandle)source.getMethod("hookHandle").invoke(null);
+                try{handle.invoke(entity);throw new AssertionError("static source hook handle bypassed tracker gate");}catch(UnsupportedOperationException expectedHook){}catch(Throwable failedHook){throw new AssertionError(failedHook);}
                 check(Arrays.equals(immutable,Files.readAllBytes(path)),"original source JAR changed");
             }
         }finally{Files.deleteIfExists(path);packet=null;}
@@ -72,7 +76,10 @@ public final class SourceClientEntityFactoryCheck {
         var w=new ClassWriter(ClassWriter.COMPUTE_MAXS);w.visit(V17,ACC_PUBLIC,name,null,"net/minecraft/world/entity/item/PrimedTnt",null);
         var m=w.visitMethod(ACC_PUBLIC,"m_5654_","()Lnet/minecraft/network/protocol/Packet;",null,null);m.visitCode();m.visitMethodInsn(INVOKESTATIC,"com/fuckingdeveloper/lms/check/SourceClientEntityFactoryCheck","packet","()Lnet/minecraft/network/protocol/Packet;",false);m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();
         m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"set","(L"+builder+";Ljava/util/function/BiFunction;)L"+builder+";",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKEVIRTUAL,builder,"setCustomClientFactory","(Ljava/util/function/BiFunction;)L"+builder+";",false);m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();
-        m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"read","(Lnet/minecraftforge/network/PlayMessages$SpawnEntity;)I",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitMethodInsn(INVOKEVIRTUAL,"net/minecraftforge/network/PlayMessages$SpawnEntity","getEntityId","()I",false);m.visitInsn(IRETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();
+        m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"read","(Lnet/minecraftforge/network/PlayMessages$SpawnEntity;)I",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitMethodInsn(INVOKEVIRTUAL,"net/minecraftforge/network/PlayMessages$SpawnEntity","getEntityId","()I",false);m.visitInsn(IRETURN);m.visitMaxs(0,0);m.visitEnd();
+        String hookDesc="(Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/network/protocol/Packet;";
+        m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"hook",hookDesc,null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitMethodInsn(INVOKESTATIC,"net/minecraftforge/network/NetworkHooks","getEntitySpawningPacket",hookDesc,false);m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();
+        m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"hookHandle","()Ljava/lang/invoke/MethodHandle;",null,null);m.visitCode();m.visitLdcInsn(new Handle(H_INVOKESTATIC,"net/minecraftforge/network/NetworkHooks","getEntitySpawningPacket",hookDesc,false));m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();
     }
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
 }

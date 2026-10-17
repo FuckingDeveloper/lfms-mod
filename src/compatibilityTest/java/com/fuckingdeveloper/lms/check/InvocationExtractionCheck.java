@@ -11,9 +11,11 @@ import org.objectweb.asm.tree.*;
 public final class InvocationExtractionCheck implements Opcodes {
     public static class Base {
         public long compute(int value) { return value + 7L; }
+        public static long staticCompute(int value) { return value+9L; }
     }
     public static final class Child extends Base {}
     public static long bridge(Base receiver,int value) { return receiver.compute(value) + 100L; }
+    public static long staticBridge(int value) { return Base.staticCompute(value)+200L; }
     public static Object constant(MethodHandles.Lookup lookup,String name,Class<?> type,Object value) { return value; }
 
     static void run() throws Throwable {
@@ -42,10 +44,19 @@ public final class InvocationExtractionCheck implements Opcodes {
                     new ConstantDynamic("inner","Ljava/lang/invoke/MethodHandle;",bootstrap,original)):original;
             method.instructions.add(new LdcInsnNode(value));method.instructions.add(new InsnNode(ARETURN));node.methods.add(method);
         }
+        var staticCall=new MethodNode(ACC_PUBLIC|ACC_STATIC,"staticCall","(I)J",null,null);
+        staticCall.instructions.add(new VarInsnNode(ILOAD,0));staticCall.instructions.add(new MethodInsnNode(INVOKESTATIC,base,"staticCompute","(I)J",false));staticCall.instructions.add(new InsnNode(LRETURN));node.methods.add(staticCall);
+        for(boolean nested:List.of(false,true)) {
+            var method=new MethodNode(ACC_PUBLIC|ACC_STATIC,nested?"staticNested":"staticHandle","()Ljava/lang/invoke/MethodHandle;",null,null);
+            Object handle=new Handle(H_INVOKESTATIC,base,"staticCompute","(I)J",false);
+            if(nested)handle=new ConstantDynamic("staticOuter","Ljava/lang/invoke/MethodHandle;",bootstrap,new ConstantDynamic("staticInner","Ljava/lang/invoke/MethodHandle;",bootstrap,handle));
+            method.instructions.add(new LdcInsnNode(handle));method.instructions.add(new InsnNode(ARETURN));node.methods.add(method);
+        }
         SemanticInvocationRewriter.MemberMapping members=(opcode,owner,name,descriptor)->
                 (opcode==INVOKEVIRTUAL&&(owner.equals(base)||owner.equals(child))&&name.equals("compute")&&descriptor.equals("(I)J"))
-                        ?new Handle(H_INVOKESTATIC,host,"bridge","(L"+base+";I)J",false):null;
-        check(rewriter.rewrite(node,members)==4,"independent invocation/handle/constant sites lost");
+                        ?new Handle(H_INVOKESTATIC,host,"bridge","(L"+base+";I)J",false):
+                opcode==INVOKESTATIC&&owner.equals(base)&&name.equals("staticCompute")&&descriptor.equals("(I)J")?new Handle(H_INVOKESTATIC,host,"staticBridge",descriptor,false):null;
+        check(rewriter.rewrite(node,members)==7,"independent invocation/handle/constant sites lost");
         var writer=new ClassWriter(ClassWriter.COMPUTE_FRAMES|ClassWriter.COMPUTE_MAXS);node.accept(writer);
         class Loader extends ClassLoader {
             Loader(){super(InvocationExtractionCheck.class.getClassLoader());}
@@ -60,6 +71,11 @@ public final class InvocationExtractionCheck implements Opcodes {
             check(handle.type().equals(MethodType.methodType(long.class,Child.class,int.class)),"callable type changed: "+name);
             check((long)handle.invokeExact(receiver,5)==112L,"callable dispatch changed: "+name);
         }
+        check(type.getMethod("staticCall",int.class).invoke(null,2).equals(211L),"static direct invocation escaped mapping");
+        for(String name:List.of("staticHandle","staticNested")) {
+            var handle=(MethodHandle)type.getMethod(name).invoke(null);
+            check(handle.type().equals(MethodType.methodType(long.class,int.class))&&(long)handle.invokeExact(3)==212L,"static callable shape or dispatch changed");
+        }
         var negative=new ClassNode();negative.name="fixture/Negative";
         var wrong=new MethodNode(ACC_PUBLIC|ACC_STATIC,"wrong","(Ljava/lang/Object;)V",null,null);
         var untouched=new MethodInsnNode(INVOKEVIRTUAL,"fixture/Unrelated","compute","(I)J",false);
@@ -72,6 +88,8 @@ public final class InvocationExtractionCheck implements Opcodes {
             rewriter.rewrite(invalid,(op,owner,name,desc)->new Handle(H_INVOKESTATIC,host,"bridge","(L"+base+";I)I",false));
             throw new AssertionError("changed return contract accepted");
         } catch(IllegalStateException expected) {}
+        var badStatic=new ClassNode();badStatic.name="probe/BadStatic";var invalidStatic=new MethodNode();invalidStatic.instructions.add(new MethodInsnNode(INVOKESTATIC,base,"staticCompute","(I)J",false));badStatic.methods.add(invalidStatic);
+        try{rewriter.rewrite(badStatic,(op,o,n,d)->new Handle(H_INVOKESTATIC,host,"staticBridge","(JI)J",false));throw new AssertionError("static bridge invented operands");}catch(IllegalStateException expectedShape){}
         System.out.println("PASS: shared invocation utility links independent direct calls, exact subclass captures, raw handles and nested constants; rejects unrelated owners/changed returns without native APIs");
     }
     private static void check(boolean condition,String message){if(!condition)throw new AssertionError(message);}

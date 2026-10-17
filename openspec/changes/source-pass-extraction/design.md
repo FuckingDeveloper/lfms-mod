@@ -29,3 +29,18 @@ Verify focused callback/handle/lambda/constant and hierarchy-rebinding fixtures,
 existing compatibility/native suites, identical dependency-complete audit output
 and a fresh Gradle/MCP world with actual source mechanism interactions. Preserve
 all prior dirty edits outside the refactor checkpoint and original legacy JARs.
+
+## Static invocation coverage (runtime117 correction)
+
+Shared traversal MUST process evidence-selected INVOKESTATIC calls and static
+handles, including nested dynamic constants, in addition to instance calls.
+Static migration MUST retain the complete descriptor and MUST NOT add a receiver
+or apply instance-receiver thunk logic. Source/profile owner/member/opcode proof
+remains mandatory. Invalid static bridge operands/returns MUST fail explicitly.
+
+Runtime117 exposed the missed static traversal through the real source
+NetworkHooks.getEntitySpawningPacket during furniture interaction. Native tracker
+scope already existed; returning its mapping from an instance-only visitor never
+applied it. Independent direct/static-handle/nested-constant fixtures and an exact
+source spawning-hook fixture now cover that path. Other callers were reviewed:
+instance-only selectors remain restricted by their original invocation predicates.
