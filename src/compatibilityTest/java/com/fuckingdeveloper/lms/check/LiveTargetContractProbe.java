@@ -249,6 +249,7 @@ public final class LiveTargetContractProbe {
         SourceExtensionEventCheck.run();
         SourceStairConstructionCheck.run();
         SourceClientEntityFactoryCheck.run();
+        CapturedConstructionCheck.run();
         SourceMenuFactoryCheck.run();
         TexturedRenderTypeFamilyCheck.run();
         RendererContextFamilyCheck.run();

@@ -422,6 +422,10 @@ public final class Forge1192VanillaConstructionBridge {
     }
 
     /** Capture source tab intent when the target consumes the actual item key. */
+    public static void copyItemPropertiesIntent(Item.Properties source,Item.Properties target) {
+        var tab=LEGACY_TABS_BY_PROPERTIES.get(source);
+        if(tab!=null)LEGACY_TABS_BY_PROPERTIES.put(target,tab);
+    }
     public static void captureCreativeItem(Item.Properties properties) {
         if (!LEGACY_TABS_BY_PROPERTIES.containsKey(properties)) return;
         ResourceKey<Item> key = ((com.fuckingdeveloper.lms.mixin.Target263ItemPropertiesAccess)

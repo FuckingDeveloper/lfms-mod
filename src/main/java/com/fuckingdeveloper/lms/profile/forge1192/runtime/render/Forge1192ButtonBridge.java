@@ -9,6 +9,9 @@ import net.minecraft.client.gui.components.Button;
 public final class Forge1192ButtonBridge {
     private static final VarHandle ON_PRESS = onPressField();
     private Forge1192ButtonBridge() {}
+    public static Button create(int x,int y,int width,int height,net.minecraft.network.chat.Component title,Button.OnPress press) {
+        return Button.builder(title,press).bounds(x,y,width,height).build();
+    }
     public static void press(Button receiver) {
         Objects.requireNonNull(receiver, "button");
         if (receiver instanceof LegacyButtonPressCallbacks source) source.lms$sourceButtonPress();

@@ -28,7 +28,8 @@
     "Target263VillagerTradeMixin",
     "Target263WanderingTraderTradeMixin",
     "Target263SingleRecipeResultAccess",
-    "Target263SourceEntityFactoryMixin"
+    "Target263SourceEntityFactoryMixin",
+    "Target263ScopedItemPropertiesMixin"
   ],
   "client": [
     "Target263SearchTooltipContextMixin",

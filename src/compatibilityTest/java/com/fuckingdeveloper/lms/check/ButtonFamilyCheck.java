@@ -23,9 +23,15 @@ public final class ButtonFamilyCheck {
         var parent = fixture("fixture/ButtonParent", BASE, false);
         var child = fixture("fixture/ButtonChild", parent.name, true);
         var extended = fixture("fixture/ExtendedButtonSource", "net/minecraftforge/client/gui/widget/ExtendedButton", false);
+        var direct=new ClassNode();direct.version=Opcodes.V17;direct.access=Opcodes.ACC_PUBLIC;direct.name="fixture/DirectButton";direct.superName="java/lang/Object";
+        var make=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"create","()L"+BASE+";",null,null);
+        make.instructions.add(new TypeInsnNode(Opcodes.NEW,BASE));make.instructions.add(new InsnNode(Opcodes.DUP));
+        for(int value:new int[]{3,4,50,20})make.instructions.add(new IntInsnNode(Opcodes.BIPUSH,value));
+        make.instructions.add(new LdcInsnNode("direct-button"));make.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC,"net/minecraft/network/chat/Component","literal","(Ljava/lang/String;)Lnet/minecraft/network/chat/MutableComponent;",true));
+        make.instructions.add(new MethodInsnNode(Opcodes.INVOKESTATIC,Type.getInternalName(ButtonFamilyCheck.class),"listener","()L"+BASE+"$OnPress;",false));make.instructions.add(new MethodInsnNode(Opcodes.INVOKESPECIAL,BASE,"<init>",SOURCE_CTOR,false));make.instructions.add(new InsnNode(Opcodes.ARETURN));direct.methods.add(make);
         var path = Files.createTempFile("lms-button-source", ".jar");
         try (var jar = new JarOutputStream(Files.newOutputStream(path))) {
-            for (var node : List.of(parent, child, extended)) { jar.putNextEntry(new JarEntry(node.name + ".class")); jar.write(bytes(node)); jar.closeEntry(); }
+            for (var node : List.of(parent, child, extended, direct)) { jar.putNextEntry(new JarEntry(node.name + ".class")); jar.write(bytes(node)); jar.closeEntry(); }
         }
         byte[] immutable = Files.readAllBytes(path); calls = 0; last = null;
         try (var loader = new ManagedLegacyClassLoader(path, ButtonFamilyCheck.class.getClassLoader(), new Forge1192LegacyClassTransformer())) {
@@ -46,7 +52,10 @@ public final class ButtonFamilyCheck {
             var extendedType = loader.linkOwnedClass(extended.name.replace('/', '.'));
             var extendedButton = (Button)extendedType.getConstructor().newInstance();
             extendedButton.onPress(new KeyEvent(32, 0, 0));
-            check(calls == 5 && last == extendedButton && extendedType.getField("count").getInt(extendedButton) == 1, "source ExtendedButton inherited default activation changed");
+            var directButton=(Button)loader.linkOwnedClass("fixture.DirectButton").getMethod("create").invoke(null);
+            check(directButton.getClass()==nativeButton.getClass()&&directButton.getX()==3&&directButton.getY()==4&&directButton.getWidth()==50&&directButton.getHeight()==20&&directButton.getMessage().getString().equals("direct-button"),"direct source allocation geometry/title");
+            Forge1192ButtonBridge.press(directButton);check(calls==6&&last==directButton,"direct source allocation callback identity");
+            check(calls == 6 && last == directButton && extendedType.getField("count").getInt(extendedButton) == 1, "source ExtendedButton inherited default activation changed");
         } catch (RuntimeException | Error failure) { throw failure; }
         catch (Throwable failure) { throw new IllegalStateException("Source button fixture failed", failure); }
         check(Arrays.equals(immutable, Files.readAllBytes(path)), "original source button JAR mutated");

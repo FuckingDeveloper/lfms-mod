@@ -66,6 +66,13 @@ public final class LegacyDeferredRegister {
         Construction scope=CONSTRUCTION.get();
         return scope!=null&&scope.registry.equals(Registries.BLOCK)?properties.setId(ResourceKey.create(Registries.BLOCK,scope.name)):properties;
     }
+    public static Item.Properties atItemConstruction(Item.Properties properties){
+        Construction scope=CONSTRUCTION.get();
+        if(scope==null||!scope.registry.equals(Registries.ITEM))return properties;
+        var key=((com.fuckingdeveloper.lms.mixin.Target263ItemPropertiesAccess)(Object)properties).lms$itemId();
+        if(key!=null)return properties; // Existing proven explicit-name adapters retain precedence.
+        return com.fuckingdeveloper.lms.target.neoforge263.Target263ItemPropertiesSnapshots.withId(properties,ResourceKey.create(Registries.ITEM,scope.name));
+    }
     public static Item.Properties itemProperties(){
         var properties=new Item.Properties();Construction scope=CONSTRUCTION.get();
         return scope!=null&&scope.registry.equals(Registries.ITEM)?properties.setId(ResourceKey.create(Registries.ITEM,scope.name)):properties;

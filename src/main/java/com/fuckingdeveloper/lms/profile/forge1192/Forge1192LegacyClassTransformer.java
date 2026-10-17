@@ -1039,6 +1039,18 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             wrapper.instructions.add(new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge, "press", "(L" + LEGACY_BUTTON + ";)V", false));
             wrapper.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN)); wrappers.add(wrapper); rewrites++;
         }
+        // Pair direct allocations before rewriting subclass super calls. Never expose
+        // an uninitialized Button to a bridge or resume from a removed DUP node.
+        for (var method : node.methods) for (var instruction : method.instructions.toArray()) {
+            if (!(instruction instanceof TypeInsnNode allocation) || allocation.getOpcode()!=org.objectweb.asm.Opcodes.NEW || !allocation.desc.equals(LEGACY_BUTTON)) continue;
+            var dup=allocation.getNext();
+            if(dup==null||dup.getOpcode()!=org.objectweb.asm.Opcodes.DUP)throw new IllegalStateException("Unadapted direct legacy Button allocation shape");
+            var init=matchingConstructor(dup,LEGACY_BUTTON);
+            if(init==null||!init.desc.equals(BUTTON_SOURCE_CONSTRUCTOR))continue;
+            method.instructions.remove(allocation);method.instructions.remove(dup);
+            init.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);init.owner=bridge;init.name="create";
+            init.desc=BUTTON_SOURCE_CONSTRUCTOR.substring(0,BUTTON_SOURCE_CONSTRUCTOR.length()-1)+"L"+LEGACY_BUTTON+";";init.itf=false;rewrites++;
+        }
         for (var method : node.methods) for (var instruction : method.instructions) {
             if (instruction instanceof TypeInsnNode allocation && allocation.getOpcode() == org.objectweb.asm.Opcodes.NEW && allocation.desc.equals(LEGACY_BUTTON))
                 throw new IllegalStateException("Unadapted direct legacy Button allocation: " + node.name + "#" + method.name);
