@@ -33,5 +33,8 @@ subpaths remains unchanged by resource discovery alone.
 - [x] Fresh runtime99 loaded `sp:Новый мир`, MCP client/integrated-server gates
   passed; creative content populated (147/106/110/40 stacks across TNT tabs).
   No `Missing item model`, ERROR or FATAL entries after reload/world entry.
-- [ ] Runtime99 original workbench open/reopen (waiting for client control).
+- [ ] Original workbench open/reopen after the resource fix: runtime99 was
+  interrupted by a user-thrown dynamite cooldown linkage crash before MCP control;
+  crash report `crash-2026-10-17_14.17.34-client.txt`. Separate cooldown work
+  continues in `source-item-cooldowns`; visual acceptance is still pending.
 - [ ] Human visual acceptance: creative icons and workbench preview/selection.

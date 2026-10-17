@@ -487,6 +487,13 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("rewriteLegacyDamageSourceSingletonComparisons",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteLegacyDamageSourceSingletonComparisons(node)),
+            new TransformationPipeline.Pass("sourceDamageDelivery",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteSourceDamageDelivery(node)),
+            new TransformationPipeline.Pass("sourceDamageFactories",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192DamageFactoryRewriter.rewrite(node,
+                            (owner, name, desc) -> sourceGuiMethod(node, owner, name, desc))),
             new TransformationPipeline.Pass("Forge1192DamageSourceRewriter.rewrite",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192DamageSourceRewriter.rewrite(node)),
@@ -4854,6 +4861,20 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         return 1;
     }
 
+    private int rewriteSourceDamageDelivery(ClassNode node) {
+        String entity = "net/minecraft/world/entity/Entity";
+        String desc = "(Lnet/minecraft/world/damagesource/DamageSource;F)Z";
+        return rewriteSemanticInstanceCalls(node, (opcode, owner, name, descriptor) -> {
+            if (opcode != org.objectweb.asm.Opcodes.INVOKEVIRTUAL || !descriptor.equals(desc)) return null;
+            String identity = sourceGuiMethod(node, owner, name, descriptor);
+            if (identity == null || !identity.endsWith("#hurt")
+                    || !(owner.equals(entity) || isManagedSubtypeOf(owner, entity))) return null;
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                    com.fuckingdeveloper.lms.target.InstalledTargetAdapters.damageDeliveryBridge(),
+                    "hurt", "(L" + entity + ";" + desc.substring(1), false);
+        });
+    }
+
     private int rewriteItemCooldownFamily(ClassNode node) {
         String base = "net/minecraft/world/item/ItemCooldowns";
         return rewriteSemanticInstanceCalls(node, (opcode, owner, name, desc) -> {
@@ -8966,7 +8987,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         var own = fieldHierarchy(node); var adapters = new java.util.ArrayList<org.objectweb.asm.tree.MethodNode>(); int rewrites = 0;
         for (var method : node.methods) for (var instruction : method.instructions) {
             if (instruction instanceof FieldInsnNode field) {
-                Handle bridge = widgetCoordinateBridge(node, own, field.owner, field.name, field.desc, field.getOpcode());
+                Handle bridge = sourceMutableFieldBridge(node, own, field.owner, field.name, field.desc, field.getOpcode());
                 if (bridge != null) { method.instructions.set(field, new MethodInsnNode(org.objectweb.asm.Opcodes.INVOKESTATIC, bridge.getOwner(), bridge.getName(), bridge.getDesc(), false)); rewrites++; }
             } else if (instruction instanceof LdcInsnNode ldc) {
                 Object adapted = sourceFieldConstant(node, own, ldc.cst, adapters);
@@ -8980,7 +9001,20 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         }
         node.methods.addAll(adapters); return rewrites;
     }
-    private Handle widgetCoordinateBridge(ClassNode node, FieldHierarchy own, String owner, String name, String descriptor, int opcode) {
+    private Handle sourceMutableFieldBridge(ClassNode node, FieldHierarchy own, String owner, String name, String descriptor, int opcode) {
+        if (descriptor.equals("Z") && java.util.Set.of("f_19864_", "hurtMarked", "f_19812_", "hasImpulse").contains(name)
+                && (opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.PUTFIELD)) {
+            String declaration = sourceFieldOwner(node.name, own, owner, name, descriptor, new java.util.HashSet<>());
+            String entity = "net/minecraft/world/entity/Entity";
+            String canonical = declaration == null ? null : SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalFieldName(declaration, name, descriptor)).orElse(name);
+            if (entity.equals(declaration) && java.util.Set.of("hurtMarked", "hasImpulse").contains(canonical == null ? "" : canonical)) {
+                boolean read = opcode == org.objectweb.asm.Opcodes.GETFIELD;
+                return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                        com.fuckingdeveloper.lms.target.InstalledTargetAdapters.entitySyncBridge(),
+                        (read ? "get" : "set") + (canonical.equals("hurtMarked") ? "HurtMarked" : "HasImpulse"),
+                        "(L" + entity + ";" + (read ? ")Z" : "Z)V"), false);
+            }
+        }
         if (descriptor.equals("Z") && (name.equals("f_96546_") || name.equals("passEvents"))
                 && (opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.PUTFIELD)) {
             String declaration = sourceFieldOwner(node.name, own, owner, name, descriptor, new java.util.HashSet<>());
@@ -9016,7 +9050,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         };
         if (opcode == -1) return value;
         String owner = handle.getOwner(), name = handle.getName(), descriptor = handle.getDesc();
-        Handle bridge = widgetCoordinateBridge(node, own, owner, name, descriptor, opcode);
+        Handle bridge = sourceMutableFieldBridge(node, own, owner, name, descriptor, opcode);
         String renamed = renamedVanillaField(new FieldInsnNode(opcode, owner, name, descriptor));
         if (renamed != null) {
             name = renamed;
@@ -9027,7 +9061,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             if (!resolved.resolved()) return value;
             owner = resolved.owner(); name = resolved.name(); descriptor = resolved.descriptor();
         }
-        if (bridge == null) bridge = widgetCoordinateBridge(node, own, owner, name, descriptor, opcode);
+        if (bridge == null) bridge = sourceMutableFieldBridge(node, own, owner, name, descriptor, opcode);
         if (bridge == null && owner.equals(handle.getOwner()) && name.equals(handle.getName()) && descriptor.equals(handle.getDesc())) return value;
         boolean instance = opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.PUTFIELD;
         boolean read = opcode == org.objectweb.asm.Opcodes.GETFIELD || opcode == org.objectweb.asm.Opcodes.GETSTATIC;
