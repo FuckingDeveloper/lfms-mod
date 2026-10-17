@@ -4,7 +4,9 @@
 - [x] Agree shared source-domain versus strict dependency/export policy.
 - [x] Update the normative classloading and related source/resource contracts.
 - [x] Implement truthful scan metadata and the selected owner/visibility boundary.
-- [ ] Verify independent graph/discovery/identity fixtures and actual client behavior.
+- [x] Verify independent discovery/identity fixtures and original plugin discovery/callback behavior.
+- [ ] Extend admission-negative fixtures for mandatory/present-optional/missing dependency cascades.
+- [ ] Accept actual JEI recipe UI and source seating gameplay after startup blockers.
 
 ## Independent verification
 
@@ -27,3 +29,9 @@ World, recipe UI and seating acceptance remain BLOCKED; pending fixture recovery
 is retained outside Git. The source metadata primitive-array fixture additionally
 verifies defensive copies without replacing the original annotation value type;
 circular cross-owner inheritance produces ClassCircularityError.
+
+Runtime125 strengthens discovery acceptance: original PluginCaller sends the
+ConfigManager to actual CarbonConfig and IC2 plugin instances alongside JEI's
+own plugins. This verifies cross-owner reflective discovery, assignability,
+construction and a real original callback. It does not establish recipe UI or
+full optional-integration functionality.

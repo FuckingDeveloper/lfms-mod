@@ -255,3 +255,22 @@ A scenario closes only after its observable assertion passes and the previous
 causal failure is absent. Record the next failure separately; stop dependent
 checks at world loss. Lack of an MCP operation is BLOCKED/UNVERIFIED, not a reason
 to create another automation framework or to infer a successful result.
+
+## Source class domains and plugin discovery (runtime123–125)
+
+One Forge1.19.2 domain is prepared before managed class definition: seven source
+mods and nine canonical artifacts in this integration set. Independent fixtures
+verify ordinary Class.forName and ServiceLoader, API/constructor identity,
+concurrent resolution, library deduplication/conflicts, circularity, immutable
+annotation values and owner disposal. Runtime125's original JEI PluginCaller
+executes ConfigManager callbacks for actual CarbonConfig and IC2 plugins.
+
+The source formatting query family and read-only loader launch queries also pass
+the original JEI startup sites. Full compile/compatibility/native-smoke checks and
+static audit passed; audit remains unresolved inventory, not gameplay coverage.
+The first remaining blocker is StartEventObserver's RecipesUpdatedEvent class
+literal. The older timing-only adapter covers unused handler parameters, not the
+complete event-token/registration family or recipe-map synchronization. World,
+JEI recipe UI, optional integration functionality and pending chair recovery are
+BLOCKED by that startup failure. Pre-existing source Mixin/render limitations
+remain separately unverified; class visibility does not establish them.
