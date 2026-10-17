@@ -1,0 +1,11 @@
+- [x] Record user choice of corresponding native renderer context.
+- [x] Verify pinned native EntityRenderer extraction/name stages and block resolver/state APIs.
+- [x] Preserve source root constructor, erased/typed callbacks and managed parent calls.
+- [x] Record source geometry/model states and submit in the same native frame.
+- [x] Project proven TNT/minecart ancestry to native renderer contexts; reject unknown consumers.
+- [x] Verify independent source binary, failure cleanup, immutable pose/model operands and actual native model submission.
+- [x] Pass compatibilityTest, nativeCompatibilitySmoke and compileLaunchJava.
+- [x] Inspect selected transformed-symbol audit (4323 classes, 1121 groups / 5685 sites; inventory only).
+- [x] Verify original primed TNT ignition/rendering/explosion in runtime109.
+- [x] Restore owned runtime108 fixtures, inventory and player baseline (exact inventory equality).
+- [x] Inspect optional MCP framebuffer captures of textured and white-flash phases; no missing texture observed.

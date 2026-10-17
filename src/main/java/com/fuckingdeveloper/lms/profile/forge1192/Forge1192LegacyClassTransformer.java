@@ -315,6 +315,14 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("catalogued-source-methods",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192MethodRules.rewrite(node, methodDeclarations, semanticInvocations)),
+            new TransformationPipeline.Pass("source-entity-render-extraction",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192EntityRendererRewriter.rewrite(node,new Forge1192EntityRendererRewriter.Evidence() {
+                        public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):owner.equals(root)||isManagedSubtypeOf(owner,root);}
+                        public boolean standalone(){return sourceEntityRendererBase(node);}
+                        public String method(String owner,String name,String desc){return registryCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,
+                                ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(owner,name,desc))).orElse(null);}
+                    },com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceEntityRenderer(),semanticInvocations)),
             new TransformationPipeline.Pass("source-game-event-delivery",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192GameEventRewriter.rewrite(node,new Forge1192GameEventRewriter.Evidence() {
@@ -846,6 +854,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("rewriteAllNamespaceReferences",
                     TransformationPipeline.Phase.NAMESPACE_PROJECTION,
                     node -> rewriteAllNamespaceReferences(node)),
+            new TransformationPipeline.Pass("target-source-entity-renderer-construction",
+                    TransformationPipeline.Phase.TARGET_SHAPE,
+                    node -> Forge1192EntityRendererRewriter.construction(node,com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceEntityRenderer())),
             new TransformationPipeline.Pass("target-item-projectile-construction",
                     TransformationPipeline.Phase.TARGET_SHAPE,
                     node -> Forge1192ProjectileRewriter.construction(node)),
@@ -4920,6 +4931,16 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             if(!declaresManagedMethod(node,"m_93250_","(I)V")){var setter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93250_","(I)V",null,null);setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));setter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.PUTFIELD,node.name,"lms$widgetDepth","I"));setter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));setter.maxStack=2;setter.maxLocals=2;node.methods.add(setter);}
         }
         return 1;
+    }
+
+    private boolean sourceEntityRendererBase(ClassNode node) {
+        String owner=node.superName;var seen=new java.util.HashSet<String>();
+        while(owner!=null&&seen.add(owner)) {
+            if(owner.startsWith("net/minecraft/"))return owner.equals(Forge1192EntityRendererRewriter.ROOT);
+            try {byte[] bytes=hierarchyBytes(owner);if(bytes==null)return false;owner=new ClassReader(bytes).getSuperName();}
+            catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}
+        }
+        return false;
     }
 
     private int rewriteSourceExplosions(ClassNode node) {

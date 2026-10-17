@@ -22,6 +22,8 @@ public class LegacyMultiBufferSource {
     private final net.minecraft.client.resources.model.sprite.SpriteGetter sprites;
     private final Map<LegacyRenderType, RecordingVertexConsumer> batches = new LinkedHashMap<>();
     private final List<RecordedItem> items = new ArrayList<>();
+    private final List<RecordedBlock> blocks = new ArrayList<>();
+    private final java.util.Optional<net.minecraft.client.renderer.block.model.BlockDisplayContext> blockContext;
     private boolean flushed;
 
     protected LegacyMultiBufferSource() {
@@ -29,6 +31,7 @@ public class LegacyMultiBufferSource {
         this.poseStack = null;
         this.recordingOnly = false;
         this.sprites = null;
+        this.blockContext = java.util.Optional.empty();
     }
 
     public LegacyMultiBufferSource(SubmitNodeCollector submitter, PoseStack poseStack) {
@@ -41,11 +44,18 @@ public class LegacyMultiBufferSource {
         this.poseStack = Objects.requireNonNull(poseStack, "poseStack");
         this.recordingOnly = false;
         this.sprites = sprites;
+        this.blockContext = java.util.Optional.empty();
     }
 
     private LegacyMultiBufferSource(boolean recordingOnly) { this(recordingOnly,null); }
 
     private LegacyMultiBufferSource(boolean recordingOnly,net.minecraft.client.resources.model.sprite.SpriteGetter sprites) {
+        this(recordingOnly,sprites,java.util.Optional.empty());
+    }
+
+    private LegacyMultiBufferSource(boolean recordingOnly,net.minecraft.client.resources.model.sprite.SpriteGetter sprites,
+            java.util.Optional<net.minecraft.client.renderer.block.model.BlockDisplayContext> blockContext) {
+        this.blockContext = Objects.requireNonNull(blockContext);
         this.sprites = sprites;
         this.submitter = null;
         this.poseStack = null;
@@ -60,6 +70,11 @@ public class LegacyMultiBufferSource {
     public static LegacyMultiBufferSource recording(net.minecraft.client.resources.model.sprite.SpriteGetter sprites) {
         return new LegacyMultiBufferSource(true,Objects.requireNonNull(sprites));
     }
+    public static LegacyMultiBufferSource recording(net.minecraft.client.resources.model.sprite.SpriteGetter sprites,
+            java.util.Optional<net.minecraft.client.renderer.block.model.BlockDisplayContext> blockContext) {
+        return new LegacyMultiBufferSource(true,Objects.requireNonNull(sprites),blockContext);
+    }
+
     public net.minecraft.client.renderer.texture.TextureAtlasSprite sprite(net.minecraft.client.resources.model.sprite.SpriteId id) {
         if(sprites==null)throw new UnsupportedOperationException("Source atlas material rendering has no published target SpriteGetter context");
         return Objects.requireNonNull(sprites.get(id),"Target sprite getter returned null");
@@ -114,6 +129,15 @@ public class LegacyMultiBufferSource {
         items.add(new RecordedItem(state, new org.joml.Matrix4f(sourcePose.last().pose()), light, overlay));
     }
 
+    public void recordBlock(net.minecraft.client.renderer.block.BlockModelResolver resolver,
+            net.minecraft.world.level.block.state.BlockState state, PoseStack sourcePose, int light, int overlay) {
+        if (flushed || (!recordingOnly && submitter == null)) throw new IllegalStateException("No active source block recording");
+        var context=blockContext.orElseThrow(()->new UnsupportedOperationException("Source static block rendering has no proven native renderer context in this extraction"));
+        var model=new net.minecraft.client.renderer.block.BlockModelRenderState();
+        resolver.update(model,state,context);
+        blocks.add(new RecordedBlock(model,new org.joml.Matrix4f(sourcePose.last().pose()),light,overlay));
+    }
+
     public static LegacyBufferSource m_109898_(
             com.mojang.blaze3d.vertex.BufferBuilder ignoredBuilder) {
         return new LegacyBufferSource();
@@ -125,10 +149,13 @@ public class LegacyMultiBufferSource {
             List<Consumer<VertexConsumer>> operations = List.copyOf(recorder.operations);
                 if (!operations.isEmpty()) recorded.add(new RecordedBatch(renderType, operations, List.copyOf(recorder.positions)));
         });
-        return new RecordedGeometry(List.copyOf(recorded), List.copyOf(items));
+        return new RecordedGeometry(List.copyOf(recorded), List.copyOf(items), List.copyOf(blocks));
     }
 
     private record RecordedItem(net.minecraft.client.renderer.item.ItemStackRenderState state,
+            org.joml.Matrix4fc pose, int light, int overlay) {}
+
+    private record RecordedBlock(net.minecraft.client.renderer.block.BlockModelRenderState state,
             org.joml.Matrix4fc pose, int light, int overlay) {}
 
     private record RecordedBatch(
@@ -140,13 +167,16 @@ public class LegacyMultiBufferSource {
     public static final class RecordedGeometry {
         private final List<RecordedBatch> batches;
         private final List<RecordedItem> items;
+        private final List<RecordedBlock> blocks;
 
-        private RecordedGeometry(List<RecordedBatch> batches, List<RecordedItem> items) {
+        private RecordedGeometry(List<RecordedBatch> batches, List<RecordedItem> items, List<RecordedBlock> blocks) {
             this.batches = batches;
             this.items = items;
+            this.blocks = blocks;
         }
 
         public org.joml.Vector3fc[] extents() {
+            if(!blocks.isEmpty())throw new UnsupportedOperationException("Bounds of source recorded static block models require a native model-bound contract");
             var result = new java.util.ArrayList<org.joml.Vector3fc>();
             batches.stream().flatMap(batch -> batch.positions().stream())
                     .map(position -> new org.joml.Vector3f(position.x(), position.y(), position.z()))
@@ -180,6 +210,14 @@ public class LegacyMultiBufferSource {
                     nestedPose.mulPose(item.pose());
                     item.state().submit(nestedPose, submitter, item.light(), item.overlay(), outlineColor);
                 } finally { nestedPose.popPose(); }
+            }
+            for (var block : blocks) {
+                PoseStack nestedPose=applySubmissionPose?poseStack:new PoseStack();
+                nestedPose.pushPose();
+                try {
+                    nestedPose.mulPose(block.pose());
+                    block.state().submit(nestedPose,submitter,block.light(),block.overlay(),outlineColor);
+                } finally {nestedPose.popPose();}
             }
         }
         private static void submitBatch(SubmitNodeCollector submitter, PoseStack poseStack, RecordedBatch batch,

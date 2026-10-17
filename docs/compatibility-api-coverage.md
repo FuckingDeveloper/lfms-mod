@@ -120,23 +120,39 @@ Checks: `compatibilityTest nativeCompatibilitySmoke compileLaunchJava` passed in
 1134 grouped findings / 5709 sites (`/tmp/lms-entity-allocation-position-audit.tsv`).
 This inventory is not a compatibility percentage. Explosion subclasses/manual
 lifecycle, custom Level/EntityType overrides and entity persistence remain gaps.
-Cleanup is pending client recovery: only owned sky fixtures at (-157,245,32),
-(-157,244,28), (-157,245,28), tagged runtime108 mini dynamite and prior owned
-workbench (-197,79,12). Original hotbar4 chicken dynamite is safely in slot21;
-restore it after clearing the tagged test stack. Baseline player/inventory retained.
-
 Game-event follow-up: source registered constants/field handles and four level /
-two entity delivery overloads now pass independent native entry checks. Actual
-holder, actor, Vec3/context identity, center defaults, native virtual dispatch and
-original exceptions are preserved; custom raw callbacks fail explicitly. Full
-checks passed (`/tmp/lms-game-events-final-check.log`), selected audit now reports
-1124 grouped findings / 5693 sites (`/tmp/lms-game-events-final-audit.tsv`). This
-is structural/entrypoint evidence; real listener/ignition acceptance remains
-BLOCKED by custom entity renderer extraction. A new static-block model-context
-choice is prepared in
-[source entity rendering](../openspec/changes/source-entity-render-extraction/proposal.md).
-The current client is stopped; do not launch into the known renderer crash for
-another startup-only test. Owned fixture/inventory cleanup remains pending.
+two entity delivery overloads pass independent native checks. Actual holder,
+actor, Vec3/context identity, center defaults, native virtual dispatch and original
+exceptions are preserved; custom raw callbacks fail explicitly. Checks passed in
+`/tmp/lms-game-events-final-check.log` (selected audit: 1124 groups / 5693 sites).
+
+Entity-render follow-up: the user selected corresponding native renderer contexts.
+Source root EntityRenderer construction and erased/typed callbacks now extract
+geometry once and submit native frame-owned model states in the same frame.
+Proven native PrimedTnt and AbstractMinecart ancestry selects their real renderer
+contexts. Managed parent calls, exact partial/yaw/light, source-super name intent,
+white overlay, copied poses and actual model submission are covered independently.
+Unknown context consumers and changed unsupported callbacks fail explicitly.
+Checks `compatibilityTest nativeCompatibilitySmoke compileLaunchJava` passed in
+`/tmp/lms-entity-render-check-final.log`; selected audit: 4323 classes, 1121 groups /
+5685 sites (`/tmp/lms-entity-render-audit.tsv`). Inventory, not gameplay coverage.
+
+Runtime109 loaded the explicit `Новый мир` save with MCP gates satisfied. Normal
+flint-and-steel interaction produced the original `tntexpansion:primed_tnt` and
+removed its block. Repeated Mini TNT ignition/explosion destroyed the prepared
+glass support, removed the primed entity and produced no ERROR/FATAL/causal
+exception. Optional MCP framebuffer captures at native frozen/stepped ticks
+confirmed both textured TNT and its white-flash phase; normal ticks were restored.
+This accepts that bounded block-TNT scenario, not every variant or renderer family.
+The log remains `/tmp/lms-container-families-runtime-109.log`.
+
+Owned runtime108/109 sky fixtures and the earlier TNT workbench were removed.
+Only the tagged runtime108 test dynamite was cleared; original slot21 content
+returned to hotbar4. The full exposed inventory exactly matched its baseline;
+position, yaw/pitch, selected slot, health, food, saturation and XP matched too.
+Sound output remains UNVERIFIED: native master volume is still the user's 0.0.
+The unrelated native empty-salmon-sound warning is retained in the log. Custom
+entity persistence, manual explosion lifecycle and other renderer roots remain gaps.
 
 ## Symptoms not requiring another mechanics-specific fix
 

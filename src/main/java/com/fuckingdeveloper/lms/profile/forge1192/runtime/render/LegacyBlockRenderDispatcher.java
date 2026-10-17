@@ -33,6 +33,16 @@ public final class LegacyBlockRenderDispatcher {
         return modelRenderer;
     }
 
+    public void renderSingleBlock(BlockState state, com.mojang.blaze3d.vertex.PoseStack pose,
+            LegacyMultiBufferSource buffers, int light, int overlay) {
+        buffers.recordBlock(resolver,state,pose,light,overlay);
+    }
+
+    public void m_110912_(BlockState state, com.mojang.blaze3d.vertex.PoseStack pose,
+            LegacyMultiBufferSource buffers, int light, int overlay) {
+        renderSingleBlock(state,pose,buffers,light,overlay);
+    }
+
     BlockModelResolver resolver() {
         return resolver;
     }

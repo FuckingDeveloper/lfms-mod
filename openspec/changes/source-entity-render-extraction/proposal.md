@@ -1,4 +1,4 @@
-# Source entity rendering and static block model context — decision pending
+# Source entity rendering and static block model context — accepted native renderer contexts
 
 Runtime108 created/tracked the original primed TNT, then its own EntityRenderer
 failed because native EntityRenderer requires createRenderState. Merely creating
@@ -20,30 +20,27 @@ Native renderers each own a distinct context (for example TntRenderer's public
 BLOCK_DISPLAY_CONTEXT). Choosing a native renderer's context would affect modern
 model/resource customization and cannot be inferred solely from call descriptors.
 
-## Proposed decision
+## Accepted decision
 
-Create one shared target-owned static-block context for source renderSingleBlock
-operations, independent of legacy mod identity and of a particular vanilla
-renderer. Use native model resolution, tint/layer/lighting and special-model
-handling in that context; retain source transforms, overlay/white-flash and
-explicit callback data. Models that depend on a different native context do not
-receive an invented renderer identity.
+User chose the context of the corresponding native Minecraft renderer. Do not
+introduce a shared synthetic static-block context or select by fixture identity.
+The initial proven context projection uses actual entity ancestry: PrimedTnt ->
+TntRenderer.BLOCK_DISPLAY_CONTEXT, AbstractMinecart ->
+AbstractMinecartRenderer.BLOCK_DISPLAY_CONTEXT. These are exact vanilla API
+families in the pinned target; they are not mod/class-name selectors. Unknown
+families remain explicit boundaries when they consume static block rendering.
+The original source callback still chooses the model, transforms and overlay;
+it is not replaced by the native renderer's whole implementation.
 
-Alternative: project the old generic operation onto a chosen existing native
-renderer context. That can select renderer-specific modern model variants even
-when source code called the generic helper. A per-mod/per-block selector is not
-an allowed alternative.
-
-AGENTS.md section 22 requires this new context semantic choice before
-implementation. The already accepted extraction timing is not being reopened.
+The already accepted extraction timing is not being reopened.
 
 ## Verification
 
 Independent source renderer constructor/synthetic bridge/typed callback fixtures;
 once-only extraction, parent callbacks, failure cleanup and immutable submission;
 exact native block-model/context/pose/light/overlay operands; no entity retained
-in submitted state; actual source primed TNT ignition/explosion and human visual
-acceptance. Custom living renderers, old model internals and arbitrary immediate
+in submitted state; actual source primed TNT ignition/explosion and visual
+acceptance (optional MCP framebuffer evidence or human confirmation). Custom living renderers, old model internals and arbitrary immediate
 shader states require separate proof. No legacy JAR modification is allowed.
 
 Current client is stopped after runtime108 crash. Owned sky fixtures/tagged stack
