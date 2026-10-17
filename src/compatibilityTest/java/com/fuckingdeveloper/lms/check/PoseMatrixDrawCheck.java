@@ -42,6 +42,17 @@ final class PoseMatrixDrawCheck {
             for(var position:positions)check(corners.stream().anyMatch(p->p.equals(position,0.00001F)),"position was transformed twice or lost source matrix");
             check(normals.stream().anyMatch(n->java.lang.Math.abs(n.length()-1)>0.01F),"source normal matrix product was renormalized");
             check(pose.last().pose().equals(before),"draw mutated live pose matrix");
+            // Unrelated state and generic accessors must not reject a closed matrix graph.
+            var unrelated=new ClassNode();new ClassReader(loader.originalClassBytes(name)).accept(unrelated,0);
+            unrelated.fields.add(new FieldNode(Opcodes.ACC_PRIVATE,"ordinaryState","I",null,null));
+            var setter=new MethodNode(Opcodes.ACC_PUBLIC,"setOrdinaryState","(I)V",null,null);
+            setter.instructions.add(new VarInsnNode(Opcodes.ALOAD,0));setter.instructions.add(new VarInsnNode(Opcodes.ILOAD,1));
+            setter.instructions.add(new FieldInsnNode(Opcodes.PUTFIELD,unrelated.name,"ordinaryState","I"));setter.instructions.add(new InsnNode(Opcodes.RETURN));setter.maxLocals=2;setter.maxStack=2;unrelated.methods.add(setter);
+            var accessor=new MethodNode(Opcodes.ACC_PUBLIC,"ordinaryResult","()Ljava/lang/Object;",null,null);
+            accessor.instructions.add(new InsnNode(Opcodes.ACONST_NULL));accessor.instructions.add(new InsnNode(Opcodes.ARETURN));accessor.maxLocals=1;accessor.maxStack=1;unrelated.methods.add(accessor);
+            var unrelatedBytes=new ClassWriter(0);unrelated.accept(unrelatedBytes);
+            var admitted=new ClassNode();new ClassReader(new Forge1192LegacyClassTransformer().transform(name,unrelatedBytes.toByteArray()).bytes()).accept(admitted,0);
+            check(admitted.methods.stream().noneMatch(m->m.desc.contains("com/mojang/math/Matrix")),"unrelated state/object result blocked closed matrix graph");
             // A foreign matrix consumer prevents the entire closed-flow migration.
             var escaped=new ClassNode();new ClassReader(loader.originalClassBytes(name)).accept(escaped,0);
             var escape=new MethodNode(Opcodes.ACC_PUBLIC|Opcodes.ACC_STATIC,"escapeMatrix","(Lcom/mojang/math/Matrix4f;)V",null,null);
@@ -49,6 +60,15 @@ final class PoseMatrixDrawCheck {
             var out=new ClassWriter(0);escaped.accept(out);
             var denied=new ClassNode();new ClassReader(new Forge1192LegacyClassTransformer().transform(name,out.toByteArray()).bytes()).accept(denied,0);
             check(denied.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).anyMatch(i->i instanceof MethodInsnNode c && c.name.equals("m_85861_")),"unproven escaping matrix flow silently admitted");
+        }
+        Path ingredientFixture=Path.of("legacy-mods/jei-1.19.2-forge-11.8.1.1032.jar");
+        if(Files.isRegularFile(ingredientFixture))try(var loader=new ManagedLegacyClassLoader(ingredientFixture,PoseMatrixDrawCheck.class.getClassLoader(),new Forge1192LegacyClassTransformer())) {
+            String name="mezz.jei.library.render.FluidTankRenderer";
+            var renderer=loader.linkOwnedClass(name);
+            var node=new ClassNode();new ClassReader(loader.definedClassBytes(name)).accept(node,0);
+            check(node.methods.stream().noneMatch(m->m.desc.contains("com/mojang/math/Matrix")),"original fluid renderer matrix helpers not projected");
+            check(node.methods.stream().flatMap(m->Arrays.stream(m.instructions.toArray())).noneMatch(i->i instanceof MethodInsnNode c && c.desc.contains("com/mojang/math/Matrix")),"original fluid renderer matrix call descriptors split");
+            check(renderer.getDeclaredConstructors().length==3,"original fluid constructor graph changed");
         }
         check(Forge1192VertexConsumerBridge.sourceLineWidth(960)==2.5F && Forge1192VertexConsumerBridge.sourceLineWidth(3840)==5F,"source default line state not preserved");
         System.out.println("PASS: actual source shape lambda, both pose matrix getters, native positions and unnormalized normals, color/edge counts, live pose preservation, source line-width scaling and escaping-flow rejection");

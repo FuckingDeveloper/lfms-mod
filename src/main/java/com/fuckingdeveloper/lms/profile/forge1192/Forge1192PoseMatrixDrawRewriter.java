@@ -15,9 +15,10 @@ final class Forge1192PoseMatrixDrawRewriter {
             if(name.equals("m_85861_") && desc.equals("()L"+M4+";"))return new Handle(tag,owner,"pose","()Lorg/joml/Matrix4f;",false);
             if(name.equals("m_85864_") && desc.equals("()L"+M3+";"))return new Handle(tag,owner,"normal","()Lorg/joml/Matrix3f;",false);
         }
-        if(tag==Opcodes.H_INVOKEINTERFACE && owner.equals(V)) {
+        if(tag==Opcodes.H_INVOKEINTERFACE && owner.equals(V)
+                || tag==Opcodes.H_INVOKEVIRTUAL && owner.equals("com/mojang/blaze3d/vertex/BufferBuilder")) {
             if(name.equals("m_85982_") && desc.equals("(L"+M4+";FFF)"+R))
-                return new Handle(tag,owner,"addVertex","(Lorg/joml/Matrix4fc;FFF)"+R,true);
+                return new Handle(Opcodes.H_INVOKEINTERFACE,V,"addVertex","(Lorg/joml/Matrix4fc;FFF)"+R,true);
             if(name.equals("m_85977_") && desc.equals("(L"+M3+";FFF)"+R))
                 return new Handle(Opcodes.H_INVOKESTATIC,"com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192VertexConsumerBridge","normal",
                         "("+R+"Lorg/joml/Matrix3f;FFF)"+R,false);
@@ -30,10 +31,37 @@ final class Forge1192PoseMatrixDrawRewriter {
     private static boolean privateHelper(ClassNode node,String owner,String name,String desc) {
         return owner.equals(node.name) && node.methods.stream().anyMatch(m->m.name.equals(name) && m.desc.equals(desc) && (m.access&Opcodes.ACC_PRIVATE)!=0);
     }
+    /** Only methods participating in matrix transport constrain its closure.
+     * Unrelated constructors/configuration accessors cannot carry one of these values. */
+    private static boolean matrixMethod(MethodNode method) {
+        if (matrix(method.desc) || matrix(method.signature)) return true;
+        for (var instruction : method.instructions) {
+            if (instruction instanceof MethodInsnNode call && (matrix(call.owner) || matrix(call.desc))) return true;
+            if (instruction instanceof FieldInsnNode field && (matrix(field.owner) || matrix(field.desc))) return true;
+            if (instruction instanceof TypeInsnNode type && matrix(type.desc)) return true;
+            if (instruction instanceof InvokeDynamicInsnNode indy) {
+                if (matrix(indy.desc) || matrix(indy.bsm.getDesc())) return true;
+                for (var argument : indy.bsmArgs) if (matrixConstant(argument)) return true;
+            }
+            if (instruction instanceof LdcInsnNode ldc && matrixConstant(ldc.cst)) return true;
+        }
+        return false;
+    }
+    private static boolean matrixConstant(Object value) {
+        if (value instanceof Type type) return matrix(type.getDescriptor());
+        if (value instanceof Handle handle) return matrix(handle.getOwner()) || matrix(handle.getDesc());
+        if (value instanceof ConstantDynamic constant) {
+            if (matrix(constant.getDescriptor()) || matrixConstant(constant.getBootstrapMethod())) return true;
+            for (int i=0;i<constant.getBootstrapMethodArgumentCount();i++)
+                if (matrixConstant(constant.getBootstrapMethodArgument(i))) return true;
+        }
+        return false;
+    }
     static int rewrite(ClassNode node) {
         boolean getter=false;
         if(matrix(node.signature) || matrix(node.superName) || node.fields.stream().anyMatch(f->matrix(f.desc)||matrix(f.signature)))return 0;
         for(var method:node.methods) {
+            if (!matrixMethod(method)) continue;
             String result=Type.getReturnType(method.desc).getDescriptor();
             if(result.equals("Ljava/lang/Object;") || result.equals("[Ljava/lang/Object;"))return 0;
             if(matrix(method.desc) && (method.access&Opcodes.ACC_PRIVATE)==0)return 0;
@@ -50,7 +78,8 @@ final class Forge1192PoseMatrixDrawRewriter {
                     getter |= adapted!=null && call.owner.endsWith("PoseStack$Pose");
                     if(matrix(call.desc) && adapted==null && !privateHelper(node,call.owner,call.name,call.desc))return 0;
                 }
-                if(instruction instanceof InvokeDynamicInsnNode dynamic && matrix(dynamic.desc)) {
+                if(instruction instanceof InvokeDynamicInsnNode dynamic
+                        && (matrix(dynamic.desc) || java.util.Arrays.stream(dynamic.bsmArgs).anyMatch(Forge1192PoseMatrixDrawRewriter::matrixConstant))) {
                     if(!dynamic.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory") || !dynamic.bsm.getName().equals("metafactory"))return 0;
                     if(dynamic.bsmArgs.length!=3 || !(dynamic.bsmArgs[1] instanceof Handle impl)
                             || !privateHelper(node,impl.getOwner(),impl.getName(),impl.getDesc()))return 0;
