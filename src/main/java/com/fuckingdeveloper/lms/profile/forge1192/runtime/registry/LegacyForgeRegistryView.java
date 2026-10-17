@@ -10,7 +10,8 @@ public final class LegacyForgeRegistryView<T> implements LegacyForgeRegistry, It
     private final Identifier name;
     LegacyForgeRegistryView(Identifier name) { this.name = Objects.requireNonNull(name); }
     @SuppressWarnings("unchecked")
-    public Registry<T> nativeRegistry() { return (Registry<T>) InstalledTargetAdapters.forgeReadRegistry(name); }
+    public Registry<T> nativeRegistry() { return (Registry<T>) (name.equals(Identifier.withDefaultNamespace("enchantment"))
+            ? Forge1192DynamicRegistryBridge.enchantments() : InstalledTargetAdapters.forgeReadRegistry(name)); }
     public Identifier getRegistryName() { return name; }
     public ResourceKey<Registry<T>> getRegistryKey() { return ResourceKey.createRegistryKey(name); }
     public Identifier getDefaultKey() { return LegacyRegistryManagerView.defaultKey(name); }

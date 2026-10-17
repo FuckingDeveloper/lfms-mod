@@ -9,6 +9,19 @@ import net.minecraft.world.item.component.CustomData;
 public final class LegacyMutableTagState {
     private CustomData owned;
     private Integer lastDamage;
+    private LegacyStoredEnchantmentsState storedEnchantments;
+    private boolean changingOwner;
+    public CompoundTag acquireStoredEnchantments(ItemStack stack) {
+        var nativeValue = components(stack).get(DataComponents.STORED_ENCHANTMENTS);
+        var root = acquire(stack, nativeValue != null && !nativeValue.isEmpty());
+        if (root == null) return null;
+        if (storedEnchantments == null) storedEnchantments = new LegacyStoredEnchantmentsState();
+        storedEnchantments.reconcile(stack, root);
+        return root;
+    }
+    public void reconcileStoredEnchantments(ItemStack stack) {
+        if (!changingOwner && storedEnchantments != null && owns(stack)) storedEnchantments.reconcile(stack, owned.tag);
+    }
     private static net.minecraft.core.component.DataComponentMap components(ItemStack stack) {
         if ((Object) stack instanceof LegacyMutableTagCarrier carrier) return carrier.lms$sourceComponents();
         // The native public map is authoritative for nonempty stacks, including
@@ -33,12 +46,21 @@ public final class LegacyMutableTagState {
         }
         if (current != owned) { stack.set(DataComponents.CUSTOM_DATA, current); owned = current; }
         lastDamage = nativeDamage;
+        if (storedEnchantments != null) storedEnchantments.reconcile(stack, owned.tag);
         return owned.tag;
     }
     public void assign(ItemStack stack, CompoundTag tag) {
-        owned = tag == null ? null : new CustomData(tag);
-        if (owned == null) stack.remove(DataComponents.CUSTOM_DATA); else stack.set(DataComponents.CUSTOM_DATA, owned);
-        mirrorDamage(stack, tag == null ? 0 : tag.getIntOr("Damage", 0));
+        reconcileStoredEnchantments(stack);
+        changingOwner = true;
+        try {
+            owned = tag == null ? null : new CustomData(tag);
+            if (owned == null) stack.remove(DataComponents.CUSTOM_DATA); else stack.set(DataComponents.CUSTOM_DATA, owned);
+            if (storedEnchantments != null || tag != null && tag.contains("StoredEnchantments")) {
+                if (storedEnchantments == null) storedEnchantments = new LegacyStoredEnchantmentsState();
+                storedEnchantments.assign(stack, tag);
+            }
+            mirrorDamage(stack, tag == null ? 0 : tag.getIntOr("Damage", 0));
+        } finally { changingOwner = false; }
     }
     /** Source raw damage may exceed max; the native component mirror has a bounded representation. */
     public void mirrorDamage(ItemStack stack, int sourceDamage) {

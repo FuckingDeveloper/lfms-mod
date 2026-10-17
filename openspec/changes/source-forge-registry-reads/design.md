@@ -7,7 +7,8 @@
 - The admitted standard source registry set and default entry keys MUST be
   derived from the pinned ForgeRegistries.Keys/GameData.init declarations.
   Known but unsupported data-driven/loader-specific registries MUST fail
-  explicitly. Source custom registry construction is outside this adapter.
+  explicitly. The later source-enchanted-book-reads contract admits only the
+  enchantment read view with authoritative per-consumption resolution. Source custom registry construction is outside this adapter.
 - A view MUST NOT own mutable registry contents or cache a disposable runtime
   lookup. Target adapters MUST resolve the proven native registry identity and
   perform actual native reads. Missing native counterparts MUST fail explicitly.

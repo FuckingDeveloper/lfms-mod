@@ -85,7 +85,7 @@ public final class ForgeRegistryReadFamilyCheck {
                 type.getMethod("open",Identifier.class).invoke(null,Identifier.parse("minecraft:sound_event"));
                 check(type.getMethod("read3",Identifier.class).invoke(null,absent)==null&&type.getMethod("read4",int.class).invoke(null,-1)==null,"ordinary registry invented default");
                 check(type.getMethod("read8",Object.class).invoke(null,new Object()).equals(-1)&&type.getMethod("read5",Object.class).invoke(null,new Object())==null,"ordinary reverse absence");
-                try{type.getMethod("open",Identifier.class).invoke(null,Identifier.parse("minecraft:enchantment"));throw new AssertionError("data-driven global fabricated");}catch(java.lang.reflect.InvocationTargetException expected){check(expected.getCause() instanceof UnsupportedOperationException,"wrong data-driven failure");}
+                try{LegacyRegistryManagerView.ACTIVE.getRegistry(Identifier.parse("minecraft:enchantment")).getValues().size();throw new AssertionError("inactive data-driven global fabricated");}catch(IllegalStateException expected){}
                 type.getMethod("open",Identifier.class).invoke(null,id);
                 check(type.getMethod("read18",Identifier.class).invoke(null,stone)==Blocks.STONE&&type.getMethod("read18",Identifier.class).invoke(null,absent)==null,"raw name lookup invented fallback");
                 check(type.getMethod("read19").invoke(null)==Forge1192RegistryTagBridge.tags(BuiltInRegistries.BLOCK),"concrete tag manager identity");

@@ -15,7 +15,7 @@ public final class LegacyRegistryManagerView {
             "point_of_interest_type", "memory_module_type", "sensor_type", "schedule", "activity",
             "worldgen/carver", "worldgen/feature", "chunk_status", "worldgen/block_state_provider_type",
             "worldgen/foliage_placer_type", "worldgen/tree_decorator_type");
-    private static final Set<String> DATA_DRIVEN = Set.of("enchantment", "painting_variant", "worldgen/biome");
+    private static final Set<String> DATA_DRIVEN = Set.of("painting_variant", "worldgen/biome");
     private static final Set<String> LOADER = Set.of("entity_data_serializers", "global_loot_modifier_serializers",
             "biome_modifier_serializers", "structure_modifier_serializers", "fluid_type", "holder_set_type",
             "biome_modifier", "structure_modifier");
@@ -30,7 +30,7 @@ public final class LegacyRegistryManagerView {
         if (name.getNamespace().equals("minecraft") && DATA_DRIVEN.contains(name.getPath())
                 || name.getNamespace().equals("forge") && LOADER.contains(name.getPath()))
             throw new UnsupportedOperationException("Source ACTIVE read view has no process-global counterpart: " + name);
-        if (!name.getNamespace().equals("minecraft") || !STANDARD.contains(name.getPath())) return null;
+        if (!name.getNamespace().equals("minecraft") || !STANDARD.contains(name.getPath()) && !name.getPath().equals("enchantment")) return null;
         return (LegacyForgeRegistryView<T>) views.computeIfAbsent(name, LegacyForgeRegistryView::new);
     }
     public <T> LegacyForgeRegistryView<T> getRegistry(ResourceKey<? extends Registry<T>> key) {

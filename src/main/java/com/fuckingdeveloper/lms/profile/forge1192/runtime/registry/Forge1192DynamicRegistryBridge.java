@@ -164,7 +164,7 @@ public final class Forge1192DynamicRegistryBridge {
         if (server != null) return server.registryAccess().lookupOrThrow(key);
 
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level != null) return minecraft.level.registryAccess().lookupOrThrow(key);
+        if (minecraft != null && minecraft.level != null) return minecraft.level.registryAccess().lookupOrThrow(key);
 
         throw new IllegalStateException("Legacy access to data-driven registry "
                 + key.identifier() + " requires an active registration or world context");

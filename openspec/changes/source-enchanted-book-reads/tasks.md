@@ -1,0 +1,4 @@
+- [x] Inspect source/target contracts and related fixture API inventory.
+- [x] Implement bounded book/list, registry and description read family.
+- [x] Compile and run independent compatibility/native checks.
+- [ ] Verify a fresh world, record first remaining causal blocker.
