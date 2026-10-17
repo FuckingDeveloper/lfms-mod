@@ -1433,7 +1433,16 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
      * migration to the target extracted block render-state pipeline. */
     private int rewriteLegacyBlockRenderDispatcherFamily(ClassNode node) {
         int rewrites = rewriteSemanticInstanceCalls(node,(opcode,owner,name,descriptor)-> {
-            if(opcode!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL||!owner.equals("net/minecraft/client/renderer/blockentity/BlockEntityRendererProvider$Context"))return null;
+            if(opcode!=org.objectweb.asm.Opcodes.INVOKEVIRTUAL)return null;
+            boolean entityContext=owner.equals("net/minecraft/client/renderer/entity/EntityRendererProvider$Context");
+            boolean blockContext=owner.equals("net/minecraft/client/renderer/blockentity/BlockEntityRendererProvider$Context");
+            if(!entityContext&&!blockContext)return null;
+            if(descriptor.equals("()Lcom/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyBlockRenderDispatcher;")
+                    && (name.equals("getBlockRenderDispatcher")||name.equals(entityContext?"m_234597_":"m_173584_")))
+                return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                        "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyBlockRenderDispatcher","from",
+                        "(L"+owner+";)Lcom/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyBlockRenderDispatcher;",false);
+            if(!blockContext)return null;
             String canonical=isSrgMethodName(name)?SRG_RUNTIME_RESOLVER.get().canonicalMethodName(owner,name,descriptor).orElse(null):name;
             if(canonical==null)return null;
             String target=switch(canonical+descriptor) {
@@ -1450,19 +1459,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                 if (!(insn instanceof MethodInsnNode call)
                         || call.getOpcode() != org.objectweb.asm.Opcodes.INVOKEVIRTUAL) continue;
-                if (call.owner.equals("net/minecraft/client/renderer/blockentity/"
-                                + "BlockEntityRendererProvider$Context")
-                        && call.name.equals("m_173584_")
-                        && call.desc.equals("()Lcom/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyBlockRenderDispatcher;")) {
-                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                    call.owner = "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyBlockRenderDispatcher";
-                    call.name = "from";
-                    call.desc = "(Lnet/minecraft/client/renderer/blockentity/"
-                            + "BlockEntityRendererProvider$Context;)"
-                            + "Lcom/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyBlockRenderDispatcher;";
-                    call.itf = false;
-                    rewrites++;
-                } else if (call.owner.equals(
+                if (call.owner.equals(
                                 "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyModelBlockRenderer")
                         && call.name.equals("tesselateBlock")
                         && call.desc.startsWith(

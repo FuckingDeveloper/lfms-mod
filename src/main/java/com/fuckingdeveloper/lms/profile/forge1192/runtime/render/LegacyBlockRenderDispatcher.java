@@ -18,6 +18,13 @@ public final class LegacyBlockRenderDispatcher {
         return new LegacyBlockRenderDispatcher(context.blockModelResolver());
     }
 
+    public static LegacyBlockRenderDispatcher from(net.minecraft.client.renderer.entity.EntityRendererProvider.Context context) {
+        // Rewriting a source virtual getter must not silently bypass an unknown context subclass override.
+        if (context.getClass() != net.minecraft.client.renderer.entity.EntityRendererProvider.Context.class)
+            throw new UnsupportedOperationException("Unproven source entity renderer context subclass: " + context.getClass().getName());
+        return new LegacyBlockRenderDispatcher(context.getBlockModelResolver());
+    }
+
     public LegacyBakedModel m_110910_(BlockState state) {
         throw unsupported("getBlockModel", state);
     }
