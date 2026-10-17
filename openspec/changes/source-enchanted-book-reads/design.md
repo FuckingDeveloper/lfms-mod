@@ -81,6 +81,15 @@ Evidence: /tmp/lms-container-families-runtime-134.log. The final list-family
 checks pass in /tmp/lms-enchanted-book-list-check.log using the same Gradle command
 with audit report /tmp/lms-enchanted-book-list-audit.tsv: 3829 classes, 1137 grouped
 gaps / 6725 sites, same two prior unrelated transform failures. No gameplay
-fixture or inventory mutation was performed; no recovery is pending. The client
-is left running. Implementation commits 5de5095 and 3e2dcd3 are pushed; unrelated
+fixture or inventory mutation was performed; no recovery is pending. The client subsequently crashed on opening a screen, as recorded below. Implementation commits 5de5095 and 3e2dcd3 are pushed; unrelated
 pre-existing worktree changes remain preserved.
+
+### Runtime134 screen-retry crash
+
+At 22:36:10 a native keybind opens a screen. Original JEI retries its incomplete
+startup, then throws `NullPointerException: vanilla crafting category` through
+Screen.init. The client exits with crash report
+run/crash-reports/crash-2026-10-17_22.36.11-client.txt. This is the later consequence
+of the first Matrix4f failure at VanillaPlugin.registerFluidIngredients:188;
+book subtype errors remain absent. World-load/read acceptance does not imply a
+stable JEI screen. No dev JVM remains alive and no gameplay recovery is pending.
