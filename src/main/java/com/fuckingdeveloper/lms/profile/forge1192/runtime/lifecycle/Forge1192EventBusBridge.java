@@ -266,6 +266,13 @@ public final class Forge1192EventBusBridge {
             IEventBus bus, net.neoforged.bus.api.EventPriority priority,
             Class<T> eventType, Consumer<T> listener, boolean receiveCanceled,
             boolean deferUntilItemComponentsBound) {
+        if(eventType==com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyTagsUpdatedEvent.class) {
+            if(bus!=NeoForge.EVENT_BUS)throw new UnsupportedOperationException("Source tag notifications require the gameplay event bus");
+            listen(bus,priority,receiveCanceled,TagsUpdatedEvent.ServerDataLoad.class,
+                    event->listener.accept((T)com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceTagView(event)));
+            listen(com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceTagBus(),priority,receiveCanceled,eventType,listener);
+            return;
+        }
         if (net.neoforged.fml.event.config.ModConfigEvent.class.isAssignableFrom(eventType)
                 && bus == Forge1192LifecycleBridge.requireActive().modEventBus()) {
             listen(com.fuckingdeveloper.lms.target.neoforge263.Target263SourceConfigAdapter.sourceBus(
@@ -436,6 +443,11 @@ public final class Forge1192EventBusBridge {
     }
 
     public static boolean post(IEventBus bus, Event event) {
+        if(event instanceof com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyTagsUpdatedEvent) {
+            if(bus!=NeoForge.EVENT_BUS)throw new UnsupportedOperationException("Source tag notifications require the gameplay event bus");
+            com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceTagBus().post(event);
+            return false;
+        }
         Event posted = bus.post(event);
         return posted instanceof ICancellableEvent cancellable && cancellable.isCanceled();
     }

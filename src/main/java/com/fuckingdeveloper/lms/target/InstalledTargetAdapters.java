@@ -38,6 +38,8 @@ public final class InstalledTargetAdapters {
             net.neoforged.neoforge.network.registration.PayloadRegistrar registrar) {
         return com.fuckingdeveloper.lms.target.neoforge263.Target263RawNetworkChannels.register(channel,registrar);
     }
+    public static net.neoforged.bus.api.IEventBus sourceTagBus() { return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceTagNotifications.sourceBus(); }
+    public static com.fuckingdeveloper.lms.profile.forge1192.runtime.event.LegacyTagsUpdatedEvent sourceTagView(net.neoforged.neoforge.event.TagsUpdatedEvent event) { return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceTagNotifications.view(event); }
     public static String recipeNotificationEvent() { return "net/neoforged/neoforge/client/event/RecipesReceivedEvent"; }
     public static String loaderEnvironmentBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263LoaderEnvironment"; }
     public static String sourceTextureAtlasHolder() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceTextureAtlasHolder"; }

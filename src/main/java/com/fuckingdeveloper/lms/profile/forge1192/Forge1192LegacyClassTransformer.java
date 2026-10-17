@@ -312,6 +312,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("physical-distribution",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> physicalDistribution == null ? 0 : Forge1192DistributionFilter.apply(node, physicalDistribution)),
+            new TransformationPipeline.Pass("source-tag-notification",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192TagNotificationRewriter.validate(node)),
             new TransformationPipeline.Pass("catalogued-source-methods",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192MethodRules.rewrite(node, methodDeclarations, semanticInvocations)),
@@ -13015,6 +13018,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     }
 
     private static String migrateInternalName(String value) {
+        String sourceTags=Forge1192TagNotificationRewriter.type(value);if(sourceTags!=null)return sourceTags;
         if(value.equals(Forge1192RecipeNotificationRewriter.SOURCE))return InstalledTargetAdapters.recipeNotificationEvent();
         if(value.equals("com/mojang/blaze3d/vertex/Tesselator"))return "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyImmediateTesselator";
         if(value.equals("com/mojang/blaze3d/vertex/BufferBuilder"))return "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyImmediateBuffer";

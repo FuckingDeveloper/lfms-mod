@@ -120,3 +120,17 @@ An explicit-class source event-listener registration MUST preserve priority,
 receive-canceled policy, exact event type and consumer identity, source ownership,
 unregister and failure cleanup through the existing event adapter. Catalogued
 admission and transformation MUST use the same source declaration evidence.
+
+### Source tag notification identity and readiness
+
+Forge1.19.2 tag notifications MUST retain one source-owned concrete identity,
+actual registry access, update cause and static-data update rule. Native sealed
+subclasses MUST NOT change exact source class-token/getClass matching. Server
+notifications MUST remain at their native publication phase with source priority.
+An initial native client-configuration publication MUST reach source listeners
+once after that connection's native login dispatch completes; native dispatch and
+tag/component binding MUST NOT be delayed or duplicated. Later ready-client
+updates MUST retain their actual publication boundary. Pending publications MUST
+be scoped to the real connection and discarded on replacement/disconnect.
+Source constructors and explicit posting MUST retain supported source meaning;
+unknown subclasses remain fail-fast. See source-tag-notification.

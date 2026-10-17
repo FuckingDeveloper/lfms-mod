@@ -2,6 +2,7 @@
   "required": true,
   "package": "com.fuckingdeveloper.lms.mixin",
   "mixins": [
+    "Target263ConnectionDataLifetimeMixin",
     "Target263SourceIngredientMixin",
     "Target263SourceToolDefaultMixin",
     "Target263SourceExplosionMixin",
@@ -33,6 +34,9 @@
     "Target263ScopedItemPropertiesMixin"
   ],
   "client": [
+    "Target263ConfigurationTagNotificationMixin",
+    "Target263PlayTagNotificationMixin",
+    "Target263ClientLoginDataReadinessMixin",
     "Target263SearchTooltipContextMixin",
     "Target263GuiLayerAccess",
     "Target263SourceScreenBackgroundMixin",
