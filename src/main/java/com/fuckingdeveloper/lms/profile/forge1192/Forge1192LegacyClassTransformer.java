@@ -424,11 +424,14 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("source-gui-model-view",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     Forge1192GuiModelViewRewriter::rewrite),
+            new TransformationPipeline.Pass("source-resource-key-family",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    Forge1192ResourceKeyRewriter::rewrite),
             new TransformationPipeline.Pass("source-forge-registry-reads",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192ForgeRegistryReadRewriter.rewrite(node,
                             owner -> owner.equals(node.name) ? isManagedSubtypeOf(node, Forge1192ForgeRegistryReadRewriter.REGISTRY) : isManagedSubtypeOf(owner, Forge1192ForgeRegistryReadRewriter.REGISTRY),
-                            owner -> owner.equals(node.name) ? isManagedSubtypeOf(node, Forge1192ForgeRegistryReadRewriter.MANAGER) : isManagedSubtypeOf(owner, Forge1192ForgeRegistryReadRewriter.MANAGER))),
+                            owner -> owner.equals(node.name) ? isManagedSubtypeOf(node, Forge1192ForgeRegistryReadRewriter.MANAGER) : isManagedSubtypeOf(owner, Forge1192ForgeRegistryReadRewriter.MANAGER), semanticInvocations)),
             new TransformationPipeline.Pass("source-registry-queries",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192RegistryQueryRewriter.rewrite(node, methodDeclarations,
@@ -8180,20 +8183,6 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                     call.owner = "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192ClientGraphicsBridge";
                     call.name = "useFancyGraphics";
                     call.itf = false;
-                    rewrites++;
-                }
-
-                // ResourceKey#location became ResourceKey#identifier together
-                // with ResourceLocation -> Identifier. Keep the exact 1.19.2
-                // SRG identity and require the exact target member.
-                if (call.owner.equals("net/minecraft/resources/ResourceKey")
-                        && call.name.equals("m_135782_")
-                        && call.desc.equals("()Lnet/minecraft/resources/Identifier;")
-                        && VANILLA_RELOCATIONS.classifyMethod(
-                                "net.minecraft.resources.ResourceKey", "identifier",
-                                "()Lnet/minecraft/resources/Identifier;").status()
-                                == Forge1192MappingLayer.Status.VERIFIED_IDENTITY) {
-                    call.name = "identifier";
                     rewrites++;
                 }
 

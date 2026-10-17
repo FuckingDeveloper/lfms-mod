@@ -40,11 +40,19 @@ public final class ForgeRegistryReadFamilyCheck {
                 check(view instanceof LegacyForgeRegistry&&view==type.getField("stored").get(null),"stored concrete/interface identity");
                 check(type.getField("stored").getGenericType().getTypeName().contains(LegacyForgeRegistryView.class.getName()),"generic type projection");
                 check(type.getMethod("openKey",ResourceKey.class).invoke(null,Registries.BLOCK)==view,"manager overload/view identity");
+                try {type.getMethod("openKey",ResourceKey.class).invoke(null,new Object[]{null});throw new AssertionError("null key returned fabricated absence");}
+                catch(java.lang.reflect.InvocationTargetException expected){check(expected.getCause() instanceof NullPointerException,"source null-key behavior changed");}
+                try {LegacyRegistryManagerView.ACTIVE.getRegistry(net.neoforged.neoforge.registries.NeoForgeRegistries.Keys.FLUID_TYPES);throw new AssertionError("projected unsupported source registry silently absent");}
+                catch(UnsupportedOperationException expected){}
                 check(type.getMethod("managerName").invoke(null).equals("ACTIVE"),"manager name");
                 check(type.getMethod("reverseName",LegacyForgeRegistry.class).invoke(null,view).equals(id),"manager reverse identity");
                 check(type.getMethod("open",Identifier.class).invoke(null,absent)==null,"absent registry became a facade");
                 check(type.getMethod("open",Identifier.class).invoke(null,Identifier.parse("minecraft:creative_mode_tab"))==null,"target-only registry leaked into source manager");
                 type.getMethod("open",Identifier.class).invoke(null,id);
+                check(type.getMethod("cast",Object.class).invoke(null,BuiltInRegistries.BLOCK)==view,"native static producer cast split source identity");
+                check(type.getMethod("cast",Object.class).invoke(null,new Object[]{null})==null,"null cast changed");
+                check(type.getMethod("isRegistry",Object.class).invoke(null,BuiltInRegistries.BLOCK).equals(true)&&type.getMethod("isRegistry",Object.class).invoke(null,new Object()).equals(false),"source instanceof representations");
+                try{type.getMethod("cast",Object.class).invoke(null,new Object());throw new AssertionError("invalid cast admitted");}catch(java.lang.reflect.InvocationTargetException expectedCast){check(expectedCast.getCause() instanceof ClassCastException,"source cast failure changed");}
                 check(type.getMethod("read3",Identifier.class).invoke(null,stone)==Blocks.STONE,"key value identity");
                 check(type.getMethod("read3",Identifier.class).invoke(null,absent)==Blocks.AIR,"source default fallback");
                 int stoneId=BuiltInRegistries.BLOCK.getId(Blocks.STONE),airId=BuiltInRegistries.BLOCK.getId(Blocks.AIR);
@@ -70,6 +78,8 @@ public final class ForgeRegistryReadFamilyCheck {
                     try{check(h.invokeWithArguments(view,stone)==Blocks.STONE,"concrete handle/constant projection");}catch(Throwable failure){throw new AssertionError(failure);}
                 }
                 var fn=(java.util.function.Function<Object,Identifier>)type.getMethod("lambda").invoke(null);check(fn.apply(Blocks.STONE).equals(stone),"bound source method reference");
+                var keys=(java.util.function.Supplier<Set<Identifier>>)type.getMethod("boundKeys").invoke(null);
+                check(keys.get().contains(stone),"bound interface handle capture type lost");
                 check(type.getMethod("interfaceKey",LegacyForgeRegistry.class,Object.class).invoke(null,view,Blocks.STONE).equals(Optional.of(ResourceKey.create(Registries.BLOCK,stone))),"interface consumer interoperability");
                 // Source plain registry has no default, even for unknown numeric values.
                 type.getMethod("open",Identifier.class).invoke(null,Identifier.parse("minecraft:sound_event"));
@@ -100,10 +110,15 @@ public final class ForgeRegistryReadFamilyCheck {
         for(int i=0;i<READS.length;i++) {
             var op=READS[i];m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"read"+i,op[1],null,null);m.visitCode();m.visitFieldInsn(GETSTATIC,HOST,"stored",RD);int slot=0;for(Type arg:Type.getArgumentTypes(op[1])){m.visitVarInsn(arg.getOpcode(ILOAD),slot);slot+=arg.getSize();}m.visitMethodInsn(INVOKEVIRTUAL,R,op[0],op[1],false);m.visitInsn(Type.getReturnType(op[1]).getOpcode(IRETURN));m.visitMaxs(0,0);m.visitEnd();
         }
+        for (boolean cast:List.of(true,false)) {
+            m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,cast?"cast":"isRegistry","(Ljava/lang/Object;)"+(cast?RD:"Z"),null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitTypeInsn(cast?CHECKCAST:INSTANCEOF,R);m.visitInsn(cast?ARETURN:IRETURN);m.visitMaxs(0,0);m.visitEnd();
+        }
         var h=new Handle(H_INVOKEVIRTUAL,R,"getValue","("+ID+")"+OBJ,false);
         var bsm=new Handle(H_INVOKESTATIC,"com/fuckingdeveloper/lms/check/ForgeRegistryReadFamilyCheck","constant","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/Class;Ljava/lang/Object;)Ljava/lang/Object;",false);
         for(boolean nested:List.of(false,true)){m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,nested?"nestedHandle":"handle","()Ljava/lang/invoke/MethodHandle;",null,null);m.visitCode();m.visitLdcInsn(nested?new ConstantDynamic("read","Ljava/lang/invoke/MethodHandle;",bsm,h):h);m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();}
         m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"lambda","()Ljava/util/function/Function;",null,null);m.visitCode();m.visitFieldInsn(GETSTATIC,HOST,"stored",RD);m.visitInvokeDynamicInsn("apply","("+RD+")Ljava/util/function/Function;",new Handle(H_INVOKESTATIC,"java/lang/invoke/LambdaMetafactory","metafactory","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",false),Type.getMethodType("("+OBJ+")"+OBJ),new Handle(H_INVOKEVIRTUAL,R,"getKey","("+OBJ+")"+ID,false),Type.getMethodType("("+OBJ+")"+ID));m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();
+        m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"boundKeys","()Ljava/util/function/Supplier;",null,null);m.visitCode();m.visitFieldInsn(GETSTATIC,HOST,"stored",RD);
+        m.visitInvokeDynamicInsn("get","(L"+I+";)Ljava/util/function/Supplier;",new Handle(H_INVOKESTATIC,"java/lang/invoke/LambdaMetafactory","metafactory","(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",false),Type.getMethodType("()Ljava/lang/Object;"),new Handle(H_INVOKEINTERFACE,I,"getKeys","()Ljava/util/Set;",true),Type.getMethodType("()Ljava/util/Set;"));m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();
         m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"interfaceKey","(L"+I+";"+OBJ+")Ljava/util/Optional;",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitVarInsn(ALOAD,1);m.visitMethodInsn(INVOKEINTERFACE,I,"getResourceKey","("+OBJ+")Ljava/util/Optional;",true);m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();
     }
     private static void reject(int shape) throws Exception {

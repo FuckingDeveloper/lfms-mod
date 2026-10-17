@@ -19,19 +19,30 @@ final class Forge1192ForgeRegistryReadRewriter {
             "getKeys()Ljava/util/Set;","getValues()Ljava/util/Collection;","getEntries()Ljava/util/Set;");
     private static final Set<String> INTERFACE_READS=Set.of("getRegistryName()"+ID,"getRegistryKey()"+KEY,"getDefaultKey()"+ID,
             "getResourceKey("+OBJ+")Ljava/util/Optional;","containsValue("+OBJ+")Z","isEmpty()Z",
-            "getKeys()Ljava/util/Set;","getValues()Ljava/util/Collection;","getEntries()Ljava/util/Set;");
+            "getKeys()Ljava/util/Set;","getValues()Ljava/util/Collection;","getEntries()Ljava/util/Set;",
+            "getValue("+ID+")"+OBJ,"getKey("+OBJ+")"+ID,"containsKey("+ID+")Z",
+            "iterator()Ljava/util/Iterator;","spliterator()Ljava/util/Spliterator;","forEach(Ljava/util/function/Consumer;)V",
+            "tags()Lnet/minecraftforge/registries/tags/ITagManager;");
     private static final Set<String> IDENTITY=Set.of("getClass()Ljava/lang/Class;","equals("+OBJ+")Z","hashCode()I","toString()Ljava/lang/String;");
-    static int rewrite(ClassNode node, Predicate<String> registrySubtype, Predicate<String> managerSubtype) {
+    static int rewrite(ClassNode node, Predicate<String> registrySubtype, Predicate<String> managerSubtype,
+            com.fuckingdeveloper.lms.transform.SemanticInvocationRewriter invocations) {
         if (registrySubtype.test(node.name) || managerSubtype.test(node.name)) throw unsupported(node,"source registry/manager subclass");
-        int count=0;
+        int count=invocations.rewrite(node,(opcode,owner,name,descriptor)-> {
+            if(!owner.equals(API)||!INTERFACE_READS.contains(name+descriptor))return null;
+            if(opcode!=INVOKEINTERFACE)throw unsupported(node,"interface read invocation kind");
+            return new Handle(H_INVOKESTATIC,BRIDGE,name,"("+OBJ+descriptor.substring(1),false);
+        });
         for(var method:node.methods) for(var insn:method.instructions.toArray()) {
             if(insn instanceof FieldInsnNode f) field(node,f.owner,f.name,f.desc,f.getOpcode());
             if(insn instanceof MethodInsnNode call) {
                 member(node,call.owner,call.name,call.desc,call.getOpcode());
-                if(call.owner.equals(API)&&INTERFACE_READS.contains(call.name+call.desc)) {
-                    if(call.getOpcode()!=INVOKEINTERFACE)throw unsupported(node,"interface read invocation kind");
-                    call.setOpcode(INVOKESTATIC);call.owner=BRIDGE;call.desc="("+OBJ+call.desc.substring(1);call.itf=false;count++;
-                }
+
+            }
+            if(insn instanceof TypeInsnNode t && t.desc.equals(REGISTRY) && (t.getOpcode()==CHECKCAST||t.getOpcode()==INSTANCEOF)) {
+                boolean cast=t.getOpcode()==CHECKCAST;
+                method.instructions.set(t,new MethodInsnNode(INVOKESTATIC,BRIDGE,cast?"cast":"isRegistry",
+                        "(Ljava/lang/Object;)"+(cast?"Lcom/fuckingdeveloper/lms/profile/forge1192/runtime/registry/LegacyForgeRegistryView;":"Z"),false));
+                count++;
             }
             if(insn instanceof TypeInsnNode t && t.getOpcode()==NEW && (t.desc.equals(MANAGER)||t.desc.equals(REGISTRY)))throw unsupported(node,"construction");
             if(insn instanceof LdcInsnNode ldc) {Object c=constant(node,ldc.cst);if(!Objects.equals(c,ldc.cst)){ldc.cst=c;count++;}}
@@ -60,10 +71,7 @@ final class Forge1192ForgeRegistryReadRewriter {
         if(value instanceof Handle h) {
             int op=switch(h.getTag()){case H_GETSTATIC->GETSTATIC;case H_PUTSTATIC->PUTSTATIC;case H_GETFIELD->GETFIELD;case H_PUTFIELD->PUTFIELD;case H_INVOKEVIRTUAL->INVOKEVIRTUAL;default->-1;};
             if(h.getTag()<=H_PUTSTATIC)field(node,h.getOwner(),h.getName(),h.getDesc(),op);else member(node,h.getOwner(),h.getName(),h.getDesc(),op);
-            if(h.getOwner().equals(API)&&INTERFACE_READS.contains(h.getName()+h.getDesc())) {
-                if(h.getTag()!=H_INVOKEINTERFACE)throw unsupported(node,"interface read handle kind");
-                return new Handle(H_INVOKESTATIC,BRIDGE,h.getName(),"("+OBJ+h.getDesc().substring(1),false);
-            }
+
         } else if(value instanceof ConstantDynamic d) {
             Object[] args=new Object[d.getBootstrapMethodArgumentCount()];for(int i=0;i<args.length;i++)args[i]=constant(node,d.getBootstrapMethodArgument(i));
             return new ConstantDynamic(d.getName(),d.getDescriptor(),(Handle)constant(node,d.getBootstrapMethod()),args);

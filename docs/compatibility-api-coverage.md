@@ -356,3 +356,32 @@ and `./gradlew nativeCompatibilitySmoke` (additional negative fixture).
 Logs: /tmp/lms-creative-super-check.log and
 /tmp/lms-creative-super-negative-check.log. This narrow refinement has not had
 another live client run; the audit has the same two prior unrelated failures.
+
+## Source active registry reads and callable keys (runtime130)
+
+The general adapter preserves a standard source ACTIVE read view, concrete/interface
+storage identity, source defaults and absence, name/ID/reverse lookups, immutable
+live collections and source iterator exhaustion. Tags and raw numeric wire reads
+accept the same view. Mutation and historical manager snapshots are rejected;
+known moved data-driven/loader registries remain explicit boundaries.
+
+Runtime130 loads the explicit world and Dev player, initializes all seven source
+entrypoints and populates all nine source tabs. JEI passes RegistryManager.ACTIVE
+and reaches reverse item-name lookup. The next first observable failure is the
+ResourceKey.m_135782_ method reference in RegistryWrapper; the missing vanilla
+crafting category remains secondary. Client was stopped with TERM before another
+screen-opening retry. No player/inventory/block mutation was performed.
+
+The linked ResourceKey family (seven pinned methods) now handles direct calls,
+method handles, unbound lambdas and nested constants; native factories, codec and
+registry/cast semantics are covered. Bound interface registry lambdas preserve
+capture types through the established semantic traversal. Source concrete casts
+of admitted static native registry tokens normalize to the same read-view identity.
+The current CarbonConfig NamedRegistry data-driven path remains unverified;
+full JEI startup is not established by these checks.
+
+Commands: `./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava
+compatibilityAudit --args='legacy-mods /tmp/lms-registry-callables-audit.tsv'`.
+Checks pass (/tmp/lms-registry-callables-check.log); audit has the same two prior
+unrelated transform failures and is not gameplay coverage. Live acceptance of
+callable key migration awaits runtime131. Prior user changes remain untouched.

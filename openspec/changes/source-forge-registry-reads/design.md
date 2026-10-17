@@ -62,3 +62,36 @@ compatibilityAudit --args='legacy-mods /tmp/lms-forge-registry-audit.tsv'`.
 Log: /tmp/lms-forge-registry-final-check.log. Audit: 3829 classes, same two prior
 unrelated transformation failures, 1147 gap groups/6752 sites (inventory, not
 functional coverage). Original runtime consumer acceptance is pending.
+
+## Callable keys and producer interoperability
+
+Runtime130 passes ACTIVE/view acquisition and reaches the original registry
+wrapper's reverse item-name lookup. Its next error is the unbound source
+ResourceKey.location method reference, not the old manager field. The full pinned
+seven-member ResourceKey family now shares one source traversal for direct,
+handle, lambda and nested-constant operations. Only location's native spelling
+is target-selected; source SRG identities and descriptors remain profile-owned.
+Factory interning, isFor/cast and codec behavior are tested against actual native
+keys. The obsolete direct-only location rule was removed.
+
+Source interface reads use the existing semantic invocation traversal to retain
+exact lambda capture receiver types. Explicit source concrete casts may normalize
+an already-proven native static registry token to its stable source read view;
+source instanceof uses that same admission rule. Null and invalid casts retain
+normal Java results/failures. This does not admit arbitrary native registries,
+source subclasses, moved data-driven registries or mutation. Interface reads
+already supported on native tokens retain their existing target operations.
+In particular, no broad conversion of ForgeRegistries field producers or
+RegisterEvent mutation tokens is performed.
+
+Null ResourceKey lookup preserves source NullPointerException; null Identifier
+lookup preserves source absence. Exact target projections of unsupported source
+loader keys are recognized by the target adapter and fail rather than appearing
+silently absent. Arbitrary target-only registries remain absent from source ACTIVE.
+
+Additional passing checks: /tmp/lms-registry-callables-check.log; static audit
+/tmp/lms-registry-callables-audit.tsv (3829 classes, same two prior unrelated
+transform failures, 1143 groups/6745 sites). Producer casts, interface-bound lambda
+capture, raw-name/tag reads and null/projected-key boundaries have independent
+fixtures. Original CarbonConfig NamedRegistry's data-driven registry path remains
+unverified and outside the bounded process-global read-view contract.

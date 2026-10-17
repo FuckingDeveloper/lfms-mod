@@ -25,6 +25,8 @@ public final class LegacyRegistryManagerView {
     @SuppressWarnings("unchecked")
     public <T> LegacyForgeRegistryView<T> getRegistry(Identifier name) {
         if (name == null) return null;
+        if (com.fuckingdeveloper.lms.target.InstalledTargetAdapters.projectedUnsupportedForgeRegistry(name))
+            throw new UnsupportedOperationException("Projected source loader registry is outside ACTIVE read views: " + name);
         if (name.getNamespace().equals("minecraft") && DATA_DRIVEN.contains(name.getPath())
                 || name.getNamespace().equals("forge") && LOADER.contains(name.getPath()))
             throw new UnsupportedOperationException("Source ACTIVE read view has no process-global counterpart: " + name);
@@ -32,7 +34,7 @@ public final class LegacyRegistryManagerView {
         return (LegacyForgeRegistryView<T>) views.computeIfAbsent(name, LegacyForgeRegistryView::new);
     }
     public <T> LegacyForgeRegistryView<T> getRegistry(ResourceKey<? extends Registry<T>> key) {
-        return key == null ? null : getRegistry(key.identifier());
+        return getRegistry(Objects.requireNonNull(key, "registry key").identifier());
     }
     public Identifier getName(LegacyForgeRegistry registry) {
         if (!(registry instanceof LegacyForgeRegistryView<?> view)) return null;
