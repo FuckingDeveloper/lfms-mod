@@ -38,6 +38,7 @@ public final class InstalledTargetAdapters {
             net.neoforged.neoforge.network.registration.PayloadRegistrar registrar) {
         return com.fuckingdeveloper.lms.target.neoforge263.Target263RawNetworkChannels.register(channel,registrar);
     }
+    public static String loaderEnvironmentBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263LoaderEnvironment"; }
     public static String sourceTextureAtlasHolder() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceTextureAtlasHolder"; }
     public static String sourceAtlasPreparations() { return "net/minecraft/client/renderer/texture/SpriteLoader$Preparations"; }
     public static String sourceRidingBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceRiding"; }

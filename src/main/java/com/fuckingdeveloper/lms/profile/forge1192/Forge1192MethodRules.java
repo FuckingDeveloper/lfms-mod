@@ -10,7 +10,7 @@ public final class Forge1192MethodRules {
     public static final String WORK = "net/minecraftforge/fml/event/lifecycle/ParallelDispatchEvent";
     private static final MethodRuleCatalog CATALOG = new MethodRuleCatalog(entries());
     private Forge1192MethodRules() {}
-    private static List<MethodRuleCatalog.Rule> entries(){var result=new java.util.ArrayList<MethodRuleCatalog.Rule>(Forge1192ConfigRules.entries());result.addAll(Forge1192MenuRewriter.entries());result.addAll(Forge1192RawNetworkRules.entries());result.addAll(Forge1192ChatFormattingRules.entries());result.add(explicitListener());result.add(work("Runnable","java/lang/Runnable"));result.add(work("Supplier","java/util/function/Supplier"));return List.copyOf(result);}
+    private static List<MethodRuleCatalog.Rule> entries(){var result=new java.util.ArrayList<MethodRuleCatalog.Rule>(Forge1192ConfigRules.entries());result.addAll(Forge1192MenuRewriter.entries());result.addAll(Forge1192RawNetworkRules.entries());result.addAll(Forge1192ChatFormattingRules.entries());result.addAll(Forge1192LoaderEnvironmentRules.entries());result.add(explicitListener());result.add(work("Runnable","java/lang/Runnable"));result.add(work("Supplier","java/util/function/Supplier"));return List.copyOf(result);}
     private static MethodRuleCatalog.Rule explicitListener() {
         String bus="net/minecraftforge/eventbus/api/IEventBus";
         String desc="(Lnet/minecraftforge/eventbus/api/EventPriority;ZLjava/lang/Class;Ljava/util/function/Consumer;)V";
@@ -27,11 +27,11 @@ public final class Forge1192MethodRules {
                 "Forge43.4.0 ParallelDispatchEvent/DeferredWorkQueue; FML12.0.9 native queue; scoped source owner");
     }
     public static java.util.Optional<MethodRuleCatalog.Rule> resolve(int opcode, String owner, String name, String descriptor, Forge1192MethodDeclarations declarations) {
-        return CATALOG.resolve(opcode,owner,name,descriptor,(o,n,d)->o.equals(Forge1192ChatFormattingRules.SOURCE)?o:declarations.owner(o,n,d));
+        return CATALOG.resolve(opcode,owner,name,descriptor,(o,n,d)->(o.equals(Forge1192ChatFormattingRules.SOURCE)||o.equals(Forge1192LoaderEnvironmentRules.SOURCE))?o:declarations.owner(o,n,d));
     }
     public static Handle bridge(int opcode, String owner, String name, String descriptor, Forge1192MethodDeclarations declarations) {
         var rule = resolve(opcode, owner, name, descriptor, declarations);
-        if (rule.isPresent() && java.util.Set.of("LIFECYCLE_WORK","EXPLICIT_LISTENER","CHAT_FORMATTING").contains(rule.get().family())) return rule.get().bridge();
+        if (rule.isPresent() && java.util.Set.of("LIFECYCLE_WORK","EXPLICIT_LISTENER","CHAT_FORMATTING","LOADER_ENVIRONMENT").contains(rule.get().family())) return rule.get().bridge();
         if (name.equals("enqueueWork") && declarations.subtype(owner, WORK))
             throw new IllegalStateException("Unadapted lifecycle work invocation/override: " + owner + "#" + name + descriptor + " opcode=" + opcode);
         return null;
