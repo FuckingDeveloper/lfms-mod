@@ -22,6 +22,7 @@ public final class GameplayFamilyCheck {
             + "Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult;";
 
     public static void main(String[] args) throws Exception {
+        MappingCacheConcurrencyCheck.run();
         try { InvocationExtractionCheck.run(); }
         catch (Exception failure) { throw failure; }
         catch (Error failure) { throw failure; }

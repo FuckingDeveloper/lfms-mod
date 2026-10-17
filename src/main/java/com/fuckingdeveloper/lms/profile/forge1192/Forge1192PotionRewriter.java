@@ -39,6 +39,7 @@ final class Forge1192PotionRewriter {
         }
         node.methods.addAll(getters.values());
         return count+calls.rewrite(node,(opcode,owner,name,desc)->{
+            if(!owner.equals(UTILS)&&!owner.equals(P))return null;
             String named=name.startsWith("m_")?evidence.method(owner,name,desc):name;
             if(opcode==INVOKESTATIC&&owner.equals(UTILS)&&MEMBERS.contains(named+desc))
                 return new Handle(H_INVOKESTATIC,bridge,named,desc,false);

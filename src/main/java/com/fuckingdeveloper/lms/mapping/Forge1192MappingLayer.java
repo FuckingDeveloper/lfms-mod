@@ -44,7 +44,7 @@ public final class Forge1192MappingLayer {
     public record MethodSearch(String legacySymbol, List<MethodCandidate> candidates, String reason) {}
     public record MethodSemantics(String owner, String method, String descriptor, List<String> operations) {}
 
-    private final Map<String, Mapping> mappings = new LinkedHashMap<>();
+    private final java.util.concurrent.ConcurrentMap<String, Mapping> mappings = new java.util.concurrent.ConcurrentHashMap<>();
     private final ClassLoader runtimeLoader;
     private volatile RuntimeIndex runtimeIndex;
     private volatile LookupIndex lookupIndex;
@@ -117,14 +117,24 @@ public final class Forge1192MappingLayer {
         runtimeLoader = context != null ? context : Forge1192MappingLayer.class.getClassLoader();
     }
 
+    /** Resource lookup can re-enter mapping or run concurrently on modloading workers.
+     * Do not hold a cache computation lock while inspecting classloader resources. */
+    private Mapping cachedMapping(String key, java.util.function.Function<String, Mapping> inspect) {
+        Mapping cached = mappings.get(key);
+        if (cached != null) return cached;
+        Mapping result = inspect.apply(key);
+        Mapping previous = mappings.putIfAbsent(key, result);
+        return previous == null ? result : previous;
+    }
+
     public Mapping classifyClass(String legacyClass) {
         if (legacyClass.startsWith("net.minecraftforge.")) {
-            return mappings.computeIfAbsent("class:" + legacyClass, key ->
+            return cachedMapping("class:" + legacyClass, key ->
                     new Mapping(legacyClass, "", Status.FORGE_BRIDGE_REQUIRED,
                             "Legacy Forge namespace requires NeoForge compatibility bridge or replacement"));
         }
         if (legacyClass.startsWith("net.minecraft.")) {
-            return mappings.computeIfAbsent("class:" + legacyClass, key -> {
+            return cachedMapping("class:" + legacyClass, key -> {
                 if (openClass(legacyClass) != null) {
                     return new Mapping(legacyClass, legacyClass, Status.VERIFIED_IDENTITY,
                             "Class resource exists in the current Minecraft runtime");
@@ -133,13 +143,13 @@ public final class Forge1192MappingLayer {
                         "Legacy Minecraft class is absent from the current runtime");
             });
         }
-        return mappings.computeIfAbsent("class:" + legacyClass, key ->
+        return cachedMapping("class:" + legacyClass, key ->
                 new Mapping(legacyClass, "", Status.UNRESOLVED, "No profile mapping evidence"));
     }
 
     public Mapping classifyMethod(String owner, String legacyMethod, String descriptor) {
         String legacySymbol = owner + "#" + legacyMethod + descriptor;
-        return mappings.computeIfAbsent("method:" + legacySymbol,
+        return cachedMapping("method:" + legacySymbol,
                 key -> inspectMethod(owner, legacyMethod, descriptor, legacySymbol));
     }
 
@@ -501,7 +511,7 @@ public final class Forge1192MappingLayer {
 
     /** Retained for callers that do not yet have owner/descriptor evidence. */
     public Mapping classifyMethod(String legacyMethod) {
-        return mappings.computeIfAbsent("method:" + legacyMethod, key ->
+        return cachedMapping("method:" + legacyMethod, key ->
                 new Mapping(legacyMethod, "", Status.UNRESOLVED,
                         "Owner and descriptor are required for runtime method resolution"));
     }
