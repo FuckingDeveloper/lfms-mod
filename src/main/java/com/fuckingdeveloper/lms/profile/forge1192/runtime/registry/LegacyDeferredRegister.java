@@ -22,6 +22,7 @@ public final class LegacyDeferredRegister {
     private final DeferredRegister<Object> nativeRegister;
     private final String owner;
     private boolean attached;
+    private final java.util.List<com.fuckingdeveloper.lms.profile.forge1192.runtime.banner.LegacyBannerPatterns.Entry> banners=new java.util.ArrayList<>();
     private LegacyDeferredRegister(ResourceKey<? extends Registry<Object>> key,String namespace){
         owner=Forge1192LifecycleBridge.requireActive().modId();
         nativeRegister=DeferredRegister.create(key,namespace);
@@ -37,10 +38,20 @@ public final class LegacyDeferredRegister {
     public LegacyRegistryObject register(String name,Supplier<?> factory){
         Objects.requireNonNull(factory,"source deferred factory");
         Identifier id=Identifier.fromNamespaceAndPath(nativeRegister.getNamespace(),name);
+        if(nativeRegister.getRegistryKey().equals(Registries.BANNER_PATTERN)) {
+            if(attached)throw new IllegalStateException("Source banner declaration added after register attachment: "+id);
+            var entry=com.fuckingdeveloper.lms.profile.forge1192.runtime.banner.LegacyBannerPatterns.declare(owner,id,factory);
+            banners.add(entry);return entry.holder();
+        }
         var holder=nativeRegister.register(name,()->{
             Construction previous=CONSTRUCTION.get();
             CONSTRUCTION.set(new Construction(nativeRegister.getRegistryKey(),id));
-            try{return Objects.requireNonNull(factory.get(),"Source deferred factory returned null: "+id);}
+            try{
+                Object result=Objects.requireNonNull(factory.get(),"Source deferred factory returned null: "+id);
+                if(result instanceof com.fuckingdeveloper.lms.profile.forge1192.runtime.banner.LegacyBannerPatternItemIntent)
+                    com.fuckingdeveloper.lms.profile.forge1192.runtime.banner.LegacyBannerPatterns.recordItem(id);
+                return result;
+            }
             finally{if(previous==null)CONSTRUCTION.remove();else CONSTRUCTION.set(previous);}
         });
         return LegacyRegistryObject.deferred(holder);
@@ -48,6 +59,10 @@ public final class LegacyDeferredRegister {
     public void register(IEventBus bus){
         if(attached)throw new IllegalStateException("Source DeferredRegister already attached");
         if(Forge1192RegistrationContext.registryPhaseCompleted(owner,nativeRegister.getRegistryKey()))throw new IllegalStateException("Source deferred registration arrived after target phase");
+        if(nativeRegister.getRegistryKey().equals(Registries.BANNER_PATTERN)) {
+            com.fuckingdeveloper.lms.profile.forge1192.runtime.banner.LegacyBannerPatterns.attach(banners);
+            attached=true;return;
+        }
         IEventBus scoped=BusBuilder.builder().build();
         nativeRegister.register(scoped);
         bus.addListener((RegisterEvent event)->{
@@ -60,6 +75,9 @@ public final class LegacyDeferredRegister {
         });
         attached=true;
     }
+    @SuppressWarnings({"rawtypes","unchecked"})
+    public net.minecraft.tags.TagKey<?> createTagKey(Identifier id){return net.minecraft.tags.TagKey.create((ResourceKey)getRegistryKey(),id);}
+    public net.minecraft.tags.TagKey<?> createTagKey(String name){return createTagKey(Identifier.fromNamespaceAndPath(getNamespace(),name));}
     public String getNamespace(){return nativeRegister.getNamespace();}
     public ResourceKey<? extends Registry<?>> getRegistryKey(){return nativeRegister.getRegistryKey();}
     public static BlockBehaviour.Properties blockProperties(BlockBehaviour.Properties properties){

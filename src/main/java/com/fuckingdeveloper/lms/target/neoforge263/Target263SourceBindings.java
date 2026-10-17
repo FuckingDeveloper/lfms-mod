@@ -18,6 +18,7 @@ public final class Target263SourceBindings {
         return profiles.installed().stream().map(profile -> {
             if (profile instanceof Forge1192Profile forge) {
                 Target263BlockDataLayout.requireLayout(forge.blockDataTarget());
+                Target263BannerPatternPack.install(bus);
                 return (SourceRuntimeBinding)new Forge1192RuntimeBootstrap(forge,bus,host,sessions,packs);
             }
             throw new UnsupportedOperationException("No NeoForge26.3 runtime binding for " + profile.id());

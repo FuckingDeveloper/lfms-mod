@@ -30,6 +30,7 @@ public final class InstalledTargetAdapters {
     public static String sourceEntityFactories() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceEntityFactories"; }
     public static String sourceSpawnPacketInterface() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceSpawnPacket"; }
     public static String sourceSpawnEntity() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceSpawnEntity"; }
+    public static String sourceBannerPatternItem() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263BannerPatternItem"; }
     public static String sourceStairs() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceStairs"; }
     public static String sourceEntityRenderer() { return "com/fuckingdeveloper/lms/target/neoforge263/render/Target263SourceEntityRenderer"; }
     public static String throwableItemBase() { return "net/minecraft/world/entity/projectile/throwableitemprojectile/ThrowableItemProjectile"; }

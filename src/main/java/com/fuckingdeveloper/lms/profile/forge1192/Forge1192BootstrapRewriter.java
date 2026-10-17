@@ -16,10 +16,15 @@ final class Forge1192BootstrapRewriter {
             "net/minecraftforge/network/NetworkRegistry$ChannelBuilder",NETWORK+"$LegacyChannelBuilder",
             "net/minecraftforge/network/NetworkDirection",NETWORK+"$LegacyNetworkDirection",
             "net/minecraftforge/registries/DeferredRegister",DEFERRED,
+            "net/minecraft/world/level/block/entity/BannerPattern","com/fuckingdeveloper/lms/profile/forge1192/runtime/banner/LegacyBannerPattern",
+            "net/minecraft/world/item/BannerPatternItem",com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceBannerPatternItem(),
             "net/minecraftforge/data/event/GatherDataEvent","com/fuckingdeveloper/lms/profile/forge1192/runtime/event/LegacyDataGenerationEvent");
     static String relocation(String type){return TYPES.get(type);}
     static String descriptor(String descriptor){for(var e:TYPES.entrySet())descriptor=descriptor.replace("L"+e.getKey()+";","L"+e.getValue()+";");return descriptor;}
     static Handle handle(Handle original){
+        if(original.getTag()==Opcodes.H_GETSTATIC&&original.getOwner().equals("net/minecraft/core/Registry")
+                &&original.getName().equals("f_235735_")&&original.getDesc().equals("Lnet/minecraft/resources/ResourceKey;"))
+            return new Handle(Opcodes.H_GETSTATIC,"net/minecraft/core/registries/Registries","BANNER_PATTERN",original.getDesc(),false);
         if(original.getTag()==Opcodes.H_NEWINVOKESPECIAL&&original.getOwner().equals("net/minecraft/world/item/Item$Properties")&&original.getDesc().equals("()V"))
             return new Handle(Opcodes.H_INVOKESTATIC,DEFERRED,"itemProperties","()Lnet/minecraft/world/item/Item$Properties;",false);
         if(original.getTag()==Opcodes.H_NEWINVOKESPECIAL&&original.getOwner().equals("net/minecraft/world/inventory/MenuType")
@@ -111,6 +116,11 @@ final class Forge1192BootstrapRewriter {
         for(var method:node.methods) {
             for(var instruction=method.instructions.getFirst();instruction!=null;){
                 var next=instruction.getNext();
+                if(instruction instanceof FieldInsnNode field&&field.getOpcode()==Opcodes.GETSTATIC
+                        &&field.owner.equals("net/minecraft/core/Registry")&&field.name.equals("f_235735_")
+                        &&field.desc.equals("Lnet/minecraft/resources/ResourceKey;")) {
+                    field.owner="net/minecraft/core/registries/Registries";field.name="BANNER_PATTERN";changed++;
+                }
                 if(instruction instanceof TypeInsnNode allocation&&allocation.getOpcode()==Opcodes.NEW
                         &&allocation.desc.equals("net/minecraft/world/item/Item$Properties")){
                     var duplicate=real(allocation.getNext());var init=duplicate==null?null:real(duplicate.getNext());
@@ -131,6 +141,20 @@ final class Forge1192BootstrapRewriter {
                 method.instructions.set(field,new MethodInsnNode(Opcodes.INVOKESTATIC,"com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192KeyboardBridge","rawScanType","()Lcom/mojang/blaze3d/platform/InputConstants$Type;",false));changed++;
             }
             if(!(instruction instanceof MethodInsnNode call)){instruction=next;continue;}
+            if(call.owner.equals("net/minecraft/world/level/block/entity/BannerPattern")) {
+                String name=switch(call.name+call.desc) {
+                    case "m_58579_()Ljava/lang/String;"->"getHashname";
+                    case "m_222697_(Lnet/minecraft/resources/ResourceKey;Z)Lnet/minecraft/resources/ResourceLocation;"->"location";
+                    case "m_222700_(Ljava/lang/String;)Lnet/minecraft/core/Holder;"->"byHash";
+                    default->null;
+                };
+                if(name!=null){call.name=name;changed++;}
+            }
+            if(call.owner.equals("net/minecraft/world/item/BannerPatternItem")) {
+                if(call.name.equals("m_220010_")&&call.desc.equals("()Lnet/minecraft/tags/TagKey;")){call.name="getBannerPattern";changed++;}
+                if(call.name.equals("m_40556_")&&call.desc.equals("()Lnet/minecraft/network/chat/MutableComponent;")){call.name="getDisplayName";changed++;}
+            }
+
             if(call.owner.equals("net/minecraft/client/gui/screens/MenuScreens")&&call.getOpcode()==Opcodes.INVOKESTATIC
                     &&call.name.equals("m_96206_")&&call.desc.equals("(Lnet/minecraft/world/inventory/MenuType;Lnet/minecraft/client/gui/screens/MenuScreens$ScreenConstructor;)V")) {
                 call.owner="com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192MenuScreenBridge";call.name="register";call.itf=false;changed++;
