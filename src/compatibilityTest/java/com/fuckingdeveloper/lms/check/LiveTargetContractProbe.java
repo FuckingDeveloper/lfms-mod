@@ -239,6 +239,7 @@ public final class LiveTargetContractProbe {
         SourceMenuFactoryCheck.run();
         TexturedRenderTypeFamilyCheck.run();
         RendererContextFamilyCheck.run();
+        RegistryQueryFamilyCheck.run();
         SourceProjectileFamilyCheck.run();
         SelectionListFamilyCheck.run();
         WidgetPointerFamilyCheck.run();

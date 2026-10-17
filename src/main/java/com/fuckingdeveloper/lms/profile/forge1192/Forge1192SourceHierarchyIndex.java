@@ -7,6 +7,7 @@ import org.objectweb.asm.*;
 
 /** Immutable source loader and vertex ABI declarations; never substitutes target inheritance for source inheritance. */
 final class Forge1192SourceHierarchyIndex {
+    private static final Set<String> REGISTRY_READ_TYPES = Set.of("net/minecraft/core/Registry", "net/minecraft/core/WritableRegistry", "net/minecraft/core/MappedRegistry", "net/minecraft/core/DefaultedRegistry", "net/minecraft/core/IdMap");
     private static final Map<String, byte[]> METHODS = new HashMap<>();
     private static final Map<String, byte[]> TYPES = load();
     private Forge1192SourceHierarchyIndex() {}
@@ -24,7 +25,7 @@ final class Forge1192SourceHierarchyIndex {
                 if (columns[0].equals("C") && columns.length == 5) {
                     if (writer != null) { writer.visitEnd(); result.put(owner, writer.toByteArray()); methods.visitEnd(); METHODS.put(owner, methods.toByteArray()); }
                     owner = columns[1];
-                    if ((!owner.startsWith("net/minecraftforge/") && !owner.startsWith("com/mojang/blaze3d/vertex/")) || result.containsKey(owner)) throw new IllegalStateException("Invalid source hierarchy owner " + owner);
+                    if ((!owner.startsWith("net/minecraftforge/") && !owner.startsWith("com/mojang/blaze3d/vertex/") && !REGISTRY_READ_TYPES.contains(owner)) || result.containsKey(owner)) throw new IllegalStateException("Invalid source hierarchy owner " + owner);
                     writer = new ClassWriter(0); methods = new ClassWriter(0);
                     writer.visit(Opcodes.V17, Integer.parseInt(columns[2]), owner, null, columns[3].equals("-") ? null : columns[3], columns[4].equals("-") ? new String[0] : columns[4].split(","));
                     methods.visit(Opcodes.V17, Integer.parseInt(columns[2]), owner, null, columns[3].equals("-") ? null : columns[3], columns[4].equals("-") ? new String[0] : columns[4].split(","));

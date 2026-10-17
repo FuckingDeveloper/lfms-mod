@@ -9,6 +9,7 @@ import org.objectweb.asm.tree.*;
 
 /** Regenerate source loader metadata from the immutable pinned Forge development artifact. */
 public final class GenerateSourceHierarchy {
+    private static final Set<String> REGISTRY_READ_TYPES = Set.of("net/minecraft/core/Registry", "net/minecraft/core/WritableRegistry", "net/minecraft/core/MappedRegistry", "net/minecraft/core/DefaultedRegistry", "net/minecraft/core/IdMap");
     public static void main(String[] args) throws Exception {
         if(args.length!=4)throw new IllegalArgumentException("Expected Forge JAR, output TSV, FML core JAR and Java FML JAR");
         Path destination=Path.of(args[1]);
@@ -24,7 +25,7 @@ public final class GenerateSourceHierarchy {
             if(!digest.equals(expected.get(i)))throw new IllegalArgumentException("Source artifact differs from pinned Forge 1.19.2/43.4.0 input: "+digest);
             text.append("# ").append(jarPath.getFileName()).append(" sha256=").append(digest).append('\n');
             try(var jar=new JarFile(jarPath.toFile())) {
-                for(String name:jar.stream().map(entry->entry.getName()).filter(name->(name.startsWith("net/minecraftforge/")||name.startsWith("com/mojang/blaze3d/vertex/"))&&name.endsWith(".class")).sorted().toList()) {
+                for(String name:jar.stream().map(entry->entry.getName()).filter(name->(name.startsWith("net/minecraftforge/")||name.startsWith("com/mojang/blaze3d/vertex/")||REGISTRY_READ_TYPES.contains(name.replace(".class","")))&&name.endsWith(".class")).sorted().toList()) {
                     var node=new ClassNode();
                     try(var input=jar.getInputStream(jar.getJarEntry(name))){new ClassReader(input.readAllBytes()).accept(node,ClassReader.SKIP_CODE|ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);}
                     if(declarations.putIfAbsent(node.name,node)!=null)throw new IllegalArgumentException("Duplicate source declaration: "+node.name);

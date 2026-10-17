@@ -37,6 +37,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     private final TransformationPipeline pipeline;
     private final SemanticInvocationRewriter semanticInvocations = new SemanticInvocationRewriter(this::isManagedSubtypeOf);
     private final Forge1192BlockDataRewriter blockDataRewriter;
+    private final java.util.Map<String,java.util.Optional<String>> registryCanonicalMethods = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Map<String,java.util.Optional<String>> projectileCanonicalMethods = new java.util.concurrent.ConcurrentHashMap<>();
     private final Forge1192MethodDeclarations methodDeclarations = new Forge1192MethodDeclarations(owner -> {
         try { return this.managedClassBytes == null ? null : this.managedClassBytes.find(owner); }
@@ -319,6 +320,12 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                         public boolean subtype(String owner,String base){return owner.equals(base)||isManagedSubtypeOf(owner,base);}
                         public String canonical(String owner,String name,String desc){return projectileCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(owner,name,desc))).orElse(null);}
                     },semanticInvocations)),
+            new TransformationPipeline.Pass("source-registry-queries",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192RegistryQueryRewriter.rewrite(node, methodDeclarations,
+                            (owner,name,desc) -> registryCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,
+                                    ignored -> SRG_RUNTIME_RESOLVER.flatMap(r -> r.canonicalMethodName(owner,name,desc))).orElse(null),
+                            semanticInvocations)),
             new TransformationPipeline.Pass("source-menu-factories",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192MenuRewriter.rewrite(node, methodDeclarations)),

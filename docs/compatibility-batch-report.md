@@ -73,3 +73,25 @@ server/player; no world or functional menu/projectile milestone is claimed.
 Native screen-phase regression checks verify direct/deferred timing, duplicate
 preservation, common/late rejection and scope restoration. See
 `/tmp/lms-screen-setup-check.log` and `/tmp/lms-container-families-runtime-92.log`.
+
+
+## Rendering/query checkpoint (2026-10-17)
+
+Runtime93 passed the missing texture-bearing factory after eight proven cutout,
+armor and translucent overloads were verified, including outline flags and the
+source-vs-target culling name change. Runtime94 also passed the entity-context
+block service getter and loaded the test world. MCP verified the actual
+TNT workbench registry key by set/readback; the first screen attempt exposed
+source DefaultedRegistry lookup. Runtime95 passed that lookup and opened the
+server-backed source menu with13 slots. Its original preview then failed on
+RenderSystem.m_157191_(): source global model-view stack is not yet adapted to
+GUI extraction. Acknowledging an open menu is not successful screen rendering.
+
+Native read probes cover12 overloads on Registry/MappedRegistry/DefaultedRegistry,
+including unknown-ID fallback, true optional absence, ResourceKey differences,
+reverse/numeric identity, random selection and callable constants. All compile,
+compatibility and native smoke checks pass. The selected-artifact audit contains
+4323 classes and1162 grouped findings, an inventory rather than a bug count.
+Source registry subclasses, immediate block drawing, custom entity submission,
+projectile gameplay and the remaining GUI matrix boundary are not claimed solved.
+Original mod artifacts remain unchanged.
