@@ -40,3 +40,8 @@ ordered alternatives, predicate differences, exact unwrap identity, cached array
 mutation rejection and reload refresh. These native smoke fixtures use the probe's
 explicitly component-bound STONE holder; no production component binding or target
 registry lifecycle is changed. Real recipe-wiki completion is pending runtime127.
+
+Runtime127 loads the world without the previous custom-display error during recipe
+reception. Runtime128 passes that point as well, but complete JEI startup is now
+blocked by its separate CreativeModeTab.TABS read. These observations do not
+establish full wiki/recipe UI acceptance or remote full-recipe synchronization.

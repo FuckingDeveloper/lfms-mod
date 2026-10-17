@@ -274,3 +274,28 @@ complete event-token/registration family or recipe-map synchronization. World,
 JEI recipe UI, optional integration functionality and pending chair recovery are
 BLOCKED by that startup failure. Pre-existing source Mixin/render limitations
 remain separately unverified; class visibility does not establish them.
+
+## Recipe/tag notifications and native display views (runtime126–128)
+
+- Runtime127 loads the explicit existing world without the runtime126 native-custom-
+  ingredient display failure. The declared native display contract now covers
+  custom implementations through the proven context-free display records;
+  component-aware and nested compound native fixtures pass.
+- Runtime128's original JEI observer receives LoggingIn, the source tag view, and
+  RecipesReceivedEvent, then begins JEI startup. Source tag identity and approved
+  post-login readiness are accepted at that bounded original-consumer gate.
+- Independent compile/compatibility/native checks and static audit pass. Source
+  scope/priority/unregister, connection replacement/disconnect, once-only delivery,
+  constructors and actual native target mixin installation are covered.
+- Actual source-owned JEI atlas GPU upload completes. Complete recipe UI/render
+  acceptance remains unverified.
+- MCP confirms world/player readiness, persisted baseline inventory/position and
+  removal of the old owned chair/support fixture. No recovery remains pending.
+
+First remaining causal blocker: JEI ItemStackListFactory reads the removed source
+CreativeModeTab.TABS (`f_40748_`) to enumerate tabs/items. The later missing vanilla
+crafting category is fallout from the original plugin's caught LinkageError.
+The next family is read-only tab enumeration, special-tab identities and tab item
+population against native registry/population phases; source array mutation and
+old numeric-index semantics must not be silently redefined. Source Mixin execution,
+remote full-recipe access and source seating gameplay remain separate gaps.
