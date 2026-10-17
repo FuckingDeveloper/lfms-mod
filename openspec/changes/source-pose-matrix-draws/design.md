@@ -54,3 +54,29 @@ unrelated ordinary fields/Object accessors, and link the immutable original flui
 renderer with all three constructors and consistent native matrix descriptors.
 Audit: 3829 classes, 1137 grouped gaps / 6431 sites, same two prior unrelated
 transform failures. Audit totals remain inventory, not functional acceptance.
+
+
+## Runtime135 observed acceptance
+
+The exact fresh Gradle client loads the explicit existing Новый мир. MCP confirms
+client/integrated-server readiness, Dev in overworld, the baseline position,
+vitals and inventory summary. All seven original source entrypoints initialize.
+Original JEI logs successful completion of vanilla ingredient registration
+(668.1 ms) and vanilla category registration (92.49 ms); the removed Matrix4f and
+secondary missing vanilla crafting category errors are absent. This establishes
+original renderer construction and registration, not live ingredient pixels or
+a completed JEI startup.
+
+The first causal error is now Potions.f_43599_ (source WATER) in
+BrewingRecipeUtil.<clinit>:20, called from VanillaRecipeFactory and recipe-manager
+creation. Source mappings prove the constant identity; target holder/value
+migration is the next separate family. No dummy category or skipped callback was
+introduced. Full JEI startup/GUI rendering remains BLOCKED. Overall observed
+milestone remains world load (level 6).
+
+Evidence: /tmp/lms-container-families-runtime-135.log. Implementation 367408a is
+pushed. The dev JVM was stopped with TERM after MCP/log verification to avoid a
+screen retry against incomplete JEI setup. No gameplay fixture/inventory mutation
+was performed and no recovery is pending. Existing user changes remain uncommitted
+and preserved. Matrix algebra/construction, public matrix transport and unknown
+consumers remain outside this bounded contract.

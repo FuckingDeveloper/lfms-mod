@@ -25,4 +25,4 @@
 - [x] Check original renderer linkage/constructors, unrelated state/accessors,
   original source geometry and exposed-matrix rejection in native FML.
 - [x] Run compile, compatibility/native smoke and full symbol audit.
-- [ ] Verify fresh-world original consumer and record next causal blocker.
+- [x] Verify fresh-world original consumer and record next causal blocker.

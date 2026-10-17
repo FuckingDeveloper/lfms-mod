@@ -489,3 +489,38 @@ run/crash-reports/crash-2026-10-17_22.36.11-client.txt. This is the later conseq
 of the first Matrix4f failure at VanillaPlugin.registerFluidIngredients:188;
 book subtype errors remain absent. World-load/read acceptance does not imply a
 stable JEI screen. No dev JVM remains alive and no gameplay recovery is pending.
+
+
+## Runtime135: closed matrix graphs alongside ordinary renderer state
+
+Forge1.19.2 -> Minecraft26.3 / NeoForge26.3.0.58-beta / Java25. The matrix-flow
+admission algorithm now checks all matrix-bearing methods/constants while ignoring
+unrelated ordinary field writes and Object-returning accessors. Source matrix
+fields, exposed signatures, algebra/construction and unknown consumers remain
+rejected. Verified inherited BufferBuilder matrix endpoints share native vertex
+semantics. No global matrix type alias or fixture-specific rule is introduced.
+
+Executed: `./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava
+compatibilityAudit --args='legacy-mods /tmp/lms-matrix-graph-audit.tsv'`.
+All pass (/tmp/lms-matrix-graph-check.log). Native tests execute original shape
+geometry and unnormalized normal transforms, retain escaping-signature rejection,
+admit unrelated state/accessors, and link the immutable original fluid renderer
+with consistent private matrix helpers and all three original constructors.
+Audit: 3829 classes, 1137 grouped gaps / 6431 sites, same two prior unrelated
+transform failures; inventory only.
+
+Fresh explicit-world runtime135 loads Новый мир. MCP verifies integrated server,
+local Dev player in overworld, baseline position/vitals and inventory summary;
+all seven source constructors initialize. Original JEI completes vanilla
+ingredient registration (668.1 ms) and vanilla category registration (92.49 ms).
+The former Matrix4f and missing vanilla crafting category failures are absent.
+This accepts renderer construction/registration; actual fluid pixels and complete
+JEI startup remain unverified/blocked.
+
+First causal blocker: source Potions.f_43599_ (WATER, pinned mapping evidence),
+requested as Potion by BrewingRecipeUtil.<clinit>:20 during VanillaRecipeFactory
+and recipe-manager creation. The potion/holder/brewing family is next; no category
+or callback was skipped. Overall observed milestone remains world load (level 6).
+Evidence: /tmp/lms-container-families-runtime-135.log. Code checkpoint 367408a is
+pushed. Dev JVM stopped with TERM after verification; no gameplay fixture or
+inventory mutation, no pending recovery. Pre-existing user changes preserved.
