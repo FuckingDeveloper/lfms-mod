@@ -14,6 +14,7 @@ import net.minecraft.resources.Identifier;
 final class StaticItemResourcesCheck {
     static void run() throws Exception {
         blockInheritance();
+        nativeModelParsing();
         Path archive = Files.createTempFile("lms-static-item-probe-", ".jar");
         try {
             var entries = Map.of(
@@ -74,12 +75,35 @@ final class StaticItemResourcesCheck {
                 "immutable source generated-model inventory changed");
         System.out.println("PASS: native generated-model definition codec/resource discovery, five source tint callbacks, explicit-model precedence and immutable artifact inventory");
     }
+    private static void nativeModelParsing() throws Exception {
+        // Actual native model loading reads one strict root, without an extra
+        // END_DOCUMENT check. Resource inventory must not be stricter than baking.
+        String source="{\"parent\":\"minecraft:block/cube\"}}}";
+        var nativeModel=net.minecraft.client.resources.model.cuboid.CuboidModel.fromStream(new java.io.StringReader(source));
+        check(nativeModel!=null,"native single-root model contract changed");
+        Path archive=Files.createTempFile("lms-native-model-parser-", ".jar");
+        try {
+            try(var zip=new ZipOutputStream(Files.newOutputStream(archive))) {
+                for(var entry:Map.of("models/item/test.json","{\"parent\":\"probe:block/base\"}}", "models/block/base.json",source).entrySet()) {
+                    zip.putNextEntry(new ZipEntry("assets/probe/"+entry.getKey()));zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8));zip.closeEntry();
+                }
+            }
+            byte[] original=Files.readAllBytes(archive);
+            check(Target263LegacyStaticItemResources.definitions(archive).containsKey(id("items/test.json")),"native-readable source model rejected by inventory");
+            check(Arrays.equals(original,Files.readAllBytes(archive)),"source resource changed");
+            try{net.minecraft.util.GsonHelper.parse(new java.io.StringReader("{\"parent\":"));throw new AssertionError("malformed root accepted");}catch(JsonParseException expected){}
+        }finally{Files.deleteIfExists(archive);}
+    }
     private static void blockInheritance() throws Exception {
         Path archive = Files.createTempFile("lms-static-block-models-", ".jar");
         try {
             var entries = new LinkedHashMap<String, String>();
             entries.put("models/item/cube.json", "{\"parent\":\"probe:block/base\"}");
             entries.put("models/block/base.json", "{\"parent\":\"minecraft:block/cube_bottom_top\",\"textures\":{\"side\":\"probe:block/side\"}}");
+            entries.put("models/item/geometry.json", "{\"parent\":\"probe:block/geometry\"}");
+            entries.put("models/block/geometry.json", "{\"textures\":{\"a\":\"probe:block/a\"},\"elements\":[{\"from\":[0,0,0],\"to\":[16,8,16],\"faces\":{\"up\":{\"texture\":\"#a\"}}}]}");
+            entries.put("models/item/unknown_leaf.json", "{\"parent\":\"probe:block/unknown_leaf\"}");
+            entries.put("models/block/unknown_leaf.json", "{\"textures\":{}}");
             entries.put("models/item/direct.json", "{\"parent\":\"minecraft:block/cube\"}");
             entries.put("models/item/missing.json", "{\"parent\":\"probe:block/absent\"}");
             entries.put("models/item/cycle.json", "{\"parent\":\"probe:block/cycle\"}");
@@ -101,7 +125,7 @@ final class StaticItemResourcesCheck {
             }
             byte[] original = Files.readAllBytes(archive);
             var definitions = Target263LegacyStaticItemResources.definitions(archive);
-            check(definitions.keySet().equals(Set.of(id("items/cube.json"), id("items/direct.json"))),
+            check(definitions.keySet().equals(Set.of(id("items/cube.json"), id("items/direct.json"), id("items/geometry.json"))),
                     "closed block inheritance admission/negative boundaries");
             var model = JsonParser.parseString(new String(definitions.get(id("items/cube.json")), StandardCharsets.UTF_8))
                     .getAsJsonObject().getAsJsonObject("model");

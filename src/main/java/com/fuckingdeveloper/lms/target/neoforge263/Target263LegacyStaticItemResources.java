@@ -42,7 +42,7 @@ public final class Target263LegacyStaticItemResources extends AbstractPackMetada
                 try (var reader = new InputStreamReader(archive.getInputStream(entry), StandardCharsets.UTF_8)) {
                     models.put(Identifier.fromNamespaceAndPath(parts[1],
                             parts[2].substring(7, parts[2].length() - 5)),
-                            JsonParser.parseReader(reader).getAsJsonObject());
+                            net.minecraft.util.GsonHelper.parse(reader));
                 }
             }
             var admitted = new HashMap<Identifier, Boolean>();
@@ -55,11 +55,11 @@ public final class Target263LegacyStaticItemResources extends AbstractPackMetada
                 JsonObject source;
                 try (var input = archive.getInputStream(entry);
                      var reader = new InputStreamReader(input, StandardCharsets.UTF_8)) {
-                    source = JsonParser.parseReader(reader).getAsJsonObject();
+                    source = net.minecraft.util.GsonHelper.parse(reader);
                 }
-                if (source.has("overrides") || source.has("loader") || !source.has("parent")) continue;
-                var parent = Identifier.parse(source.get("parent").getAsString());
-                boolean custom = parent.equals(Identifier.withDefaultNamespace("builtin/entity"));
+                if (source.has("overrides") || source.has("loader")) continue;
+                boolean custom = source.has("parent") && Identifier.parse(source.get("parent").getAsString())
+                        .equals(Identifier.withDefaultNamespace("builtin/entity"));
                 if (!custom && !staticModel(Identifier.fromNamespaceAndPath(parts[1],
                         parts[2].substring(7, parts[2].length() - 5)), models, admitted)) continue;
                 var model = new JsonObject();
@@ -109,8 +109,17 @@ public final class Target263LegacyStaticItemResources extends AbstractPackMetada
             if (known != null) { supported = known; break; }
             if (!path.add(current)) { supported = false; break; }
             var model = models.get(current);
-            if (model == null || model.has("overrides") || model.has("loader") || !model.has("parent")) {
+            if (model == null || model.has("overrides") || model.has("loader")) {
                 supported = false; break;
+            }
+            if (!model.has("parent")) {
+                supported = model.has("elements");
+                if (supported) {
+                    // A verified native cuboid leaf, not an inferred unknown parent.
+                    // Native parsing validates geometry; original JSON is still baked.
+                    net.minecraft.client.resources.model.cuboid.CuboidModel.fromStream(new StringReader(model.toString()));
+                }
+                break;
             }
             var parent = Identifier.parse(model.get("parent").getAsString());
             // Artifact overrides must be inspected before trusting a native terminal.

@@ -42,3 +42,23 @@ Evidence: source 1.19.2 client and exact 26.3.0.58-beta cube and cube_bottom_top
 resources are JSON-equal (including geometry/texture inheritance), native
 CuboidItemModelWrapper codec, and immutable source block/item JSON. Native resource
 reload remains responsible for texture resolution and model baking.
+
+## Native parser parity and explicit cuboid leaves (2026-10-17)
+
+Resource indexing MUST use the configured target model loader’s JSON root-reading
+contract. Native GsonHelper.parse reads one strict root through its adapter,
+without JsonParser’s additional end-of-document check. LMS MUST NOT reject an
+input solely because its indexer is stricter than native model loading. Malformed
+root objects MUST still fail; no lenient parser or source resource rewrite is used.
+
+A same-artifact chain MAY terminate at an explicit parentless elements cuboid
+model, after actual configured native CuboidModel parsing validates that geometry.
+The source model and original textures/transforms MUST remain selected. Parentless
+objects without elements, cycles, missing/external parents, source override
+predicates and custom geometry loaders remain unsupported. This extends only the
+proven native cuboid leaf family, not arbitrary resource graphs.
+
+Runtime114 exposed the parser difference after source banner initialization
+succeeded. Independent fixtures compare actual native CuboidModel reading,
+immutable graph discovery and malformed-root rejection. Native resource baking
+and actual fixture rendering remain separate runtime acceptance.
