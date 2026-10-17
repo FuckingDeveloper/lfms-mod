@@ -18,6 +18,13 @@ import java.util.jar.JarFile;
  * profile transformations and dependency visibility will be layered.</p>
  */
 public final class ManagedLegacyClassLoader extends ClassLoader implements AutoCloseable {
+    static { registerAsParallelCapable(); }
+    private ManagedClassDomain domain;
+    void attachDomain(ManagedClassDomain domain) {
+        if (this.domain != null || !definedClassBytes.isEmpty()) throw new IllegalStateException("Domain must precede class definition");
+        this.domain = domain;
+    }
+
     private static final Set<String> PARENT_FIRST = Set.of(
             "java.", "javax.", "jdk.", "sun.", "net.minecraft.",
             "net.neoforged.", "com.fuckingdeveloper.lms.", "org.slf4j.", "org.objectweb.asm.");
@@ -71,11 +78,18 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
         this.transformer.bindManagedClassBytes(this::readOwnedClassBytes);
     }
 
+    public void blockDomainOwner() { if (domain != null) domain.block(this); }
+
     public Path artifact() {
         return artifact;
     }
 
     private byte[] readOwnedClassBytes(String internalName) throws IOException {
+        return domain == null ? localClassBytes(internalName) : domain.originalBytes(internalName);
+    }
+
+    byte[] localClassBytes(String internalName) throws IOException {
+        requireOpen();
         String entryName = internalName + ".class";
         var entry = jar.getJarEntry(entryName);
         if (entry != null) {
@@ -108,12 +122,20 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
     }
     @Override protected java.net.URL findResource(String name) {
         requireOpen();
+        if (domain != null) {
+            for (var owner : domain.resourceOwners(this)) if (owner.jar.getJarEntry(name) != null) return owner.resourceUrl(owner.jar, name);
+            return null;
+        }
         if(jar.getJarEntry(name)!=null)return resourceUrl(jar,name);
         for(var dependency:dependencyJars)if(dependency.getJarEntry(name)!=null)return resourceUrl(dependency,name);
         return null;
     }
     @Override protected java.util.Enumeration<java.net.URL> findResources(String name) {
         requireOpen();var resources=new java.util.ArrayList<java.net.URL>();
+        if (domain != null) {
+            for (var owner : domain.resourceOwners(this)) if (owner.jar.getJarEntry(name) != null) resources.add(owner.resourceUrl(owner.jar, name));
+            return java.util.Collections.enumeration(resources);
+        }
         if(jar.getJarEntry(name)!=null)resources.add(resourceUrl(jar,name));
         for(var dependency:dependencyJars)if(dependency.getJarEntry(name)!=null)resources.add(resourceUrl(dependency,name));
         return java.util.Collections.enumeration(resources);
@@ -164,6 +186,12 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+        if (closed) throw new ClassNotFoundException("Managed loader closed: " + name);
+        // Route before acquiring this loader's class monitor. Each owner alone defines its classes.
+        if (domain != null && !parentFirst(name)) {
+            var owner = domain.owner(name);
+            if (owner != null && owner != this) return owner.loadClass(name, resolve);
+        }
         synchronized (getClassLoadingLock(name)) {
             Class<?> loaded = findLoadedClass(name);
             if (loaded == null) {
@@ -245,11 +273,14 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     @Override
     public void close() throws IOException {
+        if (closed) return;
         closed=true;
         dependencyOwners.clear();
+        definedClassBytes.clear();
         IOException failure = null;
         for (JarFile dependencyJar : dependencyJars) try { dependencyJar.close(); } catch (IOException e) { failure = e; }
         try { jar.close(); } catch (IOException e) { failure = e; }
+        if (domain != null) try { domain.released(this); } catch (IOException e) { if (failure == null) failure = e; else failure.addSuppressed(e); }
         if (failure != null) throw failure;
     }
 }

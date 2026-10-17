@@ -22,9 +22,9 @@ ModLauncher10.0.9 ModuleLayerHandler.buildLayer uses one ModuleClassLoader for t
 modules of a layer (the defineModules loader lambda returns that same loader).
 That differs from the current explicit per-session visibility restriction.
 
-## Decision requested
+## Decision accepted
 
-Recommended: a shared visibility domain for admitted artifacts of the same proven
+User approved: a shared visibility domain for admitted artifacts of the same proven
 source profile (currently only Forge1.19.2). Keep one defining owner per class/API,
 with an indexed immutable artifact/class ownership graph prepared before any
 managed class is defined. Mod dependency declarations still govern admission,

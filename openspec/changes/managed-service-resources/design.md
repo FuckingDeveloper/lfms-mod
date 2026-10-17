@@ -1,8 +1,7 @@
 # Resource graph and scoped context
 
 Resource visibility MUST follow the same admitted artifact/dependency graph as
-class visibility. Source resources MUST enumerate owner, declared dependencies
-and native parent deterministically, deduplicating identical URLs. Missing resources
+class visibility. Source resources MUST follow the visibility policy in classloading/spec.md: standalone loaders enumerate owner/dependencies/parent; admitted shared domains enumerate owner/domain/parent deterministically, deduplicating identical URLs. Missing resources
 MAY use the ordinary ClassLoader null/empty result. Resource reads MUST use the
 original immutable JAR bytes and MUST NOT bypass managed class transformation for
 class definitions. Closed-loader resource reads MUST fail explicitly. URL handling

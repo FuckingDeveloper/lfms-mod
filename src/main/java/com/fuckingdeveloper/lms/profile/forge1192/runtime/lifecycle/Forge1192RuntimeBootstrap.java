@@ -63,6 +63,7 @@ public final class Forge1192RuntimeBootstrap implements SourceRuntimeBinding {
                 .collect(java.util.stream.Collectors.toMap(
                         LegacyModDescriptor::modId, LegacyModDescriptor::file,
                         (first, duplicate) -> first));
+        var prepared = prepareDomain(selected, mods, legacyArtifacts);
         for (LegacyModDescriptor mod : Forge1192SessionOrder.order(selected,profile)) {
             LOG.info("LMS candidate={} id={} loader={} minecraft={} profile={}",
                     mod.file().getFileName(), mod.modId(), mod.loader(), mod.minecraftVersion(),
@@ -107,19 +108,15 @@ public final class Forge1192RuntimeBootstrap implements SourceRuntimeBinding {
                     // become attributable compatibility evidence rather than accidental execution.
                     ClassLoader targetLoader = Thread.currentThread().getContextClassLoader();
                     if (targetLoader == null) targetLoader = Forge1192RuntimeBootstrap.class.getClassLoader();
-                    Forge1192RuntimeSession runtimeSession;
+                    Forge1192RuntimeSession runtimeSession = prepared.get(mod.modId());
+                    if (runtimeSession == null) continue; // Explicitly rejected during static domain admission.
                     try {
-                        runtimeSession = profile.createSession(new SessionRequest(
-                                mod.modId(), mod.file(), dependencyDecision.artifacts(),
-                                targetLoader, report.modAnnotationCandidates(),
-                                net.neoforged.fml.loading.FMLEnvironment.getDist().name()));
-                    } catch (ClassNotFoundException e) {
-                        LOG.warn("LMS runtime session blocked id={} artifact={} reason=entrypoint-linkage error={} message={}",
-                                mod.modId(), mod.file().getFileName(), e.getClass().getName(), e.getMessage());
+                        runtimeSession.linkEntrypoint();
+                    } catch (ClassNotFoundException | LinkageError failure) {
+                        runtimeSession.blockInitialization("entrypoint linkage: " + failure);
+                        LOG.error("LMS runtime session blocked id={} reason=entrypoint-linkage", mod.modId(), failure);
                         continue;
                     }
-                    runtimeSession.bindModEventBus(modBus, hostContainer);
-                    runtimeSessions.add(runtimeSession);
                     LOG.info("LMS runtime-session id={} modEventBusBound=true state={}",
                             mod.modId(), runtimeSession.state());
                     var managedTransformer = runtimeSession.transformer();
@@ -320,6 +317,14 @@ public final class Forge1192RuntimeBootstrap implements SourceRuntimeBinding {
                             lifecycleDecision.mayInitialize()
                                     ? "all mandatory profile capabilities are supported"
                                     : "one or more mandatory profile capabilities are not supported");
+                    boolean dependencyOwnersReady = Forge1192MetadataView.read(mod.file(), mod.modId()).getDependencies().stream()
+                            .filter(d -> d.getType() == net.neoforged.neoforgespi.language.IModInfo.DependencyType.REQUIRED && d.getSide().isCorrectSide())
+                            .allMatch(d -> !legacyArtifacts.containsKey(d.getModId()) || prepared.containsKey(d.getModId())
+                                    && prepared.get(d.getModId()).state() == RuntimeSession.State.INITIALIZED);
+                    if (!dependencyOwnersReady) {
+                        runtimeSession.blockInitialization("Mandatory source owner failed initialization");
+                        continue;
+                    }
                     if (lifecycleDecision.mayInitialize()) {
                         LOG.info("LMS lifecycle id={} state=INITIALIZING entrypointInitialization=true", mod.modId());
                         try {
@@ -439,4 +444,71 @@ public final class Forge1192RuntimeBootstrap implements SourceRuntimeBinding {
             }
         }
     }
+    /** Admission and ownership are complete before any entrypoint links or initializes. */
+    private java.util.Map<String, Forge1192RuntimeSession> prepareDomain(List<LegacyModDescriptor> selected,
+            List<LegacyModDescriptor> mods, java.util.Map<String, Path> legacyArtifacts) {
+        record Candidate(LegacyModDescriptor mod, List<String> entrypoints, List<Path> dependencies) {}
+        var candidates = new java.util.LinkedHashMap<String, Candidate>();
+        for (var mod : Forge1192SessionOrder.order(selected, profile)) {
+            if (!profile.supports(mod)) continue;
+            try {
+                var report = new LegacyJarAnalyzer().analyze(mod.file());
+                var metadata = new LegacyMetadataAnalyzer().analyze(mod.file(), report.mixinConfigs());
+                var dependencies = new LegacyDependencyGate().evaluate(metadata.dependencies(), legacyArtifacts, mod.file());
+                boolean ready = dependencies.satisfied()
+                        && new com.fuckingdeveloper.lms.analysis.LegacyDependencyPreflight().evaluate(mod.modId(), metadata, mods).mayInitialize();
+                boolean lifecycle = report.modAnnotationCandidates().size() == 1;
+                boolean registrations = lifecycle, surface = lifecycle;
+                for (String entrypoint : report.modAnnotationCandidates()) {
+                    lifecycle &= new Forge1192LifecyclePlanner().plan(mod.file(), entrypoint).status() == Forge1192LifecyclePlanner.Status.READY;
+                    var plan = new Forge1192RegistrationPlanner().plan(mod.file(), entrypoint);
+                    registrations &= plan.complete();
+                    surface &= new Forge1192CompatibilitySurface().assess(plan.boundaries(), mod.file()).executable();
+                }
+                ready &= new LegacyLifecycleGate().evaluate(report, lifecycle, registrations, surface).mayInitialize();
+                if (ready) candidates.put(mod.modId(), new Candidate(mod, report.modAnnotationCandidates(), dependencies.artifacts()));
+                else LOG.error("LMS source-domain id={} state=REJECTED reason=static-admission", mod.modId());
+            } catch (IOException failure) { throw new IllegalStateException("Cannot prepare source domain: " + mod.modId(), failure); }
+        }
+        boolean changed;
+        do {
+            changed = candidates.values().removeIf(candidate -> Forge1192MetadataView.read(candidate.mod().file(), candidate.mod().modId()).getDependencies().stream()
+                    .anyMatch(d -> d.getType() == net.neoforged.neoforgespi.language.IModInfo.DependencyType.REQUIRED
+                            && d.getSide().isCorrectSide() && legacyArtifacts.containsKey(d.getModId()) && !candidates.containsKey(d.getModId())));
+        } while (changed);
+        var artifacts = new java.util.LinkedHashMap<Path, com.fuckingdeveloper.lms.classloading.ManagedClassDomain.Artifact>();
+        var transformers = new java.util.LinkedHashMap<String, com.fuckingdeveloper.lms.profile.forge1192.Forge1192LegacyClassTransformer>();
+        String distribution = FMLEnvironment.getDist().name();
+        var topLevel = candidates.values().stream().map(c -> c.mod().file().toAbsolutePath().normalize()).collect(java.util.stream.Collectors.toSet());
+        var knownMods = legacyArtifacts.values().stream().map(p -> p.toAbsolutePath().normalize()).collect(java.util.stream.Collectors.toSet());
+        for (var candidate : candidates.values()) {
+            var transformer = profile.createTransformer(distribution);
+            transformers.put(candidate.mod().modId(), transformer);
+            Path path = candidate.mod().file().toAbsolutePath().normalize();
+            artifacts.put(path, new com.fuckingdeveloper.lms.classloading.ManagedClassDomain.Artifact(path, false, () -> transformer));
+        }
+        for (var candidate : candidates.values()) for (var path : candidate.dependencies()) {
+            Path normalized = path.toAbsolutePath().normalize();
+            if (knownMods.contains(normalized) && !topLevel.contains(normalized)) continue;
+            artifacts.putIfAbsent(normalized, new com.fuckingdeveloper.lms.classloading.ManagedClassDomain.Artifact(normalized, true, () -> profile.createTransformer(distribution)));
+        }
+        ClassLoader parent = Thread.currentThread().getContextClassLoader();
+        if (parent == null) parent = Forge1192RuntimeBootstrap.class.getClassLoader();
+        var result = new java.util.LinkedHashMap<String, Forge1192RuntimeSession>();
+        try {
+            var domain = new com.fuckingdeveloper.lms.classloading.ManagedClassDomain(List.copyOf(artifacts.values()), parent);
+            try {
+                for (var candidate : candidates.values()) {
+                    var mod = candidate.mod();
+                    var session = new Forge1192RuntimeSession(mod.modId(), mod.file(), candidate.entrypoints(), transformers.get(mod.modId()), domain.loader(mod.file()));
+                    session.bindModEventBus(modBus, hostContainer);
+                    result.put(mod.modId(), session);
+                    runtimeSessions.add(session);
+                }
+            } catch (RuntimeException | Error failure) { try { domain.close(); } catch (IOException close) { failure.addSuppressed(close); } throw failure; }
+        } catch (IOException failure) { throw new IllegalStateException("Cannot create source class domain", failure); }
+        LOG.info("LMS source-domain profile={} admittedMods={} artifacts={} state=PREPARED", profile.id(), result.keySet(), artifacts.size());
+        return result;
+    }
+
 }

@@ -10,6 +10,7 @@ import net.neoforged.neoforgespi.language.*;
 public final class Forge1192ModListView {
     private static final Forge1192ModListView INSTANCE=new Forge1192ModListView();
     private static final Map<String,Forge1192ModContainerView> MANAGED=new LinkedHashMap<>();
+    private static final Map<Forge1192RuntimeSession,ModFileScanData> SCANS=new IdentityHashMap<>();
     private static final Map<ModContainer,Forge1192ModContainerView> NATIVE=new IdentityHashMap<>();
     private Forge1192ModListView(){}
     public static Forge1192ModListView get(){return INSTANCE;}
@@ -23,11 +24,14 @@ public final class Forge1192ModListView {
     }
     public static synchronized void register(Forge1192RuntimeSession session) {
         if(MANAGED.containsKey(session.modId()))throw new IllegalStateException("Duplicate managed source container: "+session.modId());
-        MANAGED.put(session.modId(),Forge1192ModContainerView.managed(session));
+        var view=Forge1192ModContainerView.managed(session);
+        try { SCANS.put(session,Forge1192SourceScan.read(session.artifact(),List.of(view.getModInfo().getOwningFile()))); }
+        catch(java.io.IOException failure){throw new IllegalStateException("Cannot scan admitted source artifact: "+session.artifact(),failure);}
+        MANAGED.put(session.modId(),view);
     }
     public static synchronized void unregister(Forge1192RuntimeSession session) {
         var view=MANAGED.get(session.modId());
-        if(view!=null&&view.session()==session){MANAGED.remove(session.modId());view.clear();if(MANAGED.isEmpty())NATIVE.clear();}
+        if(view!=null&&view.session()==session){MANAGED.remove(session.modId());SCANS.remove(session);view.clear();if(MANAGED.isEmpty())NATIVE.clear();}
     }
     public static synchronized Forge1192ModContainerView sourceOwner(String id) {
         var view=MANAGED.get(id);
@@ -82,5 +86,12 @@ public final class Forge1192ModListView {
     public void forEachModInOrder(Consumer<Forge1192ModContainerView> consumer){containers().forEach(consumer);}
     public List<IModInfo> getMods(){return containers().stream().map(Forge1192ModContainerView::getModInfo).toList();}
     public IModFileInfo getModFileById(String id){return getModContainerById(id).map(c->c.getModInfo().getOwningFile()).orElse(null);}
-    public List<ModFileScanData> getAllScanData(){return ModList.get().getAllScanData();}
+    public List<ModFileScanData> getAllScanData(){
+        var result=new ArrayList<>(ModList.get().getAllScanData());
+        synchronized(Forge1192ModListView.class){
+            for(var view:MANAGED.values())if(view.session().state()!=Forge1192RuntimeSession.State.BLOCKED
+                    &&view.session().state()!=Forge1192RuntimeSession.State.CLOSED)result.add(SCANS.get(view.session()));
+        }
+        return List.copyOf(result);
+    }
 }

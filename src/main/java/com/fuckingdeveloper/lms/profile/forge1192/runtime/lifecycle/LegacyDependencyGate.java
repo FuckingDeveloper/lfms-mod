@@ -53,8 +53,8 @@ public final class LegacyDependencyGate {
                 .toList();
 
         LinkedHashSet<Path> artifacts = new LinkedHashSet<>();
+        // Present optional artifacts contribute ownership too; absence remains non-fatal.
         dependencies.stream()
-                .filter(LegacyMetadataAnalyzer.Dependency::mandatory)
                 .map(LegacyMetadataAnalyzer.Dependency::modId)
                 .map(legacyArtifacts::get)
                 .filter(Objects::nonNull)

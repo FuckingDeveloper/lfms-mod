@@ -75,6 +75,19 @@ public final class Forge1192RuntimeSession implements RuntimeSession {
         loader.linkOwnedClass(this.entrypoints.getFirst());
     }
 
+    /** Prepared domain loaders have not defined any managed class yet. */
+    Forge1192RuntimeSession(String modId, Path artifact, List<String> entrypoints,
+            Forge1192LegacyClassTransformer transformer, ManagedLegacyClassLoader loader) {
+        this.modId = Objects.requireNonNull(modId);
+        this.artifact = Objects.requireNonNull(artifact);
+        this.entrypoints = List.copyOf(entrypoints);
+        if (this.entrypoints.size() != 1) throw new IllegalArgumentException("Exactly one source entrypoint required");
+        this.transformer = Objects.requireNonNull(transformer);
+        this.loader = Objects.requireNonNull(loader);
+    }
+    void linkEntrypoint() throws ClassNotFoundException { loader.linkOwnedClass(entrypoints.getFirst()); }
+    void blockDomainOwner() { loader.blockDomainOwner(); }
+
     ManagedLegacyClassLoader managedLoader() { return loader; }
     public String modId() { return modId; }
     public Path artifact() { return artifact; }
@@ -85,6 +98,7 @@ public final class Forge1192RuntimeSession implements RuntimeSession {
         if (state != State.LINKED) throw new IllegalStateException("Cannot block initialization in state " + state);
         blockReason = Objects.requireNonNull(reason);
         state = State.BLOCKED;
+        blockDomainOwner();
     }
     public Forge1192LegacyClassTransformer transformer() { return transformer; }
 
@@ -110,6 +124,7 @@ public final class Forge1192RuntimeSession implements RuntimeSession {
         } catch (Throwable t) {
             blockReason = t.toString();
             state = State.BLOCKED;
+            blockDomainOwner();
             if (t instanceof Exception e) throw e;
             if (t instanceof Error e) throw e;
             throw new RuntimeException(t);
