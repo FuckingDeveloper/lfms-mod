@@ -524,3 +524,51 @@ or callback was skipped. Overall observed milestone remains world load (level 6)
 Evidence: /tmp/lms-container-families-runtime-135.log. Code checkpoint 367408a is
 pushed. Dev JVM stopped with TERM after verification; no gameplay fixture or
 inventory mutation, no pending recovery. Pre-existing user changes preserved.
+
+
+## Runtime138: source potion contents and mapping-cache publication
+
+Forge1.19.2 -> Minecraft26.3 / NeoForge26.3.0.58-beta / Java25. Proven source
+Potions constants unwrap actual native holders; source EMPTY is an unregistered
+source-owned absence token encoded as no base potion. Typed PotionUtils reads and
+setters preserve receiver identity, custom color/name/effects, source collection
+copy behavior, source empty-collection no-op, prefix/suffix names and source RGB
+arithmetic/defaults. Source hasTag derives potion data presence without exposing
+a writable detached NBT snapshot. Raw root NBT/effect-schema projection remains
+explicitly unsupported; data cannot be silently omitted. Source constructor/
+subclass and removed EMPTY registry-ID parity are separate gaps.
+
+Runtime136 exposed hasTag's dependency on raw getTag. An independent native check
+now executes the original immutable PotionSubtypeInterpreter chain. Runtime137
+then exposed ConcurrentModificationException during shared method classification.
+The mapping evidence cache now performs resource inspection outside cache update
+and atomically publishes metadata, with deterministic parallel/reentrant checks;
+no failure was caught-and-continued. Potion member admission also avoids mapping
+unrelated owners.
+
+Executed: `./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava
+compatibilityAudit --args='legacy-mods /tmp/lms-potion-cache-audit.tsv'`.
+All pass; /tmp/lms-potion-cache-check.log. Audit: 3829 classes, 1128 grouped gaps /
+6407 sites, same two unrelated dormant transform failures. Inventory is not
+functional coverage.
+
+Fresh runtime138 loads explicit Новый мир; MCP verifies integrated server, Dev in
+overworld, baseline position/vitals and inventory summary. All seven source
+constructors initialize. Original vanilla ingredient/category registration
+completes (204.9 ms / 90.62 ms), the recipe registry builds, and original
+BrewingRecipeUtil/VanillaRecipeFactory pass. No potion-field, unique-name,
+raw-potion-projection or mapping-CME error occurs in this run.
+
+First causal blocker: ClientLevel.m_7465_()->RecipeManager in VanillaRecipes:33.
+Separate GUI blocker: Item.getCreatorModId(ItemStack). The original plugin
+loader catches these; its completion timer is NOT full JEI acceptance. The later
+unknown ingredient-type error follows partial GUI startup. Full JEI/recipes/GUI
+remain BLOCKED. Overall highest observed milestone remains world load (level 6).
+Evidence: /tmp/lms-container-families-runtime-138.log. Dev JVM stopped with TERM;
+no gameplay fixture or inventory mutation, no pending recovery. Code 02a7855,
+173496d and 57de6dd is pushed; prior user work remains preserved.
+
+Native Minecraft26.3 brewing recipes/reload semantics are explicitly approved.
+Contract/tasks: openspec/changes/source-brewing-queries/. Actual brewing queries,
+old Forge recipe-registration callbacks and brewing gameplay remain pending;
+recipe-context access must be resolved before claiming original query acceptance.

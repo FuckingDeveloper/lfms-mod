@@ -1,0 +1,6 @@
+- [x] Inspect source static tables/Forge facades and actual native recipe/slot APIs.
+- [x] Obtain explicit decision: use Minecraft26.3 recipes and native reload.
+- [x] Specify argument order, identity, context, reload and registration boundaries.
+- [ ] Implement verified native queries and source read facades.
+- [ ] Verify independent bytecode/native behavior and reload replacement.
+- [ ] Run fresh-world original consumers and record functional limits.

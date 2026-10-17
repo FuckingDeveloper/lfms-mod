@@ -69,3 +69,42 @@ snapshot. Ordinary source custom tags/damage retain their existing live ownershi
 The raw getTag/getOrCreateTag/setTag boundary remains explicit. Independent native
 checks MUST execute the original immutable PotionSubtypeInterpreter chain,
 including hasTag, potion identity/name and custom-effect reads.
+
+
+# Runtime138 bounded acceptance
+
+Native source-consumer checks now execute the original immutable
+PotionSubtypeInterpreter.hasTag/getPotion/getName/getCustomEffects chain. All
+checks and audit pass in /tmp/lms-potion-cache-check.log using
+`./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava
+compatibilityAudit --args='legacy-mods /tmp/lms-potion-cache-audit.tsv'`.
+Audit: 3829 classes, 1128 groups / 6407 sites, same two prior unrelated transform
+failures. Tests also reproduce parallel and reentrant mapping-resource inspection:
+MappingLayer now inspects outside the metadata-cache publication operation and
+atomically publishes one result. This fixes runtime137's first causal
+ConcurrentModificationException, rather than swallowing it.
+
+Fresh explicit-world runtime138 loads Новый мир and initializes all seven source
+entrypoints. MCP confirms integrated server, Dev in overworld, baseline
+position/vitals/inventory summary. Original vanilla ingredient/category
+registration completes (204.9 ms / 90.62 ms), recipe registry builds, and startup
+advances past original BrewingRecipeUtil.WATER_BOTTLE and VanillaRecipeFactory.
+There are zero original unique-name failures, potion-field errors, raw-potion
+projection errors or mapping CME occurrences in this run.
+
+First remaining causal failure: ClientLevel.m_7465_()->RecipeManager in original
+VanillaRecipes:33. A separate GUI-start consumer fails on
+Item.getCreatorModId(ItemStack). JEI catches these plugin errors and continues;
+its “Starting JEI took” timer does NOT establish a complete recipe registry or
+usable GUI. A subsequent unknown ingredient-type error follows incomplete GUI
+startup. Full JEI remains BLOCKED; highest observed overall milestone remains
+world load (level 6). Actual brewing gameplay, raw potion NBT, removed EMPTY
+registry membership/IDs, custom potion subclasses and old brewing registration
+are not accepted by this bounded contents family.
+
+Evidence: /tmp/lms-container-families-runtime-138.log. Code checkpoints 02a7855,
+173496d and 57de6dd are pushed. Dev JVM stopped with TERM after MCP/log checks;
+no gameplay fixture/inventory mutation and no pending recovery. Pre-existing
+user changes are preserved. Native26.3 brewing semantics were approved and the
+next query/lifecycle contract is in source-brewing-queries; implementation there
+remains pending behind the actual recipe-context boundary.
