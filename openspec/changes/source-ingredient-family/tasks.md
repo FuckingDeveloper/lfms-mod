@@ -1,0 +1,6 @@
+- [x] Inspect runtime121 first causal failure and complete source subclass uses.
+- [x] Inspect pinned source Ingredient and exact native Ingredient/ICustomIngredient.
+- [x] User approved native26.3 cache/reload and optional-slot policy.
+- [ ] Design source view/native composition boundaries against existing recipe bridges.
+- [ ] Implement the proven family and explicit unknown boundaries.
+- [ ] Verify focused/native and actual client behavior without modifying input JARs.
