@@ -17,8 +17,8 @@ public final class SourceClassDomainCheck {
     public static void run() throws Exception {
         Path dir=Files.createTempDirectory("source-domain-");
         Path host=dir.resolve("host.jar"), plugin=dir.resolve("plugin.jar"), api=dir.resolve("api.jar"), copy=dir.resolve("api-copy.jar"), conflict=dir.resolve("conflict.jar");
-        write(host,Map.of("domain/Host.class",host(),"host.txt",new byte[]{1}));
-        write(plugin,Map.of("domain/Plugin.class",plugin(),"META-INF/services/domain.Api","domain.Plugin\n".getBytes(),"plugin.txt",new byte[]{2}));
+        write(host,Map.of("domain/Host.class",host(),"domain/CycleA.class",cycle("domain/CycleA","domain/CycleB"),"host.txt",new byte[]{1}));
+        write(plugin,Map.of("domain/Plugin.class",plugin(),"domain/CycleB.class",cycle("domain/CycleB","domain/CycleA"),"META-INF/services/domain.Api","domain.Plugin\n".getBytes(),"plugin.txt",new byte[]{2}));
         write(api,Map.of("domain/Api.class",api()));Files.copy(api,copy);
         write(conflict,Map.of("domain/Api.class",api()));
         byte[] original=Files.readAllBytes(plugin);
@@ -40,9 +40,12 @@ public final class SourceClassDomainCheck {
                 try { var work=new ArrayList<Callable<Class<?>>>();for(int i=0;i<100;i++)work.add(()->Class.forName("domain.Plugin",true,h));
                     for(var result:pool.invokeAll(work,10,TimeUnit.SECONDS))check(result.get()==found,"concurrent identity");
                 } finally { pool.shutdownNow(); }
+                try{h.loadClass("domain.CycleA");throw new AssertionError("circular inheritance accepted");}catch(ClassCircularityError expected){}
                 var scan=Forge1192SourceScan.read(plugin,List.of());
                 var annotation=scan.getAnnotations().stream().filter(v->v.annotationType().getClassName().equals("net.neoforged.fml.common.Mod")).findFirst().orElseThrow();
                 check(annotation.memberName().equals("domain.Plugin")&&annotation.annotationData().get("value").equals("fixture"),"projected annotation/class member data");
+                int[] numbers=(int[])annotation.annotationData().get("numbers");numbers[0]=99;
+                check(((int[])scan.getAnnotations().stream().filter(v->v.annotationData().containsKey("numbers")).findFirst().orElseThrow().annotationData().get("numbers"))[0]==1,"primitive scan array type/isolation");
                 try{scan.getAnnotations().clear();throw new AssertionError("mutable scan");}catch(UnsupportedOperationException expected){}
                 var retained=p.getResource("plugin.txt");domain.block(p);
                 try{h.loadClass("domain.Plugin");throw new AssertionError("blocked owner resolved");}catch(ClassNotFoundException expected){}
@@ -60,8 +63,9 @@ public final class SourceClassDomainCheck {
         } finally { try(var paths=Files.walk(dir)){for(var path:paths.sorted(Comparator.reverseOrder()).toList())Files.delete(path);} }
         System.out.println("PASS: prepared source domain, reverse reflection/shared API identity, real ServiceLoader/resources, concurrent lookups, full library dedup/conflict rejection, immutable projected scan, blocked owner and domain disposal");
     }
+    private static byte[] cycle(String name,String parent){var w=new ClassWriter(0);w.visit(V17,ACC_PUBLIC,name,null,parent,null);w.visitEnd();return w.toByteArray();}
     private static byte[] api(){var w=new ClassWriter(0);w.visit(V17,ACC_PUBLIC|ACC_ABSTRACT|ACC_INTERFACE,"domain/Api",null,"java/lang/Object",null);w.visitEnd();return w.toByteArray();}
-    private static byte[] plugin(){var w=new ClassWriter(ClassWriter.COMPUTE_MAXS);w.visit(V17,ACC_PUBLIC,"domain/Plugin",null,"java/lang/Object",new String[]{"domain/Api"});var a=w.visitAnnotation("Lnet/minecraftforge/fml/common/Mod;",true);a.visit("value","fixture");a.visitEnd();var m=w.visitMethod(ACC_PUBLIC,"<init>","()V",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitMethodInsn(INVOKESPECIAL,"java/lang/Object","<init>","()V",false);m.visitInsn(RETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();}
+    private static byte[] plugin(){var w=new ClassWriter(ClassWriter.COMPUTE_MAXS);w.visit(V17,ACC_PUBLIC,"domain/Plugin",null,"java/lang/Object",new String[]{"domain/Api"});var a=w.visitAnnotation("Lnet/minecraftforge/fml/common/Mod;",true);a.visit("value","fixture");a.visit("numbers",new int[]{1,2});a.visitEnd();var m=w.visitMethod(ACC_PUBLIC,"<init>","()V",null,null);m.visitCode();m.visitVarInsn(ALOAD,0);m.visitMethodInsn(INVOKESPECIAL,"java/lang/Object","<init>","()V",false);m.visitInsn(RETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();}
     private static byte[] host(){var w=new ClassWriter(ClassWriter.COMPUTE_MAXS);w.visit(V17,ACC_PUBLIC,"domain/Host",null,"java/lang/Object",null);var m=w.visitMethod(ACC_PUBLIC|ACC_STATIC,"discover","()Ljava/lang/Class;",null,new String[]{"java/lang/ClassNotFoundException"});m.visitCode();m.visitLdcInsn("domain.Plugin");m.visitMethodInsn(INVOKESTATIC,"java/lang/Class","forName","(Ljava/lang/String;)Ljava/lang/Class;",false);m.visitInsn(ARETURN);m.visitMaxs(0,0);m.visitEnd();w.visitEnd();return w.toByteArray();}
     private static void write(Path path,Map<String,byte[]> entries)throws Exception{try(var jar=new JarOutputStream(Files.newOutputStream(path))){for(var entry:entries.entrySet()){jar.putNextEntry(new JarEntry(entry.getKey()));jar.write(entry.getValue());jar.closeEntry();}}}
     private static void check(boolean result,String message){if(!result)throw new AssertionError(message);}

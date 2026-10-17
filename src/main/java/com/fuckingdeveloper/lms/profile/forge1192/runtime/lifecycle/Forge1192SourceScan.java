@@ -43,7 +43,7 @@ public final class Forge1192SourceScan {
     private static Object freeze(Object value) {
         if (value instanceof Map<?,?> map) { var result = new LinkedHashMap<Object,Object>(); map.forEach((k,v) -> result.put(k,freeze(v))); return Collections.unmodifiableMap(result); }
         if (value instanceof List<?> list) return list.stream().map(Forge1192SourceScan::freeze).toList();
-        if (value != null && value.getClass().isArray()) { var result = new ArrayList<>(); for (int i=0;i<java.lang.reflect.Array.getLength(value);i++) result.add(freeze(java.lang.reflect.Array.get(value,i))); return List.copyOf(result); }
+        if (value != null && value.getClass().isArray()) { var result = java.lang.reflect.Array.newInstance(value.getClass().getComponentType(),java.lang.reflect.Array.getLength(value)); System.arraycopy(value,0,result,0,java.lang.reflect.Array.getLength(value)); return result; }
         if (value == null || value instanceof String || value instanceof Number || value instanceof Boolean || value instanceof Character || value instanceof Type || value instanceof ModAnnotation.EnumHolder) return value;
         throw new IllegalArgumentException("Unsupported source scan value: " + value.getClass());
     }
@@ -53,7 +53,11 @@ public final class Forge1192SourceScan {
         private final List<IModFileInfo> info;
         Snapshot(Set<ClassData> classes, Set<AnnotationData> annotations, List<IModFileInfo> info) { this.classes=classes; this.annotations=annotations; this.info=info; }
         @Override public Set<ClassData> getClasses() { return classes; }
-        @Override public Set<AnnotationData> getAnnotations() { return annotations; }
+        @Override public Set<AnnotationData> getAnnotations() {
+            var copy = new LinkedHashSet<AnnotationData>();
+            for(var value : annotations) copy.add(new AnnotationData(value.annotationType(),value.targetType(),value.clazz(),value.memberName(),freezeMap(value.annotationData())));
+            return Collections.unmodifiableSet(copy);
+        }
         @Override public List<IModFileInfo> getIModInfoData() { return info; }
         @Override public void addModFileInfo(IModFileInfo ignored) { throw new UnsupportedOperationException("Immutable source scan"); }
     }

@@ -15,7 +15,7 @@ public final class ManagedClassDomain implements AutoCloseable {
         public Artifact { path = path.toAbsolutePath().normalize(); Objects.requireNonNull(transformer); }
     }
     private final Map<Path, ManagedLegacyClassLoader> artifacts = new LinkedHashMap<>();
-    private final Map<String, ManagedLegacyClassLoader> classes = new HashMap<>();
+    private final Map<String, ManagedLegacyClassLoader> classes = new java.util.concurrent.ConcurrentHashMap<>();
     private final Set<ManagedLegacyClassLoader> roots = new LinkedHashSet<>();
     private final Set<ManagedLegacyClassLoader> unavailable = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private List<ManagedLegacyClassLoader> owners = List.of();

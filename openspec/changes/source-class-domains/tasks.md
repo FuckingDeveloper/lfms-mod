@@ -15,3 +15,15 @@ standard Java ServiceLoader and cross-owner resources, 100 concurrent lookups,
 whole-library deduplication, top-level/library collision negatives, isolated
 domain exclusion, immutable projected class annotations and blocked/closed owner
 behavior. Real JEI acceptance and remaining causal blocker are pending runtime123.
+
+## Runtime123
+
+The prepared Forge1.19.2 domain admitted seven source mods and nine artifacts.
+All seven original entrypoint constructors completed; IC2 logged its JEI plugin.
+The previous `plugins must not be empty` failure disappeared. The next first
+causal failure is the original JEI configuration serializer calling removed
+ChatFormatting.isColor (`m_126664_`) during client reload-listener registration.
+World, recipe UI and seating acceptance remain BLOCKED; pending fixture recovery
+is retained outside Git. The source metadata primitive-array fixture additionally
+verifies defensive copies without replacing the original annotation value type;
+circular cross-owner inheritance produces ClassCircularityError.
