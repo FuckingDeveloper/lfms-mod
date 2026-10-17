@@ -251,6 +251,7 @@ public final class LiveTargetContractProbe {
         SourceClientEntityFactoryCheck.run();
         SourceEntityRidingCheck.run();
         RawNetworkFamilyCheck.run();
+        SourceOwnedAtlasCheck.run();
         CapturedConstructionCheck.run();
         SourceBannerPatternCheck.run();
         SourceMenuFactoryCheck.run();

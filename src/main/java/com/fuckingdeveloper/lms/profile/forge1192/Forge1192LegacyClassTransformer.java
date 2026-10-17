@@ -330,6 +330,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                         public String method(String name,String desc){return registryCanonicalMethods.computeIfAbsent("net/minecraft/world/entity/Entity#"+name+desc,
                                 ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName("net/minecraft/world/entity/Entity",name,desc))).orElse(null);}
                     },com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceEntityFactories(),com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnPacketInterface(),semanticInvocations)),
+            new TransformationPipeline.Pass("source-owned-texture-atlases",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192TextureAtlasHolderRewriter.rewrite(node,(owner,root)->owner.equals(node.name)?isManagedSubtypeOf(node,root):owner.equals(root)||isManagedSubtypeOf(owner,root))),
             new TransformationPipeline.Pass("source-entity-riding",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192EntityRidingRewriter.rewrite(node,new Forge1192EntityRidingRewriter.Evidence() {
@@ -13129,6 +13132,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             return "net/neoforged/api/distmarker/Dist";
         if (value.equals("net/minecraftforge/network/PlayMessages$SpawnEntity"))
             return com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnEntity();
+        if(value.equals(Forge1192TextureAtlasHolderRewriter.SOURCE))return com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceTextureAtlasHolder();
+        if(value.equals("net/minecraft/client/renderer/texture/TextureAtlas$Preparations"))return com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceAtlasPreparations();
         String rawNetworkType=Forge1192RawNetworkRules.type(value);
         if(rawNetworkType!=null)return rawNetworkType;
         if (value.equals("net/minecraftforge/network/NetworkRegistry"))

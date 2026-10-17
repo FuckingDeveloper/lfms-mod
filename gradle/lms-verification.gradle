@@ -46,7 +46,7 @@ def nativeSmokeJar = tasks.register('nativeSmokeJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
     archiveClassifier = 'native-smoke'
     from(sourceSets.compatibilityTest.output) {
-        include '**/SourceEntityRidingCheck*.class', '**/RawNetworkFamilyCheck*.class', '**/SourceBannerPatternCheck*.class', '**/CapturedConstructionCheck*.class', '**/SourceClientEntityFactoryCheck*.class', '**/SourceStairConstructionCheck*.class', '**/SourceExtensionEventCheck*.class', '**/SourceEntityRenderFamilyCheck*.class', '**/GuiStaticAccessorFamilyCheck*.class', '**/GuiModelViewFamilyCheck*.class', '**/RegistryQueryFamilyCheck*.class', '**/RendererContextFamilyCheck*.class', '**/TexturedRenderTypeFamilyCheck*.class', '**/SourceConfigRegistrationCheck*.class', '**/SourceMenuFactoryCheck*.class', '**/SourceProjectileFamilyCheck*.class'
+        include '**/SourceOwnedAtlasCheck*.class', '**/SourceEntityRidingCheck*.class', '**/RawNetworkFamilyCheck*.class', '**/SourceBannerPatternCheck*.class', '**/CapturedConstructionCheck*.class', '**/SourceClientEntityFactoryCheck*.class', '**/SourceStairConstructionCheck*.class', '**/SourceExtensionEventCheck*.class', '**/SourceEntityRenderFamilyCheck*.class', '**/GuiStaticAccessorFamilyCheck*.class', '**/GuiModelViewFamilyCheck*.class', '**/RegistryQueryFamilyCheck*.class', '**/RendererContextFamilyCheck*.class', '**/TexturedRenderTypeFamilyCheck*.class', '**/SourceConfigRegistrationCheck*.class', '**/SourceMenuFactoryCheck*.class', '**/SourceProjectileFamilyCheck*.class'
         include '**/LifecycleWorkFamilyCheck*.class', '**/LifecycleWorkFixture*.class'
         include '**/AnalogOutputFamilyCheck*.class'
         include '**/VanillaItemTransferFamilyCheck*.class'
@@ -106,5 +106,20 @@ tasks.register('generateRetainedModelTemplates', JavaExec) {
         args sourceAssets,
             layout.buildDirectory.file('moddev/artifacts/minecraft-patched-26.3.0.58-beta.jar').get().asFile.absolutePath,
             layout.projectDirectory.file('src/main/resources/lms/target/neoforge263/forge1192-retained-block-models.txt').asFile.absolutePath
+    }
+}
+
+tasks.register('generateSourcePublicClientFields', JavaExec) {
+    group = 'verification'
+    description = 'Restore pinned source-public immutable client service fields with exact retained native identities'
+    dependsOn tasks.named('compatibilityTestClasses')
+    classpath = sourceSets.compatibilityTest.runtimeClasspath
+    mainClass = 'com.fuckingdeveloper.lms.check.GenerateSourcePublicClientFields'
+    doFirst {
+        def sourceJar = providers.gradleProperty('legacySourceJar').orNull
+        if (sourceJar == null || !file(sourceJar).isFile()) throw new GradleException('Supply -PlegacySourceJar=/absolute/path/to/pinned-source.jar')
+        args sourceJar,
+            layout.buildDirectory.file('moddev/artifacts/minecraft-patched-26.3.0.58-beta.jar').get().asFile.absolutePath,
+            layout.projectDirectory.file('src/main/resources/META-INF/accesstransformer.cfg').asFile.absolutePath
     }
 }

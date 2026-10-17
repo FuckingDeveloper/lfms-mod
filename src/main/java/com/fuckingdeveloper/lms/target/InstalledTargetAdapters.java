@@ -27,6 +27,8 @@ public final class InstalledTargetAdapters {
                 "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192EventBusBridge",
                 "addListenerExplicit","(L"+sourceBus+";"+descriptor.substring(1),false);
     }
+    public static String sourceTextureAtlasHolder() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceTextureAtlasHolder"; }
+    public static String sourceAtlasPreparations() { return "net/minecraft/client/renderer/texture/SpriteLoader$Preparations"; }
     public static String sourceRidingBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceRiding"; }
     public static String sourceEntityFactories() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceEntityFactories"; }
     public static String sourceSpawnPacketInterface() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceSpawnPacket"; }
