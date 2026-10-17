@@ -77,7 +77,66 @@ public final class SourceMenuFactoryCheck {
             var failure=new IllegalArgumentException("source-menu-callback");var failing=Forge1192MenuType.create((Forge1192ContainerFactory<Probe>)(id,inv,data)->{throw failure;});
             try{failing.create(10,inventory,registry);throw new AssertionError("callback failure swallowed");}catch(IllegalArgumentException expected){check(expected==failure,"callback failure replaced");}
         }finally{raw.release();registry.release();}
+        screenSetup();
         System.out.println("PASS: actual native menu/source interface, source lambda and default method reference, raw/registry/null buffer identity, nested static handles, feature flags, vanilla/native fallback and callback failure; opening packets/screens require runtime");
+    }
+    @SuppressWarnings({"rawtypes","unchecked"})
+    private static void screenSetup() throws Exception {
+        var bus=net.neoforged.bus.api.BusBuilder.builder().build();
+        var info=(net.neoforged.neoforgespi.language.IModInfo)java.lang.reflect.Proxy.newProxyInstance(
+                SourceMenuFactoryCheck.class.getClassLoader(),new Class[]{net.neoforged.neoforgespi.language.IModInfo.class},
+                (proxy,method,args)->{if(method.getName().equals("getModId"))return "screen_probe";throw new AssertionError(method);});
+        var host=new net.neoforged.fml.ModContainer(info){public net.neoforged.bus.api.IEventBus getEventBus(){return bus;}};
+        var work=new net.neoforged.fml.DeferredWorkQueue("screen-setup-check");
+        var event=new net.neoforged.fml.event.lifecycle.FMLClientSetupEvent(host,work);
+        var queue=new com.fuckingdeveloper.lms.profile.forge1192.runtime.render.Forge1192MenuScreenBridge.Queue();
+        queue.flush(new net.neoforged.neoforge.client.event.RegisterMenuScreensEvent(new HashMap<>()));
+        net.minecraft.client.gui.screens.MenuScreens.ScreenConstructor factory=(menu,inventory,title)->{throw new AssertionError("eager screen construction");};
+        var first=new MenuType<Probe>((id,inv)->new Probe(id,inv,null),FeatureFlags.VANILLA_SET);
+        var second=new MenuType<Probe>((id,inv)->new Probe(id,inv,null),FeatureFlags.VANILLA_SET);
+        var invoke=com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192EventBusBridge.class
+                .getDeclaredMethod("invokeScoped",String.class,Consumer.class,net.neoforged.bus.api.Event.class);
+        invoke.setAccessible(true);
+        Consumer<net.neoforged.bus.api.Event> listener=ignored->{
+            check(com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active(),"direct client setup scope absent");
+            queue.add(first,factory,"screen_probe");
+            com.fuckingdeveloper.lms.target.neoforge263.Target263Forge1192LifecycleWorkBridge.enqueueWork(event,(Runnable)()->{
+                check(com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active(),"deferred client setup scope absent");
+                queue.add(second,factory,"screen_probe");
+            });
+        };
+        try(var context=com.fuckingdeveloper.lms.profile.forge1192.runtime.lifecycle.Forge1192LifecycleBridge.enter("screen_probe",bus,host)) {
+            invoke.invoke(null,"screen_probe",listener,event);
+        }
+        check(!com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active(),"direct scope leaked");
+        var lookup=MethodHandles.privateLookupIn(net.minecraft.client.gui.screens.MenuScreens.class,MethodHandles.lookup());
+        var field=lookup.findStaticVarHandle(net.minecraft.client.gui.screens.MenuScreens.class,"SCREENS",Map.class);
+        Map screens=(Map)field.get();
+        try {
+            check(screens.get(first)==factory&&!screens.containsKey(second),"direct/deferred native timing changed");
+            work.runTasks();
+            check(screens.get(second)==factory&&!com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active(),"deferred registration/scope restoration failed");
+            try(var phase=com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.enter(event)) {
+                net.minecraft.client.gui.screens.MenuScreens.ScreenConstructor replacement=(menu,inventory,title)->null;
+                try{queue.add(first,replacement,"duplicate");throw new AssertionError("duplicate accepted");}
+                catch(IllegalStateException expected){check(screens.get(first)==factory,"duplicate replaced original factory");}
+                try(var nested=com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.enter(event)){
+                    check(com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active(),"nested scope absent");
+                }
+                check(com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active(),"nested scope removed parent");
+                var isolated=new java.util.concurrent.FutureTask<Boolean>(() -> !com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active());
+                var other=new Thread(isolated);other.start();other.join();
+                check(isolated.get(),"client scope inherited across threads");
+            }
+            try{queue.add(first,factory,"late");throw new AssertionError("late registration accepted");}catch(IllegalStateException expected){}
+            var common=new net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent(host,work);
+            invoke.invoke(null,"screen_probe",(Consumer<net.neoforged.bus.api.Event>)ignored->check(!com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active(),"common setup opened client window"),common);
+            var failure=new IllegalArgumentException("screen-setup-failure");
+            try{invoke.invoke(null,"screen_probe",(Consumer<net.neoforged.bus.api.Event>)ignored->{throw failure;},event);throw new AssertionError("setup failure swallowed");}
+            catch(java.lang.reflect.InvocationTargetException expected){check(expected.getCause()==failure,"setup failure replaced");}
+            check(!com.fuckingdeveloper.lms.target.neoforge263.Target263ClientSetupScope.active(),"failed setup leaked scope");
+        } finally {screens.remove(first);screens.remove(second);}
+        System.out.println("PASS: native screen registration in direct/deferred client setup, original queue timing, duplicate factory preservation, nested/thread scope, common/late rejection and failure cleanup");
     }
     public static MethodHandle constant(MethodHandles.Lookup lookup,String name,Class<?> type,MethodHandle handle){return handle;}
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}

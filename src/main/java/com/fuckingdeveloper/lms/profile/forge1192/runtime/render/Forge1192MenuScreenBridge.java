@@ -21,7 +21,11 @@ public final class Forge1192MenuScreenBridge {
         private final Map<MenuType<?>,Entry> pending=new LinkedHashMap<>();
         private boolean complete;
         public synchronized void add(MenuType<?> type,MenuScreens.ScreenConstructor<?,?> factory,String owner) {
-            if(complete)throw new IllegalStateException("Source menu screen registered after native phase: "+owner);
+            if(complete){
+                com.fuckingdeveloper.lms.target.neoforge263.Target263MenuScreenRegistration.register(
+                        Objects.requireNonNull(type),Objects.requireNonNull(factory),Objects.requireNonNull(owner));
+                return;
+            }
             if(pending.putIfAbsent(Objects.requireNonNull(type),new Entry(Objects.requireNonNull(factory),Objects.requireNonNull(owner)))!=null)
                 throw new IllegalStateException("Duplicate source menu screen registration: "+owner);
         }

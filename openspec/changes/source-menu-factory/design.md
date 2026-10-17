@@ -26,12 +26,11 @@ Static construction rules and source SAM members MUST be shared by admission and
 transformation. Native opening-data packet delivery and screen rendering are
 separate assertions; a factory test MUST NOT claim either from menu creation alone.
 
-## Proposed client-setup timing — awaiting a design decision
+## Approved client-setup timing
 
-This amendment is NOT active. The existing prohibition in
-source-container-and-native-container-families/design.md remains authoritative
-until explicit acceptance. The reviewable prototype is kept outside compiled
-project sources while that decision is pending.
+Accepted by the user on 2026-10-17. This amends the former prohibition in
+source-container-and-native-container-families/design.md for verified client
+setup execution only.
 
 Native MenuScreens.init posts RegisterMenuScreensEvent before source FMLClientSetup
 deferred work runs. Source MenuScreens.register was valid in that work. Target

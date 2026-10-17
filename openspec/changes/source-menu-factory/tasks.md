@@ -19,7 +19,19 @@ Raw evidence: `/tmp/lms-menu-factory-approved-check.log`,
 The native fixture is not a world or packet-delivery test. Special source
 interface-super invocation shapes outside the catalog remain explicit gaps.
 
-Source screen-registration timing is a separate pending design decision: the
-existing container-family contract forbids invoking the private native register
-method. Do not describe that remediation as accepted or verified until the user
-has approved the explicit contract change.
+## Approved client-setup registration
+
+- [x] User accepted the bounded native registration operation on 2026-10-17.
+- [x] Amend the earlier prohibition and preserve native callback/deferred-work timing.
+- [x] Enter/restore thread-local phase scope around actual client setup callbacks and work.
+- [x] Reject arbitrary late calls and preserve the original factory on duplicate failure.
+- [x] Native regression checks: direct/deferred registration, common setup exclusion,
+  nested/thread isolation, exception cleanup, original early queue failure retention.
+- [x] compatibilityTest/nativeCompatibilitySmoke/compileLaunchJava pass:
+  `/tmp/lms-screen-setup-check.log`.
+- [x] Fresh runtime92 passed the previous client-setup registration blocker.
+  Source TNT entity renderers were constructed during the client-resource reload;
+  NukeModel then failed on missing LegacyRenderType.m_110458_(Identifier).
+  MCP connected to the 26.3 NeoForge client with no integrated server/player.
+  World/menu-packet/projectile gameplay assertions remain BLOCKED.
+  Evidence: `/tmp/lms-container-families-runtime-92.log`.

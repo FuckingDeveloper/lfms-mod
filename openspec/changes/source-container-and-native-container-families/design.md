@@ -89,9 +89,12 @@ the source does and propagate Error. Supplier and Callable are not interchangeab
 Source MenuScreens.register intent MUST be staged until target
 RegisterMenuScreensEvent, preserving exact type/factory identity. Pending entries
 MUST be removed only after successful native registration; partial failure MUST
-retain the failed and remaining entries. Duplicate source intent and registration
-after the completed target phase MUST fail explicitly. The adapter MUST NOT invoke
-the private native register method or mutate the native screen map directly.
+retain the failed and remaining entries. Duplicate source intent MUST fail explicitly. After the completed target phase,
+registration MUST fail unless executing a verified direct or deferred
+FMLClientSetup callback. In that scope alone, the target adapter MAY invoke the
+retained private native register operation, prechecking duplicates to preserve
+the existing factory. Direct native screen-map mutation remains forbidden.
+See source-menu-factory/design.md for the approved timing contract.
 The native mod-list service MAY offer actual registered source config factories
 for managed display records; it MUST preserve the native service for native rows
 and MUST NOT invent a factory when the source owner registered none.
@@ -109,7 +112,8 @@ bytecode proves it consists exclusively of registry-holder reads, verified scree
 constructor factories and menu-screen registrations, without event reads, branches,
 exception handlers or other calls. Its lambda handle/SAM descriptor MUST move
 consistently and every registration MUST receive the genuine native event. Mixed
-callbacks and unsupported late calls remain explicit gaps. No dummy lifecycle
+callbacks MUST retain their native setup timing and may use the verified setup
+registration scope. Calls after setup remain explicit failures. No dummy lifecycle
 event or direct private-map mutation is permitted.
 
 For a straight-line listener consisting only of proven registry-holder/factory

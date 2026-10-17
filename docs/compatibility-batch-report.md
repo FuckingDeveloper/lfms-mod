@@ -65,5 +65,11 @@ runtime91. The subsequent client-setup deferred task hits the existing source
 screen-phase guard. Registry completion does not establish completed client
 lifecycle, a menu or a loaded world. The menu-factory tests preserve the existing
 source VANILLA_SET construction policy, original buffer/null identity and native
-MenuType source-interface support. Changing the later screen registration policy
-is a separately pending decision, not an implemented compatibility claim.
+MenuType source-interface support. The user subsequently approved bounded native screen registration during actual
+client setup. Runtime92 passed the previous screen-phase guard and reached entity
+renderer creation in client resource reload. It then failed on missing source
+RenderType.m_110458_(Identifier) in a model constructor. MCP connected without a
+server/player; no world or functional menu/projectile milestone is claimed.
+Native screen-phase regression checks verify direct/deferred timing, duplicate
+preservation, common/late rejection and scope restoration. See
+`/tmp/lms-screen-setup-check.log` and `/tmp/lms-container-families-runtime-92.log`.
