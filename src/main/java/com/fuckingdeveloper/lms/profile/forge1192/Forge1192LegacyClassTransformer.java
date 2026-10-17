@@ -645,6 +645,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                     node -> Forge1192LanguageRewriter.rewrite(node,
                             (owner, base) -> owner.equals(node.name) ? isManagedSubtypeOf(node, base) : isManagedSubtypeOf(owner, base),
                             (owner, name, desc) -> SRG_RUNTIME_RESOLVER.flatMap(resolver -> resolver.canonicalMethodName(owner, name, desc)).orElse(name))),
+            new TransformationPipeline.Pass("Forge1192SpecialRecipeIdentities.verify",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192SpecialRecipeIdentities.verify(node)),
             new TransformationPipeline.Pass("rewriteRecipeAccessFamily",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteRecipeAccessFamily(node)),
@@ -13059,6 +13062,8 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
 
     private static String migrateInternalName(String value) {
         if (value.equals(Forge1192LanguageRewriter.INFO)) return Forge1192LanguageRewriter.VIEW;
+        String recipeIdentity = Forge1192SpecialRecipeIdentities.type(value);
+        if (!recipeIdentity.equals(value)) return recipeIdentity;
         String sourceTags=Forge1192TagNotificationRewriter.type(value);if(sourceTags!=null)return sourceTags;
         if(value.equals(Forge1192RecipeNotificationRewriter.SOURCE))return InstalledTargetAdapters.recipeNotificationEvent();
         if(value.equals("com/mojang/blaze3d/vertex/Tesselator"))return "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyImmediateTesselator";
@@ -13322,6 +13327,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         }
         migrated = migrated.replace("L" + Forge1192LanguageRewriter.INFO + ";", "L" + Forge1192LanguageRewriter.VIEW + ";")
                 .replace("L" + Forge1192LanguageRewriter.INFO + "<", "L" + Forge1192LanguageRewriter.VIEW + "<");
+        migrated = Forge1192SpecialRecipeIdentities.descriptor(migrated);
         migrated = Forge1192EntityRelocations.projectDescriptor(migrated);
         migrated = Forge1192BootstrapRewriter.descriptor(migrated);
         return migrated
