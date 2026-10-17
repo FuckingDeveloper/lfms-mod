@@ -46,7 +46,7 @@ def nativeSmokeJar = tasks.register('nativeSmokeJar', Jar) {
     dependsOn tasks.named('compatibilityTestClasses')
     archiveClassifier = 'native-smoke'
     from(sourceSets.compatibilityTest.output) {
-        include '**/RawNetworkFamilyCheck*.class', '**/SourceBannerPatternCheck*.class', '**/CapturedConstructionCheck*.class', '**/SourceClientEntityFactoryCheck*.class', '**/SourceStairConstructionCheck*.class', '**/SourceExtensionEventCheck*.class', '**/SourceEntityRenderFamilyCheck*.class', '**/GuiStaticAccessorFamilyCheck*.class', '**/GuiModelViewFamilyCheck*.class', '**/RegistryQueryFamilyCheck*.class', '**/RendererContextFamilyCheck*.class', '**/TexturedRenderTypeFamilyCheck*.class', '**/SourceConfigRegistrationCheck*.class', '**/SourceMenuFactoryCheck*.class', '**/SourceProjectileFamilyCheck*.class'
+        include '**/SourceEntityRidingCheck*.class', '**/RawNetworkFamilyCheck*.class', '**/SourceBannerPatternCheck*.class', '**/CapturedConstructionCheck*.class', '**/SourceClientEntityFactoryCheck*.class', '**/SourceStairConstructionCheck*.class', '**/SourceExtensionEventCheck*.class', '**/SourceEntityRenderFamilyCheck*.class', '**/GuiStaticAccessorFamilyCheck*.class', '**/GuiModelViewFamilyCheck*.class', '**/RegistryQueryFamilyCheck*.class', '**/RendererContextFamilyCheck*.class', '**/TexturedRenderTypeFamilyCheck*.class', '**/SourceConfigRegistrationCheck*.class', '**/SourceMenuFactoryCheck*.class', '**/SourceProjectileFamilyCheck*.class'
         include '**/LifecycleWorkFamilyCheck*.class', '**/LifecycleWorkFixture*.class'
         include '**/AnalogOutputFamilyCheck*.class'
         include '**/VanillaItemTransferFamilyCheck*.class'

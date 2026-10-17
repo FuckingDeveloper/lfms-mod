@@ -27,6 +27,7 @@ public final class InstalledTargetAdapters {
                 "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192EventBusBridge",
                 "addListenerExplicit","(L"+sourceBus+";"+descriptor.substring(1),false);
     }
+    public static String sourceRidingBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceRiding"; }
     public static String sourceEntityFactories() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceEntityFactories"; }
     public static String sourceSpawnPacketInterface() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceSpawnPacket"; }
     public static String sourceSpawnEntity() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceSpawnEntity"; }

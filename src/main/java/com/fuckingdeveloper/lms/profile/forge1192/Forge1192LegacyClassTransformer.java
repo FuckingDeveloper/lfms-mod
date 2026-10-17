@@ -330,6 +330,14 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                         public String method(String name,String desc){return registryCanonicalMethods.computeIfAbsent("net/minecraft/world/entity/Entity#"+name+desc,
                                 ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName("net/minecraft/world/entity/Entity",name,desc))).orElse(null);}
                     },com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceEntityFactories(),com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnPacketInterface(),semanticInvocations)),
+            new TransformationPipeline.Pass("source-entity-riding",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192EntityRidingRewriter.rewrite(node,new Forge1192EntityRidingRewriter.Evidence() {
+                        public boolean entity(String owner){return owner.equals(node.name)?isManagedSubtypeOf(node,"net/minecraft/world/entity/Entity"):owner.equals("net/minecraft/world/entity/Entity")||isManagedSubtypeOf(owner,"net/minecraft/world/entity/Entity");}
+                        public boolean managed(String owner){try{return owner.equals(node.name)||(managedClassBytes!=null&&managedClassBytes.find(owner)!=null);}catch(java.io.IOException failure){throw new java.io.UncheckedIOException(failure);}}
+                        public String method(String name,String desc){return registryCanonicalMethods.computeIfAbsent("net/minecraft/world/entity/Entity#"+name+desc,
+                                ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName("net/minecraft/world/entity/Entity",name,desc))).orElse(null);}
+                    },com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceRidingBridge(),semanticInvocations)),
             new TransformationPipeline.Pass("source-stair-construction",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192StairConstructionRewriter.rewrite(node,com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceStairs())),
