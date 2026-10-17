@@ -202,6 +202,7 @@ public final class LiveTargetContractProbe {
         LanguageSelectionFamilyCheck.run();
         SpecialRecipeIdentityCheck.run();
         BlockEntityConstantsFamilyCheck.run();
+        FluidDisplayFamilyCheck.run();
         InteractionResultInformationCheck.run();
         ContainerGraphicsCheck.run();
         WorldRenderFamilyCheck.run(bus,host);

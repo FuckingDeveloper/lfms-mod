@@ -1,0 +1,6 @@
+- [x] Verify exact source/native display and description-ID bodies/empty selection.
+- [x] Adapt both queries through shared direct/callable/nested invocation traversal.
+- [x] Native probes verify exact stack/component identity, per-stack callback data and once-only dispatch.
+- [x] Execute the original immutable JEI fluid display consumer in the native probe.
+- [ ] Fresh client passes the previous fluid display query blocker.
+- [ ] Actual empty-fluid description text in a fully initialized NeoForge lifecycle (isolated smoke lacks fluid_type registry; empty selection/failure propagation verified).
