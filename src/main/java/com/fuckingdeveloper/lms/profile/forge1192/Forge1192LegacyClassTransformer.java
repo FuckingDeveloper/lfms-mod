@@ -314,6 +314,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("catalogued-source-methods",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192MethodRules.rewrite(node, methodDeclarations, semanticInvocations)),
+            new TransformationPipeline.Pass("source-sound-manager-playback",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> rewriteSoundManagerPlayback(node)),
             new TransformationPipeline.Pass("source-chunk-light-packets",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192ChunkLightPacketRewriter.rewrite(node,
@@ -4875,6 +4878,29 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             if(!declaresManagedMethod(node,"m_93250_","(I)V")){var setter=new org.objectweb.asm.tree.MethodNode(org.objectweb.asm.Opcodes.ACC_PUBLIC|org.objectweb.asm.Opcodes.ACC_SYNTHETIC,"m_93250_","(I)V",null,null);setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ALOAD,0));setter.instructions.add(new org.objectweb.asm.tree.VarInsnNode(org.objectweb.asm.Opcodes.ILOAD,1));setter.instructions.add(new FieldInsnNode(org.objectweb.asm.Opcodes.PUTFIELD,node.name,"lms$widgetDepth","I"));setter.instructions.add(new org.objectweb.asm.tree.InsnNode(org.objectweb.asm.Opcodes.RETURN));setter.maxStack=2;setter.maxLocals=2;node.methods.add(setter);}
         }
         return 1;
+    }
+
+    private int rewriteSoundManagerPlayback(ClassNode node) {
+        String manager = "net/minecraft/client/sounds/SoundManager";
+        return rewriteSemanticInstanceCalls(node, (opcode, owner, name, desc) -> {
+            if (!java.util.Set.of("m_120367_", "play", "m_120391_", "pause", "m_120408_", "getDebugString").contains(name)) return null;
+            String identity = sourceGuiMethod(node, owner, name, desc);
+            if (identity == null || !identity.startsWith(manager + "#")) return null;
+            String source = identity.substring(manager.length() + 1);
+            String expected = switch (source) {
+                case "play" -> "(Lnet/minecraft/client/resources/sounds/SoundInstance;)V";
+                case "pause" -> "()V";
+                case "getDebugString" -> "()Ljava/lang/String;";
+                default -> null;
+            };
+            if (!desc.equals(expected)) return null;
+            String operation = opcode == org.objectweb.asm.Opcodes.INVOKESPECIAL
+                    ? source.equals("getDebugString") ? "baseDebug" : source.equals("play") ? "basePlay" : "basePause"
+                    : source.equals("getDebugString") ? "debug" : source;
+            return new Handle(org.objectweb.asm.Opcodes.H_INVOKESTATIC,
+                    "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/Forge1192SoundManagerBridge",
+                    operation, "(L" + manager + ";" + desc.substring(1), false);
+        });
     }
 
     private int rewriteSourceDamageDelivery(ClassNode node) {

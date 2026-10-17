@@ -217,6 +217,7 @@ public final class LiveTargetContractProbe {
         BlockExtensionDefaultsCheck.run();
         AttributeOperationFamilyCheck.run();
         CreativeConstructionFamilyCheck.run();
+        SoundManagerPlaybackFamilyCheck.run();
         ChunkLightPacketFamilyCheck.run();
         HeightQueryFamilyCheck.run();
         DamageDeliveryFamilyCheck.run();

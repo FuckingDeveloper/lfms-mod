@@ -24,6 +24,7 @@ public final class InstalledTargetAdapters {
     }
     public static String throwableItemBase() { return "net/minecraft/world/entity/projectile/throwableitemprojectile/ThrowableItemProjectile"; }
     public static String throwableItemAdapter() { return "com/fuckingdeveloper/lms/target/neoforge263/entity/Target263Forge1192ThrowableItemProjectile"; }
+    public static String soundManagerPlaybackBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/render/Target263SoundManagerPlayback"; }
     public static String chunkLightPacketsBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceChunkLightPackets"; }
     public static String heightQueriesBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceHeightQueries"; }
     public static String entitySyncBridge() { return "com/fuckingdeveloper/lms/target/neoforge263/Target263SourceEntitySync"; }
