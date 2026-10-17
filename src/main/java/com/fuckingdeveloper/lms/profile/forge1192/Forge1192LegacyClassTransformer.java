@@ -6833,40 +6833,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         return null;
     }
 
-    /**
-     * Forge's client recipe notification was replaced by RecipesReceivedEvent.
-     * Adapt only handlers which treat the event as a timing signal and never
-     * read the legacy event argument; data-consuming handlers need a semantic
-     * recipe-map adapter and intentionally remain fail-closed.
-     */
+    /** One central type projection; source payload operations remain fail-closed. */
     private static int rewriteLegacyRecipesUpdatedHandlers(ClassNode node) {
-        final String legacy = "net/minecraftforge/client/event/RecipesUpdatedEvent";
-        final String target = "net/neoforged/neoforge/client/event/RecipesReceivedEvent";
-        int rewrites = 0;
-        for (var method : node.methods) {
-            if (!method.desc.equals("(L" + legacy + ";)V")) continue;
-            int parameterSlot = (method.access & org.objectweb.asm.Opcodes.ACC_STATIC) == 0 ? 1 : 0;
-            boolean used = false;
-            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (insn instanceof org.objectweb.asm.tree.VarInsnNode variable
-                        && variable.getOpcode() == org.objectweb.asm.Opcodes.ALOAD
-                        && variable.var == parameterSlot) {
-                    used = true;
-                    break;
-                }
-            }
-            if (used) continue;
-            method.desc = "(L" + target + ";)V";
-            if (method.signature != null) method.signature = method.signature.replace(legacy, target);
-            if (method.localVariables != null) {
-                for (var local : method.localVariables) {
-                    if (local.desc.equals("L" + legacy + ";")) local.desc = "L" + target + ";";
-                    if (local.signature != null) local.signature = local.signature.replace(legacy, target);
-                }
-            }
-            rewrites++;
-        }
-        return rewrites;
+        return Forge1192RecipeNotificationRewriter.validate(node);
     }
 
     /**
@@ -13046,6 +13015,7 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
     }
 
     private static String migrateInternalName(String value) {
+        if(value.equals(Forge1192RecipeNotificationRewriter.SOURCE))return InstalledTargetAdapters.recipeNotificationEvent();
         if(value.equals("com/mojang/blaze3d/vertex/Tesselator"))return "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyImmediateTesselator";
         if(value.equals("com/mojang/blaze3d/vertex/BufferBuilder"))return "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyImmediateBuffer";
         if(value.equals("net/minecraftforge/client/event/RenderLevelStageEvent")||value.equals("net/neoforged/neoforge/client/event/RenderLevelStageEvent"))return "com/fuckingdeveloper/lms/profile/forge1192/runtime/render/LegacyWorldStageEvent";
