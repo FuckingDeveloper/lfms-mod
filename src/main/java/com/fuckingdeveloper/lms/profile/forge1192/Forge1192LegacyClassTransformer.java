@@ -320,6 +320,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                         public boolean subtype(String owner,String base){return owner.equals(base)||isManagedSubtypeOf(owner,base);}
                         public String canonical(String owner,String name,String desc){return projectileCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(owner,name,desc))).orElse(null);}
                     },semanticInvocations)),
+            new TransformationPipeline.Pass("source-gui-model-view",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    Forge1192GuiModelViewRewriter::rewrite),
             new TransformationPipeline.Pass("source-registry-queries",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192RegistryQueryRewriter.rewrite(node, methodDeclarations,

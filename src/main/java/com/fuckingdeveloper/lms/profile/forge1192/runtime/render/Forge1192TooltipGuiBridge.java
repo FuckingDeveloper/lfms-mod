@@ -30,6 +30,7 @@ public final class Forge1192TooltipGuiBridge {
         LegacyGuiBuffer buffer;
         LegacyImmediateBuffer immediateBuffer;
         final java.util.List<LegacyImmediateBuffer> sourceBuffers=new java.util.ArrayList<>();
+        Forge1192GuiModelViewBridge.State modelView;
         boolean sourceScissor;
         Scope(GuiGraphicsExtractor graphics) { this.graphics = graphics; }
     }
@@ -39,11 +40,15 @@ public final class Forge1192TooltipGuiBridge {
         if (ACTIVE.get() != null) throw new IllegalStateException("Nested legacy tooltip GUI extraction");
         var scope = new Scope(graphics);
         ACTIVE.set(scope);
-        try { callback.accept(scope.renderer); } finally { scope.sourceBuffers.forEach(LegacyImmediateBuffer::abort); ACTIVE.remove(); }
+        boolean success=false;
+        try { callback.accept(scope.renderer); success=true; }
+        finally {
+            try {finish(scope,success);} finally {ACTIVE.remove();}
+        }
     }
 
     static void nativeTooltip(Runnable callback) {
-        var previous=ACTIVE.get();ACTIVE.remove();
+        var previous=ACTIVE.get();Forge1192GuiModelViewBridge.beforeNested(previous);ACTIVE.remove();
         try {callback.run();} finally {if(previous!=null)ACTIVE.set(previous);else ACTIVE.remove();}
     }
 
@@ -54,8 +59,20 @@ public final class Forge1192TooltipGuiBridge {
         return scope;
     }
     static void extractGui(GuiGraphicsExtractor graphics, Phase phase, Runnable callback) {
-        var previous=ACTIVE.get();var scope=new Scope(java.util.Objects.requireNonNull(graphics));scope.phase=phase; ACTIVE.set(scope);
-        try {callback.run();} finally {scope.sourceBuffers.forEach(LegacyImmediateBuffer::abort);if(scope.sourceScissor)graphics.disableScissor();if(previous==null)ACTIVE.remove();else ACTIVE.set(previous);}
+        var previous=ACTIVE.get();Forge1192GuiModelViewBridge.beforeNested(previous);
+        var scope=new Scope(java.util.Objects.requireNonNull(graphics));scope.phase=phase; ACTIVE.set(scope);
+        boolean success=false;
+        try {callback.run();success=true;}
+        finally {
+            try {finish(scope,success);}
+            finally {if(previous==null)ACTIVE.remove();else ACTIVE.set(previous);}
+        }
+    }
+    private static void finish(Scope scope,boolean success) {
+        try {
+            scope.sourceBuffers.forEach(LegacyImmediateBuffer::abort);
+            if(scope.sourceScissor)scope.graphics.disableScissor();
+        } finally {Forge1192GuiModelViewBridge.finish(scope,success);}
     }
     static GuiGraphicsExtractor graphics(LegacyTooltipItemRenderer renderer) {
         Scope scope = scope();

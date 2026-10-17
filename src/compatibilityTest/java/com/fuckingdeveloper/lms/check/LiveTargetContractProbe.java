@@ -240,6 +240,7 @@ public final class LiveTargetContractProbe {
         TexturedRenderTypeFamilyCheck.run();
         RendererContextFamilyCheck.run();
         RegistryQueryFamilyCheck.run();
+        GuiModelViewFamilyCheck.run();
         SourceProjectileFamilyCheck.run();
         SelectionListFamilyCheck.run();
         WidgetPointerFamilyCheck.run();
