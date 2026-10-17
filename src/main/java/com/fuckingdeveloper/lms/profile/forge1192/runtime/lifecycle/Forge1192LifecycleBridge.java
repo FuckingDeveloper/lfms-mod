@@ -15,7 +15,7 @@ public final class Forge1192LifecycleBridge {
     private static final java.util.concurrent.ConcurrentHashMap<String, Binding> BINDINGS =
             new java.util.concurrent.ConcurrentHashMap<>();
 
-    private record Binding(IEventBus modEventBus, ModContainer hostContainer) {}
+    private record Binding(IEventBus modEventBus, ModContainer hostContainer, ClassLoader loader) {}
 
     public record Context(String modId, IEventBus modEventBus, ModContainer hostContainer, LegacyContainer container) {
         public Context {
@@ -29,13 +29,16 @@ public final class Forge1192LifecycleBridge {
     private Forge1192LifecycleBridge() {}
 
     public static AutoCloseable enter(String modId, IEventBus modEventBus, ModContainer hostContainer) {
+        return enter(modId,modEventBus,hostContainer,null);
+    }
+    public static AutoCloseable enter(String modId,IEventBus modEventBus,ModContainer hostContainer,ClassLoader loader) {
         Objects.requireNonNull(modId, "modId");
         Binding binding = new Binding(
                 Objects.requireNonNull(modEventBus, "modEventBus"),
-                Objects.requireNonNull(hostContainer, "hostContainer"));
+                Objects.requireNonNull(hostContainer, "hostContainer"),loader);
         Binding previous = BINDINGS.putIfAbsent(modId, binding);
         if (previous != null
-                && (previous.modEventBus() != modEventBus || previous.hostContainer() != hostContainer)) {
+                && (previous.modEventBus() != modEventBus || previous.hostContainer() != hostContainer || previous.loader() != loader)) {
             throw new IllegalStateException("Conflicting lifecycle binding for legacy mod " + modId);
         }
         return activate(new Context(modId, modEventBus, hostContainer, new LegacyContainer(modId)));
@@ -70,23 +73,34 @@ public final class Forge1192LifecycleBridge {
         Binding binding = BINDINGS.get(modId);
         if (binding == null) throw new IllegalStateException("No callback owner binding recorded for " + modId);
         Context callback = new Context(modId, binding.modEventBus(), binding.hostContainer(), new LegacyContainer(modId));
-        Thread owner = Thread.currentThread(); CURRENT.set(callback);
+        Thread owner = Thread.currentThread(); ClassLoader previousLoader=owner.getContextClassLoader();
+        if(binding.loader()!=null)owner.setContextClassLoader(binding.loader());
+        CURRENT.set(callback);
         return () -> {
             if (Thread.currentThread() != owner || CURRENT.get() != callback)
                 throw new IllegalStateException("Source callback scope closed out of order or on another thread");
             if (previous == null) CURRENT.remove(); else CURRENT.set(previous);
+            owner.setContextClassLoader(previousLoader);
         };
     }
 
     private static AutoCloseable activate(Context context) {
         if (CURRENT.get() != null) throw new IllegalStateException("Nested legacy lifecycle scopes are not supported");
-        Thread owner = Thread.currentThread();
+        Thread owner = Thread.currentThread(); ClassLoader previousLoader=owner.getContextClassLoader();
+        Binding binding=BINDINGS.get(context.modId());
+        if(binding!=null&&binding.loader()!=null)owner.setContextClassLoader(binding.loader());
         CURRENT.set(context);
         return () -> {
             if (Thread.currentThread() != owner || CURRENT.get() != context)
                 throw new IllegalStateException("Legacy lifecycle scope closed out of order or on another thread");
             CURRENT.remove();
+            owner.setContextClassLoader(previousLoader);
         };
+    }
+
+    /** Release the managed loader binding with the owning session, never a newer binding. */
+    public static void release(String modId,ClassLoader loader) {
+        BINDINGS.computeIfPresent(modId,(id,binding)->binding.loader()==loader?null:binding);
     }
 
     public static Context requireActive() {

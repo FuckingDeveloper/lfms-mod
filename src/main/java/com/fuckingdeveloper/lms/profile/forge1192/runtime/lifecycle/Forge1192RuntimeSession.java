@@ -100,7 +100,7 @@ public final class Forge1192RuntimeSession implements RuntimeSession {
         IEventBus eventBus = Objects.requireNonNull(modEventBus, "Legacy mod event bus has not been bound");
         try (var ignored = Forge1192RegistrationContext.enterMod(modId);
              var lifecycle = Forge1192LifecycleBridge.enter(modId, eventBus,
-                     Objects.requireNonNull(hostContainer, "Host ModContainer has not been bound"))) {
+                     Objects.requireNonNull(hostContainer, "Host ModContainer has not been bound"),loader)) {
             Class<?> type = Class.forName(entrypoints.getFirst(), true, loader);
             Constructor<?> ctor = type.getDeclaredConstructor();
             if (!ctor.canAccess(null)) ctor.setAccessible(true);
@@ -188,6 +188,7 @@ public final class Forge1192RuntimeSession implements RuntimeSession {
         }
         automaticSubscribers.close();
         Forge1192ModListView.unregister(this);
+        Forge1192LifecycleBridge.release(modId,loader);
         loader.close();
         entrypoint = null;
         state = State.CLOSED;

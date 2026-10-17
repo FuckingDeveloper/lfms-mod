@@ -22,6 +22,7 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
             "java.", "javax.", "jdk.", "sun.", "net.minecraft.",
             "net.neoforged.", "com.fuckingdeveloper.lms.", "org.slf4j.", "org.objectweb.asm.");
 
+    private volatile boolean closed;
     private final Path artifact;
     private final JarFile jar;
     private final List<JarFile> dependencyJars;
@@ -91,6 +92,44 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
             }
         }
         return null;
+    }
+
+    /** Standard resources retain the same admitted graph as managed class ownership. */
+    @Override public java.net.URL getResource(String name) {
+        Objects.requireNonNull(name); requireOpen();
+        var own=findResource(name); return own==null?getParent().getResource(name):own;
+    }
+    @Override public java.util.Enumeration<java.net.URL> getResources(String name) throws IOException {
+        Objects.requireNonNull(name); requireOpen();
+        var resources=new java.util.LinkedHashMap<String,java.net.URL>();
+        for(var items= findResources(name);items.hasMoreElements();){var url=items.nextElement();resources.putIfAbsent(url.toExternalForm(),url);}
+        for(var items=getParent().getResources(name);items.hasMoreElements();){var url=items.nextElement();resources.putIfAbsent(url.toExternalForm(),url);}
+        return java.util.Collections.enumeration(resources.values());
+    }
+    @Override protected java.net.URL findResource(String name) {
+        requireOpen();
+        if(jar.getJarEntry(name)!=null)return resourceUrl(jar,name);
+        for(var dependency:dependencyJars)if(dependency.getJarEntry(name)!=null)return resourceUrl(dependency,name);
+        return null;
+    }
+    @Override protected java.util.Enumeration<java.net.URL> findResources(String name) {
+        requireOpen();var resources=new java.util.ArrayList<java.net.URL>();
+        if(jar.getJarEntry(name)!=null)resources.add(resourceUrl(jar,name));
+        for(var dependency:dependencyJars)if(dependency.getJarEntry(name)!=null)resources.add(resourceUrl(dependency,name));
+        return java.util.Collections.enumeration(resources);
+    }
+    private void requireOpen(){if(closed)throw new IllegalStateException("Managed resource loader is closed: "+artifact);}
+    private java.net.URL resourceUrl(JarFile source,String name) {
+        try {
+            String entry=new java.net.URI(null,null,"/"+name,null).getRawPath().substring(1);
+            String location="jar:"+Path.of(source.getName()).toUri().toASCIIString()+"!/"+entry;
+            return new java.net.URL(null,location,new java.net.URLStreamHandler(){
+                protected java.net.URLConnection openConnection(java.net.URL url){return new java.net.URLConnection(url){
+                    public void connect() throws IOException {if(closed)throw new IOException("Managed resource loader closed: "+artifact);connected=true;}
+                    public InputStream getInputStream() throws IOException {connect();var entry=source.getJarEntry(name);if(entry==null)throw new java.io.FileNotFoundException(name);return source.getInputStream(entry);}
+                };}
+            });
+        }catch(java.net.MalformedURLException|java.net.URISyntaxException failure){throw new IllegalArgumentException("Invalid managed resource name: "+name,failure);}
     }
 
     /** Immutable pre-transformation evidence from this loader's admitted dependency graph. */
@@ -206,6 +245,7 @@ public final class ManagedLegacyClassLoader extends ClassLoader implements AutoC
 
     @Override
     public void close() throws IOException {
+        closed=true;
         dependencyOwners.clear();
         IOException failure = null;
         for (JarFile dependencyJar : dependencyJars) try { dependencyJar.close(); } catch (IOException e) { failure = e; }
