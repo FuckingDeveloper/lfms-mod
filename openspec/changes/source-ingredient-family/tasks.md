@@ -22,3 +22,21 @@ array identity, actual applied native snapshot hooks, reload callbacks, stale an
 mutated data rejection, source tag diagnostics excluded from native tag members,
 and explicit custom-serialization boundaries. Runtime122 confirms first-blocker removal only; recipe UI/crafting remain
 blocked by source metadata discovery.
+
+## Native custom display continuation
+
+Runtime126 exposed a concrete source getItems failure in original recipe-wiki
+input collection. Exact target Ingredient.display delegates to the general
+ICustomIngredient.display contract, including its default enumeration and custom
+component-aware overrides. NativeView now converts this declared display through
+the existing proven SlotDisplay records for all custom implementations. Native
+matching, object identity, reload epochs and mutation guards are retained;
+unknown display records and source/native serializers remain explicit gaps.
+
+`./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava` passes
+(`/tmp/lms-native-custom-display-check.log`). Actual native DataComponentIngredient
+and nested CompoundIngredient fixtures preserve component-bearing display stacks,
+ordered alternatives, predicate differences, exact unwrap identity, cached arrays,
+mutation rejection and reload refresh. These native smoke fixtures use the probe's
+explicitly component-bound STONE holder; no production component binding or target
+registry lifecycle is changed. Real recipe-wiki completion is pending runtime127.

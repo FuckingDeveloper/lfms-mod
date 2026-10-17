@@ -92,8 +92,7 @@ public final class Target263SourceIngredients {
         @Override public ItemStack[] getItems(){
             checkInvalidation();validateArray();
             if(array==null){
-                if(ingredient.getCustomIngredient() instanceof CustomDisplayIngredient custom)array=displayStacks(custom.display()).toArray(ItemStack[]::new);
-                else if(ingredient.isCustom())throw new UnsupportedOperationException("Native custom ingredient display requires an explicit source stack view");
+                if(ingredient.isCustom())array=displayStacks(ingredient.display()).toArray(ItemStack[]::new);
                 else array=ingredient.items().map(holder->Forge1192EarlyItemStackBridge.create(holder.value())).toArray(ItemStack[]::new);
                 arraySnapshot=Arrays.stream(array).map(ItemStack::copy).toList();arrayEpoch=LegacyIngredient.lms$epoch();
             }

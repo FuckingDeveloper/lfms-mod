@@ -68,6 +68,19 @@ public final class SourceIngredientFamilyCheck {
                 nativeStacks[0].setCount(2);fails(ordinary::isEmpty,"native-backed source view mutation silently ignored");nativeStacks[0].setCount(1);
                 var recipe=new Forge1192UpgradeRecipe(Identifier.parse("ingredient_fixture:optional"),view,LegacyIngredient.EMPTY,new ItemStack(Items.STONE));
                 check(recipe.matches(new net.minecraft.world.item.crafting.SmithingRecipeInput(ItemStack.EMPTY,new ItemStack(Items.STONE),ItemStack.EMPTY),null)&&recipe.placementInfo().ingredients().size()==1,"native optional smithing slot not absent");
+                var components=net.minecraft.core.component.DataComponentPatch.builder().set(net.minecraft.core.component.DataComponents.CUSTOM_NAME,net.minecraft.network.chat.Component.literal("native-display-probe")).build();
+                var componentIngredient=new net.neoforged.neoforge.common.crafting.DataComponentIngredient(net.minecraft.core.HolderSet.direct(Items.STONE.builtInRegistryHolder()),components,false).toVanilla();
+                var componentView=Target263SourceIngredients.wrap(componentIngredient);
+                var componentStacks=componentView.getItems();
+                check(componentStacks.length==1&&componentStacks[0].is(Items.STONE)&&componentStacks[0].getHoverName().getString().equals("native-display-probe"),"general custom display lost native component data");
+                check(!componentView.test(new ItemStack(Items.STONE))&&componentView.test(componentStacks[0]),"display adaptation changed native custom predicate");
+                check(Target263SourceIngredients.unwrap(componentView)==componentIngredient&&componentView.getItems()==componentStacks,"custom native identity/cache changed");
+                var compound=net.neoforged.neoforge.common.crafting.CompoundIngredient.of(componentIngredient,Ingredient.of(Items.STONE));
+                var compoundView=Target263SourceIngredients.wrap(compound);var compoundStacks=compoundView.getItems();
+                check(compoundStacks.length==2&&compoundStacks[0].getHoverName().getString().equals("native-display-probe")&&compoundStacks[1].is(Items.STONE),"nested native custom displays lost order or components");
+                componentStacks[0].setCount(2);fails(componentIngredient::isEmpty,"native custom source-array mutation ignored");componentStacks[0].setCount(1);
+                var oldArray=compoundStacks;LegacyIngredient.lms$nativeReload();
+                check(compoundView.getItems()!=oldArray&&compoundView.getItems()[0].getHoverName().getString().equals("native-display-probe"),"native custom display not refreshed after reload");
                 var parsed=LegacyIngredient.fromJson(JsonParser.parseString("{\"item\":\"minecraft:stone\"}"));check(parsed.getItems()[0].is(Items.STONE)&&parsed.toJson().getAsJsonObject().get("item").getAsString().equals("minecraft:stone"),"source vanilla JSON identity");
                 try{LegacyIngredient.fromJson(new JsonArray());throw new AssertionError("source empty JSON array accepted");}catch(JsonSyntaxException expected){}
                 try{LegacyIngredient.fromJson(JsonParser.parseString("{\"item\":\"minecraft:air\"}"));throw new AssertionError("source JSON air accepted");}catch(JsonSyntaxException expected){}

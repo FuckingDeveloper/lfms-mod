@@ -45,3 +45,13 @@ native accepted tag member: native membership uses the real current tag contents
 Custom predicates retain their actual source callbacks and declared item view.
 Source/native JSON and wire codecs remain separate; native vanilla snapshot
 codecs do not claim to serialize arbitrary executable source predicates.
+
+Native-backed custom ingredients MUST obtain their source display stack view from
+the target's declared Ingredient.display/ICustomIngredient.display contract, not
+from a selected concrete ingredient implementation or a bare items() fallback.
+The proven context-free SlotDisplay record subset MUST retain order, components,
+input/remainder separation and copied stack ownership. Unknown/context-dependent
+display kinds MUST remain explicit failures. Native predicates and native object
+identity MUST remain authoritative. The existing reload epoch/array-mutation
+guards also apply to these views. This extends display enumeration only; source
+JSON/wire/custom serializer support is unchanged.
