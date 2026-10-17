@@ -2,6 +2,7 @@
   "required": true,
   "package": "com.fuckingdeveloper.lms.mixin",
   "mixins": [
+    "Target263SourceIngredientMixin",
     "Target263SourceToolDefaultMixin",
     "Target263SourceExplosionMixin",
     "Target263SourceMenuTypeMixin",

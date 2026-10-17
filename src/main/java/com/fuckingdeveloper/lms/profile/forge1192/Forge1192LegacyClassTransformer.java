@@ -330,6 +330,14 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
                         public String method(String name,String desc){return registryCanonicalMethods.computeIfAbsent("net/minecraft/world/entity/Entity#"+name+desc,
                                 ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName("net/minecraft/world/entity/Entity",name,desc))).orElse(null);}
                     },com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceEntityFactories(),com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnPacketInterface(),semanticInvocations)),
+            new TransformationPipeline.Pass("source-ingredient-views",
+                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
+                    node -> Forge1192IngredientRewriter.rewrite(node,new Forge1192IngredientRewriter.Evidence() {
+                        public boolean subtype(String owner,String root){return owner.equals(node.name)?isManagedSubtypeOf(node,root):owner.equals(root)||isManagedSubtypeOf(owner,root);}
+                        public String method(String owner,String name,String desc){return registryCanonicalMethods.computeIfAbsent(owner+"#"+name+desc,
+                                ignored->SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalMethodName(owner,name,desc))).orElse(null);}
+                        public String field(String name,String desc){return SRG_RUNTIME_RESOLVER.flatMap(r->r.canonicalFieldName(Forge1192IngredientRewriter.SOURCE,name,desc)).orElse(null);}
+                    })),
             new TransformationPipeline.Pass("source-owned-texture-atlases",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> Forge1192TextureAtlasHolderRewriter.rewrite(node,(owner,root)->owner.equals(node.name)?isManagedSubtypeOf(node,root):owner.equals(root)||isManagedSubtypeOf(owner,root))),
@@ -845,9 +853,6 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             new TransformationPipeline.Pass("rewriteLegacySimpleJsonReloadListener",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteLegacySimpleJsonReloadListener(node)),
-            new TransformationPipeline.Pass("rewriteLegacyIngredientFamily",
-                    TransformationPipeline.Phase.SOURCE_SEMANTICS,
-                    node -> rewriteLegacyIngredientFamily(node)),
             new TransformationPipeline.Pass("rewriteLegacyDyeItemLookup",
                     TransformationPipeline.Phase.SOURCE_SEMANTICS,
                     node -> rewriteLegacyDyeItemLookup(node)),
@@ -2497,52 +2502,6 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
         }
         node.superName = bridge;
         return constructorCalls + 1;
-    }
-
-    /** Exact Forge 1.19.2 Ingredient factories/accessors removed by the holder-set model. */
-    private static int rewriteLegacyIngredientFamily(ClassNode node) {
-        final String ingredient = "net/minecraft/world/item/crafting/Ingredient";
-        final String bridge = "com/fuckingdeveloper/lms/profile/forge1192/runtime/recipe/Forge1192IngredientBridge";
-        int rewrites = 0;
-        for (var method : node.methods) {
-            for (var insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-                if (!(insn instanceof MethodInsnNode call) || !call.owner.equals(ingredient)) continue;
-                if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
-                        && call.name.equals("m_43927_")
-                        && call.desc.equals("([Lnet/minecraft/world/item/ItemStack;)"
-                                + "Lnet/minecraft/world/item/crafting/Ingredient;")) {
-                    call.owner = bridge;
-                    call.name = "ofStacks";
-                    call.itf = false;
-                    rewrites++;
-                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
-                        && call.name.equals("m_43921_")
-                        && call.desc.equals("(Ljava/util/stream/Stream;)"
-                                + "Lnet/minecraft/world/item/crafting/Ingredient;")) {
-                    call.owner = bridge;
-                    call.name = "ofStackStream";
-                    call.itf = false;
-                    rewrites++;
-                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKESTATIC
-                        && call.name.equals("m_43929_")
-                        && call.desc.equals("([Lnet/minecraft/world/level/ItemLike;)"
-                                + "Lnet/minecraft/world/item/crafting/Ingredient;")) {
-                    call.name = "of";
-                    rewrites++;
-                } else if (call.getOpcode() == org.objectweb.asm.Opcodes.INVOKEVIRTUAL
-                        && call.name.equals("m_43908_")
-                        && call.desc.equals("()[Lnet/minecraft/world/item/ItemStack;")) {
-                    call.setOpcode(org.objectweb.asm.Opcodes.INVOKESTATIC);
-                    call.owner = bridge;
-                    call.name = "items";
-                    call.desc = "(Lnet/minecraft/world/item/crafting/Ingredient;)"
-                            + "[Lnet/minecraft/world/item/ItemStack;";
-                    call.itf = false;
-                    rewrites++;
-                }
-            }
-        }
-        return rewrites;
     }
 
     /** Exact removed DyeItem color index, rebuilt from target DYE components. */
@@ -13132,6 +13091,9 @@ public final class Forge1192LegacyClassTransformer implements InstrumentedClassT
             return "net/neoforged/api/distmarker/Dist";
         if (value.equals("net/minecraftforge/network/PlayMessages$SpawnEntity"))
             return com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceSpawnEntity();
+        if(value.equals(Forge1192IngredientRewriter.SOURCE)||value.startsWith(Forge1192IngredientRewriter.SOURCE+"$"))
+            return value.replace(Forge1192IngredientRewriter.SOURCE,Forge1192IngredientRewriter.VIEW);
+        if(value.equals("net/minecraftforge/common/crafting/IIngredientSerializer"))return "com/fuckingdeveloper/lms/profile/forge1192/runtime/recipe/LegacyIngredientSerializer";
         if(value.equals(Forge1192TextureAtlasHolderRewriter.SOURCE))return com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceTextureAtlasHolder();
         if(value.equals("net/minecraft/client/renderer/texture/TextureAtlas$Preparations"))return com.fuckingdeveloper.lms.target.InstalledTargetAdapters.sourceAtlasPreparations();
         String rawNetworkType=Forge1192RawNetworkRules.type(value);

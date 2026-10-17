@@ -2,7 +2,7 @@ package com.fuckingdeveloper.lms.profile.forge1192.runtime.item;
 
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.crafting.Ingredient;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe.LegacyIngredient;
 
 /**
  * Source-compatible Minecraft 1.19.2 armor-material contract.
@@ -22,7 +22,7 @@ public interface LegacyArmorMaterial {
 
     SoundEvent m_7344_();
 
-    Ingredient m_6230_();
+    LegacyIngredient m_6230_();
 
     String m_6082_();
 

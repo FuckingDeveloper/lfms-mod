@@ -3,6 +3,7 @@ package com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe;
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192ItemBridge;
 import com.fuckingdeveloper.lms.profile.forge1192.runtime.item.Forge1192EarlyItemStackBridge;
 import com.mojang.serialization.MapCodec;
+import com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.List;
 import java.util.Optional;
@@ -23,27 +24,33 @@ import net.neoforged.neoforge.registries.RegisterEvent;
 
 /** Source two-slot smithing, distinct from native component-transmutation semantics. */
 public class Forge1192UpgradeRecipe extends SimpleSmithingRecipe implements LegacyRecipeResult, LegacyRecipeIngredients, LegacyRecipeIdentity {
-    public final Ingredient f_44518_, f_44519_;
+    public final LegacyIngredient f_44518_, f_44519_;
     public final ItemStack f_44520_;
     private final Identifier f_44521_;
     private static final Identifier SERIALIZER_ID = Identifier.fromNamespaceAndPath("lms", "forge1192_upgrade");
     public static final MapCodec<Forge1192UpgradeRecipe> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Identifier.CODEC.fieldOf("legacy_id").forGetter(r -> r.f_44521_),
-            Ingredient.CODEC.fieldOf("base").forGetter(r -> r.f_44518_),
-            Ingredient.CODEC.fieldOf("addition").forGetter(r -> r.f_44519_),
-            ItemStack.CODEC.fieldOf("result").forGetter(r -> r.f_44520_)).apply(i, Forge1192UpgradeRecipe::new));
+            Ingredient.CODEC.fieldOf("base").forGetter(r -> Target263SourceIngredients.unwrap(r.f_44518_)),
+            Ingredient.CODEC.optionalFieldOf("addition").forGetter(r -> Target263SourceIngredients.optional(r.f_44519_)),
+            ItemStack.CODEC.fieldOf("result").forGetter(r -> r.f_44520_)).apply(i, Forge1192UpgradeRecipe::decoded));
     public static final StreamCodec<RegistryFriendlyByteBuf, Forge1192UpgradeRecipe> STREAM_CODEC = StreamCodec.composite(
             Identifier.STREAM_CODEC, r -> r.f_44521_,
-            Ingredient.CONTENTS_STREAM_CODEC, r -> r.f_44518_,
-            Ingredient.CONTENTS_STREAM_CODEC, r -> r.f_44519_,
-            ItemStack.STREAM_CODEC, r -> r.f_44520_, Forge1192UpgradeRecipe::new);
+            Ingredient.CONTENTS_STREAM_CODEC, r -> Target263SourceIngredients.unwrap(r.f_44518_),
+            Ingredient.OPTIONAL_CONTENTS_STREAM_CODEC, r -> Target263SourceIngredients.optional(r.f_44519_),
+            ItemStack.STREAM_CODEC, r -> r.f_44520_, Forge1192UpgradeRecipe::decoded);
     private static final RecipeSerializer<Forge1192UpgradeRecipe> SERIALIZER = new RecipeSerializer<>(CODEC, STREAM_CODEC);
 
+    private static Forge1192UpgradeRecipe decoded(Identifier id,Ingredient base,Optional<Ingredient> addition,ItemStack result) {
+        return new Forge1192UpgradeRecipe(id,Target263SourceIngredients.wrap(base),addition.map(Target263SourceIngredients::wrap).orElse(LegacyIngredient.EMPTY),result);
+    }
     public static void registerSerializer(RegisterEvent event) {
         event.register(Registries.RECIPE_SERIALIZER, SERIALIZER_ID, () -> SERIALIZER);
     }
 
     public Forge1192UpgradeRecipe(Identifier id, Ingredient base, Ingredient addition, ItemStack result) {
+        this(id,Target263SourceIngredients.wrap(base),Target263SourceIngredients.wrap(addition),result);
+    }
+    public Forge1192UpgradeRecipe(Identifier id, LegacyIngredient base, LegacyIngredient addition, ItemStack result) {
         super(new Recipe.CommonInfo(true));
         f_44521_ = java.util.Objects.requireNonNull(id);
         f_44518_ = java.util.Objects.requireNonNull(base);
@@ -59,7 +66,10 @@ public class Forge1192UpgradeRecipe extends SimpleSmithingRecipe implements Lega
     }
     @Override public boolean matches(SmithingRecipeInput input, Level level) {
         requireNativeBase();
-        return input.template().isEmpty() && m_5818_(new SimpleContainer(input.base(), input.addition()), level);
+        Ingredient base=Target263SourceIngredients.unwrap(f_44518_);
+        Optional<Ingredient> addition=Target263SourceIngredients.optional(f_44519_);
+        return input.template().isEmpty() && !base.isEmpty() && addition.map(i->!i.isEmpty()).orElse(true)
+                && base.test(input.base()) && Ingredient.testOptionalIngredient(addition,input.addition());
     }
     @Override public ItemStack assemble(SmithingRecipeInput input) { requireNativeBase(); return m_5874_(new SimpleContainer(input.base(), input.addition())); }
     public boolean m_8004_(int width, int height) { return width * height >= 2; }
@@ -70,25 +80,25 @@ public class Forge1192UpgradeRecipe extends SimpleSmithingRecipe implements Lega
     public boolean m_142505_() { return f_44518_.isEmpty() || f_44519_.isEmpty(); }
     public RecipeType<?> m_6671_() { return RecipeType.SMITHING; }
     public LegacyRecipeSerializer<?> m_7707_() { throw new UnsupportedOperationException("Source UpgradeRecipe serializer/network protocol requires explicit Forge 1.19.2 adaptation"); }
-    public NonNullList<Ingredient> m_7527_() { return NonNullList.create(); }
+    public NonNullList<LegacyIngredient> m_7527_() { return NonNullList.create(); }
     @Override public Identifier lms$legacyId() { return m_6423_(); }
     @Override public ItemStack lms$legacyResult() { return m_8043_(); }
-    @Override public NonNullList<Ingredient> lms$legacyIngredients() { return m_7527_(); }
+    @Override public NonNullList<LegacyIngredient> lms$legacyIngredients() { return m_7527_(); }
     @Override public Optional<Ingredient> templateIngredient() { return Optional.empty(); }
-    @Override public Ingredient baseIngredient() { return f_44518_; }
-    @Override public Optional<Ingredient> additionIngredient() { return Optional.of(f_44519_); }
+    @Override public Ingredient baseIngredient() { return Target263SourceIngredients.unwrap(f_44518_); }
+    @Override public Optional<Ingredient> additionIngredient() { return Target263SourceIngredients.optional(f_44519_); }
     @Override public RecipeSerializer<Forge1192UpgradeRecipe> getSerializer() {
         requireNativeBase();
         return SERIALIZER;
     }
-    @Override protected PlacementInfo createPlacementInfo() { return PlacementInfo.createFromOptionals(List.of(Optional.empty(), Optional.of(f_44518_), Optional.of(f_44519_))); }
+    @Override protected PlacementInfo createPlacementInfo() { return PlacementInfo.createFromOptionals(List.of(Optional.empty(), Optional.of(Target263SourceIngredients.unwrap(f_44518_)), Target263SourceIngredients.optional(f_44519_))); }
     private void requireNativeBase() {
         if (!getClass().equals(Forge1192UpgradeRecipe.class)) throw new UnsupportedOperationException(
                 "Custom source UpgradeRecipe callbacks require an authoritative mutable source Container; native immutable smithing input cannot prove that contract");
     }
     @Override public List<RecipeDisplay> display() {
         requireNativeBase();
-        return List.of(new SmithingRecipeDisplay(Ingredient.optionalIngredientToDisplay(Optional.empty()), f_44518_.display(),
-                f_44519_.display(), new SlotDisplay.ItemStackSlotDisplay(ItemStackTemplate.fromNonEmptyStack(f_44520_)), new SlotDisplay.ItemSlotDisplay(Items.SMITHING_TABLE)));
+        return List.of(new SmithingRecipeDisplay(Ingredient.optionalIngredientToDisplay(Optional.empty()), Target263SourceIngredients.unwrap(f_44518_).display(),
+                Ingredient.optionalIngredientToDisplay(Target263SourceIngredients.optional(f_44519_)), new SlotDisplay.ItemStackSlotDisplay(ItemStackTemplate.fromNonEmptyStack(f_44520_)), new SlotDisplay.ItemSlotDisplay(Items.SMITHING_TABLE)));
     }
 }

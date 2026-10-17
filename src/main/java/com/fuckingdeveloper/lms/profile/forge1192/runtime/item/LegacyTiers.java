@@ -1,11 +1,7 @@
 package com.fuckingdeveloper.lms.profile.forge1192.runtime.item;
 
-import java.util.stream.StreamSupport;
-import net.minecraft.core.Holder;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ToolMaterial;
-import net.minecraft.world.item.crafting.Ingredient;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe.LegacyIngredient;
 
 /** Explicit adapter for the removed 1.19.2 vanilla Tiers enum. */
 public enum LegacyTiers implements LegacyTier {
@@ -31,8 +27,7 @@ public enum LegacyTiers implements LegacyTier {
     @Override public int m_6601_() { return material.enchantmentValue(); }
 
     @Override
-    public Ingredient m_6282_() {
-        Iterable<Holder<Item>> holders = BuiltInRegistries.ITEM.getTagOrEmpty(material.repairItems());
-        return Ingredient.of(StreamSupport.stream(holders.spliterator(), false).map(Holder::value));
+    public LegacyIngredient m_6282_() {
+        return LegacyIngredient.of(material.repairItems());
     }
 }

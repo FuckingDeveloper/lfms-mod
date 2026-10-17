@@ -5,31 +5,31 @@ import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.crafting.Ingredient;
+import com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe.LegacyIngredient;
 
 /** Exact Minecraft 1.19.2 vanilla armor-material constants and ABI. */
 public enum LegacyArmorMaterials implements LegacyArmorMaterial {
     LEATHER("leather", 5, new int[]{1, 2, 3, 1}, 15,
             () -> SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.0F, 0.0F,
-            () -> Ingredient.of(Items.LEATHER)),
+            () -> LegacyIngredient.of(Items.LEATHER)),
     CHAIN("chainmail", 15, new int[]{1, 4, 5, 2}, 12,
             () -> SoundEvents.ARMOR_EQUIP_CHAIN.value(), 0.0F, 0.0F,
-            () -> Ingredient.of(Items.IRON_INGOT)),
+            () -> LegacyIngredient.of(Items.IRON_INGOT)),
     IRON("iron", 15, new int[]{2, 5, 6, 2}, 9,
             () -> SoundEvents.ARMOR_EQUIP_IRON.value(), 0.0F, 0.0F,
-            () -> Ingredient.of(Items.IRON_INGOT)),
+            () -> LegacyIngredient.of(Items.IRON_INGOT)),
     GOLD("gold", 7, new int[]{1, 3, 5, 2}, 25,
             () -> SoundEvents.ARMOR_EQUIP_GOLD.value(), 0.0F, 0.0F,
-            () -> Ingredient.of(Items.GOLD_INGOT)),
+            () -> LegacyIngredient.of(Items.GOLD_INGOT)),
     DIAMOND("diamond", 33, new int[]{3, 6, 8, 3}, 10,
             () -> SoundEvents.ARMOR_EQUIP_DIAMOND.value(), 2.0F, 0.0F,
-            () -> Ingredient.of(Items.DIAMOND)),
+            () -> LegacyIngredient.of(Items.DIAMOND)),
     TURTLE("turtle", 25, new int[]{2, 5, 6, 2}, 9,
             () -> SoundEvents.ARMOR_EQUIP_TURTLE.value(), 0.0F, 0.0F,
-            () -> Ingredient.of(Items.TURTLE_SCUTE)),
+            () -> LegacyIngredient.of(Items.TURTLE_SCUTE)),
     NETHERITE("netherite", 37, new int[]{3, 6, 8, 3}, 15,
             () -> SoundEvents.ARMOR_EQUIP_NETHERITE.value(), 3.0F, 0.1F,
-            () -> Ingredient.of(Items.NETHERITE_INGOT));
+            () -> LegacyIngredient.of(Items.NETHERITE_INGOT));
 
     private static final int[] HEALTH_PER_SLOT = {13, 15, 16, 11};
 
@@ -40,11 +40,11 @@ public enum LegacyArmorMaterials implements LegacyArmorMaterial {
     private final Supplier<SoundEvent> sound;
     private final float toughness;
     private final float knockbackResistance;
-    private final Supplier<Ingredient> repairIngredient;
+    private final Supplier<LegacyIngredient> repairIngredient;
 
     LegacyArmorMaterials(String name, int durabilityMultiplier, int[] slotProtections,
                          int enchantmentValue, Supplier<SoundEvent> sound, float toughness,
-                         float knockbackResistance, Supplier<Ingredient> repairIngredient) {
+                         float knockbackResistance, Supplier<LegacyIngredient> repairIngredient) {
         this.name = name;
         this.durabilityMultiplier = durabilityMultiplier;
         this.slotProtections = slotProtections;
@@ -76,7 +76,7 @@ public enum LegacyArmorMaterials implements LegacyArmorMaterial {
     }
 
     @Override
-    public Ingredient m_6230_() {
+    public LegacyIngredient m_6230_() {
         return repairIngredient.get();
     }
 

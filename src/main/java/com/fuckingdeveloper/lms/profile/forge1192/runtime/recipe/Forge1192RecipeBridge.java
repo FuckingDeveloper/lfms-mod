@@ -100,11 +100,11 @@ public final class Forge1192RecipeBridge {
                 .findFirst().orElse(ItemStack.EMPTY);
     }
 
-    public static NonNullList<Ingredient> legacyIngredients(Recipe<?> recipe) {
+    public static NonNullList<LegacyIngredient> legacyIngredients(Recipe<?> recipe) {
         Objects.requireNonNull(recipe, "recipe");
         if (recipe instanceof LegacyRecipeIngredients legacy) return legacy.lms$legacyIngredients();
-        NonNullList<Ingredient> result = NonNullList.create();
-        result.addAll(recipe.placementInfo().ingredients());
+        NonNullList<LegacyIngredient> result = NonNullList.create();
+        recipe.placementInfo().ingredients().forEach(ingredient->result.add(com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients.wrap(ingredient)));
         return result;
     }
 }

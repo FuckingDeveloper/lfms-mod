@@ -29,7 +29,7 @@ public final class CookingRecipeInformationCheck {
         check(Forge1192RecipeBridge.legacyId(recipe).equals(id),"holder identifier lost");
         var output=Forge1192RecipeBridge.legacyResult(recipe);check(output.is(Items.COAL)&&output.getCount()==2,"actual native result/template count lost");
         output.setCount(8);check(Forge1192RecipeBridge.legacyResult(recipe).getCount()==2,"source info view mutated native template");
-        check(Forge1192RecipeBridge.legacyIngredients(recipe).getFirst()==ingredient,"native ingredient identity lost");
+        check(com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients.unwrap(Forge1192RecipeBridge.legacyIngredients(recipe).getFirst())==ingredient,"native ingredient identity lost");
         String owner="net/minecraft/world/item/crafting/AbstractCookingRecipe";
         var node=new ClassNode();node.name="fixture/CookingInformation";node.superName="java/lang/Object";node.version=Opcodes.V17;node.access=Opcodes.ACC_PUBLIC;
         String[] names={"m_6423_","m_8043_","m_43753_","m_43750_"};

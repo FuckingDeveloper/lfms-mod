@@ -98,7 +98,7 @@ public final class SmithingFamilyCheck {
         byte[] immutable = Files.readAllBytes(path);
         try (var loader = new ManagedLegacyClassLoader(path, SmithingFamilyCheck.class.getClassLoader(), new Forge1192LegacyClassTransformer())) {
             var type = loader.linkOwnedClass(node.name.replace('/','.'));
-            var adapted = (Forge1192UpgradeRecipe)type.getMethod("create", Identifier.class, Ingredient.class, Ingredient.class, ItemStack.class).invoke(null,id,ingredient,ingredient,result);
+            var adapted = (Forge1192UpgradeRecipe)type.getMethod("create", Identifier.class, com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe.LegacyIngredient.class, com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe.LegacyIngredient.class, ItemStack.class).invoke(null,id,com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients.wrap(ingredient),com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients.wrap(ingredient),result);
             check(adapted.m_8043_() == result && adapted.matches(input,null), "transformed source allocation does not implement actual native contract");
             check(type.getMethod("sourceId",Recipe.class).invoke(null,adapted).equals(id),"source Recipe interface identifier call not bridged");
             var idGetter=(java.lang.invoke.MethodHandle)type.getMethod("idHandle").invoke(null);

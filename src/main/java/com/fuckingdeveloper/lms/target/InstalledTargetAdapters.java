@@ -27,6 +27,10 @@ public final class InstalledTargetAdapters {
                 "com/fuckingdeveloper/lms/profile/forge1192/runtime/lifecycle/Forge1192EventBusBridge",
                 "addListenerExplicit","(L"+sourceBus+";"+descriptor.substring(1),false);
     }
+    public static int sourceIngredientStackingId(net.minecraft.world.item.ItemStack stack) { return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients.stackingId(stack); }
+    public static com.google.gson.JsonObject sourceIngredientItemJson(net.minecraft.world.item.ItemStack stack) { return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients.itemJson(stack); }
+    public static java.util.Collection<net.minecraft.world.item.ItemStack> sourceIngredientTagItems(net.minecraft.tags.TagKey<net.minecraft.world.item.Item> tag) { return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients.tagItems(tag); }
+    public static com.fuckingdeveloper.lms.profile.forge1192.runtime.recipe.LegacyIngredient.Value sourceIngredientValue(com.google.gson.JsonObject json) { return com.fuckingdeveloper.lms.target.neoforge263.Target263SourceIngredients.value(json); }
     public static boolean rawChannelPresent(net.minecraft.network.Connection connection,net.minecraft.resources.Identifier channel) {
         return com.fuckingdeveloper.lms.target.neoforge263.Target263RawNetworkChannels.isRemotePresent(connection,channel);
     }

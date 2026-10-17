@@ -253,6 +253,7 @@ public final class LiveTargetContractProbe {
         RawNetworkFamilyCheck.run();
         SourceOwnedAtlasCheck.run();
         ManagedServiceResourceCheck.run();
+        SourceIngredientFamilyCheck.run();
         CapturedConstructionCheck.run();
         SourceBannerPatternCheck.run();
         SourceMenuFactoryCheck.run();
