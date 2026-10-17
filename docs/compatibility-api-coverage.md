@@ -572,3 +572,57 @@ Native Minecraft26.3 brewing recipes/reload semantics are explicitly approved.
 Contract/tasks: openspec/changes/source-brewing-queries/. Actual brewing queries,
 old Forge recipe-registration callbacks and brewing gameplay remain pending;
 recipe-context access must be resolved before claiming original query acceptance.
+
+## Source recipe context and creator metadata acceptance — runtime139/140
+
+Forge1.19.2 -> Minecraft26.3 / NeoForge26.3.0.58-beta / Java25.
+Exact world/server/connection full-recipe access now shares one verified
+invocation traversal. Server queries use the receiver's native manager; client
+queries validate the current world/connection and use its integrated server.
+Remote full-recipe synchronization and source accessor overrides remain explicit
+gaps. Native reduced RecipeAccess is not presented as a full manager.
+
+Source creator-mod queries retain item/interface overrides, explicit base/default
+calls, callable/nested shapes and native callback dispatch. The source default
+uses actual stack/item ownership, the single registered enchantment of the
+verified enchanted-book identity, typed base potion, and spawn egg default type.
+No fixture/mod identity selects behavior. Native tests include a foreign
+registered enchantment and an unrelated item with stored-enchantment data.
+Source enchanted-book subclass construction remains explicitly unsupported.
+
+Source manager type/all/key/id queries unwrap genuine recipe holders and record
+weak holder provenance before exposing values. Type enumeration retains native
+index ordering and source immutable-list behavior; full enumeration is a detached
+mutable set. Missing/null key lookups retain absence. Native source-matching
+Container inputs, custom manager construction/overrides, codecs and mutation are
+not established by these read operations.
+
+Executed successfully:
+`./gradlew compatibilityTest nativeCompatibilitySmoke compileLaunchJava`
+(/tmp/lms-recipe-enumeration-check.log), plus
+`./gradlew compatibilityAudit --args='legacy-mods /tmp/lms-recipe-enumeration-audit.tsv'`.
+Earlier combined checks are /tmp/lms-recipe-metadata-final-check.log.
+Audit inventory: 3829 classes, 1124 grouped gaps / 6399 sites; same two dormant
+transform failures (source custom-renderer superclass and PackFinder constructor
+flow). Static gap counts are not functional coverage.
+
+Fresh runtime139 and runtime140 explicitly opened Новый мир. Both passed MCP
+status/capability/player/dimension gates; all seven entrypoints initialize.
+Dev remained at the baseline position with unchanged vitals/inventory summary;
+no gameplay fixture or inventory mutation was performed, no recovery is pending.
+Both dev JVMs were stopped with TERM after observation (test-world stop is
+user-authorized). Overall highest observed milestone remains level 6, world load.
+
+Runtime139 removes ClientLevel full-manager and Item creator-query failures.
+Runtime140 also passes original VanillaRecipes.getCraftingRecipes and its recipe
+validation; the first causal blocker is now NoClassDefFoundError for removed
+TippedArrowRecipe in VanillaPlugin.replaceSpecialCraftingRecipes:323. Independent
+GUI/search blocker remains LanguageManager.m_118983_()->LanguageInfo in
+Translator.getLocale:40; modern getSelected returns a language code. The later
+unknown ItemStack ingredient-type failure follows partial GUI startup. JEI's
+caught-plugin completion timer is not full recipe/GUI acceptance.
+
+Evidence: /tmp/lms-container-families-runtime-{139,140}.log. Code checkpoints
+b676bcf and 9a8dabc are pushed; pre-existing uncommitted user work is preserved.
+Next families: removed special-recipe type identity and language selection;
+approved native brewing queries remain pending, not claimed from typed potions.

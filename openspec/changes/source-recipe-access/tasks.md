@@ -8,4 +8,4 @@
 
 - [x] Adapt type/all/key/id information queries with holder provenance and source collection contracts.
 - [x] Verify direct/callable/nested forms against an isolated actual native recipe manager.
-- [ ] Verify original JEI type enumeration in a fresh client after runtime139.
+- [x] Runtime140 passes original getCraftingRecipes and validation; first blocker moves to removed TippedArrowRecipe in replaceSpecialCraftingRecipes.
